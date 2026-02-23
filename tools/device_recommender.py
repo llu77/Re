@@ -225,6 +225,121 @@ DEVICE_DATABASE = {
         "price_range": "100-400 ريال",
         "examples": ["عصا Ambutech", "عصا NFB"]
     },
+    # ═══════════════════════════════════════════════════════════════
+    # النظارات الذكية والمناشير المحيطية (Technical Appendix)
+    # ═══════════════════════════════════════════════════════════════
+    "esight_go": {
+        "name": "نظارات eSight Go الذكية",
+        "power_range": "1x-24x (رقمي)",
+        "best_for": ["near_reading", "distance", "computer", "daily_tasks", "all"],
+        "pros": ["تحسين VA إلى 20/20-20/40", "تكبير مستمر بكاميرا HD", "ثلاث أوضاع: قراءة/مسافة/حركة", "خفيف نسبياً"],
+        "cons": ["سعر مرتفع جداً", "يحتاج بقايا رؤية (≥CF)", "تدريب مكثف", "عمر بطارية محدود"],
+        "va_range": (0.01, 0.3),
+        "field_types": ["central_loss", "general_reduction"],
+        "suitable_ages": "البالغين والمراهقين",
+        "cognitive_req": "normal",
+        "hand_function_req": ["normal"],
+        "price_range": "$6,000-$10,000",
+        "examples": ["eSight Go", "eSight 4"]
+    },
+    "irisvision_inspire": {
+        "name": "نظارات IrisVision Inspire (VR)",
+        "power_range": "2x-14x (رقمي + VR)",
+        "best_for": ["near_reading", "distance", "daily_tasks"],
+        "pros": ["وضع Bubble View يوسع المجال", "ملائم لـ tunnel vision", "تباين قابل للتعديل", "أرخص من eSight"],
+        "cons": ["ثقيل نسبياً (VR headset)", "غير ملائم للتنقل", "يحتاج هاتف Samsung Galaxy"],
+        "va_range": (0.01, 0.2),
+        "field_types": ["central_loss", "peripheral_loss", "general_reduction"],
+        "suitable_ages": "البالغين",
+        "cognitive_req": "normal",
+        "hand_function_req": ["normal", "limited_dexterity"],
+        "price_range": "~$3,000",
+        "examples": ["IrisVision Inspire", "IrisVision Live"]
+    },
+    "orcam_myeye3": {
+        "name": "OrCam MyEye 3 — مساعد AI",
+        "power_range": "N/A (AI — ليس تكبيراً بصرياً)",
+        "best_for": ["near_reading", "daily_tasks", "face_recognition", "all"],
+        "pros": ["قراءة فورية لأي نص (OCR)", "التعرف على الوجوه والمنتجات", "لا يحتاج إنترنت", "يُثبت على أي نظارة", "مناسب حتى للعمى الكامل"],
+        "cons": ["لا يحسن VA الفعلية", "سعر مرتفع", "صوتي فقط (لا تكبير بصري)"],
+        "va_range": (0.0, 0.3),
+        "field_types": ["central_loss", "peripheral_loss", "general_reduction", "all"],
+        "suitable_ages": "جميع الأعمار",
+        "cognitive_req": "mild_impairment",
+        "hand_function_req": ["normal", "limited_dexterity"],
+        "price_range": "$4,000-$5,000",
+        "examples": ["OrCam MyEye 3", "OrCam Read"]
+    },
+    "vision_buddy": {
+        "name": "Vision Buddy — نظارة TV مكبرة",
+        "power_range": "2x-12x (رقمي)",
+        "best_for": ["distance", "near_reading"],
+        "pros": ["متخصص لمشاهدة التلفزيون", "سعر معقول مقارنة بالبدائل", "سهل الاستخدام"],
+        "cons": ["استخدام محدود (TV + قراءة فقط)", "ثقيل نسبياً", "غير ملائم للتنقل"],
+        "va_range": (0.02, 0.2),
+        "field_types": ["central_loss", "general_reduction"],
+        "suitable_ages": "كبار السن والبالغين",
+        "cognitive_req": "mild_impairment",
+        "hand_function_req": ["normal", "limited_dexterity"],
+        "price_range": "~$2,000",
+        "examples": ["Vision Buddy"]
+    },
+    "acesight": {
+        "name": "Acesight — نظارة إلكترونية خفيفة",
+        "power_range": "2x-15x (رقمي)",
+        "best_for": ["near_reading", "distance", "computer"],
+        "pros": ["خفيفة الوزن", "تكبير مرن", "تباين عالٍ", "ملائمة لعدة مهام"],
+        "cons": ["سعر مرتفع", "عمر بطارية محدود", "يحتاج تدريب"],
+        "va_range": (0.02, 0.25),
+        "field_types": ["central_loss", "general_reduction"],
+        "suitable_ages": "البالغين والمراهقين",
+        "cognitive_req": "normal",
+        "hand_function_req": ["normal"],
+        "price_range": "$3,500-$6,000",
+        "examples": ["Acesight VR", "Acesight S"]
+    },
+    "envision_glasses": {
+        "name": "Envision Glasses — AI على Google Glass",
+        "power_range": "N/A (AI — وصف مشاهد + OCR)",
+        "best_for": ["near_reading", "daily_tasks", "face_recognition"],
+        "pros": ["وصف AI للمشاهد المحيطة", "قراءة نصوص", "التعرف على الأشخاص والمنتجات", "تصميم خفيف (Google Glass)"],
+        "cons": ["يحتاج اتصال إنترنت", "اشتراك شهري", "لا تكبير بصري"],
+        "va_range": (0.0, 0.3),
+        "field_types": ["central_loss", "peripheral_loss", "general_reduction", "all"],
+        "suitable_ages": "البالغين",
+        "cognitive_req": "normal",
+        "hand_function_req": ["normal"],
+        "price_range": "$3,000-$4,000",
+        "examples": ["Envision Glasses"]
+    },
+    "peli_prism_40pd": {
+        "name": "منشور Peli المحيطي (40PD)",
+        "power_range": "40 PD (prismatic diopters)",
+        "best_for": ["mobility", "outdoor_mobility", "daily_tasks"],
+        "pros": ["توسيع المجال الوظيفي ~20°", "دائم على النظارة", "لا يحتاج بطارية", "يتيح اكتشاف العوائق في الجانب المصاب"],
+        "cons": ["ازدواجية محيطية (تحتاج تدريب)", "لا يحسن القراءة", "30-40% لا يتكيفون"],
+        "va_range": (0.1, 1.0),
+        "field_types": ["peripheral_loss"],
+        "suitable_ages": "البالغين",
+        "cognitive_req": "normal",
+        "hand_function_req": ["normal", "limited_dexterity"],
+        "price_range": "300-800 ريال",
+        "examples": ["Chadwick Optical Peli Prism", "Designs for Vision"]
+    },
+    "multi_periscopic_prism": {
+        "name": "منشور بيريسكوبي متعدد (MPP)",
+        "power_range": "50-60 PD (تصميم بيريسكوبي)",
+        "best_for": ["mobility"],
+        "pros": ["توسيع أكبر من Peli", "تصميم مبتكر", "لا ازدواجية مركزية"],
+        "cons": ["قيد التطوير", "تجميلياً أقل قبولاً", "توفر محدود جداً"],
+        "va_range": (0.1, 1.0),
+        "field_types": ["peripheral_loss"],
+        "suitable_ages": "البالغين",
+        "cognitive_req": "normal",
+        "hand_function_req": ["normal"],
+        "price_range": "تجريبي",
+        "examples": ["MPP prototype (Houston 2018)"]
+    },
 }
 
 
