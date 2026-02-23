@@ -511,6 +511,16 @@ TOOLS = [
                 "technique_ids": {
                     "type": "array",
                     "items": {"type": "string"}
+                },
+                "prior_rehabilitation": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "تقنيات تأهيل سابقة جربها المريض (لتجنب التكرار)"
+                },
+                "conditions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "حالات/موانع طبية (مثل: seizure_disorder, nystagmus)"
                 }
             },
             "required": ["action"]

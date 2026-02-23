@@ -970,6 +970,28 @@ def _filter_technique(tech: dict, params: dict) -> dict:
             score -= 50
             reasons_against.append(f"⚠️ موانع استخدام: {contra}")
 
+    # 9. Prior rehabilitation check — تجنب تكرار تقنية فشلت سابقاً
+    prior_rehab = params.get("prior_rehabilitation", [])
+    if prior_rehab:
+        tech_id = tech.get("evidence_key", "")
+        tech_name_en = tech.get("name_en", "").lower()
+        for prev in prior_rehab:
+            prev_lower = prev.lower()
+            if prev_lower in tech_id.lower() or prev_lower in tech_name_en:
+                score -= 15
+                reasons_against.append(f"تقنية مجربة سابقاً: {prev} — قد تكون الفعالية محدودة عند التكرار")
+                break
+
+    # 10. Cognitive-specific technology warnings
+    if cognitive == "mild_impairment":
+        if tech.get("category") == "substitutive" and "smart_glasses" in tech.get("evidence_key", ""):
+            score -= 5
+            reasons_against.append("النظارات الذكية تحتاج قدرة تقنية — ضعف إدراكي خفيف قد يصعب الاستخدام")
+    if cognitive in ["moderate_impairment", "severe_impairment"]:
+        if tech.get("category") == "substitutive" and "smart_glasses" in tech.get("evidence_key", ""):
+            score -= 15
+            reasons_against.append("⚠️ النظارات الذكية غير مناسبة مع ضعف إدراكي متوسط/شديد")
+
     return {
         "score": score,
         "reasons_for": reasons_for,
@@ -1033,6 +1055,23 @@ def _recommend_techniques(params: dict) -> dict:
     for key in ["primary_recommendations", "secondary_recommendations",
                  "adjunct_recommendations", "experimental_options"]:
         results[key].sort(key=lambda x: x["suitability_score"], reverse=True)
+
+    # Automatic psychological screening recommendation (always included)
+    age = params.get("patient_age")
+    cognitive = params.get("cognitive_status", "normal")
+    if cognitive in ["moderate_impairment", "severe_impairment"]:
+        psych_tool = "إحالة لتقييم نفسي متخصص (المقاييس الذاتية كـ PHQ-9 قد لا تكون دقيقة مع الضعف الإدراكي)"
+    elif age and int(age) >= 65:
+        psych_tool = "GDS-15 (مخصص لكبار السن) + تقييم مرحلة التكيف مع فقدان البصر"
+    else:
+        psych_tool = "PHQ-2/PHQ-9 + تقييم مرحلة التكيف (نسبة انتشار الاكتئاب ~30% في ضعف البصر)"
+
+    results["psychological_screening"] = {
+        "recommendation": "فحص نفسي إلزامي لكل مريض ضعف بصر",
+        "tool": psych_tool,
+        "evidence": "Standard of Care — الاكتئاب يؤثر سلباً على نتائج التأهيل",
+        "priority": "دائماً"
+    }
 
     return results
 
