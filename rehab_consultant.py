@@ -14,6 +14,12 @@ from tools.pubmed import search_pubmed_api, fetch_pubmed_article
 from tools.calculator import calculate_visual_params
 from tools.knowledge_base import search_vector_db
 from tools.documents import generate_medical_document
+from tools.functional_assessment import run_functional_assessment
+from tools.device_recommender import recommend_devices
+from tools.arabic_reading_calculator import calculate_arabic_reading_params
+from tools.depression_screening import run_depression_screening
+from tools.outcome_tracker import track_rehabilitation_outcomes
+from tools.referral_generator import generate_referral
 from utils.security import sanitize_patient_input, validate_medical_output
 
 
@@ -246,6 +252,181 @@ TOOLS = [
             },
             "required": ["reasoning"]
         }
+    },
+    {
+        "name": "functional_assessment",
+        "description": """إجراء تقييم وظيفي شامل متعدد المراحل.
+        يشمل: تاريخ المريض، حدة الإبصار، الوظائف اليومية، التقييم النفسي، التصنيف.
+        المراحل: history, clinical_vision, functional, psychological, classification, full""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "type": "string",
+                    "enum": ["history", "clinical_vision", "functional", "psychological", "classification", "full"],
+                    "description": "مرحلة التقييم المطلوبة"
+                },
+                "patient_data": {
+                    "type": "object",
+                    "description": "بيانات المريض (العمر، التشخيص، حدة الإبصار، إلخ)"
+                }
+            },
+            "required": ["phase"]
+        }
+    },
+    {
+        "name": "device_recommender",
+        "description": """التوصية بالأجهزة البصرية المساعدة المناسبة.
+        يأخذ: حدة الإبصار، نوع فقدان المجال، المهام المطلوبة، العمر، الوضع الإدراكي.
+        يعطي: توصيات رئيسية + ثانوية + تحذيرات + خطوات تالية""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "visual_acuity": {
+                    "type": "string",
+                    "description": "حدة الإبصار (مثل: 6/60, 0.1, CF)"
+                },
+                "field_type": {
+                    "type": "string",
+                    "enum": ["central_loss", "peripheral_loss", "full_field", "normal_field"],
+                    "description": "نوع المجال البصري"
+                },
+                "task": {
+                    "type": "string",
+                    "description": "المهمة الرئيسية (reading, distance, daily_tasks, computer, mobility)"
+                },
+                "patient_age": {"type": "number"},
+                "cognitive_status": {
+                    "type": "string",
+                    "enum": ["normal", "mild_impairment", "moderate_impairment"]
+                },
+                "hand_function": {
+                    "type": "string",
+                    "enum": ["normal", "limited", "severely_limited"]
+                }
+            },
+            "required": ["visual_acuity"]
+        }
+    },
+    {
+        "name": "arabic_reading_calculator",
+        "description": """حسابات القراءة العربية المتخصصة.
+        يحسب: حجم الطباعة الأمثل، التكبير المطلوب، مسافة العمل، سرعة القراءة،
+        ومتطلبات القرآن الكريم والنصوص المشكّلة.
+        أنواع الحسابات: optimal_print_size, magnification_needed, working_distance,
+        reading_speed_estimation, quran_requirements, full_arabic_assessment""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "calculation_type": {
+                    "type": "string",
+                    "enum": [
+                        "optimal_print_size", "magnification_needed", "working_distance",
+                        "reading_speed_estimation", "quran_requirements", "full_arabic_assessment"
+                    ]
+                },
+                "visual_acuity": {
+                    "type": "string",
+                    "description": "حدة الإبصار"
+                },
+                "text_type": {
+                    "type": "string",
+                    "enum": ["plain", "diacritical", "quran", "mixed", "handwriting"],
+                    "description": "نوع النص العربي"
+                },
+                "patient_age": {"type": ["string", "number"]}
+            },
+            "required": ["visual_acuity"]
+        }
+    },
+    {
+        "name": "depression_screening",
+        "description": """فحص الاكتئاب والحالة النفسية لمرضى ضعف البصر.
+        الأدوات: PHQ-2 (فحص سريع), PHQ-9 (تقييم كامل), GDS-15 (للمسنين +65),
+        adjustment_assessment (مرحلة التكيف مع فقدان البصر), full_psychological (شامل).
+        ⚠️ أي درجة في Q9 (أفكار انتحارية) تستوجب تنبيهاً فورياً""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "screening_type": {
+                    "type": "string",
+                    "enum": ["phq2", "phq9", "gds15", "adjustment_assessment", "full_psychological"]
+                },
+                "scores": {
+                    "type": "object",
+                    "description": "درجات الأسئلة (q1: 0-3, q2: 0-3, ...)"
+                },
+                "patient_age": {"type": ["string", "number"]},
+                "months_since_diagnosis": {"type": "number"}
+            },
+            "required": ["screening_type"]
+        }
+    },
+    {
+        "name": "outcome_tracker",
+        "description": """تتبع وقياس نتائج التأهيل البصري عبر الزمن.
+        الإجراءات: record_assessment, compare_progress, calculate_gas (Goal Attainment Scale),
+        calculate_vfq25, generate_report, set_smart_goals.
+        يقيس: حدة الإبصار، سرعة القراءة، PHQ-9، VFQ-25، استقلالية الأنشطة اليومية""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "record_assessment", "compare_progress", "calculate_gas",
+                        "calculate_vfq25", "generate_report", "set_smart_goals"
+                    ]
+                },
+                "baseline": {
+                    "type": "object",
+                    "description": "بيانات التقييم الأولي"
+                },
+                "current": {
+                    "type": "object",
+                    "description": "بيانات التقييم الحالي"
+                },
+                "goals": {
+                    "type": "array",
+                    "description": "قائمة الأهداف لحساب GAS"
+                }
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "referral_generator",
+        "description": """توليد خطابات إحالة احترافية لـ 13 تخصصاً طبياً.
+        التخصصات: ophthalmology, neurology, psychiatry, psychology, pediatrics,
+        occupational_therapy, orientation_mobility, social_work, optometry,
+        special_education, endocrinology, geriatrics, neurosurgery.
+        الإجراءات: recommend_referrals, generate_letter, generate_all_needed""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["recommend_referrals", "generate_letter", "generate_all_needed"]
+                },
+                "specialty": {
+                    "type": "string",
+                    "description": "التخصص المُحال إليه (لـ generate_letter)"
+                },
+                "patient_name": {"type": "string"},
+                "patient_age": {"type": ["string", "number"]},
+                "diagnosis": {"type": "string"},
+                "va_better_eye": {"type": "string"},
+                "clinical_flags": {
+                    "type": "object",
+                    "description": "علامات سريرية لتحديد الإحالات المناسبة"
+                },
+                "urgency": {
+                    "type": "string",
+                    "enum": ["emergency", "urgent", "routine", "elective"]
+                }
+            },
+            "required": ["action"]
+        }
     }
 ]
 
@@ -276,6 +457,24 @@ def execute_tool(tool_name: str, tool_input: dict) -> dict:
         elif tool_name == "think":
             # أداة التفكير — لا تنفذ شيئاً، Claude يستخدمها داخلياً
             return {"status": "thinking_complete", "reasoning_logged": True}
+
+        elif tool_name == "functional_assessment":
+            return run_functional_assessment(tool_input)
+
+        elif tool_name == "device_recommender":
+            return recommend_devices(tool_input)
+
+        elif tool_name == "arabic_reading_calculator":
+            return calculate_arabic_reading_params(tool_input)
+
+        elif tool_name == "depression_screening":
+            return run_depression_screening(tool_input)
+
+        elif tool_name == "outcome_tracker":
+            return track_rehabilitation_outcomes(tool_input)
+
+        elif tool_name == "referral_generator":
+            return generate_referral(tool_input)
 
         else:
             return {"error": f"أداة غير معروفة: {tool_name}"}
