@@ -1,0 +1,45 @@
+# مستشار التأهيل الذكي — المتطلبات
+# ===================================
+# تثبيت: pip install -r requirements.txt
+
+# ─── Anthropic Claude API (إلزامي) ───
+anthropic>=0.40.0
+
+# ─── HTTP Requests لـ PubMed API (إلزامي) ───
+requests>=2.31.0
+
+# ─── RAG مع Vector DB (اختياري — للإنتاج) ───
+# فعّل إذا كنت تستخدم Pinecone:
+# pinecone-client>=3.0.0
+
+# فعّل إذا كنت تستخدم ChromaDB محلياً:
+# chromadb>=0.4.0
+
+# ─── Embeddings (اختياري — للـ RAG الكامل) ───
+# sentence-transformers>=2.6.0
+
+# ─── Hybrid Search — BM25 (اختياري) ───
+# rank-bm25>=0.2.2
+
+# ─── LangChain للتقطيع (اختياري) ───
+# langchain>=0.2.0
+# langchain-text-splitters>=0.2.0
+
+# ─── معالجة PDF والوثائق (اختياري) ───
+# pypdf>=4.0.0
+# python-docx>=1.1.0
+
+# ─── واجهة مستخدم (اختياري) ───
+# streamlit>=1.35.0
+# fastapi>=0.111.0
+# uvicorn>=0.30.0
+
+# ─── متطلبات Python الأساسية (مدمجة) ───
+# xml.etree.ElementTree — مدمجة
+# base64 — مدمجة
+# re — مدمجة
+# math — مدمجة
+# logging — مدمجة
+# datetime — مدمجة
+# json — مدمجة
+# os — مدمجة
