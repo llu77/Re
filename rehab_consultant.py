@@ -26,6 +26,8 @@ from tools.environmental_assessment import assess_environment
 from tools.telerehab_session_manager import manage_telerehab_session
 from utils.security import sanitize_patient_input, validate_medical_output
 from cdss import run_cdss_evaluation
+from assessments import run_assessment
+from interventions import run_intervention
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -674,6 +676,64 @@ TOOLS = [
             },
             "required": ["input_type"]
         }
+    },
+    {
+        "name": "clinical_assessment",
+        "description": "تقييمات سريرية رقمية — Digital Biomarkers: 1) fixation: تحليل ثبات التثبيت BCEA + PRL من إحداثيات تتبع العين. 2) reading: محلل سرعة القراءة الرقمي MNREAD (MRS, CPS, RA). 3) visual_search: اختبار شطب رقمي لتقييم الإهمال البصري وقدرة المسح. 4) contrast: تقييم حساسية التباين Pelli-Robson أو Staircase.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "assessment_type": {
+                    "type": "string",
+                    "enum": ["fixation", "reading", "visual_search", "contrast"],
+                    "description": "نوع التقييم"
+                },
+                "action": {
+                    "type": "string",
+                    "description": "الإجراء المطلوب (يعتمد على نوع التقييم)"
+                },
+                "x_coords": {"type": "array", "items": {"type": "number"}, "description": "إحداثيات X لتتبع العين (fixation)"},
+                "y_coords": {"type": "array", "items": {"type": "number"}, "description": "إحداثيات Y لتتبع العين (fixation)"},
+                "session1_x": {"type": "array", "items": {"type": "number"}},
+                "session1_y": {"type": "array", "items": {"type": "number"}},
+                "session2_x": {"type": "array", "items": {"type": "number"}},
+                "session2_y": {"type": "array", "items": {"type": "number"}},
+                "readings": {"type": "array", "description": "قراءات MNREAD: [{print_size_logmar, reading_time_seconds, word_errors}]"},
+                "responses": {"type": "array", "description": "استجابات اختبار التباين"},
+                "method": {"type": "string", "description": "طريقة اختبار التباين: pelli_robson أو staircase"},
+                "difficulty": {"type": "integer", "description": "مستوى صعوبة المسح البصري (1-5)"},
+                "target_count": {"type": "integer", "description": "عدد الأهداف في المسح البصري"}
+            },
+            "required": ["assessment_type"]
+        }
+    },
+    {
+        "name": "clinical_intervention",
+        "description": "تدخلات علاجية رقمية نشطة: 1) scanning: مدرب المسح البصري التكيّفي لمرضى Hemianopia (خوارزمية 1-up 2-down). 2) perceptual_learning: التعلم الإدراكي بمحفزات Gabor Patch لتحسين حساسية التباين. 3) visual_augmentation: تعزيز بصري AR (CLAHE + حواف لمرضى الجلوكوما، تكبير AMD، محاكاة العتمة). 4) device_routing: توجيه ذكي للمعدات المساعدة مع حواجز أمان.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "intervention_type": {
+                    "type": "string",
+                    "enum": ["scanning", "perceptual_learning", "visual_augmentation", "device_routing"],
+                    "description": "نوع التدخل"
+                },
+                "action": {"type": "string", "description": "الإجراء: generate_stimulus, process_response, simulate_session, demo, etc."},
+                "blind_side": {"type": "string", "enum": ["right", "left"], "description": "الجانب الأعمى (scanning)"},
+                "difficulty": {"type": "integer", "description": "مستوى الصعوبة (1-10)"},
+                "num_trials": {"type": "integer", "description": "عدد المحاولات للمحاكاة"},
+                "starting_contrast": {"type": "number", "description": "تباين البداية (perceptual_learning)"},
+                "spatial_frequency": {"type": "number", "description": "التردد المكاني cpd"},
+                "va_logmar": {"type": "number", "description": "حدة الإبصار LogMAR (device_routing)"},
+                "visual_field_degrees": {"type": "number", "description": "مجال الرؤية بالدرجات"},
+                "has_cognitive_decline": {"type": "boolean"},
+                "functional_goals": {"type": "array", "items": {"type": "string"}},
+                "budget_usd": {"type": "number"},
+                "setting": {"type": "string"},
+                "scotoma_type": {"type": "string", "enum": ["central", "hemianopia_right", "hemianopia_left", "tunnel"]}
+            },
+            "required": ["intervention_type"]
+        }
     }
 ]
 
@@ -737,6 +797,12 @@ def execute_tool(tool_name: str, tool_input: dict) -> dict:
 
         elif tool_name == "cdss_evaluate":
             return run_cdss_evaluation(tool_input)
+
+        elif tool_name == "clinical_assessment":
+            return run_assessment(tool_input)
+
+        elif tool_name == "clinical_intervention":
+            return run_intervention(tool_input)
 
         else:
             return {"error": f"أداة غير معروفة: {tool_name}"}

@@ -844,6 +844,9 @@ TOOLS_MANIFEST = [
     ("💻", "جلسة عن بعد",           "telerehab"),
     ("🔍", "جلب مقال",              "pubmed_fetch"),
     ("📐", "خطة تأهيل",             "outcome_plan"),
+    ("🏥", "تقييم CDSS",             "cdss_evaluate"),
+    ("📈", "تقييمات سريرية",          "clinical_assessment"),
+    ("⚡", "تدخلات علاجية",           "clinical_intervention"),
 ]
 
 EXAMPLE_QUERIES = [
@@ -1243,6 +1246,252 @@ def _render_cdss_result(result: dict):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Assessment Tab renderer
+# ═══════════════════════════════════════════════════════════════
+
+def render_assessment_tab():
+    """عرض تبويب التقييمات السريرية الرقمية"""
+    from assessments import run_assessment
+
+    st.markdown("""
+    <div style="padding:16px 0 8px">
+        <h3 style="margin:0;color:#1E3A5F;font-family:'Cairo',sans-serif">📈 التقييمات السريرية الرقمية (Digital Biomarkers)</h3>
+        <p style="color:#4A5568;font-size:13px;margin:4px 0 0">
+            BCEA · MNREAD · Visual Search · Contrast Sensitivity
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    assess_type = st.selectbox(
+        "نوع التقييم",
+        ["fixation", "reading", "visual_search", "contrast"],
+        format_func=lambda x: {
+            "fixation": "👁️ ثبات التثبيت (BCEA)",
+            "reading": "📖 سرعة القراءة (MNREAD)",
+            "visual_search": "🔍 المسح البصري (Cancellation Test)",
+            "contrast": "🎨 حساسية التباين (Pelli-Robson)",
+        }.get(x, x),
+        key="assess_type",
+    )
+
+    if assess_type == "fixation":
+        st.subheader("👁️ تحليل ثبات التثبيت (BCEA)")
+        st.info("أدخل إحداثيات تتبع العين (X, Y) لجلستين لمقارنة التقدم.")
+        col1, col2 = st.columns(2)
+        with col1:
+            s1x = st.text_input("Session 1 — X coords (مفصولة بفاصلة)", "0.5, 0.7, -0.2, 1.2, 0.9, 0.3, -0.1, 0.8", key="fix_s1x")
+            s1y = st.text_input("Session 1 — Y coords", "0.1, -0.5, 0.8, 1.1, -0.2, 0.4, -0.3, 0.6", key="fix_s1y")
+        with col2:
+            s2x = st.text_input("Session 2 — X coords", "0.1, 0.2, 0.0, -0.1, 0.1, 0.05, -0.05, 0.15", key="fix_s2x")
+            s2y = st.text_input("Session 2 — Y coords", "0.0, 0.1, -0.1, 0.0, 0.2, -0.05, 0.1, -0.1", key="fix_s2y")
+
+        if st.button("تحليل التثبيت", key="run_fixation", type="primary"):
+            try:
+                params = {
+                    "assessment_type": "fixation", "action": "evaluate_progress",
+                    "session1_x": [float(x) for x in s1x.split(",")],
+                    "session1_y": [float(x) for x in s1y.split(",")],
+                    "session2_x": [float(x) for x in s2x.split(",")],
+                    "session2_y": [float(x) for x in s2y.split(",")],
+                }
+                result = run_assessment(params)
+                c1, c2, c3 = st.columns(3)
+                c1.metric("BCEA قبل", f"{result['bcea_before']} deg²")
+                c2.metric("BCEA بعد", f"{result['bcea_after']} deg²")
+                c3.metric("التحسن", f"{result['improvement_pct']}%")
+                st.success(f"**الحالة:** {result['status_ar']} — **الإجراء:** {result['action_ar']}")
+                st.json(result)
+            except Exception as e:
+                st.error(f"خطأ: {e}")
+
+    elif assess_type == "reading":
+        st.subheader("📖 اختبار سرعة القراءة (Digital MNREAD)")
+        st.info("أدخل قراءات MNREAD: حجم الخط (LogMAR)، زمن القراءة (ثانية)، أخطاء الكلمات.")
+        num = st.number_input("عدد القراءات", 3, 10, 5, key="mnread_n")
+        readings = []
+        for i in range(int(num)):
+            cols = st.columns(3)
+            size = cols[0].number_input(f"حجم {i+1} (LogMAR)", 0.0, 1.5, 1.0 - i * 0.2, 0.1, key=f"mn_s{i}")
+            time_s = cols[1].number_input(f"زمن {i+1} (ث)", 1.0, 120.0, 5.0 + i * 3, 0.5, key=f"mn_t{i}")
+            errs = cols[2].number_input(f"أخطاء {i+1}", 0, 10, min(i, 5), key=f"mn_e{i}")
+            readings.append({"print_size_logmar": size, "reading_time_seconds": time_s, "word_errors": int(errs)})
+
+        if st.button("تحليل القراءة", key="run_mnread", type="primary"):
+            result = run_assessment({"assessment_type": "reading", "readings": readings})
+            c1, c2, c3 = st.columns(3)
+            c1.metric("MRS", f"{result['mrs_wpm']} WPM")
+            c2.metric("CPS", f"{result['cps_logmar']} LogMAR")
+            c3.metric("RA", f"{result['reading_acuity_logmar']} LogMAR")
+            st.write(f"**التصنيف:** {result['speed_classification']['label_ar']}")
+            if result.get("recommendations"):
+                for rec in result["recommendations"]:
+                    st.warning(f"**توصية:** {rec['action_ar']}")
+            with st.expander("التفاصيل"):
+                st.json(result)
+
+    elif assess_type == "contrast":
+        st.subheader("🎨 اختبار حساسية التباين")
+        method = st.radio("الطريقة", ["pelli_robson", "staircase"], horizontal=True, key="cs_method")
+
+        if method == "pelli_robson":
+            st.info("أدخل عدد الحروف الصحيحة (0–3) لكل مستوى تباين.")
+            levels = [0.0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90, 1.05, 1.20, 1.35]
+            responses = []
+            cols = st.columns(5)
+            for i, lvl in enumerate(levels):
+                c = cols[i % 5]
+                correct = c.number_input(f"LogCS {lvl}", 0, 3, 3 if i < 5 else 2, key=f"pr_{i}")
+                responses.append({"log_cs_level": lvl, "letters_correct": int(correct)})
+
+            if st.button("تحليل التباين", key="run_cs", type="primary"):
+                result = run_assessment({"assessment_type": "contrast", "method": "pelli_robson", "responses": responses})
+                c1, c2 = st.columns(2)
+                c1.metric("LogCS", result["threshold_logcs"])
+                c2.metric("التصنيف", result["classification"]["label_ar"])
+                if result.get("recommendations"):
+                    for rec in result["recommendations"]:
+                        st.warning(f"{rec['action_ar']}")
+
+    elif assess_type == "visual_search":
+        st.subheader("🔍 اختبار المسح البصري")
+        st.info("محاكاة اختبار شطب رقمي لتقييم الإهمال البصري.")
+        diff = st.slider("مستوى الصعوبة", 1, 5, 2, key="vs_diff")
+        targets = st.slider("عدد الأهداف", 10, 40, 20, key="vs_targets")
+
+        if st.button("توليد اختبار", key="run_vs", type="primary"):
+            result = run_assessment({"assessment_type": "visual_search", "action": "generate_trial", "difficulty": diff, "target_count": targets})
+            st.success(f"تم توليد {result['total_targets']} هدف + {result['total_distractors']} مشتت بصعوبة {diff}")
+            st.json(result)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Intervention Tab renderer
+# ═══════════════════════════════════════════════════════════════
+
+def render_intervention_tab():
+    """عرض تبويب التدخلات العلاجية"""
+    from interventions import run_intervention
+
+    st.markdown("""
+    <div style="padding:16px 0 8px">
+        <h3 style="margin:0;color:#1E3A5F;font-family:'Cairo',sans-serif">⚡ التدخلات العلاجية الرقمية (Digital Therapeutics)</h3>
+        <p style="color:#4A5568;font-size:13px;margin:4px 0 0">
+            Scanning Training · Perceptual Learning · AR Augmentation · Device Routing
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    int_type = st.selectbox(
+        "نوع التدخل",
+        ["scanning", "perceptual_learning", "device_routing", "visual_augmentation"],
+        format_func=lambda x: {
+            "scanning": "🎯 تدريب المسح البصري (Hemianopia)",
+            "perceptual_learning": "🧠 التعلم الإدراكي (Gabor Patch)",
+            "device_routing": "🔭 التوجيه الذكي للمعدات",
+            "visual_augmentation": "👓 التعزيز البصري (AR Demo)",
+        }.get(x, x),
+        key="int_type",
+    )
+
+    if int_type == "scanning":
+        st.subheader("🎯 محاكاة جلسة تدريب المسح البصري")
+        col1, col2 = st.columns(2)
+        blind_side = col1.selectbox("الجانب الأعمى", ["right", "left"], key="scan_side")
+        num_trials = col2.slider("عدد المحاولات", 10, 50, 20, key="scan_n")
+
+        if st.button("تشغيل المحاكاة", key="run_scan", type="primary"):
+            result = run_intervention({
+                "intervention_type": "scanning", "action": "simulate_session",
+                "blind_side": blind_side, "num_trials": num_trials,
+            })
+            s = result["session_summary"]
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("المحاولات", s["total_trials"])
+            c2.metric("الدقة", f"{s['accuracy_pct']}%")
+            c3.metric("أعلى صعوبة", s["max_difficulty_reached"])
+            c4.metric("الانعكاسات", s["total_reversals"])
+
+            st.write(f"**عتبة الصعوبة:** {s['threshold_difficulty']}")
+
+            with st.expander("تفاصيل المحاولات"):
+                for t in result["trials"]:
+                    icon = "✅" if t["correct"] else "❌"
+                    st.write(f"{icon} Trial {t['trial']}: RT={t['rt_ms']}ms | Diff→{t['new_difficulty']} | {t['feedback']}")
+
+    elif int_type == "perceptual_learning":
+        st.subheader("🧠 محاكاة جلسة التعلم الإدراكي")
+        col1, col2 = st.columns(2)
+        sc = col1.slider("تباين البداية", 0.1, 1.0, 1.0, 0.05, key="pl_sc")
+        num_t = col2.slider("عدد المحاولات", 20, 100, 50, key="pl_n")
+
+        if st.button("تشغيل المحاكاة", key="run_pl", type="primary"):
+            result = run_intervention({
+                "intervention_type": "perceptual_learning", "action": "simulate_session",
+                "starting_contrast": sc, "num_trials": num_t,
+            })
+            s = result["session_summary"]
+            c1, c2, c3 = st.columns(3)
+            c1.metric("المحاولات", s["total_trials"])
+            c2.metric("الدقة", f"{s['accuracy_pct']}%")
+            c3.metric("التباين النهائي", f"{s['ending_contrast']:.3f}")
+
+            threshold = s.get("threshold_estimate", {})
+            if threshold.get("estimated"):
+                st.success(f"**عتبة التباين:** {threshold['threshold_pct']}% (LogCS: {threshold['threshold_logcs']})")
+
+            with st.expander("منحنى التباين"):
+                contrasts = [t["contrast"] for t in result["trials"]]
+                st.line_chart(contrasts)
+
+    elif int_type == "device_routing":
+        st.subheader("🔭 التوجيه الذكي للمعدات المساعدة")
+        col1, col2 = st.columns(2)
+        va = col1.number_input("VA (LogMAR)", 0.0, 3.0, 1.0, 0.1, key="dr_va")
+        vf = col2.number_input("مجال الرؤية (درجات)", 0.0, 180.0, 60.0, 5.0, key="dr_vf")
+        cog = st.checkbox("تدهور إدراكي", key="dr_cog")
+        goals = st.multiselect("الأهداف", ["reading", "mobility", "face_recognition", "computer_use"], key="dr_goals")
+        budget = st.number_input("الميزانية ($)", 0, 10000, 5000, 500, key="dr_budget")
+
+        if st.button("توصية الجهاز", key="run_dr", type="primary"):
+            result = run_intervention({
+                "intervention_type": "device_routing",
+                "va_logmar": va, "visual_field_degrees": vf,
+                "has_cognitive_decline": cog, "functional_goals": goals,
+                "budget_usd": budget,
+            })
+            for w in result.get("guardrail_warnings", []):
+                st.warning(f"⚠️ {w.get('message_ar', w)}")
+
+            dev = result.get("primary_device")
+            if dev:
+                st.success(f"**الجهاز الموصى:** {dev['name_ar']} ({dev['name']}) — ${dev['price_usd']}")
+                st.write(f"**الفئة:** {dev['category']} | **النمط:** {dev['modality']}")
+                st.info(result.get("justification_ar", ""))
+                if result.get("alternatives"):
+                    st.write("**البدائل:**")
+                    for alt in result["alternatives"]:
+                        st.write(f"  - {alt['name_ar']} — ${alt['price_usd']}")
+            else:
+                st.error("لم يُعثر على جهاز مناسب.")
+
+    elif int_type == "visual_augmentation":
+        st.subheader("👓 عرض توضيحي للتعزيز البصري")
+        st.info("محاكاة معالجة صورة لأنماط مختلفة من ضعف البصر.")
+
+        if st.button("تشغيل العرض التوضيحي", key="run_va", type="primary"):
+            result = run_intervention({"intervention_type": "visual_augmentation", "action": "demo"})
+            modes = result.get("demo_results", {})
+            for mode, data in modes.items():
+                if mode == "environment_analysis":
+                    st.write(f"**تحليل البيئة:** إضاءة تقديرية {data.get('estimated_lux', 'N/A')} لوكس | "
+                             f"وهج: {data.get('glare_risk', 'N/A')} | تباين: {data.get('contrast_quality', 'N/A')}")
+                    for rec in data.get("recommendations", []):
+                        st.warning(f"  {rec.get('issue_ar', '')}: {rec.get('action_ar', '')}")
+                else:
+                    st.write(f"**{mode}:** تم المعالجة بنجاح ✅ ({data.get('shape', '')})")
+
+
+# ═══════════════════════════════════════════════════════════════
 # Sidebar
 # ═══════════════════════════════════════════════════════════════
 
@@ -1331,16 +1580,24 @@ st.markdown("""
     </div>
     <div class="ph-badges">
         <span class="badge badge-green">● متصل</span>
-        <span class="badge badge-blue">🔬 17 أداة</span>
+        <span class="badge badge-blue">🔬 19 أداة</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ── Tabs ──
-tab_chat, tab_cdss = st.tabs(["💬 المستشار الذكي", "🏥 تقييم CDSS"])
+tab_chat, tab_cdss, tab_assess, tab_intervene = st.tabs([
+    "💬 المستشار الذكي", "🏥 تقييم CDSS", "📈 التقييمات السريرية", "⚡ التدخلات العلاجية"
+])
 
 with tab_cdss:
     render_cdss_tab()
+
+with tab_assess:
+    render_assessment_tab()
+
+with tab_intervene:
+    render_intervention_tab()
 
 with tab_chat:
     # ── Chat History ──
