@@ -734,8 +734,257 @@ TOOLS = [
             },
             "required": ["intervention_type"]
         }
+    },
+    {
+        "name": "patient_database",
+        "description": """الوصول إلى قاعدة بيانات المرضى — البحث واسترجاع البيانات السريرية.
+        استخدم هذه الأداة عند الحاجة إلى:
+        - البحث عن مريض برقم الملف أو الاسم أو التشخيص
+        - استرجاع بيانات مريض كاملة أو ملخصة
+        - عرض قائمة جميع المرضى
+        - مقارنة بيانات مريضين
+        - استرجاع تاريخ التقييمات أو الجلسات لمريض
+
+        الإجراءات المتاحة (action):
+        - search: بحث بنص حر (اسم، تشخيص، ICD-10، رقم ملف)
+        - get_by_file_number: استرجاع مريض برقم الملف
+        - get_by_id: استرجاع مريض بالمعرف الفريد
+        - list_all: قائمة ملخصة لجميع المرضى
+        - get_assessments: استرجاع تقييمات مريض
+        - get_interventions: استرجاع جلسات مريض
+        - get_notes: استرجاع ملاحظات مريض""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["search", "get_by_file_number", "get_by_id", "list_all",
+                             "get_assessments", "get_interventions", "get_notes"],
+                    "description": "نوع العملية"
+                },
+                "query": {
+                    "type": "string",
+                    "description": "نص البحث (للبحث بالاسم/التشخيص/ICD-10/رقم الملف)"
+                },
+                "file_number": {
+                    "type": "integer",
+                    "description": "رقم ملف المريض (مثال: 1, 2, 3...)"
+                },
+                "patient_id": {
+                    "type": "string",
+                    "description": "معرف المريض الفريد (مثال: VR-2026-0001)"
+                }
+            },
+            "required": ["action"]
+        }
     }
 ]
+
+
+# ═══════════════════════════════════════════════════════════════
+# قاعدة بيانات المرضى — Patient Database Query Engine
+# ═══════════════════════════════════════════════════════════════
+
+def query_patient_database(params: dict) -> dict:
+    """
+    محرك استعلام قاعدة بيانات المرضى — يتيح للذكاء الاصطناعي
+    البحث والوصول لملفات المرضى بأمان
+    """
+    # Import here to avoid circular imports
+    import sys
+    import os as _os
+    _patients_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "data", "patients")
+
+    def _load_all():
+        patients = {}
+        if _os.path.exists(_patients_dir):
+            for fname in sorted(_os.listdir(_patients_dir)):
+                if fname.endswith(".json"):
+                    path = _os.path.join(_patients_dir, fname)
+                    try:
+                        with open(path, "r", encoding="utf-8") as f:
+                            p = json.load(f)
+                            patients[p["id"]] = p
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+        return patients
+
+    def _summary(p):
+        """ملخص مريض بدون محادثات"""
+        return {
+            "id": p.get("id"), "file_number": p.get("file_number"),
+            "name": p.get("name"), "age": p.get("age"), "gender": p.get("gender"),
+            "diagnosis_text": p.get("diagnosis_text"),
+            "diagnosis_icd10": p.get("diagnosis_icd10", []),
+            "va_logmar": p.get("va_logmar"), "va_snellen": p.get("va_snellen"),
+            "visual_field_degrees": p.get("visual_field_degrees"),
+            "vision_pattern": p.get("vision_pattern"),
+            "cognitive_status": p.get("cognitive_status"),
+            "functional_goals": p.get("functional_goals", []),
+            "phq9_score": p.get("phq9_score"),
+            "num_assessments": len(p.get("assessment_results", [])),
+            "num_interventions": len(p.get("intervention_sessions", [])),
+            "num_notes": len(p.get("notes", [])),
+            "num_cdss": len(p.get("cdss_evaluations", [])),
+            "created_at": p.get("created_at"), "updated_at": p.get("updated_at"),
+        }
+
+    action = params.get("action", "")
+
+    if action == "list_all":
+        patients = _load_all()
+        if not patients:
+            return {"status": "empty", "message": "لا يوجد مرضى مسجلون", "patients": [], "count": 0}
+        summaries = [_summary(p) for p in patients.values()]
+        summaries.sort(key=lambda x: x.get("file_number") or 0)
+        return {"status": "ok", "count": len(summaries), "patients": summaries}
+
+    elif action == "search":
+        query = params.get("query", "").strip()
+        if not query:
+            return {"error": "يرجى تحديد نص البحث (query)"}
+        patients = _load_all()
+        results = []
+        q = query.lower()
+        for pid, p in patients.items():
+            match = False
+            # بحث برقم الملف
+            if q.isdigit() and p.get("file_number") == int(q):
+                match = True
+            # بحث بالمعرف
+            elif q in pid.lower():
+                match = True
+            # بحث بالاسم
+            elif q in p.get("name", "").lower() or q in p.get("name_en", "").lower():
+                match = True
+            # بحث بالتشخيص
+            elif q in p.get("diagnosis_text", "").lower():
+                match = True
+            # بحث بـ ICD-10
+            elif any(q in icd.lower() for icd in p.get("diagnosis_icd10", [])):
+                match = True
+            if match:
+                results.append(_summary(p))
+        return {"status": "ok", "query": query, "count": len(results), "results": results}
+
+    elif action == "get_by_file_number":
+        fnum = params.get("file_number")
+        if fnum is None:
+            return {"error": "يرجى تحديد رقم الملف (file_number)"}
+        patients = _load_all()
+        for p in patients.values():
+            if p.get("file_number") == int(fnum):
+                result = _summary(p)
+                # إضافة آخر الملاحظات والتقييمات
+                result["recent_notes"] = [
+                    {"type": n.get("type"), "content": n.get("content", "")[:150], "timestamp": n.get("timestamp")}
+                    for n in p.get("notes", [])[-5:]
+                ]
+                result["recent_assessments"] = [
+                    {"type": a.get("type"), "timestamp": a.get("timestamp"),
+                     "result_summary": {k: v for k, v in a.get("result", {}).items() if not isinstance(v, (list, dict))}
+                    }
+                    for a in p.get("assessment_results", [])[-5:]
+                ]
+                result["recent_interventions"] = [
+                    {"type": s.get("type"), "timestamp": s.get("timestamp")}
+                    for s in p.get("intervention_sessions", [])[-5:]
+                ]
+                return {"status": "ok", "patient": result}
+        return {"status": "not_found", "message": f"لم يُعثر على مريض برقم ملف {fnum}"}
+
+    elif action == "get_by_id":
+        patient_id = params.get("patient_id", "").strip()
+        if not patient_id:
+            return {"error": "يرجى تحديد معرف المريض (patient_id)"}
+        patients = _load_all()
+        p = patients.get(patient_id)
+        if not p:
+            return {"status": "not_found", "message": f"لم يُعثر على مريض بمعرف {patient_id}"}
+        result = _summary(p)
+        result["recent_notes"] = [
+            {"type": n.get("type"), "content": n.get("content", "")[:150], "timestamp": n.get("timestamp")}
+            for n in p.get("notes", [])[-5:]
+        ]
+        return {"status": "ok", "patient": result}
+
+    elif action == "get_assessments":
+        fnum = params.get("file_number")
+        patient_id = params.get("patient_id", "").strip()
+        patients = _load_all()
+        target = None
+        if fnum is not None:
+            for p in patients.values():
+                if p.get("file_number") == int(fnum):
+                    target = p
+                    break
+        elif patient_id:
+            target = patients.get(patient_id)
+        if not target:
+            return {"status": "not_found", "message": "لم يُعثر على المريض"}
+        assessments = target.get("assessment_results", [])
+        return {
+            "status": "ok",
+            "patient_id": target["id"], "file_number": target.get("file_number"),
+            "patient_name": target.get("name"),
+            "total": len(assessments),
+            "assessments": [
+                {"type": a.get("type"), "timestamp": a.get("timestamp"), "result": a.get("result", {})}
+                for a in assessments
+            ]
+        }
+
+    elif action == "get_interventions":
+        fnum = params.get("file_number")
+        patient_id = params.get("patient_id", "").strip()
+        patients = _load_all()
+        target = None
+        if fnum is not None:
+            for p in patients.values():
+                if p.get("file_number") == int(fnum):
+                    target = p
+                    break
+        elif patient_id:
+            target = patients.get(patient_id)
+        if not target:
+            return {"status": "not_found", "message": "لم يُعثر على المريض"}
+        sessions = target.get("intervention_sessions", [])
+        return {
+            "status": "ok",
+            "patient_id": target["id"], "file_number": target.get("file_number"),
+            "patient_name": target.get("name"),
+            "total": len(sessions),
+            "interventions": [
+                {"type": s.get("type"), "timestamp": s.get("timestamp"), "result": s.get("result", {})}
+                for s in sessions
+            ]
+        }
+
+    elif action == "get_notes":
+        fnum = params.get("file_number")
+        patient_id = params.get("patient_id", "").strip()
+        patients = _load_all()
+        target = None
+        if fnum is not None:
+            for p in patients.values():
+                if p.get("file_number") == int(fnum):
+                    target = p
+                    break
+        elif patient_id:
+            target = patients.get(patient_id)
+        if not target:
+            return {"status": "not_found", "message": "لم يُعثر على المريض"}
+        notes = target.get("notes", [])
+        return {
+            "status": "ok",
+            "patient_id": target["id"], "file_number": target.get("file_number"),
+            "patient_name": target.get("name"),
+            "total": len(notes),
+            "notes": notes
+        }
+
+    else:
+        return {"error": f"إجراء غير معروف: {action}. الإجراءات المتاحة: search, get_by_file_number, get_by_id, list_all, get_assessments, get_interventions, get_notes"}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -803,6 +1052,9 @@ def execute_tool(tool_name: str, tool_input: dict) -> dict:
 
         elif tool_name == "clinical_intervention":
             return run_intervention(tool_input)
+
+        elif tool_name == "patient_database":
+            return query_patient_database(tool_input)
 
         else:
             return {"error": f"أداة غير معروفة: {tool_name}"}

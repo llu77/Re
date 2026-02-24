@@ -62,6 +62,7 @@ FUNCTIONAL_GOALS = [
 ]
 
 TOOLS_MANIFEST = [
+    ("🗄️", "قاعدة بيانات المرضى", "patient_database"),
     ("🔬", "بحث PubMed", "pubmed"),
     ("🧮", "حسابات بصرية", "calculator"),
     ("📚", "قاعدة المعرفة", "knowledge_base"),
@@ -100,11 +101,57 @@ EXAMPLE_QUERIES = [
 
 
 # ═══════════════════════════════════════════════════════════════
-# Patient Storage
+# Patient Storage + Unique File Number System
 # ═══════════════════════════════════════════════════════════════
 
-def generate_patient_id() -> str:
-    return f"P_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+COUNTER_FILE = os.path.join(PATIENTS_DIR, ".counter")
+
+
+def _read_counter() -> int:
+    """قراءة العداد التسلسلي من الملف"""
+    os.makedirs(PATIENTS_DIR, exist_ok=True)
+    if os.path.exists(COUNTER_FILE):
+        try:
+            with open(COUNTER_FILE, "r") as f:
+                return int(f.read().strip())
+        except (ValueError, OSError):
+            pass
+    # إذا لم يوجد عداد، نبحث عن أعلى رقم موجود
+    max_num = 0
+    if os.path.exists(PATIENTS_DIR):
+        for fname in os.listdir(PATIENTS_DIR):
+            if fname.endswith(".json"):
+                try:
+                    with open(os.path.join(PATIENTS_DIR, fname), "r", encoding="utf-8") as f:
+                        p = json.load(f)
+                        fnum = p.get("file_number", 0)
+                        if isinstance(fnum, int) and fnum > max_num:
+                            max_num = fnum
+                except (json.JSONDecodeError, KeyError, OSError):
+                    pass
+    return max_num
+
+
+def _write_counter(val: int):
+    """كتابة العداد التسلسلي"""
+    os.makedirs(PATIENTS_DIR, exist_ok=True)
+    with open(COUNTER_FILE, "w") as f:
+        f.write(str(val))
+
+
+def generate_patient_id() -> tuple:
+    """
+    توليد معرف فريد + رقم ملف تسلسلي
+
+    Returns:
+        (patient_id: str, file_number: int)
+        مثال: ("VR-2026-0001", 1)
+    """
+    counter = _read_counter() + 1
+    _write_counter(counter)
+    year = datetime.now().strftime("%Y")
+    pid = f"VR-{year}-{counter:04d}"
+    return pid, counter
 
 
 def _sanitize_filename(patient_id: str) -> str:
@@ -112,6 +159,7 @@ def _sanitize_filename(patient_id: str) -> str:
 
 
 def save_patient(patient: dict):
+    """حفظ ملف المريض كـ JSON"""
     os.makedirs(PATIENTS_DIR, exist_ok=True)
     safe_id = _sanitize_filename(patient["id"])
     path = os.path.join(PATIENTS_DIR, f"{safe_id}.json")
@@ -121,6 +169,7 @@ def save_patient(patient: dict):
 
 
 def load_all_patients() -> dict:
+    """تحميل جميع ملفات المرضى"""
     patients = {}
     if os.path.exists(PATIENTS_DIR):
         for fname in sorted(os.listdir(PATIENTS_DIR)):
@@ -135,17 +184,94 @@ def load_all_patients() -> dict:
     return patients
 
 
+def load_patient_by_file_number(file_number: int) -> dict:
+    """تحميل مريض بناءً على رقم الملف"""
+    if os.path.exists(PATIENTS_DIR):
+        for fname in os.listdir(PATIENTS_DIR):
+            if fname.endswith(".json"):
+                path = os.path.join(PATIENTS_DIR, fname)
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        p = json.load(f)
+                        if p.get("file_number") == file_number:
+                            return p
+                except (json.JSONDecodeError, KeyError, OSError):
+                    pass
+    return None
+
+
+def search_patients(query: str) -> list:
+    """بحث في سجلات المرضى بالاسم أو التشخيص أو رقم الملف"""
+    results = []
+    query_lower = query.lower().strip()
+    patients = load_all_patients()
+    for pid, p in patients.items():
+        # بحث برقم الملف
+        if query_lower.isdigit() and p.get("file_number") == int(query_lower):
+            results.append(p)
+            continue
+        # بحث بمعرف المريض
+        if query_lower in pid.lower():
+            results.append(p)
+            continue
+        # بحث بالاسم
+        if query_lower in p.get("name", "").lower() or query_lower in p.get("name_en", "").lower():
+            results.append(p)
+            continue
+        # بحث بالتشخيص
+        if query_lower in p.get("diagnosis_text", "").lower():
+            results.append(p)
+            continue
+        # بحث بـ ICD-10
+        for icd in p.get("diagnosis_icd10", []):
+            if query_lower in icd.lower():
+                results.append(p)
+                break
+    return results
+
+
+def get_patient_summary(patient: dict) -> dict:
+    """استخراج ملخص المريض بدون بيانات ضخمة (محادثات/تفاصيل)"""
+    return {
+        "id": patient.get("id"),
+        "file_number": patient.get("file_number"),
+        "name": patient.get("name"),
+        "name_en": patient.get("name_en"),
+        "age": patient.get("age"),
+        "gender": patient.get("gender"),
+        "diagnosis_text": patient.get("diagnosis_text"),
+        "diagnosis_icd10": patient.get("diagnosis_icd10", []),
+        "va_logmar": patient.get("va_logmar"),
+        "va_snellen": patient.get("va_snellen"),
+        "visual_field_degrees": patient.get("visual_field_degrees"),
+        "vision_pattern": patient.get("vision_pattern"),
+        "cognitive_status": patient.get("cognitive_status"),
+        "functional_goals": patient.get("functional_goals", []),
+        "phq9_score": patient.get("phq9_score"),
+        "num_assessments": len(patient.get("assessment_results", [])),
+        "num_interventions": len(patient.get("intervention_sessions", [])),
+        "num_notes": len(patient.get("notes", [])),
+        "num_cdss": len(patient.get("cdss_evaluations", [])),
+        "num_documents": len(patient.get("documents", [])),
+        "created_at": patient.get("created_at"),
+        "updated_at": patient.get("updated_at"),
+    }
+
+
 def delete_patient(patient_id: str):
+    """حذف ملف مريض"""
     safe_id = _sanitize_filename(patient_id)
     path = os.path.join(PATIENTS_DIR, f"{safe_id}.json")
     if os.path.exists(path):
         os.remove(path)
 
 
-def new_patient_template(pid: str) -> dict:
+def new_patient_template(pid: str, file_number: int) -> dict:
+    """إنشاء قالب مريض جديد مع رقم ملف فريد"""
     now = datetime.now().isoformat()
     return {
-        "id": pid, "name": "", "name_en": "", "age": 0, "gender": "male",
+        "id": pid, "file_number": file_number,
+        "name": "", "name_en": "", "age": 0, "gender": "male",
         "diagnosis_icd10": [], "diagnosis_text": "", "va_logmar": None,
         "va_snellen": "", "visual_field_degrees": None, "phq9_score": None,
         "vision_pattern": "", "cognitive_status": "normal",
@@ -749,21 +875,54 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 def build_patient_system_context(patient: dict) -> str:
     goals = ", ".join(patient.get("functional_goals", [])) or "لم تُحدد"
     icd = ", ".join(patient.get("diagnosis_icd10", [])) or "—"
-    return (
+    fnum = patient.get("file_number", "—")
+
+    # تضمين آخر التقييمات والملاحظات
+    recent_notes = ""
+    for note in patient.get("notes", [])[-3:]:
+        recent_notes += f"  - [{note.get('type', '')}] {note.get('content', '')[:80]}\n"
+    recent_assess = ""
+    for a in patient.get("assessment_results", [])[-3:]:
+        atype = a.get("type", "")
+        ts = a.get("timestamp", "")[:10]
+        recent_assess += f"  - {atype} ({ts})\n"
+    recent_sessions = ""
+    for s in patient.get("intervention_sessions", [])[-3:]:
+        stype = s.get("type", "")
+        ts = s.get("timestamp", "")[:10]
+        recent_sessions += f"  - {stype} ({ts})\n"
+
+    ctx = (
         f"\n\n--- سياق المريض الحالي ---\n"
+        f"رقم الملف: {fnum}\n"
+        f"معرف المريض: {patient.get('id', '')}\n"
         f"الاسم: {patient.get('name', '')}\n"
         f"العمر: {patient.get('age', '—')}\n"
+        f"الجنس: {'ذكر' if patient.get('gender') == 'male' else 'أنثى'}\n"
         f"التشخيص: {patient.get('diagnosis_text', '')} ({icd})\n"
         f"حدة الإبصار: {patient.get('va_logmar', '—')} LogMAR\n"
         f"مجال الرؤية: {patient.get('visual_field_degrees', '—')} درجة\n"
         f"نمط الفقد: {patient.get('vision_pattern', '—')}\n"
         f"الحالة الإدراكية: {patient.get('cognitive_status', 'normal')}\n"
+        f"PHQ-9: {patient.get('phq9_score', 'لم يُقيَّم')}\n"
         f"الأهداف الوظيفية: {goals}\n"
-        f"التقييمات: {len(patient.get('assessment_results', []))} | "
-        f"الجلسات: {len(patient.get('intervention_sessions', []))}\n"
-        f"---\n"
-        f"عند الإجابة، استخدم بيانات هذا المريض تحديداً. بادر بطرح أسئلة لاستكمال المعلومات الناقصة.\n"
+        f"عدد التقييمات: {len(patient.get('assessment_results', []))} | "
+        f"عدد الجلسات: {len(patient.get('intervention_sessions', []))} | "
+        f"عدد الملاحظات: {len(patient.get('notes', []))}\n"
     )
+    if recent_notes:
+        ctx += f"آخر الملاحظات:\n{recent_notes}"
+    if recent_assess:
+        ctx += f"آخر التقييمات:\n{recent_assess}"
+    if recent_sessions:
+        ctx += f"آخر الجلسات:\n{recent_sessions}"
+    ctx += (
+        f"---\n"
+        f"عند الإجابة، استخدم بيانات هذا المريض (ملف #{fnum}) تحديداً.\n"
+        f"يمكنك استخدام أداة patient_database للبحث عن مرضى آخرين أو استرجاع بيانات إضافية.\n"
+        f"بادر بطرح أسئلة لاستكمال المعلومات الناقصة.\n"
+    )
+    return ctx
 
 
 def chat_with_patient_context(user_text: str, patient: dict = None, images: list = None) -> dict:
@@ -925,7 +1084,7 @@ def render_patient_registry():
         </div>
         <div class="ph-badges">
             {api_badge}
-            <span class="badge badge-blue">🔬 19 أداة متخصصة</span>
+            <span class="badge badge-blue">🔬 20 أداة متخصصة</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -957,12 +1116,17 @@ def render_patient_registry():
             va = p.get("va_logmar", "—")
             va_str = f"{va} LogMAR" if va is not None else "—"
             updated = p.get("updated_at", "")[:10]
+            fnum = p.get("file_number", "—")
+            fnum_display = f"#{fnum}" if isinstance(fnum, int) else fnum
 
             st.markdown(f"""
             <div class="patient-card">
-                <p class="patient-card-name">{html.escape(p.get('name', pid))}</p>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <p class="patient-card-name" style="margin:0">{html.escape(p.get('name', pid))}</p>
+                    <span class="badge badge-blue" style="font-size:11px;font-weight:800">{html.escape(str(fnum_display))}</span>
+                </div>
                 <p class="patient-card-dx">{html.escape(dx)}</p>
-                <p class="patient-card-meta">VA: {html.escape(str(va_str))} · آخر تحديث: {html.escape(updated)}</p>
+                <p class="patient-card-meta">VA: {html.escape(str(va_str))} · ملف: {html.escape(str(pid))} · {html.escape(updated)}</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1005,8 +1169,8 @@ def render_new_patient_form():
                 if not name.strip():
                     st.error("يرجى إدخال اسم المريض")
                     return
-                pid = generate_patient_id()
-                patient = new_patient_template(pid)
+                pid, file_number = generate_patient_id()
+                patient = new_patient_template(pid, file_number)
                 patient.update({
                     "name": name.strip(), "age": int(age), "gender": gender,
                     "diagnosis_icd10": icd10,
@@ -1055,13 +1219,17 @@ def render_patient_file(patient: dict):
     }
     pattern_ar = pattern_map.get(pattern, pattern)
 
+    fnum = patient.get("file_number", "—")
+    fnum_display = f"#{fnum}" if isinstance(fnum, int) else fnum
+
     st.markdown(f"""
     <div class="patient-header">
         <div>
             <p class="ph-name">👤 {html.escape(name)}</p>
-            <p class="ph-meta">العمر: {html.escape(str(age))} · التشخيص: {html.escape(dx)} ({html.escape(icd)}) · VA: {html.escape(str(va_str))}</p>
+            <p class="ph-meta">ملف {html.escape(str(fnum_display))} · العمر: {html.escape(str(age))} · التشخيص: {html.escape(dx)} ({html.escape(icd)}) · VA: {html.escape(str(va_str))}</p>
         </div>
         <div class="ph-badges">
+            <span class="badge badge-green" style="font-size:12px;font-weight:900">{html.escape(str(fnum_display))}</span>
             <span class="badge badge-blue">👁️ {html.escape(pattern_ar)}</span>
         </div>
     </div>
@@ -1135,10 +1303,15 @@ def render_summary_tab(patient: dict):
     cog_map = {"normal": "طبيعي", "mild_impairment": "خفيف", "moderate_impairment": "متوسط", "severe_impairment": "شديد"}
     cog_val = cog_map.get(patient.get('cognitive_status', 'normal'), '—')
 
+    fnum_s = patient.get("file_number", "—")
+    fnum_badge = f"#{fnum_s}" if isinstance(fnum_s, int) else str(fnum_s)
+
     st.markdown(f"""
     <div style="margin-top:4px">
         <div style="font-size:15px;font-weight:800;color:var(--primary);margin-bottom:12px">المعلومات الأساسية</div>
         <div class="info-grid">
+            <div class="info-item"><div class="info-label">رقم الملف</div><div class="info-value" style="color:var(--secondary);font-weight:900;font-size:18px">{html.escape(fnum_badge)}</div></div>
+            <div class="info-item"><div class="info-label">المعرف</div><div class="info-value" style="font-family:monospace;font-size:12px">{html.escape(patient.get('id', '—'))}</div></div>
             <div class="info-item"><div class="info-label">التشخيص</div><div class="info-value">{html.escape(patient.get('diagnosis_text', '—') or '—')}</div></div>
             <div class="info-item"><div class="info-label">ICD-10</div><div class="info-value">{html.escape(', '.join(patient.get('diagnosis_icd10', [])) or '—')}</div></div>
             <div class="info-item"><div class="info-label">حدة الإبصار</div><div class="info-value">{html.escape(str(va_val))} LogMAR</div></div>
@@ -1731,7 +1904,7 @@ def render_sidebar():
         <div class="sb-section-label">إحصائيات</div>
         <div class="sb-stats">
             <div class="sb-stat"><span class="sb-stat-num">{n_patients}</span><span class="sb-stat-lbl">مريض</span></div>
-            <div class="sb-stat"><span class="sb-stat-num">19</span><span class="sb-stat-lbl">أداة نشطة</span></div>
+            <div class="sb-stat"><span class="sb-stat-num">20</span><span class="sb-stat-lbl">أداة نشطة</span></div>
             <div class="sb-stat"><span class="sb-stat-num">27</span><span class="sb-stat-lbl">قاعدة YAML</span></div>
             <div class="sb-stat"><span class="sb-stat-num">{n_notes}</span><span class="sb-stat-lbl">ملاحظة</span></div>
         </div>
