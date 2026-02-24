@@ -62,6 +62,7 @@ FUNCTIONAL_GOALS = [
 ]
 
 TOOLS_MANIFEST = [
+    ("🎨", "تمارين بصرية SVG", "visual_exercise"),
     ("🗄️", "قاعدة بيانات المرضى", "patient_database"),
     ("🔬", "بحث PubMed", "pubmed"),
     ("🧮", "حسابات بصرية", "calculator"),
@@ -82,21 +83,6 @@ TOOLS_MANIFEST = [
     ("🏥", "تقييم CDSS", "cdss_evaluate"),
     ("📈", "تقييمات سريرية", "clinical_assessment"),
     ("⚡", "تدخلات علاجية", "clinical_intervention"),
-]
-
-EXAMPLE_QUERIES = [
-    ("👁️", "تدهور البصر المركزي", "AMD",
-     "مريضة 72 سنة، AMD رطبة، VA: 6/60، تشكو من صعوبة القراءة. ما برنامج التأهيل المناسب؟"),
-    ("🧠", "إصابة دماغية", "Stroke + Hemianopia",
-     "مريض 58 سنة، سكتة دماغية قبل 3 أشهر، شقي يميني، يصطدم بالأشياء. ما الخطة؟"),
-    ("👶", "تأهيل أطفال", "Pediatric CVI",
-     "طفل 5 سنوات، إعاقة بصرية قشرية (CVI) درجة 7/10. ما التدخلات المناسبة؟"),
-    ("🔭", "أجهزة مساعدة", "Device Selection",
-     "شاب 35 سنة، رتينيتيس بيغمنتوزا، رؤية أنبوبية 5°. ما أفضل جهاز مساعد؟"),
-    ("📏", "حسابات تكبير", "Magnification",
-     "احسب مستوى التكبير المطلوب للقراءة: VA الحالي 6/60، هدف 1M print size"),
-    ("🏠", "تأهيل بيئي", "Environmental",
-     "مسن 80 سنة، ضعف بصر ثنائي، تاريخ سقوط مرتين. ما التعديلات البيئية المطلوبة؟"),
 ]
 
 
@@ -393,9 +379,24 @@ html, body, .stApp, [class*="css"] {
     background: linear-gradient(135deg, rgba(46,139,192,0.25) 0%, rgba(11,132,87,0.15) 100%);
     border-bottom: 1px solid rgba(255,255,255,0.08); padding: 28px 20px 22px; text-align: center;
 }
-.sb-logo { font-size: 54px; display: block; margin-bottom: 12px;
-    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4)); animation: floatLogo 4s ease-in-out infinite; }
-@keyframes floatLogo { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.sb-logo-wrap { display: flex; justify-content: center; margin-bottom: 10px;
+    filter: drop-shadow(0 4px 20px rgba(46,139,192,0.55)); }
+.ai-loading { display: flex; gap: 6px; justify-content: center; align-items: center; padding: 20px 0; }
+.ai-loading-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--secondary); opacity: 0.3; }
+.ai-loading-dot:nth-child(1) { animation: aiDot 1.2s ease-in-out 0s infinite; }
+.ai-loading-dot:nth-child(2) { animation: aiDot 1.2s ease-in-out 0.2s infinite; }
+.ai-loading-dot:nth-child(3) { animation: aiDot 1.2s ease-in-out 0.4s infinite; }
+@keyframes aiDot { 0%,80%,100% { transform: scale(1); opacity:0.3; } 40% { transform: scale(1.6); opacity:1; } }
+.visual-exercise-card {
+    background: linear-gradient(135deg, rgba(30,58,95,0.9) 0%, rgba(11,50,40,0.9) 100%);
+    border: 2px solid rgba(46,139,192,0.5); border-radius: var(--radius-lg);
+    padding: 18px; margin: 14px 0 6px; box-shadow: var(--shadow-md);
+}
+.ve-header { font-weight: 800; font-size: 15px; color: #60C4F0; margin-bottom: 8px; }
+.ve-instructions { font-size: 13px; color: rgba(255,255,255,0.75); margin-bottom: 14px; line-height: 1.6; }
+.ve-svg { text-align: center; }
+.ve-svg svg { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.ve-footer { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 10px; display: flex; gap: 12px; }
 .sb-title { color: #FFF; font-size: 15px; font-weight: 800; margin: 0 0 4px; }
 .sb-subtitle { color: rgba(255,255,255,0.45); font-size: 10px; font-weight: 500;
     letter-spacing: 0.5px; text-transform: uppercase; margin: 0; }
@@ -999,7 +1000,16 @@ def chat_with_patient_context(user_text: str, patient: dict = None, images: list
             for block in response.content:
                 if hasattr(block, "type") and block.type == "tool_use":
                     result = execute_tool(block.name, block.input)
-                    tool_calls_log.append({"name": block.name, "input_preview": str(block.input)[:120]})
+                    log_entry = {"name": block.name, "input_preview": str(block.input)[:120]}
+                    # حفظ بيانات SVG للتمارين البصرية لعرضها في المحادثة
+                    if block.name == "generate_visual_exercise" and isinstance(result, dict) and "svg" in result:
+                        log_entry["svg_data"] = result["svg"]
+                        log_entry["svg_title"] = result.get("title", "تمرين بصري")
+                        log_entry["svg_instructions"] = result.get("instructions", "")
+                        log_entry["svg_duration"] = result.get("duration_minutes", 10)
+                        log_entry["svg_reps"] = result.get("repetitions", 3)
+                        log_entry["svg_evidence"] = result.get("evidence_level", "B")
+                    tool_calls_log.append(log_entry)
                     tool_results.append({
                         "type": "tool_result", "tool_use_id": block.id,
                         "content": json.dumps(result, ensure_ascii=False),
@@ -1044,6 +1054,9 @@ def render_message(msg: dict):
     tool_calls = msg.get("tool_calls", [])
 
     if role == "user":
+        # إخفاء رسالة الإطلاق التلقائي (__START_INTAKE__)
+        if content.strip() == "__START_INTAKE__":
+            return
         st.markdown(f"""
         <div class="msg-user">
             <div class="avatar avatar-user">👤</div>
@@ -1053,10 +1066,13 @@ def render_message(msg: dict):
             </div>
         </div>""", unsafe_allow_html=True)
     else:
-        if tool_calls:
+        # عرض استدعاءات الأدوات (غير SVG)
+        non_svg_calls = [tc for tc in tool_calls if not tc.get("svg_data")]
+        if non_svg_calls:
             st.markdown('<div style="padding-right:48px">', unsafe_allow_html=True)
-            render_tool_calls(tool_calls)
+            render_tool_calls(non_svg_calls)
             st.markdown('</div>', unsafe_allow_html=True)
+
         col_av, col_bub = st.columns([0.06, 0.94])
         with col_av:
             st.markdown('<div class="avatar avatar-ai" style="margin-top:4px">🤖</div>', unsafe_allow_html=True)
@@ -1064,6 +1080,24 @@ def render_message(msg: dict):
             st.markdown('<div class="bubble bubble-ai" style="max-width:100%">', unsafe_allow_html=True)
             st.markdown(content)
             st.markdown(f'<div class="bubble-footer bubble-footer-ai">{html.escape(ts)}</div></div>', unsafe_allow_html=True)
+
+        # عرض التمارين البصرية SVG
+        for tc in tool_calls:
+            if tc.get("svg_data"):
+                ev = tc.get("svg_evidence", "")
+                ev_badge = f'<span style="background:rgba(11,132,87,0.2);color:#10A567;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">مستوى الدليل: {html.escape(ev)}</span>' if ev else ""
+                st.markdown(f"""
+                <div class="visual-exercise-card">
+                    <div class="ve-header">🎯 {html.escape(tc.get("svg_title", "تمرين بصري"))}</div>
+                    <div class="ve-instructions">{html.escape(tc.get("svg_instructions", ""))}</div>
+                    <div class="ve-svg">{tc["svg_data"]}</div>
+                    <div class="ve-footer">
+                        <span>⏱ {tc.get("svg_duration", 10)} دقيقة</span>
+                        <span>🔁 {tc.get("svg_reps", 3)} مرات</span>
+                        {ev_badge}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1084,7 +1118,7 @@ def render_patient_registry():
         </div>
         <div class="ph-badges">
             {api_badge}
-            <span class="badge badge-blue">🔬 20 أداة متخصصة</span>
+            <span class="badge badge-blue">🔬 21 أداة متخصصة</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1386,43 +1420,25 @@ def render_chat_tab(patient: dict):
     pid = patient["id"]
     chat_history = patient.get("chat_history", [])
 
-    # Chat area
+    # Chat area — auto-start if no history
     chat_area = st.container()
     with chat_area:
         if not chat_history:
-            name_display = patient.get("name", "المريض")
-            dx_display = patient.get("diagnosis_text", "")
-            st.markdown(f"""
+            st.markdown("""
             <div class="welcome-container">
-                <span class="welcome-emoji">🤖</span>
-                <h2 class="welcome-title">محادثة ذكية مع سياق المريض</h2>
-                <p class="welcome-subtitle">
-                    Claude يعرف بيانات <strong>{html.escape(name_display)}</strong>
-                    {(' — ' + html.escape(dx_display)) if dx_display else ''}
-                    ويمكنه مساعدتك في التقييم والتخطيط العلاجي.
-                </p>
-                <div class="feature-row">
-                    <span class="feature-chip">🔬 تحليل سريري</span>
-                    <span class="feature-chip">📋 خطط علاجية</span>
-                    <span class="feature-chip">📊 تفسير نتائج</span>
-                    <span class="feature-chip">🔭 توصية أجهزة</span>
+                <div class="ai-loading">
+                    <div class="ai-loading-dot"></div>
+                    <div class="ai-loading-dot"></div>
+                    <div class="ai-loading-dot"></div>
                 </div>
+                <p style="color:var(--text-muted);font-size:13px;margin-top:8px;text-align:center">
+                    جارٍ بدء جلسة التقييم…
+                </p>
             </div>
             """, unsafe_allow_html=True)
-
-            if st.button("🚀 بدء محادثة — تحليل حالة المريض", key="proactive_start", type="primary"):
-                proactive_msg = f"حلل حالة المريض {patient.get('name', '')} واقترح خطة تأهيل شاملة. بادر بطرح أسئلة لاستكمال أي معلومات ناقصة."
-                _send_chat_message(patient, proactive_msg)
-                st.rerun()
-
-            # Example queries
-            st.markdown('<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">أمثلة على الأسئلة:</div>', unsafe_allow_html=True)
-            cols = st.columns(3)
-            for i, (icon, label, tag, query) in enumerate(EXAMPLE_QUERIES[:3]):
-                with cols[i]:
-                    if st.button(f"{icon} {label}", key=f"ex_{pid}_{i}", use_container_width=True):
-                        _send_chat_message(patient, query)
-                        st.rerun()
+            # أرسل trigger تلقائي لـ Claude ليبدأ المقابلة الاستهلالية
+            _send_chat_message(patient, "__START_INTAKE__")
+            st.rerun()
         else:
             for msg in chat_history:
                 render_message(msg)
@@ -1877,7 +1893,30 @@ def render_sidebar():
     with st.sidebar:
         st.markdown("""
         <div class="sb-header">
-            <span class="sb-logo">👁️</span>
+            <div class="sb-logo-wrap">
+              <svg width="72" height="72" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(46,139,192,0.45)" stroke-width="1.5" stroke-dasharray="8 4">
+                  <animateTransform attributeName="transform" type="rotate" values="0 50 50;360 50 50" dur="18s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(11,132,87,0.3)" stroke-width="1" stroke-dasharray="4 6">
+                  <animateTransform attributeName="transform" type="rotate" values="360 50 50;0 50 50" dur="12s" repeatCount="indefinite"/>
+                </circle>
+                <ellipse cx="50" cy="50" rx="30" ry="18" fill="#1E3A5F" stroke="#2E8BC0" stroke-width="1.8"/>
+                <circle cx="50" cy="50" r="11" fill="#2E8BC0">
+                  <animate attributeName="r" values="11;9;11" dur="3s" repeatCount="indefinite"/>
+                  <animate attributeName="fill" values="#2E8BC0;#4FA8D8;#2E8BC0" dur="3s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="50" cy="50" r="5" fill="#0B1E3F"/>
+                <circle cx="46" cy="46" r="2" fill="white" opacity="0.65"/>
+                <line x1="50" y1="8" x2="50" y2="50" stroke="rgba(46,139,192,0.55)" stroke-width="1.5">
+                  <animateTransform attributeName="transform" type="rotate" values="0 50 50;360 50 50" dur="5s" repeatCount="indefinite"/>
+                </line>
+                <circle cx="50" cy="50" r="20" fill="none" stroke="rgba(46,139,192,0.5)" stroke-width="1">
+                  <animate attributeName="r" values="20;46;20" dur="4s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0.5;0;0.5" dur="4s" repeatCount="indefinite"/>
+                </circle>
+              </svg>
+            </div>
             <h2 class="sb-title">مستشار التأهيل البصري</h2>
             <p class="sb-subtitle">Vision Rehab AI Consultant</p>
             <div class="sb-model-badge">🤖 Claude Sonnet 4.6 · Extended Thinking</div>
@@ -1888,27 +1927,10 @@ def render_sidebar():
         # API Status
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if api_key:
-            masked = api_key[:8] + "..." + api_key[-4:] if len(api_key) > 12 else "***"
-            st.markdown(f'<div style="text-align:center;margin-bottom:12px"><span class="badge badge-green">● API متصل</span><div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:4px">{html.escape(masked)}</div></div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;margin-bottom:12px"><span class="badge badge-green">● API متصل</span></div>', unsafe_allow_html=True)
         else:
             st.markdown('<div style="text-align:center;margin-bottom:12px"><span class="badge badge-red">○ API غير متصل</span></div>', unsafe_allow_html=True)
             st.error("⚠️ ANTHROPIC_API_KEY غير موجود!")
-
-        # Stats
-        n_patients = len(st.session_state.patients)
-        current_pid = st.session_state.current_patient_id
-        current_patient = st.session_state.patients.get(current_pid, {})
-        n_notes = len(current_patient.get("notes", [])) if current_patient else 0
-
-        st.markdown(f"""
-        <div class="sb-section-label">إحصائيات</div>
-        <div class="sb-stats">
-            <div class="sb-stat"><span class="sb-stat-num">{n_patients}</span><span class="sb-stat-lbl">مريض</span></div>
-            <div class="sb-stat"><span class="sb-stat-num">20</span><span class="sb-stat-lbl">أداة نشطة</span></div>
-            <div class="sb-stat"><span class="sb-stat-num">27</span><span class="sb-stat-lbl">قاعدة YAML</span></div>
-            <div class="sb-stat"><span class="sb-stat-num">{n_notes}</span><span class="sb-stat-lbl">ملاحظة</span></div>
-        </div>
-        """, unsafe_allow_html=True)
 
         # Settings
         st.markdown('<div class="sb-section-label">الإعدادات</div>', unsafe_allow_html=True)
