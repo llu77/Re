@@ -14,7 +14,18 @@ from tools.pubmed import search_pubmed_api, fetch_pubmed_article
 from tools.calculator import calculate_visual_params
 from tools.knowledge_base import search_vector_db
 from tools.documents import generate_medical_document
+from tools.functional_assessment import run_functional_assessment
+from tools.device_recommender import recommend_devices
+from tools.arabic_reading_calculator import calculate_arabic_reading_params
+from tools.depression_screening import run_depression_screening
+from tools.outcome_tracker import track_rehabilitation_outcomes
+from tools.referral_generator import generate_referral
+from tools.technique_recommender import recommend_techniques
+from tools.perceptual_learning_planner import plan_perceptual_learning
+from tools.environmental_assessment import assess_environment
+from tools.telerehab_session_manager import manage_telerehab_session
 from utils.security import sanitize_patient_input, validate_medical_output
+from cdss import run_cdss_evaluation
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -43,6 +54,42 @@ SYSTEM_PROMPT = """
 - بروتوكولات التقييم: Colenbrander, Bailey-Lovie, MNREAD, Pepper VSRT
 - مقاييس جودة الحياة: VFQ-25, LVQOL, IVI
 </role>
+
+<advanced_techniques>
+لديك خبرة متقدمة في التقنيات التالية:
+
+أ. التقنيات التعويضية (Compensatory):
+   1. تدريب الرؤية اللامركزية (EVT) + Biofeedback مع MAIA/MP-3
+   2. تدريب المسح البصري (Scanning Training) — Zihl, NeuroEyeCoach
+   3. تدريب المسح السمعي-البصري (AViST)
+   4. تأهيل حركات العين (Oculomotor) — Post-TBI
+   5. علاج التكيف المنشوري (Prism Adaptation) — للإهمال البصري
+
+ب. التقنيات البديلة (Substitutive):
+   6. المناشير المحيطية (Fresnel, Peli 40PD, MPP)
+   7. النظارات الذكية (eSight Go, IrisVision, OrCam MyEye 3)
+   8. تطبيقات AI (Be My Eyes+GPT-4, Seeing AI)
+
+ج. التقنيات الترميمية (Restorative — بحذر):
+   9. علاج استعادة البصر (VRT) — مثير للجدل، مستوى دليل C
+   10. التحفيز عبر الجمجمة (tDCS/tRNS) — تجريبي
+   11. العلاج الجيني (Luxturna) — RPE65 فقط، مستوى دليل A
+   12. الشبكية الاصطناعية — PRIMA/Orion (قيد التطوير)
+
+د. تقنيات إضافية:
+   13. التعلم الإدراكي (Perceptual Learning)
+   14. التأهيل عن بعد (Telerehabilitation) — Bittner 2024 RCT
+   15. تعديلات بيئية + وقاية من السقوط — Campbell 2005 RCT
+   16. التوجه والتنقل المتقدم (O&M)
+
+قواعد اختيار التقنية:
+- المركزي (scotoma) → EVT/MBFT أولاً → تكبير → نظارات ذكية
+- الشقي (hemianopia) مع إهمال → Prism Adaptation أولاً → scanning
+- الشقي بدون إهمال → Scanning Training → Peli Prisms
+- النفقي (tunnel vision) → scanning + O&M + تعديلات بيئية
+- الترميمية: تُذكر كخيارات تجريبية فقط مع تصنيف الدليل
+- دائماً: صنف مستوى الدليل (1a-5) لكل توصية
+</advanced_techniques>
 
 <behavioral_guidelines>
 1. **المنهج السريري:**
@@ -246,6 +293,387 @@ TOOLS = [
             },
             "required": ["reasoning"]
         }
+    },
+    {
+        "name": "functional_assessment",
+        "description": """إجراء تقييم وظيفي شامل متعدد المراحل.
+        يشمل: تاريخ المريض، حدة الإبصار، الوظائف اليومية، التقييم النفسي، التصنيف.
+        المراحل: history, clinical_vision, functional, psychological, classification, full""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "type": "string",
+                    "enum": ["history", "clinical_vision", "functional", "psychological", "classification", "full"],
+                    "description": "مرحلة التقييم المطلوبة"
+                },
+                "patient_data": {
+                    "type": "object",
+                    "description": "بيانات المريض (العمر، التشخيص، حدة الإبصار، إلخ)"
+                }
+            },
+            "required": ["phase"]
+        }
+    },
+    {
+        "name": "device_recommender",
+        "description": """التوصية بالأجهزة البصرية المساعدة المناسبة.
+        يأخذ: حدة الإبصار، نوع فقدان المجال، المهام المطلوبة، العمر، الوضع الإدراكي.
+        يعطي: توصيات رئيسية + ثانوية + تحذيرات + خطوات تالية""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "visual_acuity": {
+                    "type": "string",
+                    "description": "حدة الإبصار (مثل: 6/60, 0.1, CF)"
+                },
+                "field_type": {
+                    "type": "string",
+                    "enum": ["central_loss", "peripheral_loss", "full_field", "normal_field"],
+                    "description": "نوع المجال البصري"
+                },
+                "task": {
+                    "type": "string",
+                    "description": "المهمة الرئيسية (reading, distance, daily_tasks, computer, mobility)"
+                },
+                "patient_age": {"type": "number"},
+                "cognitive_status": {
+                    "type": "string",
+                    "enum": ["normal", "mild_impairment", "moderate_impairment"]
+                },
+                "hand_function": {
+                    "type": "string",
+                    "enum": ["normal", "limited", "severely_limited"]
+                }
+            },
+            "required": ["visual_acuity"]
+        }
+    },
+    {
+        "name": "arabic_reading_calculator",
+        "description": """حسابات القراءة العربية المتخصصة.
+        يحسب: حجم الطباعة الأمثل، التكبير المطلوب، مسافة العمل، سرعة القراءة،
+        ومتطلبات القرآن الكريم والنصوص المشكّلة.
+        أنواع الحسابات: optimal_print_size, magnification_needed, working_distance,
+        reading_speed_estimation, quran_requirements, full_arabic_assessment""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "calculation_type": {
+                    "type": "string",
+                    "enum": [
+                        "optimal_print_size", "magnification_needed", "working_distance",
+                        "reading_speed_estimation", "quran_requirements", "full_arabic_assessment"
+                    ]
+                },
+                "visual_acuity": {
+                    "type": "string",
+                    "description": "حدة الإبصار"
+                },
+                "text_type": {
+                    "type": "string",
+                    "enum": ["plain", "diacritical", "quran", "mixed", "handwriting"],
+                    "description": "نوع النص العربي"
+                },
+                "patient_age": {"type": ["string", "number"]}
+            },
+            "required": ["visual_acuity"]
+        }
+    },
+    {
+        "name": "depression_screening",
+        "description": """فحص الاكتئاب والحالة النفسية لمرضى ضعف البصر.
+        الأدوات: PHQ-2 (فحص سريع), PHQ-9 (تقييم كامل), GDS-15 (للمسنين +65),
+        adjustment_assessment (مرحلة التكيف مع فقدان البصر), full_psychological (شامل).
+        ⚠️ أي درجة في Q9 (أفكار انتحارية) تستوجب تنبيهاً فورياً""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "screening_type": {
+                    "type": "string",
+                    "enum": ["phq2", "phq9", "gds15", "adjustment_assessment", "full_psychological"]
+                },
+                "scores": {
+                    "type": "object",
+                    "description": "درجات الأسئلة (q1: 0-3, q2: 0-3, ...)"
+                },
+                "patient_age": {"type": ["string", "number"]},
+                "months_since_diagnosis": {"type": "number"}
+            },
+            "required": ["screening_type"]
+        }
+    },
+    {
+        "name": "outcome_tracker",
+        "description": """تتبع وقياس نتائج التأهيل البصري عبر الزمن.
+        الإجراءات: record_assessment, compare_progress, calculate_gas (Goal Attainment Scale),
+        calculate_vfq25, generate_report, set_smart_goals.
+        يقيس: حدة الإبصار، سرعة القراءة، PHQ-9، VFQ-25، استقلالية الأنشطة اليومية""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "record_assessment", "compare_progress", "calculate_gas",
+                        "calculate_vfq25", "generate_report", "set_smart_goals"
+                    ]
+                },
+                "baseline": {
+                    "type": "object",
+                    "description": "بيانات التقييم الأولي"
+                },
+                "current": {
+                    "type": "object",
+                    "description": "بيانات التقييم الحالي"
+                },
+                "goals": {
+                    "type": "array",
+                    "description": "قائمة الأهداف لحساب GAS"
+                }
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "referral_generator",
+        "description": """توليد خطابات إحالة احترافية لـ 13 تخصصاً طبياً.
+        التخصصات: ophthalmology, neurology, psychiatry, psychology, pediatrics,
+        occupational_therapy, orientation_mobility, social_work, optometry,
+        special_education, endocrinology, geriatrics, neurosurgery.
+        الإجراءات: recommend_referrals, generate_letter, generate_all_needed""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["recommend_referrals", "generate_letter", "generate_all_needed"]
+                },
+                "specialty": {
+                    "type": "string",
+                    "description": "التخصص المُحال إليه (لـ generate_letter)"
+                },
+                "patient_name": {"type": "string"},
+                "patient_age": {"type": ["string", "number"]},
+                "diagnosis": {"type": "string"},
+                "va_better_eye": {"type": "string"},
+                "clinical_flags": {
+                    "type": "object",
+                    "description": "علامات سريرية لتحديد الإحالات المناسبة"
+                },
+                "urgency": {
+                    "type": "string",
+                    "enum": ["emergency", "urgent", "routine", "elective"]
+                }
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "technique_recommender",
+        "description": """محرك التوصية بتقنيات التأهيل البصري المتقدمة.
+        يحلل نمط الفقد البصري والتشخيص وحدة الإبصار ويوصي بالتقنيات المناسبة.
+        يغطي 25+ تقنية: EVT, Scanning, AViST, Oculomotor, Prism Adaptation,
+        النظارات الذكية, المناشير, VRT, tDCS, العلاج الجيني, التعلم الإدراكي, التأهيل عن بعد.
+        الإجراءات: recommend, detail, compare, protocol, list""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["recommend", "detail", "compare", "protocol", "list"]
+                },
+                "vision_loss_pattern": {
+                    "type": "string",
+                    "enum": [
+                        "central_scotoma", "hemianopia_right", "hemianopia_left",
+                        "hemianopia_with_neglect", "quadrantanopia", "tunnel_vision",
+                        "general_reduction", "visual_neglect", "oculomotor_dysfunction",
+                        "cvi", "nystagmus", "total_blindness", "mixed"
+                    ],
+                    "description": "نمط الفقد البصري"
+                },
+                "primary_diagnosis": {"type": "string"},
+                "visual_acuity": {"type": "string"},
+                "patient_age": {"type": "number"},
+                "cognitive_status": {
+                    "type": "string",
+                    "enum": ["normal", "mild_impairment", "moderate_impairment", "severe_impairment"]
+                },
+                "available_equipment": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "setting": {
+                    "type": "string",
+                    "enum": ["clinic", "home", "hybrid", "telerehab"]
+                },
+                "technique_id": {"type": "string"},
+                "technique_ids": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "prior_rehabilitation": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "تقنيات تأهيل سابقة جربها المريض (لتجنب التكرار)"
+                },
+                "conditions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "حالات/موانع طبية (مثل: seizure_disorder, nystagmus)"
+                }
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "perceptual_learning_planner",
+        "description": """مخطط جلسات التعلم الإدراكي.
+        يولد بروتوكولات مخصصة لـ: Gabor patches (حساسية التباين),
+        Lateral masking, Crowding reduction, Motion perception.
+        الإجراءات: generate, list, track_progress""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["generate", "list", "track_progress"]
+                },
+                "task_type": {
+                    "type": "string",
+                    "enum": ["contrast_detection", "lateral_masking", "crowding_reduction", "motion_perception"]
+                },
+                "visual_acuity": {"type": "string"},
+                "patient_age": {"type": "number"},
+                "diagnosis": {"type": "string"},
+                "sessions_completed": {"type": "number"}
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "environmental_assessment",
+        "description": """تقييم البيئة المنزلية/العمل/المدرسة لمرضى ضعف البصر.
+        يشمل: تقييم الإضاءة، التباين، السلامة، الوقاية من السقوط.
+        مبني على Campbell 2005 RCT (تقليل السقوط 41%).
+        الإجراءات: assess_home, assess_workplace, assess_school, fall_prevention""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["assess_home", "assess_workplace", "assess_school", "fall_prevention"]
+                },
+                "visual_acuity": {"type": "string"},
+                "field_type": {"type": "string"},
+                "patient_age": {"type": "number"},
+                "fall_count_12months": {"type": "number"},
+                "mobility_level": {
+                    "type": "string",
+                    "enum": ["independent", "assisted", "wheelchair"]
+                },
+                "job_type": {"type": "string"},
+                "grade_level": {"type": "string"}
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "telerehab_session_manager",
+        "description": """إدارة جلسات التأهيل البصري عن بعد.
+        تخطيط الجلسات + فحص الجاهزية التقنية + خطة علاج كاملة.
+        مبني على Bittner 2024 RCT (التأهيل عن بعد مكافئ للحضوري).
+        الإجراءات: plan_session, check_readiness, treatment_plan, list_types""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["plan_session", "check_readiness", "treatment_plan", "list_types"]
+                },
+                "session_type": {
+                    "type": "string",
+                    "enum": [
+                        "initial_assessment", "device_training", "evt_remote",
+                        "scanning_remote", "psychological_support", "follow_up"
+                    ]
+                },
+                "patient_tech_literacy": {
+                    "type": "string",
+                    "enum": ["low", "moderate", "high"]
+                },
+                "patient_age": {"type": "number"},
+                "caregiver_available": {"type": "boolean"},
+                "total_sessions": {"type": "number"},
+                "primary_goal": {"type": "string"},
+                "diagnosis": {"type": "string"}
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "cdss_evaluate",
+        "description": """محرك القرار السريري المتكامل (CDSS) — يقبل بيانات FHIR أو يدوية.
+        يُجري تقييماً سريرياً شاملاً بناءً على قواعد YAML مع:
+        - حواجز أمان (Guardrails): كشف التناقضات قبل التقييم
+        - مبررات (XAI): سبب كل توصية بأرقام المريض الحقيقية
+        - FHIR: يقبل حزم HL7 FHIR R4 مباشرةً من أنظمة المستشفيات
+        - تتبع النتائج: يتعلم من نتائج المريض السابقة
+        input_type: "fhir" | "manual" | "log_outcome" | "get_history"
+        يعمل بالتوازي مع الأدوات الأخرى — استخدمه عند:
+        1. استلام بيانات FHIR من نظام مستشفى
+        2. طلب تقييم شامل مع مبررات تفصيلية
+        3. تسجيل نتيجة تقنية لمريض""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "input_type": {
+                    "type": "string",
+                    "enum": ["fhir", "manual", "log_outcome", "get_history"],
+                    "description": "نوع الإدخال"
+                },
+                "fhir_bundle": {
+                    "type": "object",
+                    "description": "حزمة FHIR R4 Bundle (عند input_type=fhir)"
+                },
+                "patient_data": {
+                    "type": "object",
+                    "description": "بيانات المريض اليدوية (عند input_type=manual)",
+                    "properties": {
+                        "diagnosis": {"type": "string"},
+                        "icd10_codes": {"type": "array", "items": {"type": "string"}},
+                        "vision_pattern": {"type": "string"},
+                        "va_logmar": {"type": "number"},
+                        "va_decimal": {"type": "number"},
+                        "phq9_score": {"type": "number"},
+                        "age": {"type": "number"},
+                        "cognitive_status": {"type": "string"},
+                        "functional_goals": {"type": "array", "items": {"type": "string"}},
+                        "equipment_available": {"type": "array", "items": {"type": "string"}},
+                        "setting": {"type": "string"}
+                    }
+                },
+                "patient_id": {
+                    "type": "string",
+                    "description": "معرف المريض (اختياري، لتتبع النتائج)"
+                },
+                "language": {
+                    "type": "string",
+                    "enum": ["ar", "en"],
+                    "description": "لغة التقرير"
+                },
+                "technique_id": {
+                    "type": "string",
+                    "description": "معرف التقنية (عند input_type=log_outcome)"
+                },
+                "outcome": {
+                    "type": "object",
+                    "description": "نتيجة التقنية (عند input_type=log_outcome)"
+                }
+            },
+            "required": ["input_type"]
+        }
     }
 ]
 
@@ -276,6 +704,39 @@ def execute_tool(tool_name: str, tool_input: dict) -> dict:
         elif tool_name == "think":
             # أداة التفكير — لا تنفذ شيئاً، Claude يستخدمها داخلياً
             return {"status": "thinking_complete", "reasoning_logged": True}
+
+        elif tool_name == "functional_assessment":
+            return run_functional_assessment(tool_input)
+
+        elif tool_name == "device_recommender":
+            return recommend_devices(tool_input)
+
+        elif tool_name == "arabic_reading_calculator":
+            return calculate_arabic_reading_params(tool_input)
+
+        elif tool_name == "depression_screening":
+            return run_depression_screening(tool_input)
+
+        elif tool_name == "outcome_tracker":
+            return track_rehabilitation_outcomes(tool_input)
+
+        elif tool_name == "referral_generator":
+            return generate_referral(tool_input)
+
+        elif tool_name == "technique_recommender":
+            return recommend_techniques(tool_input)
+
+        elif tool_name == "perceptual_learning_planner":
+            return plan_perceptual_learning(tool_input)
+
+        elif tool_name == "environmental_assessment":
+            return assess_environment(tool_input)
+
+        elif tool_name == "telerehab_session_manager":
+            return manage_telerehab_session(tool_input)
+
+        elif tool_name == "cdss_evaluate":
+            return run_cdss_evaluation(tool_input)
 
         else:
             return {"error": f"أداة غير معروفة: {tool_name}"}

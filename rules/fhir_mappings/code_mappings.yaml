@@ -1,0 +1,248 @@
+# ═══════════════════════════════════════════════════════════════
+# FHIR Code Mappings — ربط الأكواد الطبية العالمية بالنظام الداخلي
+# ═══════════════════════════════════════════════════════════════
+# ICD-10 → التشخيص الداخلي + نمط الفقد البصري
+# LOINC  → القياسات السريرية
+# ═══════════════════════════════════════════════════════════════
+
+icd10_to_diagnosis:
+  # ── التنكس البقعي (AMD) ──
+  "H35.30":
+    name: "Age-related Macular Degeneration (unspecified)"
+    name_ar: "تنكس بقعي مرتبط بالعمر"
+    pattern: "central_scotoma"
+    category: "macular"
+  "H35.31":
+    name: "Nonexudative AMD (Dry)"
+    name_ar: "تنكس بقعي جاف"
+    pattern: "central_scotoma"
+    category: "macular"
+  "H35.32":
+    name: "Exudative AMD (Wet)"
+    name_ar: "تنكس بقعي رطب"
+    pattern: "central_scotoma"
+    category: "macular"
+
+  # ── أمراض الشبكية الوراثية ──
+  "H35.50":
+    name: "Retinitis Pigmentosa"
+    name_ar: "التهاب الشبكية الصباغي"
+    pattern: "tunnel_vision"
+    category: "retinal_dystrophy"
+  "H35.51":
+    name: "Stargardt Disease"
+    name_ar: "مرض ستارغاردت"
+    pattern: "central_scotoma"
+    category: "macular"
+  "H35.52":
+    name: "Leber Congenital Amaurosis"
+    name_ar: "عمى ليبر الخلقي"
+    pattern: "general_reduction"
+    category: "retinal_dystrophy"
+
+  # ── الجلوكوما ──
+  "H40.10":
+    name: "Primary Open-Angle Glaucoma"
+    name_ar: "جلوكوما مفتوحة الزاوية"
+    pattern: "peripheral_loss"
+    category: "glaucoma"
+  "H40.11":
+    name: "Primary Open-Angle Glaucoma (bilateral)"
+    name_ar: "جلوكوما مفتوحة ثنائية"
+    pattern: "tunnel_vision"
+    category: "glaucoma"
+
+  # ── اعتلال الشبكية السكري ──
+  "H36.0":
+    name: "Diabetic Retinopathy"
+    name_ar: "اعتلال الشبكية السكري"
+    pattern: "scattered"
+    category: "diabetic"
+  "E11.3":
+    name: "Type 2 DM with Ophthalmic Complications"
+    name_ar: "سكري النوع 2 مع مضاعفات عينية"
+    pattern: "scattered"
+    category: "diabetic"
+
+  # ── عيوب المجال البصري (سكتة / إصابة) ──
+  "H53.46":
+    name: "Homonymous Bilateral Field Defects (Hemianopia)"
+    name_ar: "شلل نصفي بصري متماثل"
+    pattern: "hemianopia"
+    category: "neurological"
+  "H53.47":
+    name: "Heteronymous Bilateral Field Defects"
+    name_ar: "عيب مجال بصري ثنائي غير متماثل"
+    pattern: "hemianopia"
+    category: "neurological"
+  "H53.43":
+    name: "Quadrantanopia"
+    name_ar: "عمى ربعي"
+    pattern: "quadrantanopia"
+    category: "neurological"
+
+  # ── الإهمال البصري ──
+  "R41.842":
+    name: "Visuospatial Neglect"
+    name_ar: "إهمال بصري مكاني"
+    pattern: "visual_neglect"
+    category: "neurological"
+
+  # ── إصابات الرأس ──
+  "S06.0":
+    name: "Traumatic Brain Injury (Concussion)"
+    name_ar: "إصابة دماغية رضحية"
+    pattern: "oculomotor_dysfunction"
+    category: "tbi"
+
+  # ── الإعاقة البصرية القشرية ──
+  "H47.63":
+    name: "Cortical Visual Impairment"
+    name_ar: "إعاقة بصرية قشرية"
+    pattern: "cvi"
+    category: "neurological"
+
+  # ── تصنيفات العمى وضعف البصر ──
+  "H54.0":
+    name: "Blindness, both eyes"
+    name_ar: "عمى كامل ثنائي"
+    pattern: "total_blindness"
+    category: "blindness"
+  "H54.1":
+    name: "Blindness, one eye, low vision other"
+    name_ar: "عمى عين واحدة مع ضعف بصر"
+    pattern: "general_reduction"
+    category: "low_vision"
+  "H54.2":
+    name: "Low Vision, both eyes"
+    name_ar: "ضعف بصر ثنائي"
+    pattern: "general_reduction"
+    category: "low_vision"
+
+  # ── الرأرأة ──
+  "H55.0":
+    name: "Nystagmus"
+    name_ar: "رأرأة"
+    pattern: "nystagmus"
+    category: "oculomotor"
+
+  # ── الخرف / ضعف إدراكي (موانع) ──
+  "F03.90":
+    name: "Unspecified Dementia"
+    name_ar: "خرف غير محدد"
+    pattern: null
+    category: "cognitive_impairment"
+  "F02.80":
+    name: "Dementia in Other Diseases"
+    name_ar: "خرف ناتج عن أمراض أخرى"
+    pattern: null
+    category: "cognitive_impairment"
+  "R41.82":
+    name: "Severe Cognitive Impairment"
+    name_ar: "ضعف إدراكي شديد"
+    pattern: null
+    category: "cognitive_impairment"
+
+# ═══════════════════════════════════════════════════════════════
+# LOINC → القياسات السريرية
+# ═══════════════════════════════════════════════════════════════
+
+loinc_to_observation:
+  "70770-3":
+    name: "Best Corrected Visual Acuity LogMAR"
+    name_ar: "حدة الإبصار المصححة (LogMAR)"
+    field: "va_logmar"
+    unit: "LogMAR"
+    normal_range: { min: -0.1, max: 0.0 }
+
+  "79880-1":
+    name: "Visual Acuity - Right Eye"
+    name_ar: "حدة الإبصار - العين اليمنى"
+    field: "va_right_logmar"
+    unit: "LogMAR"
+
+  "79881-9":
+    name: "Visual Acuity - Left Eye"
+    name_ar: "حدة الإبصار - العين اليسرى"
+    field: "va_left_logmar"
+    unit: "LogMAR"
+
+  "44261-6":
+    name: "Patient Health Questionnaire 9 item (PHQ-9) Total Score"
+    name_ar: "مقياس صحة المريض PHQ-9"
+    field: "phq9_score"
+    unit: "score"
+    severity_ranges:
+      minimal: { min: 0, max: 4 }
+      mild: { min: 5, max: 9 }
+      moderate: { min: 10, max: 14 }
+      moderately_severe: { min: 15, max: 19 }
+      severe: { min: 20, max: 27 }
+
+  "55758-7":
+    name: "Patient Health Questionnaire 2 item (PHQ-2) Total Score"
+    name_ar: "مقياس PHQ-2 المختصر"
+    field: "phq2_score"
+    unit: "score"
+    cutoff: 3
+
+  "48544-1":
+    name: "Geriatric Depression Scale 15 (GDS-15)"
+    name_ar: "مقياس الاكتئاب لكبار السن"
+    field: "gds15_score"
+    unit: "score"
+    severity_ranges:
+      normal: { min: 0, max: 4 }
+      mild: { min: 5, max: 8 }
+      moderate: { min: 9, max: 11 }
+      severe: { min: 12, max: 15 }
+
+  "29271-4":
+    name: "Contrast Sensitivity (Log Units)"
+    name_ar: "حساسية التباين"
+    field: "contrast_sensitivity"
+    unit: "log_units"
+    normal_range: { min: 1.5, max: 2.1 }
+
+  "OCT_central_thickness":
+    name: "OCT Central Macular Thickness"
+    name_ar: "سماكة البقعة المركزية (OCT)"
+    field: "oct_central_thickness"
+    unit: "micrometers"
+    normal_range: { min: 200, max: 300 }
+
+  "visual_field_md":
+    name: "Visual Field Mean Deviation"
+    name_ar: "متوسط انحراف المجال البصري"
+    field: "vf_mean_deviation"
+    unit: "dB"
+
+# ═══════════════════════════════════════════════════════════════
+# تصنيف WHO لضعف البصر
+# ═══════════════════════════════════════════════════════════════
+
+who_classification:
+  category_0:
+    va_range: { min: 0.3, max: 2.0 }
+    label: "Normal or near-normal vision"
+    label_ar: "بصر طبيعي أو شبه طبيعي"
+  category_1:
+    va_range: { min: 0.1, max: 0.29 }
+    label: "Moderate visual impairment"
+    label_ar: "ضعف بصري متوسط"
+  category_2:
+    va_range: { min: 0.05, max: 0.09 }
+    label: "Severe visual impairment"
+    label_ar: "ضعف بصري شديد"
+  category_3:
+    va_range: { min: 0.02, max: 0.04 }
+    label: "Profound visual impairment"
+    label_ar: "ضعف بصري عميق"
+  category_4:
+    va_range: { min: 0.001, max: 0.019 }
+    label: "Near-total blindness"
+    label_ar: "عمى شبه كامل"
+  category_5:
+    va_range: { min: 0.0, max: 0.0 }
+    label: "Total blindness (NLP)"
+    label_ar: "عمى كامل"

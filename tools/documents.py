@@ -36,6 +36,7 @@ def generate_medical_document(params: dict) -> dict:
         "case_summary": _generate_case_summary,
         "referral_letter": _generate_referral_letter,
         "progress_note": _generate_progress_note,
+        "school_report": _generate_school_report,
     }
 
     if document_type not in generators:
@@ -394,4 +395,142 @@ def _generate_progress_note(content: dict, fmt: str) -> str:
 التقدم: {progress_observed}
 التحديات: {challenges}
 الجلسة القادمة: {next_session_plan}
+"""
+
+
+# ─────────────────────────────────────────────
+# 6. تقرير المدرسة (للحالات البيدياترية)
+# ─────────────────────────────────────────────
+
+def _generate_school_report(content: dict, fmt: str) -> str:
+    date_str = datetime.now().strftime("%Y/%m/%d")
+
+    student_name = content.get("student_name", "[اسم الطالب]")
+    student_age = content.get("student_age", "[العمر]")
+    grade = content.get("grade", "[الصف الدراسي]")
+    school_name = content.get("school_name", "[اسم المدرسة]")
+    diagnosis = content.get("diagnosis", "[التشخيص البصري]")
+
+    va_right = content.get("va_right", "[VA اليمنى]")
+    va_left = content.get("va_left", "[VA اليسرى]")
+    visual_field = content.get("visual_field", "[المجال البصري]")
+    contrast_sensitivity = content.get("contrast_sensitivity", "[حساسية التباين]")
+
+    functional_impact = content.get("functional_impact", "[تأثير ضعف البصر على الأداء الدراسي]")
+    reading_ability = content.get("reading_ability", "[قدرات القراءة والكتابة]")
+
+    classroom_accommodations = content.get("classroom_accommodations", [
+        "الجلوس في الصف الأول",
+        "تكبير المواد المطبوعة",
+        "وقت إضافي للاختبارات",
+    ])
+    assistive_devices = content.get("assistive_devices", "[الأجهزة المساعدة الموصى بها]")
+
+    iep_goals = content.get("iep_goals", "[أهداف خطة التعليم الفردية]")
+    specialist_name = content.get("specialist_name", "[اسم أخصائي التأهيل]")
+    next_review = content.get("next_review", "[تاريخ المراجعة القادمة]")
+
+    # Format accommodations list
+    if isinstance(classroom_accommodations, list):
+        accommodations_text = "\n".join(f"- {a}" for a in classroom_accommodations)
+    else:
+        accommodations_text = str(classroom_accommodations)
+
+    if fmt == "markdown":
+        return f"""# تقرير التأهيل البصري للطالب
+
+**التاريخ:** {date_str}
+**الطالب:** {student_name} | **العمر:** {student_age} | **الصف:** {grade}
+**المدرسة:** {school_name}
+**الأخصائي:** {specialist_name}
+
+---
+
+## 1. التشخيص البصري
+{diagnosis}
+
+---
+
+## 2. نتائج الفحص البصري
+
+| الفحص | العين اليمنى | العين اليسرى |
+|-------|-------------|-------------|
+| حدة الإبصار (مع تصحيح) | {va_right} | {va_left} |
+
+**المجال البصري:** {visual_field}
+**حساسية التباين:** {contrast_sensitivity}
+
+---
+
+## 3. الأثر على الأداء الدراسي
+{functional_impact}
+
+**قدرات القراءة والكتابة:**
+{reading_ability}
+
+---
+
+## 4. التسهيلات الصفية الموصى بها
+{accommodations_text}
+
+---
+
+## 5. الأجهزة المساعدة الموصى بها
+{assistive_devices}
+
+---
+
+## 6. أهداف خطة التعليم الفردية (IEP Goals)
+{iep_goals}
+
+---
+
+## 7. التوصيات للمعلمين والإدارة
+
+- تزويد الطالب بنسخ رقمية من الكتب المدرسية
+- التأكد من الإضاءة الكافية في مقعد الطالب
+- السماح باستخدام الأجهزة المساعدة داخل الفصل
+- تقديم الاختبارات بصيغة مكبّرة أو رقمية
+- إخطار المعلمين الجدد باحتياجات الطالب في كل فصل دراسي
+
+---
+
+## 8. موعد المراجعة القادمة
+{next_review}
+
+---
+
+**للتواصل مع أخصائي التأهيل البصري بشأن أي استفسارات متعلقة بالطالب**
+
+---
+
+> ⚠️ **تنبيه:** هذا التقرير أُعدّ بمساعدة الذكاء الاصطناعي ويتطلب مراجعة وتوقيع الأخصائي المعالج قبل الاستخدام الرسمي.
+"""
+    else:
+        return f"""تقرير التأهيل البصري للطالب
+التاريخ: {date_str}
+الطالب: {student_name} | العمر: {student_age} | الصف: {grade}
+المدرسة: {school_name}
+الأخصائي: {specialist_name}
+
+التشخيص: {diagnosis}
+
+نتائج الفحص:
+- حدة الإبصار اليمنى: {va_right}
+- حدة الإبصار اليسرى: {va_left}
+- المجال البصري: {visual_field}
+- حساسية التباين: {contrast_sensitivity}
+
+الأثر على الأداء الدراسي: {functional_impact}
+
+التسهيلات الصفية:
+{accommodations_text}
+
+الأجهزة المساعدة: {assistive_devices}
+
+أهداف IEP: {iep_goals}
+
+موعد المراجعة: {next_review}
+
+تنبيه: هذا التقرير يتطلب مراجعة الأخصائي المعالج.
 """

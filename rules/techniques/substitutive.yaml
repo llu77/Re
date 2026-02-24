@@ -1,0 +1,215 @@
+# ═══════════════════════════════════════════════════════════════
+# القواعد السريرية — التقنيات البديلة (Substitutive Techniques)
+# ═══════════════════════════════════════════════════════════════
+# أجهزة ووسائل تعوض الوظيفة البصرية المفقودة
+# (منشورات، نظارات ذكية، تطبيقات AI)
+# ═══════════════════════════════════════════════════════════════
+
+rules:
+
+  # ────────────────────────────────────────────────────────
+  # 1. منشورات Peli المحيطية (40 PD)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_PELI_01"
+    technique: "Peli Peripheral Prisms (40 PD)"
+    technique_ar: "منشورات Peli المحيطية"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["hemianopia", "hemianopia_right", "hemianopia_left"]
+      has_condition_icd10: ["H53.46", "H53.47"]
+      exclude_condition_icd10: ["F03.90", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 1.0 }
+      cognitive_status: { exclude: ["severe_impairment"] }
+    recommendation:
+      action: "تركيب منشورات Peli محيطية 40 PD على نظارة المريض"
+      protocol: "تركيب + 3-4 جلسات تدريب + متابعة شهرية"
+      evidence_level: "1b"
+      evidence_refs: ["Peli 2000", "Bowers 2014 RCT"]
+      priority: 2
+      justification_template: >
+        المريض لديه {diagnosis} مع VA={va} كافية لاستخدام المنشورات.
+        Peli prisms توسع المجال المرئي الوظيفي بـ ~20° في الجانب المصاب.
+        مستوى الدليل: 1b (Bowers RCT).
+
+  # ────────────────────────────────────────────────────────
+  # 2. منشورات Fresnel المحيطية
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_FRESNEL_01"
+    technique: "Fresnel Press-On Prisms"
+    technique_ar: "منشورات فرنل اللاصقة"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["hemianopia", "quadrantanopia"]
+      has_condition_icd10: ["H53.46", "H53.47", "H53.43"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 1.3 }
+    recommendation:
+      action: "منشورات Fresnel لاصقة (15-20 PD) كتجربة قبل Peli الدائمة"
+      protocol: "تجربة لمدة 2-4 أسابيع ثم تقييم"
+      evidence_level: "3"
+      evidence_refs: ["Rossi 1990"]
+      priority: 3
+      justification_template: >
+        منشورات Fresnel كخيار مبدئي/تجريبي لـ {diagnosis}.
+        أقل تكلفة من Peli ومناسبة للتقييم الأولي.
+
+  # ────────────────────────────────────────────────────────
+  # 3. Multi-Periscopic Prism (MPP)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_MPP_01"
+    technique: "Multi-Periscopic Prism (MPP)"
+    technique_ar: "المنشور متعدد البريسكوب"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["hemianopia"]
+      has_condition_icd10: ["H53.46"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 0.8 }
+    recommendation:
+      action: "MPP (50-60 PD) — توسيع مجال أكبر من Peli"
+      protocol: "تركيب متخصص + 4-6 جلسات تدريب"
+      evidence_level: "3"
+      evidence_refs: ["Varma 2014"]
+      priority: 4
+      justification_template: >
+        MPP يوفر توسيع مجال أكبر (50-60 PD) من Peli (40 PD)
+        لكن مع ازدواجية أكثر. مناسب لمن لم يستفد من Peli.
+
+  # ────────────────────────────────────────────────────────
+  # 4. نظارات eSight Go الذكية
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_ESIGHT_01"
+    technique: "eSight Go Smart Glasses (VR Magnification)"
+    technique_ar: "نظارات eSight Go الذكية"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["central_scotoma", "general_reduction"]
+      exclude_condition_icd10: ["H54.0", "F03.90", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.5, max: 1.3 }
+      cognitive_status: { exclude: ["severe_impairment", "moderate_impairment"] }
+      functional_goals: ["face_recognition", "tv_watching", "reading", "distance"]
+    recommendation:
+      action: "تجربة نظارات eSight Go (تكبير 1x-24x) للمهام المختلفة"
+      protocol: "جلسة تجربة + تدريب + متابعة بعد أسبوعين"
+      evidence_level: "3"
+      evidence_refs: ["Wittich 2018"]
+      priority: 2
+      price_range: "$5,950"
+      justification_template: >
+        المريض لديه {diagnosis} مع VA={va} (رؤية متبقية كافية).
+        eSight تحتاج رؤية متبقية لتعمل. هدف المريض ({goal}) مناسب.
+
+  # ────────────────────────────────────────────────────────
+  # 5. نظارات IrisVision Inspire
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_IRISVISION_01"
+    technique: "IrisVision Inspire (VR Headset)"
+    technique_ar: "نظارات IrisVision Inspire"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["central_scotoma", "general_reduction", "tunnel_vision"]
+      exclude_condition_icd10: ["H54.0", "F03.90"]
+      observation_loinc_range:
+        "70770-3": { min: 0.5, max: 1.5 }
+      functional_goals: ["reading", "tv_watching"]
+    recommendation:
+      action: "تجربة IrisVision Inspire (تكبير 2x-14x VR)"
+      protocol: "جلسة تجربة + تدريب"
+      evidence_level: "3"
+      evidence_refs: ["Deemer 2018"]
+      priority: 3
+      price_range: "$2,500"
+      justification_template: >
+        IrisVision مناسبة لـ {diagnosis} مع رؤية متبقية ({va} LogMAR).
+        أقل تكلفة من eSight ومناسبة للقراءة والتلفزيون.
+
+  # ────────────────────────────────────────────────────────
+  # 6. OrCam MyEye 3 Pro (AI صوتي)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_ORCAM_01"
+    technique: "OrCam MyEye 3 Pro (AI Audio Assistant)"
+    technique_ar: "جهاز OrCam MyEye 3 Pro"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["total_blindness", "general_reduction", "tunnel_vision"]
+      has_condition_icd10: ["H54.0", "H54.1", "H35.50"]
+      observation_loinc_range:
+        "70770-3": { min: 1.3, max: 3.0 }
+    recommendation:
+      action: "وصف OrCam MyEye 3 (قراءة AI صوتية + تعرف على الوجوه + ألوان)"
+      protocol: "تدريب 3-4 جلسات على الاستخدام"
+      evidence_level: "3"
+      evidence_refs: ["Moisseiev 2020"]
+      priority: 1
+      price_range: "$4,500"
+      justification_template: >
+        المريض لديه {diagnosis} مع VA={va} LogMAR (منخفضة جداً).
+        التكبير البصري (eSight/IrisVision) غير مناسب — OrCam يعمل بالصوت
+        ولا يحتاج رؤية متبقية. الأولوية القصوى لهذا المريض.
+
+  # ────────────────────────────────────────────────────────
+  # 7. Envision Glasses (Google Glass + AI)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_ENVISION_01"
+    technique: "Envision Glasses (AI + Google Glass)"
+    technique_ar: "نظارات Envision الذكية"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["total_blindness", "general_reduction"]
+      has_condition_icd10: ["H54.0", "H54.1", "H54.2"]
+      observation_loinc_range:
+        "70770-3": { min: 1.0, max: 3.0 }
+    recommendation:
+      action: "Envision Glasses — وصف المشهد + قراءة + تعرف وجوه"
+      protocol: "تدريب 2-3 جلسات"
+      evidence_level: "4"
+      priority: 3
+      price_range: "$3,500"
+      justification_template: >
+        بديل لـ OrCam مع ميزة وصف المشاهد الكاملة (Scene Description).
+        مستوى دليل أقل (4) ولكن تقنية واعدة.
+
+  # ────────────────────────────────────────────────────────
+  # 8. تطبيقات AI (Be My Eyes + Seeing AI)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_AI_APPS_01"
+    technique: "AI Vision Apps (Be My Eyes, Seeing AI)"
+    technique_ar: "تطبيقات الذكاء الاصطناعي البصرية"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["total_blindness", "general_reduction", "central_scotoma", "tunnel_vision"]
+      observation_loinc_range:
+        "70770-3": { min: 0.5, max: 3.0 }
+    recommendation:
+      action: "تعريف المريض بتطبيقات AI المجانية (Be My Eyes + GPT-4, Seeing AI)"
+      protocol: "جلسة تعريفية واحدة + دليل استخدام"
+      evidence_level: "4"
+      priority: 4
+      price_range: "مجاني"
+      justification_template: >
+        تطبيقات مجانية تكميلية لأي مريض ضعف بصر.
+        Be My Eyes + GPT-4 يوفر وصف بصري فوري.
+        Seeing AI (Microsoft) يقرأ النصوص ويتعرف على الأشخاص والعملات.
+
+  # ────────────────────────────────────────────────────────
+  # 9. قارئ الشاشة (Screen Reader)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "SUB_SCREEN_READER_01"
+    technique: "Screen Reader (NVDA, JAWS, VoiceOver)"
+    technique_ar: "قارئ الشاشة"
+    category: "substitutive"
+    conditions:
+      has_vision_pattern: ["total_blindness", "general_reduction"]
+      observation_loinc_range:
+        "70770-3": { min: 1.3, max: 3.0 }
+      functional_goals: ["computer", "reading"]
+    recommendation:
+      action: "تدريب على قارئ شاشة (NVDA مجاني / JAWS / VoiceOver)"
+      protocol: "6-8 جلسات تدريب، 45 دقيقة"
+      evidence_level: "2a"
+      priority: 1
+      justification_template: >
+        المريض لديه {diagnosis} مع VA={va} (أقل من عتبة التكبير).
+        قارئ الشاشة ضروري للوصول الرقمي والقراءة.

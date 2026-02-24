@@ -1,0 +1,140 @@
+# ═══════════════════════════════════════════════════════════════
+# القواعد السريرية — التقنيات الترميمية (Restorative Techniques)
+# ═══════════════════════════════════════════════════════════════
+# تقنيات تهدف لاستعادة الوظيفة البصرية — معظمها تجريبي أو مثير للجدل.
+# تتضمن Hard Guardrails صارمة لحماية المريض.
+# ═══════════════════════════════════════════════════════════════
+
+rules:
+
+  # ────────────────────────────────────────────────────────
+  # 1. علاج استعادة البصر (VRT) — مثير للجدل
+  # ────────────────────────────────────────────────────────
+  - rule_id: "REST_VRT_01"
+    technique: "Vision Restoration Therapy (VRT — NovaVision)"
+    technique_ar: "علاج استعادة البصر (VRT)"
+    category: "restorative"
+    experimental: true
+    controversy: "نتائج متضاربة: Kasten 1998 إيجابية، Horton 2005 سلبية (eye movements artifact)"
+    conditions:
+      has_vision_pattern: ["hemianopia", "hemianopia_right", "hemianopia_left"]
+      has_condition_icd10: ["H53.46"]
+      exclude_condition_icd10: ["F03.90", "R41.82", "H54.0"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 1.0 }
+      patient_age: { max: 65 }
+      time_since_onset_months: { min: 6 }
+    recommendation:
+      action: "VRT يمكن ذكرها كخيار تجريبي فقط — ليست توصية أولى"
+      protocol: "6 أشهر تدريب منزلي، 30 دقيقة مرتين يومياً"
+      evidence_level: "C"
+      evidence_refs: ["Kasten 1998", "Horton 2005 critique", "Cochrane inconclusive"]
+      priority: 10
+      justification_template: >
+        ⚠️ تقنية مثيرة للجدل. VRT لها دليل متضارب (مستوى C).
+        Kasten 1998 أظهر تحسن في المجال لكن Horton 2005 شكك في النتائج.
+        تُذكر للمريض كخيار تجريبي فقط وليست بديلاً عن Scanning Training.
+
+  # ────────────────────────────────────────────────────────
+  # 2. التحفيز عبر الجمجمة — tDCS
+  # ────────────────────────────────────────────────────────
+  - rule_id: "REST_TDCS_01"
+    technique: "Transcranial Direct Current Stimulation (tDCS)"
+    technique_ar: "التحفيز بالتيار المباشر عبر الجمجمة"
+    category: "restorative"
+    experimental: true
+    conditions:
+      has_vision_pattern: ["hemianopia", "central_scotoma"]
+      has_condition_icd10: ["H53.46", "H35.30"]
+      exclude_condition_icd10: ["F03.90", "R41.82"]
+      patient_age: { min: 18, max: 70 }
+      # موانع استخدام tDCS
+      exclude_medical_conditions: ["epilepsy", "metallic_implants", "pacemaker", "pregnancy"]
+    recommendation:
+      action: "tDCS على القشرة القذالية (V1) — تجريبي فقط في إطار بحثي"
+      protocol: "10-15 جلسة، 20 دقيقة، 2 mA"
+      evidence_level: "D"
+      evidence_refs: ["Plow 2012 pilot", "Halko 2011"]
+      priority: 12
+      justification_template: >
+        ⚠️ تقنية تجريبية (مستوى D). tDCS أظهر نتائج أولية واعدة
+        في دراسات تجريبية صغيرة لكن لا توجد RCTs كبيرة.
+        تُستخدم حصرياً في إطار بحثي/أكاديمي وليس كعلاج قياسي.
+
+  # ────────────────────────────────────────────────────────
+  # 3. التحفيز بالضوضاء العشوائية — tRNS
+  # ────────────────────────────────────────────────────────
+  - rule_id: "REST_TRNS_01"
+    technique: "Transcranial Random Noise Stimulation (tRNS)"
+    technique_ar: "التحفيز بالضوضاء العشوائية عبر الجمجمة"
+    category: "restorative"
+    experimental: true
+    conditions:
+      has_vision_pattern: ["central_scotoma", "general_reduction"]
+      exclude_condition_icd10: ["F03.90"]
+      patient_age: { min: 18, max: 65 }
+      exclude_medical_conditions: ["epilepsy", "metallic_implants", "pacemaker"]
+    recommendation:
+      action: "tRNS مع Perceptual Learning — تجريبي لتعزيز التعلم"
+      protocol: "دمج مع جلسات PL، 20 دقيقة، 1.5 mA"
+      evidence_level: "D"
+      evidence_refs: ["Camilleri 2014", "Campana 2014"]
+      priority: 13
+      justification_template: >
+        ⚠️ تجريبي. tRNS قد يعزز تأثير Perceptual Learning
+        عبر زيادة اللدونة العصبية. لا يُستخدم بمفرده.
+
+  # ────────────────────────────────────────────────────────
+  # 4. العلاج الجيني — Luxturna (RPE65)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "REST_LUXTURNA_01"
+    technique: "Voretigene neparvovec-rzyl (LUXTURNA Gene Therapy)"
+    technique_ar: "العلاج الجيني لوكسترنا"
+    category: "restorative"
+    experimental: false
+    fda_approved: true
+    conditions:
+      has_condition_icd10: ["H35.50", "H35.52"]
+      genetic_markers:
+        RPE65_biallelic_mutation: "positive"
+      observation_loinc_range:
+        "OCT_central_thickness": { min: 100, max: 500 }
+      patient_age: { min: 1 }
+    hard_guardrails:
+      - "يجب تأكيد طفرة RPE65 ثنائية الأليل من مختبر جيني معتمد"
+      - "يجب وجود خلايا شبكية قابلة للإنقاذ (OCT)"
+    recommendation:
+      action: "إحالة عاجلة لمركز علاج جيني معتمد لتقييم Luxturna"
+      protocol: "حقنة واحدة تحت الشبكية لكل عين (بفاصل أسبوعين)"
+      evidence_level: "1b"
+      evidence_refs: ["Russell 2017 Lancet RCT", "FDA approved 2017"]
+      priority: 0
+      price_range: "$425,000 لكلتا العينين"
+      justification_template: >
+        🔴 إحالة ذات أولوية قصوى. المريض لديه {diagnosis} مع
+        طفرة RPE65 مؤكدة. Luxturna هو العلاج الجيني الوحيد المعتمد
+        من FDA (2017) لأمراض الشبكية الوراثية.
+        OCT يظهر سماكة {oct} ميكرون (خلايا قابلة للإنقاذ).
+
+  # ────────────────────────────────────────────────────────
+  # 5. الشبكية الاصطناعية — PRIMA
+  # ────────────────────────────────────────────────────────
+  - rule_id: "REST_PRIMA_01"
+    technique: "PRIMA Subretinal Implant (Pixium Vision)"
+    technique_ar: "زرعة PRIMA تحت الشبكية"
+    category: "restorative"
+    experimental: true
+    conditions:
+      has_condition_icd10: ["H35.30", "H35.32"]
+      observation_loinc_range:
+        "70770-3": { min: 1.5, max: 3.0 }
+      patient_age: { min: 50, max: 85 }
+    recommendation:
+      action: "خيار مستقبلي — PRIMA قيد التجارب السريرية (Phase III)"
+      protocol: "زرع جراحي + تأهيل مكثف"
+      evidence_level: "D"
+      evidence_refs: ["Palanker 2020", "PRIMA Phase III ongoing"]
+      priority: 15
+      justification_template: >
+        ⚠️ قيد التطوير. PRIMA هي أحدث الشبكيات الاصطناعية
+        للـ Dry AMD المتقدم. Phase III جارية. غير متاحة للاستخدام السريري.

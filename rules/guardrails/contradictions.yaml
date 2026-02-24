@@ -1,0 +1,149 @@
+# ═══════════════════════════════════════════════════════════════
+# حواجز الأمان السريرية — Clinical Guardrails
+# ═══════════════════════════════════════════════════════════════
+# قواعد كشف التناقضات والمدخلات غير المنطقية
+# تُفحص قبل تمرير البيانات لمحرك القواعد
+# ═══════════════════════════════════════════════════════════════
+# severity: "error" = توقف كامل | "warning" = تحذير مع استمرار
+# ═══════════════════════════════════════════════════════════════
+
+contradictions:
+
+  # ── تناقضات الأهداف مع القدرات (Goal vs Capability) ──
+
+  - id: "GUARD_BLIND_DRIVE"
+    check: "goal_vs_capability"
+    condition:
+      diagnosis_category: "total_blindness"
+      functional_goal: "driving"
+    severity: "error"
+    message_ar: "⛔ تناقض: هدف القيادة مع عمى كامل — مستحيل وظيفياً وقانونياً"
+    message_en: "Contradiction: driving goal with total blindness — functionally and legally impossible"
+
+  - id: "GUARD_BLIND_FACE"
+    check: "goal_vs_capability"
+    condition:
+      diagnosis_category: "total_blindness"
+      functional_goal: "face_recognition"
+    severity: "warning"
+    message_ar: "⚠️ تعرف الوجوه البصري غير ممكن — يمكن استخدام OrCam للتعرف الصوتي"
+    message_en: "Visual face recognition not possible — OrCam audio recognition is an alternative"
+
+  - id: "GUARD_NLP_READING"
+    check: "goal_vs_capability"
+    condition:
+      va_logmar_min: 2.5
+      functional_goal: "reading"
+    severity: "warning"
+    message_ar: "⚠️ القراءة البصرية غير ممكنة بهذا المستوى — الحل: قارئ شاشة / صوتي"
+    message_en: "Visual reading not feasible at this VA level — switch to audio/screen reader"
+
+  - id: "GUARD_SEVERE_VI_DRIVE"
+    check: "goal_vs_capability"
+    condition:
+      va_logmar_min: 0.5
+      functional_goal: "driving"
+    severity: "error"
+    message_ar: "⛔ حدة الإبصار أقل من الحد القانوني للقيادة (معظم الدول: 6/12 أو أفضل)"
+    message_en: "VA below legal driving threshold (most countries require 6/12 or better)"
+
+  # ── تناقضات التشخيص مع نمط الفقد (Diagnosis vs Pattern) ──
+
+  - id: "GUARD_AMD_TUNNEL"
+    check: "diagnosis_vs_pattern"
+    condition:
+      diagnosis_icd10: ["H35.30", "H35.31", "H35.32"]
+      vision_pattern: "tunnel_vision"
+    severity: "warning"
+    message_ar: "⚠️ AMD يسبب فقداً مركزياً وليس نفقياً — تحقق من التشخيص أو النمط"
+    message_en: "AMD causes central loss, not tunnel vision — verify diagnosis or pattern"
+
+  - id: "GUARD_RP_CENTRAL"
+    check: "diagnosis_vs_pattern"
+    condition:
+      diagnosis_icd10: ["H35.50"]
+      vision_pattern: "central_scotoma"
+    severity: "warning"
+    message_ar: "⚠️ RP يسبب فقداً محيطياً/نفقياً عادةً وليس مركزياً — إلا في المراحل المتأخرة جداً"
+    message_en: "RP typically causes peripheral/tunnel vision, not central scotoma — except very late stages"
+
+  - id: "GUARD_GLAUCOMA_CENTRAL"
+    check: "diagnosis_vs_pattern"
+    condition:
+      diagnosis_icd10: ["H40.10", "H40.11"]
+      vision_pattern: "central_scotoma"
+    severity: "warning"
+    message_ar: "⚠️ الجلوكوما تصيب المجال المحيطي أولاً — الفقد المركزي يشير لمرحلة متقدمة جداً"
+    message_en: "Glaucoma affects peripheral field first — central loss indicates very advanced disease"
+
+  # ── تناقضات الإدراك مع التقنيات (Cognitive vs Technique) ──
+
+  - id: "GUARD_DEMENTIA_SMARTGLASS"
+    check: "cognitive_vs_technique"
+    condition:
+      cognitive_status: ["severe_impairment", "moderate_impairment"]
+      technique_requires_cognition: true
+    severity: "error"
+    message_ar: "⛔ النظارات الذكية تتطلب إدراكاً سليماً — غير مناسبة مع ضعف إدراكي متوسط/شديد"
+    message_en: "Smart glasses require adequate cognition — contraindicated with moderate/severe impairment"
+
+  - id: "GUARD_DEMENTIA_EVT"
+    check: "cognitive_vs_technique"
+    condition:
+      cognitive_status: ["severe_impairment"]
+      technique_category: "compensatory"
+    severity: "warning"
+    message_ar: "⚠️ التقنيات التعويضية تحتاج تعاوناً إدراكياً — قد تكون محدودة الفائدة"
+    message_en: "Compensatory techniques require cognitive cooperation — may have limited benefit"
+
+  # ── تناقضات العمر (Age Safety) ──
+
+  - id: "GUARD_CHILD_TDCS"
+    check: "age_safety"
+    condition:
+      patient_age_max: 17
+      technique_category: "restorative"
+      technique_ids: ["REST_TDCS_01", "REST_TRNS_01"]
+    severity: "error"
+    message_ar: "⛔ التحفيز الكهربائي عبر الجمجمة ممنوع للأطفال (<18 سنة)"
+    message_en: "Transcranial stimulation contraindicated in children (<18 years)"
+
+  - id: "GUARD_ELDERLY_RESTORATIVE"
+    check: "age_safety"
+    condition:
+      patient_age_min: 75
+      technique_category: "restorative"
+    severity: "warning"
+    message_ar: "⚠️ التقنيات الترميمية محدودة الفائدة لكبار السن (>75) — الأولوية للتعويضية"
+    message_en: "Restorative techniques have limited benefit in elderly (>75) — prioritize compensatory"
+
+  # ── تناقضات بيانات VA (Data Integrity) ──
+
+  - id: "GUARD_VA_IMPOSSIBLE"
+    check: "data_integrity"
+    condition:
+      va_logmar_max: -0.4
+    severity: "error"
+    message_ar: "⛔ قيمة VA غير منطقية (LogMAR < -0.3) — أعد التحقق من القياس"
+    message_en: "VA value impossible (LogMAR < -0.3) — recheck measurement"
+
+  - id: "GUARD_AGE_IMPOSSIBLE"
+    check: "data_integrity"
+    condition:
+      patient_age_range: { min: 0, max: 150 }
+      outside_range: true
+    severity: "error"
+    message_ar: "⛔ عمر المريض خارج النطاق المنطقي (0-150)"
+    message_en: "Patient age outside logical range (0-150)"
+
+  # ── تناقضات المعدات (Equipment) ──
+
+  - id: "GUARD_MBFT_NO_EQUIP"
+    check: "equipment_availability"
+    condition:
+      technique_id: "COMP_MBFT_01"
+      required_equipment: ["MAIA", "MP-3"]
+      equipment_available: false
+    severity: "error"
+    message_ar: "⛔ MBFT يتطلب جهاز MAIA أو MP-3 — غير متوفر حالياً"
+    message_en: "MBFT requires MAIA or MP-3 microperimetry — not currently available"
