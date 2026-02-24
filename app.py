@@ -204,7 +204,55 @@ CUSTOM_CSS = """
 html, body, .stApp, [class*="css"] {
     font-family: 'Cairo', 'Tajawal', -apple-system, sans-serif !important; direction: rtl;
 }
-.stApp { background: var(--bg) !important; }
+.stApp {
+    background: var(--bg) !important;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* ── Animated Background ── */
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background:
+        radial-gradient(ellipse at 20% 50%, rgba(46,139,192,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(11,132,87,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(30,58,95,0.04) 0%, transparent 50%);
+    animation: bgDrift 20s ease-in-out infinite alternate;
+    z-index: 0;
+    pointer-events: none;
+}
+@keyframes bgDrift {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    33%  { transform: translate(2%, -1%) rotate(1deg); }
+    66%  { transform: translate(-1%, 2%) rotate(-0.5deg); }
+    100% { transform: translate(1%, -2%) rotate(0.5deg); }
+}
+
+/* ── Floating Particles ── */
+.stApp::after {
+    content: '';
+    position: fixed;
+    width: 100%; height: 100%;
+    top: 0; left: 0;
+    background-image:
+        radial-gradient(2px 2px at 10% 20%, rgba(46,139,192,0.15) 50%, transparent 50%),
+        radial-gradient(2px 2px at 30% 70%, rgba(11,132,87,0.12) 50%, transparent 50%),
+        radial-gradient(3px 3px at 60% 30%, rgba(30,58,95,0.1) 50%, transparent 50%),
+        radial-gradient(2px 2px at 80% 60%, rgba(46,139,192,0.12) 50%, transparent 50%),
+        radial-gradient(2px 2px at 50% 90%, rgba(11,132,87,0.1) 50%, transparent 50%),
+        radial-gradient(3px 3px at 90% 10%, rgba(30,58,95,0.08) 50%, transparent 50%);
+    animation: particleFloat 30s linear infinite;
+    z-index: 0;
+    pointer-events: none;
+}
+@keyframes particleFloat {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-100vh); }
+}
+
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
 
@@ -407,15 +455,286 @@ html, body, .stApp, [class*="css"] {
 .alert-success { background: #F0FFF4; border: 1px solid #9AE6B4; color: #22543D; }
 .alert-danger { background: #FFF5F5; border: 1px solid #FEB2B2; color: #742A2A; }
 
-/* SCROLLBAR, EXPANDER, RESPONSIVE */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+/* ── Glassmorphism Cards ── */
+.glass-card {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow), 0 0 40px rgba(46,139,192,0.04);
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-card:hover {
+    box-shadow: var(--shadow-lg), 0 0 60px rgba(46,139,192,0.08);
+    transform: translateY(-3px);
+    border-color: rgba(46,139,192,0.2);
+}
+
+/* ── Enhanced Patient Cards ── */
+.patient-card {
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 2px solid transparent;
+    border-image: linear-gradient(135deg, var(--border) 0%, rgba(46,139,192,0.15) 100%) 1;
+    border-image-slice: 1;
+    border-radius: var(--radius); border-image: none;
+    border: 2px solid var(--border);
+    padding: 20px; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+}
+.patient-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--secondary), var(--accent), var(--secondary));
+    opacity: 0; transition: opacity 0.3s;
+}
+.patient-card:hover { border-color: var(--secondary-light); box-shadow: var(--shadow-md), 0 4px 30px rgba(46,139,192,0.1); transform: translateY(-4px); }
+.patient-card:hover::before { opacity: 1; }
+.patient-card-name { font-size: 17px; font-weight: 800; color: var(--primary); margin: 0 0 8px; letter-spacing: -0.3px; }
+.patient-card-dx { font-size: 12px; color: var(--text-sub); margin: 0 0 6px; line-height: 1.5; }
+.patient-card-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
+
+/* ── Enhanced Patient Header ── */
+.patient-header {
+    background: linear-gradient(135deg, #1E3A5F 0%, #2A5F8C 40%, #1A7A58 100%);
+    border-radius: var(--radius-lg); padding: 22px 28px; margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: var(--shadow-md), 0 4px 30px rgba(30,58,95,0.2); color: white;
+    position: relative; overflow: hidden;
+}
+.patient-header::before {
+    content: ''; position: absolute; top: -50%; right: -20%; width: 60%; height: 200%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.06) 0%, transparent 70%);
+    animation: headerShine 6s ease-in-out infinite alternate;
+}
+@keyframes headerShine {
+    0% { transform: translateX(-20%); } 100% { transform: translateX(20%); }
+}
+.patient-header .ph-name { font-size: 19px; font-weight: 800; margin: 0; position: relative; z-index: 1; }
+.patient-header .ph-meta { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 6px; position: relative; z-index: 1; }
+.patient-header .ph-badges { display: flex; gap: 6px; position: relative; z-index: 1; }
+
+/* ── Workflow Progress Bar ── */
+.workflow-progress {
+    display: flex; gap: 4px; padding: 12px 20px; margin-bottom: 16px;
+    background: rgba(255,255,255,0.7); backdrop-filter: blur(8px);
+    border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+}
+.workflow-step {
+    flex: 1; text-align: center; padding: 8px 4px; border-radius: var(--radius-sm);
+    font-size: 10px; font-weight: 600; color: var(--text-muted); transition: all 0.3s;
+    position: relative;
+}
+.workflow-step.active {
+    background: linear-gradient(135deg, rgba(46,139,192,0.12), rgba(11,132,87,0.08));
+    color: var(--primary); box-shadow: 0 2px 8px rgba(46,139,192,0.12);
+}
+.workflow-step.done {
+    background: rgba(16,185,129,0.08); color: var(--accent);
+}
+.workflow-step-icon { font-size: 18px; display: block; margin-bottom: 4px; }
+.workflow-step-label { display: block; }
+.workflow-step-connector {
+    position: absolute; top: 50%; left: -8px; width: 12px; height: 2px;
+    background: var(--border);
+}
+.workflow-step.done .workflow-step-connector { background: var(--accent); }
+
+/* ── Metric Cards ── */
+.metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.metric-card {
+    background: rgba(255,255,255,0.8); backdrop-filter: blur(8px);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 14px;
+    text-align: center; transition: all 0.3s; position: relative; overflow: hidden;
+}
+.metric-card::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--secondary), var(--accent));
+    opacity: 0.5; transition: opacity 0.3s;
+}
+.metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.metric-card:hover::after { opacity: 1; }
+.metric-num { font-size: 28px; font-weight: 900; color: var(--primary); line-height: 1; display: block; }
+.metric-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 6px; display: block; }
+
+/* ── Quick Actions ── */
+.quick-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.quick-action-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+    background: rgba(255,255,255,0.8); border: 1px solid var(--border);
+    border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--text-sub);
+    cursor: pointer; transition: all 0.25s; text-decoration: none;
+}
+.quick-action-btn:hover {
+    background: linear-gradient(135deg, rgba(46,139,192,0.08), rgba(11,132,87,0.06));
+    border-color: var(--secondary); color: var(--primary); transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(46,139,192,0.1);
+}
+
+/* ── Enhanced Tabs ── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px !important; background: rgba(255,255,255,0.5) !important;
+    padding: 4px !important; border-radius: var(--radius) !important;
+    border: 1px solid var(--border) !important;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: var(--radius-sm) !important; font-family: 'Cairo', sans-serif !important;
+    font-size: 13px !important; font-weight: 600 !important; padding: 8px 12px !important;
+    color: var(--text-muted) !important; transition: all 0.25s !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    background: rgba(46,139,192,0.06) !important; color: var(--primary) !important;
+}
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, rgba(46,139,192,0.12), rgba(11,132,87,0.08)) !important;
+    color: var(--primary) !important; box-shadow: 0 2px 8px rgba(46,139,192,0.1) !important;
+}
+.stTabs [data-baseweb="tab-highlight"] {
+    background: linear-gradient(90deg, var(--secondary), var(--accent)) !important;
+    height: 3px !important; border-radius: 2px !important;
+}
+.stTabs [data-baseweb="tab-border"] { display: none !important; }
+
+/* ── Enhanced Buttons ── */
+.stButton > button[kind="primary"], .stButton > button[data-testid*="primary"] {
+    font-family: 'Cairo', sans-serif !important;
+    background: linear-gradient(135deg, #1E3A5F 0%, #2E5B8C 100%) !important;
+    color: white !important; border: none !important;
+    border-radius: var(--radius) !important; font-weight: 700 !important;
+    padding: 8px 20px !important; box-shadow: 0 4px 15px rgba(30,58,95,0.3) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #2E5B8C 0%, #3A79B8 100%) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(30,58,95,0.4) !important;
+}
+.stButton > button:not([kind="primary"]) {
+    font-family: 'Cairo', sans-serif !important; border-radius: var(--radius-sm) !important;
+    transition: all 0.25s !important; font-weight: 600 !important;
+}
+.stButton > button:not([kind="primary"]):hover { transform: translateY(-1px) !important; }
+
+/* ── Enhanced Form Inputs ── */
+.stTextInput > div > div, .stNumberInput > div > div, .stSelectbox > div > div {
+    border-radius: var(--radius-sm) !important;
+    border-color: var(--border) !important;
+    transition: all 0.25s !important;
+    font-family: 'Cairo', sans-serif !important;
+}
+.stTextInput > div > div:focus-within, .stNumberInput > div > div:focus-within,
+.stSelectbox > div > div:focus-within {
+    border-color: var(--secondary) !important;
+    box-shadow: 0 0 0 3px rgba(46,139,192,0.1) !important;
+}
+
+/* ── Enhanced Expanders ── */
+[data-testid="stExpander"] {
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    background: rgba(255,255,255,0.8) !important;
+    backdrop-filter: blur(6px) !important;
+    box-shadow: var(--shadow-sm) !important;
+    transition: all 0.3s !important;
+}
+[data-testid="stExpander"]:hover {
+    box-shadow: var(--shadow) !important; border-color: rgba(46,139,192,0.15) !important;
+}
+[data-testid="stExpander"] summary {
+    font-family: 'Cairo', sans-serif !important; font-weight: 700 !important;
+}
+
+/* ── Enhanced Note Cards ── */
+.note-card {
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(6px);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
+    transition: all 0.25s; position: relative; overflow: hidden;
+    border-right: 4px solid var(--secondary);
+}
+.note-card:hover { box-shadow: var(--shadow); transform: translateX(-3px); }
+
+/* ── API Status Pulse ── */
+@keyframes statusPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+}
+.badge-green { animation: statusPulse 2s infinite; }
+
+/* ── Activity Timeline ── */
+.activity-item {
+    display: flex; align-items: flex-start; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid rgba(226,232,240,0.5); position: relative;
+}
+.activity-item::before {
+    content: ''; position: absolute; right: 5px; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(to bottom, var(--secondary), transparent);
+}
+.activity-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+    background: var(--secondary); box-shadow: 0 0 0 3px rgba(46,139,192,0.15);
+}
+.activity-content { flex: 1; }
+.activity-type { font-size: 11px; font-weight: 700; color: var(--primary); }
+.activity-desc { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+.activity-time { font-size: 10px; color: var(--text-muted); }
+
+/* ── Info Section ── */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.info-item {
+    padding: 10px 14px; background: rgba(238,242,247,0.6); border-radius: var(--radius-sm);
+    border: 1px solid rgba(226,232,240,0.5);
+}
+.info-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.info-value { font-size: 14px; font-weight: 600; color: var(--primary); margin-top: 2px; }
+
+/* ── Page Header Enhanced ── */
+.page-header {
+    background: linear-gradient(135deg, #1E3A5F 0%, #2A6496 40%, #1A7A58 80%, #0B8457 100%);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    padding: 28px 34px 24px; margin: 0 -24px 28px; display: flex;
+    align-items: center; justify-content: space-between;
+    box-shadow: var(--shadow-lg), 0 6px 40px rgba(30,58,95,0.15);
+    position: relative; overflow: hidden;
+}
+.page-header::before {
+    content: ''; position: absolute; top: -50%; right: -30%; width: 80%; height: 200%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 60%);
+    animation: headerShine 8s ease-in-out infinite alternate;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
-[data-testid="stExpander"] { border: 1px solid var(--border) !important;
-    border-radius: var(--radius-sm) !important; background: white !important; box-shadow: var(--shadow-sm) !important; }
+::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, #CBD5E0, #A0AEC0); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(to bottom, #A0AEC0, #718096); }
+
+/* ── Empty State ── */
+.empty-state {
+    text-align: center; padding: 40px 20px;
+    background: rgba(255,255,255,0.5); border-radius: var(--radius-lg);
+    border: 2px dashed var(--border);
+}
+.empty-state-icon { font-size: 60px; display: block; margin-bottom: 16px; opacity: 0.6; }
+.empty-state-text { color: var(--text-muted); font-size: 14px; }
+
+/* ── Loading Skeleton ── */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.skeleton {
+    background: linear-gradient(90deg, #EEF2F7 25%, #E2E8F0 50%, #EEF2F7 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+}
+
+/* RESPONSIVE */
 @media (max-width: 768px) {
     .bubble { max-width: 92%; } .page-header { padding: 18px 20px; }
     .ph-title { font-size: 16px; } .ph-badges { display: none; }
+    .metric-row { grid-template-columns: repeat(2, 1fr); }
+    .workflow-progress { flex-wrap: wrap; }
+    .info-grid { grid-template-columns: 1fr; }
 }
 </style>
 """
@@ -593,7 +912,9 @@ def render_message(msg: dict):
 # ═══════════════════════════════════════════════════════════════
 
 def render_patient_registry():
-    st.markdown("""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_badge = '<span class="badge badge-green">● API متصل</span>' if api_key else '<span class="badge badge-red">○ API غير متصل</span>'
+    st.markdown(f"""
     <div class="page-header">
         <div class="ph-left">
             <span class="ph-icon">👁️</span>
@@ -603,8 +924,8 @@ def render_patient_registry():
             </div>
         </div>
         <div class="ph-badges">
-            <span class="badge badge-green">● متصل</span>
-            <span class="badge badge-blue">🔬 19 أداة</span>
+            {api_badge}
+            <span class="badge badge-blue">🔬 19 أداة متخصصة</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -621,10 +942,14 @@ def render_patient_registry():
     # Patient cards grid
     patients = st.session_state.patients
     if not patients:
-        st.info("لا يوجد مرضى مسجلون بعد. اضغط على \"إنشاء ملف مريض جديد\" للبدء.")
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">👥</span>
+            <p class="empty-state-text">لا يوجد مرضى مسجلون بعد.<br>اضغط على "إنشاء ملف مريض جديد" للبدء.</p>
+        </div>""", unsafe_allow_html=True)
         return
 
-    st.markdown(f"**عدد المرضى:** {len(patients)}")
+    st.markdown(f'<div style="font-size:13px;color:var(--text-muted);font-weight:600;margin-bottom:12px">إجمالي المرضى: <span style="color:var(--primary);font-weight:800">{len(patients)}</span></div>', unsafe_allow_html=True)
     cols = st.columns(3)
     for i, (pid, p) in enumerate(sorted(patients.items(), key=lambda x: x[1].get("updated_at", ""), reverse=True)):
         with cols[i % 3]:
@@ -710,7 +1035,7 @@ def render_patient_file(patient: dict):
     pid = patient["id"]
 
     # Back button
-    if st.button("→ العودة لسجل المرضى", key="back_to_registry"):
+    if st.button("← العودة لسجل المرضى", key="back_to_registry"):
         st.session_state.current_page = "registry"
         st.session_state.current_patient_id = None
         st.rerun()
@@ -721,15 +1046,23 @@ def render_patient_file(patient: dict):
     va = patient.get("va_logmar")
     va_str = f"{va} LogMAR" if va is not None else "—"
     icd = ", ".join(patient.get("diagnosis_icd10", [])) or "—"
+    age = patient.get("age", "—")
+    pattern = patient.get("vision_pattern", "—") or "—"
+    pattern_map = {
+        "central_scotoma": "عتمة مركزية", "hemianopia": "عمى شقي",
+        "tunnel_vision": "رؤية أنبوبية", "total_blindness": "فقدان كامل",
+        "peripheral_loss": "فقد محيطي", "general_blur": "ضبابية عامة",
+    }
+    pattern_ar = pattern_map.get(pattern, pattern)
 
     st.markdown(f"""
     <div class="patient-header">
         <div>
-            <p class="ph-name">{html.escape(name)}</p>
-            <p class="ph-meta">العمر: {patient.get('age', '—')} · التشخيص: {html.escape(dx)} ({html.escape(icd)}) · VA: {html.escape(str(va_str))}</p>
+            <p class="ph-name">👤 {html.escape(name)}</p>
+            <p class="ph-meta">العمر: {html.escape(str(age))} · التشخيص: {html.escape(dx)} ({html.escape(icd)}) · VA: {html.escape(str(va_str))}</p>
         </div>
         <div class="ph-badges">
-            <span class="badge badge-blue">{html.escape(patient.get('vision_pattern', '—'))}</span>
+            <span class="badge badge-blue">👁️ {html.escape(pattern_ar)}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -761,27 +1094,67 @@ def render_patient_file(patient: dict):
 # ═══════════════════════════════════════════════════════════════
 
 def render_summary_tab(patient: dict):
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("التقييمات", len(patient.get("assessment_results", [])))
-    c2.metric("الجلسات", len(patient.get("intervention_sessions", [])))
-    c3.metric("الملاحظات", len(patient.get("notes", [])))
-    c4.metric("CDSS", len(patient.get("cdss_evaluations", [])))
+    n_assess = len(patient.get("assessment_results", []))
+    n_sessions = len(patient.get("intervention_sessions", []))
+    n_notes = len(patient.get("notes", []))
+    n_cdss = len(patient.get("cdss_evaluations", []))
 
-    st.markdown("### المعلومات الأساسية")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write(f"**التشخيص:** {patient.get('diagnosis_text', '—')}")
-        st.write(f"**ICD-10:** {', '.join(patient.get('diagnosis_icd10', [])) or '—'}")
-        st.write(f"**حدة الإبصار:** {patient.get('va_logmar', '—')} LogMAR")
-        st.write(f"**مجال الرؤية:** {patient.get('visual_field_degrees', '—')} درجة")
-    with col2:
-        st.write(f"**نمط الفقد:** {patient.get('vision_pattern', '—')}")
-        st.write(f"**الحالة الإدراكية:** {patient.get('cognitive_status', '—')}")
-        st.write(f"**الأهداف:** {', '.join(patient.get('functional_goals', [])) or '—'}")
-        st.write(f"**أُنشئ:** {patient.get('created_at', '—')[:10]}")
+    # Workflow progress bar
+    steps = [
+        ("📋", "التسجيل", True),
+        ("🔬", "التقييم", n_assess > 0),
+        ("🏥", "CDSS", n_cdss > 0),
+        ("⚡", "التدخل", n_sessions > 0),
+        ("📄", "التقارير", len(patient.get("documents", [])) > 0),
+    ]
+    steps_html = ""
+    for i, (icon, label, done) in enumerate(steps):
+        cls = "done" if done else ""
+        connector = f'<span class="workflow-step-connector"></span>' if i > 0 else ""
+        steps_html += f"""
+        <div class="workflow-step {cls}">
+            {connector}
+            <span class="workflow-step-icon">{icon}</span>
+            <span class="workflow-step-label">{label}</span>
+        </div>"""
+    st.markdown(f'<div class="workflow-progress">{steps_html}</div>', unsafe_allow_html=True)
+
+    # Metric cards
+    st.markdown(f"""
+    <div class="metric-row">
+        <div class="metric-card"><span class="metric-num">{n_assess}</span><span class="metric-label">التقييمات</span></div>
+        <div class="metric-card"><span class="metric-num">{n_sessions}</span><span class="metric-label">الجلسات</span></div>
+        <div class="metric-card"><span class="metric-num">{n_notes}</span><span class="metric-label">الملاحظات</span></div>
+        <div class="metric-card"><span class="metric-num">{n_cdss}</span><span class="metric-label">تقييمات CDSS</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Patient info grid
+    va_val = patient.get('va_logmar', '—')
+    vf_val = patient.get('visual_field_degrees', '—')
+    cog_map = {"normal": "طبيعي", "mild_impairment": "خفيف", "moderate_impairment": "متوسط", "severe_impairment": "شديد"}
+    cog_val = cog_map.get(patient.get('cognitive_status', 'normal'), '—')
+
+    st.markdown(f"""
+    <div style="margin-top:4px">
+        <div style="font-size:15px;font-weight:800;color:var(--primary);margin-bottom:12px">المعلومات الأساسية</div>
+        <div class="info-grid">
+            <div class="info-item"><div class="info-label">التشخيص</div><div class="info-value">{html.escape(patient.get('diagnosis_text', '—') or '—')}</div></div>
+            <div class="info-item"><div class="info-label">ICD-10</div><div class="info-value">{html.escape(', '.join(patient.get('diagnosis_icd10', [])) or '—')}</div></div>
+            <div class="info-item"><div class="info-label">حدة الإبصار</div><div class="info-value">{html.escape(str(va_val))} LogMAR</div></div>
+            <div class="info-item"><div class="info-label">مجال الرؤية</div><div class="info-value">{html.escape(str(vf_val))} درجة</div></div>
+            <div class="info-item"><div class="info-label">نمط الفقد</div><div class="info-value">{html.escape(patient.get('vision_pattern', '—') or '—')}</div></div>
+            <div class="info-item"><div class="info-label">الحالة الإدراكية</div><div class="info-value">{html.escape(cog_val)}</div></div>
+            <div class="info-item"><div class="info-label">الأهداف</div><div class="info-value">{html.escape(', '.join(patient.get('functional_goals', [])) or '—')}</div></div>
+            <div class="info-item"><div class="info-label">تاريخ الإنشاء</div><div class="info-value">{html.escape(patient.get('created_at', '—')[:10])}</div></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("")
 
     # AI Summary button
-    if st.button("🤖 توليد ملخص AI للمريض", key="ai_summary"):
+    if st.button("🤖 توليد ملخص AI للمريض", key="ai_summary", type="primary"):
         with st.spinner("يحلل بيانات المريض..."):
             prompt = (
                 f"لخّص حالة هذا المريض سريرياً واقترح الخطوات التالية:\n"
@@ -794,20 +1167,42 @@ def render_summary_tab(patient: dict):
             result = chat_with_patient_context(prompt, patient)
             st.markdown(result["text"])
 
-    # Recent activity
+    # Recent activity timeline
     all_activities = []
+    type_icons = {"ملاحظة": "📝", "تقييم": "🔬", "جلسة": "⚡", "CDSS": "🏥", "وثيقة": "📄"}
+    type_colors = {"ملاحظة": "#2E8BC0", "تقييم": "#7C3AED", "جلسة": "#0B8457", "CDSS": "#D97706", "وثيقة": "#DC2626"}
     for n in patient.get("notes", []):
         all_activities.append({"time": n.get("timestamp", ""), "type": "ملاحظة", "desc": n.get("content", "")[:60]})
     for a in patient.get("assessment_results", []):
         all_activities.append({"time": a.get("timestamp", ""), "type": "تقييم", "desc": a.get("type", "")})
     for s in patient.get("intervention_sessions", []):
         all_activities.append({"time": s.get("timestamp", ""), "type": "جلسة", "desc": s.get("type", "")})
+    for c in patient.get("cdss_evaluations", []):
+        all_activities.append({"time": c.get("timestamp", ""), "type": "CDSS", "desc": "تقييم CDSS"})
+    for d in patient.get("documents", []):
+        all_activities.append({"time": d.get("timestamp", ""), "type": "وثيقة", "desc": d.get("type", "")})
 
     if all_activities:
         all_activities.sort(key=lambda x: x["time"], reverse=True)
-        st.markdown("### آخر الأنشطة")
-        for act in all_activities[:5]:
-            st.write(f"- **{act['type']}** ({act['time'][:16]}): {act['desc']}")
+        st.markdown('<div style="font-size:15px;font-weight:800;color:var(--primary);margin:20px 0 12px">آخر الأنشطة</div>', unsafe_allow_html=True)
+        for act in all_activities[:6]:
+            icon = type_icons.get(act["type"], "📌")
+            color = type_colors.get(act["type"], "#718096")
+            st.markdown(f"""
+            <div class="activity-item">
+                <div class="activity-dot" style="background:{color}"></div>
+                <div class="activity-content">
+                    <span class="activity-type">{icon} {html.escape(act['type'])}</span>
+                    <div class="activity-desc">{html.escape(act['desc'])}</div>
+                </div>
+                <span class="activity-time">{html.escape(act['time'][:16])}</span>
+            </div>""", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">📊</span>
+            <p class="empty-state-text">لا توجد أنشطة بعد. ابدأ بإجراء تقييم أو إضافة ملاحظة.</p>
+        </div>""", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -822,24 +1217,33 @@ def render_chat_tab(patient: dict):
     chat_area = st.container()
     with chat_area:
         if not chat_history:
-            st.markdown("""
+            name_display = patient.get("name", "المريض")
+            dx_display = patient.get("diagnosis_text", "")
+            st.markdown(f"""
             <div class="welcome-container">
                 <span class="welcome-emoji">🤖</span>
                 <h2 class="welcome-title">محادثة ذكية مع سياق المريض</h2>
                 <p class="welcome-subtitle">
-                    Claude يعرف بيانات المريض ويمكنه مساعدتك في التقييم والتخطيط العلاجي.
-                    اطرح سؤالك أو اضغط "بدء محادثة" ليبادر Claude بالتحليل.
+                    Claude يعرف بيانات <strong>{html.escape(name_display)}</strong>
+                    {(' — ' + html.escape(dx_display)) if dx_display else ''}
+                    ويمكنه مساعدتك في التقييم والتخطيط العلاجي.
                 </p>
+                <div class="feature-row">
+                    <span class="feature-chip">🔬 تحليل سريري</span>
+                    <span class="feature-chip">📋 خطط علاجية</span>
+                    <span class="feature-chip">📊 تفسير نتائج</span>
+                    <span class="feature-chip">🔭 توصية أجهزة</span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
-            if st.button("🚀 بدء محادثة — تحليل حالة المريض", key="proactive_start"):
+            if st.button("🚀 بدء محادثة — تحليل حالة المريض", key="proactive_start", type="primary"):
                 proactive_msg = f"حلل حالة المريض {patient.get('name', '')} واقترح خطة تأهيل شاملة. بادر بطرح أسئلة لاستكمال أي معلومات ناقصة."
                 _send_chat_message(patient, proactive_msg)
                 st.rerun()
 
             # Example queries
-            st.markdown("**أمثلة:**")
+            st.markdown('<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:12px 0 8px">أمثلة على الأسئلة:</div>', unsafe_allow_html=True)
             cols = st.columns(3)
             for i, (icon, label, tag, query) in enumerate(EXAMPLE_QUERIES[:3]):
                 with cols[i]:
@@ -956,7 +1360,11 @@ def render_notes_tab(patient: dict):
                 st.session_state.patients[pid] = patient
                 st.rerun()
     else:
-        st.info("لا توجد ملاحظات بعد.")
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon">📝</span>
+            <p class="empty-state-text">لا توجد ملاحظات بعد. أضف ملاحظتك الأولى أعلاه.</p>
+        </div>""", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -966,6 +1374,7 @@ def render_notes_tab(patient: dict):
 def render_assessments_tab(patient: dict):
     pid = patient["id"]
     st.markdown("### 🔬 التقييمات السريرية الرقمية")
+    st.caption("أجرِ تقييمات رقمية متخصصة — تُحفظ النتائج تلقائياً في ملف المريض.")
 
     # Previous results
     prev = patient.get("assessment_results", [])
@@ -1158,6 +1567,7 @@ def _render_cdss_result(result: dict):
 def render_interventions_tab(patient: dict):
     pid = patient["id"]
     st.markdown("### ⚡ التدخلات العلاجية الرقمية")
+    st.caption("شغّل جلسات تأهيل رقمية — تُحفظ النتائج تلقائياً في ملف المريض.")
 
     prev = patient.get("intervention_sessions", [])
     if prev:
@@ -1240,6 +1650,7 @@ def _save_intervention(patient: dict, itype: str, result: dict):
 def render_documents_tab(patient: dict):
     pid = patient["id"]
     st.markdown("### 📄 التقارير والوثائق")
+    st.caption("ولّد تقارير سريرية وخطابات إحالة بالذكاء الاصطناعي — تُحفظ تلقائياً.")
 
     prev_docs = patient.get("documents", [])
     if prev_docs:
@@ -1293,10 +1704,10 @@ def render_sidebar():
     with st.sidebar:
         st.markdown("""
         <div class="sb-header">
-            <span class="sb-logo">🏥</span>
+            <span class="sb-logo">👁️</span>
             <h2 class="sb-title">مستشار التأهيل البصري</h2>
             <p class="sb-subtitle">Vision Rehab AI Consultant</p>
-            <div class="sb-model-badge">🤖 Claude Sonnet 4.6</div>
+            <div class="sb-model-badge">🤖 Claude Sonnet 4.6 · Extended Thinking</div>
         </div>
         <div class="sb-body">
         """, unsafe_allow_html=True)
@@ -1304,7 +1715,8 @@ def render_sidebar():
         # API Status
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if api_key:
-            st.markdown('<div style="text-align:center;margin-bottom:12px"><span class="badge badge-green">● API متصل</span></div>', unsafe_allow_html=True)
+            masked = api_key[:8] + "..." + api_key[-4:] if len(api_key) > 12 else "***"
+            st.markdown(f'<div style="text-align:center;margin-bottom:12px"><span class="badge badge-green">● API متصل</span><div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:4px">{html.escape(masked)}</div></div>', unsafe_allow_html=True)
         else:
             st.markdown('<div style="text-align:center;margin-bottom:12px"><span class="badge badge-red">○ API غير متصل</span></div>', unsafe_allow_html=True)
             st.error("⚠️ ANTHROPIC_API_KEY غير موجود!")
