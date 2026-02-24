@@ -1,0 +1,76 @@
+# ═══════════════════════════════════════════════════════════════
+# القواعد الأساسية — Universal Baseline Care
+# ═══════════════════════════════════════════════════════════════
+# هذه القواعد تُطبق على كل مريض ضعف بصر تقريباً
+# (Default Fallback Rules)
+# ═══════════════════════════════════════════════════════════════
+
+rules:
+
+  # ────────────────────────────────────────────────────────
+  # 1. التعديلات البيئية والإضاءة (Universal)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "BASE_ENV_MOD_01"
+    technique: "Environmental & Lighting Modifications"
+    technique_ar: "تعديلات بيئية وإضاءة"
+    category: "baseline"
+    conditions:
+      has_vision_pattern: ["any"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 2.0 }
+    recommendation:
+      action: "تقييم إضاءة مخصص (500-1500 lux حسب الحالة) + تعزيز التباين"
+      protocol: "زيارة منزلية أو تقييم عن بعد + خطة تعديلات"
+      evidence_level: "2a"
+      evidence_refs: ["Campbell 2005 (-41% falls)", "La Grow 2006"]
+      priority: 0
+      justification_template: >
+        تعديلات بيئية أساسية لكل مريض ضعف بصر.
+        Campbell 2005: تقليل السقوط بنسبة 41% مع تعديلات الإضاءة.
+        تشمل: إضاءة مهام، تباين ألوان، إزالة عوائق، علامات لمسية.
+
+  # ────────────────────────────────────────────────────────
+  # 2. الوقاية من السقوط (Fall Prevention)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "BASE_FALL_PREV_01"
+    technique: "Fall Prevention Program"
+    technique_ar: "برنامج الوقاية من السقوط"
+    category: "baseline"
+    conditions:
+      has_vision_pattern: ["any"]
+      observation_loinc_range:
+        "70770-3": { min: 0.5, max: 3.0 }
+      patient_age: { min: 60 }
+      fall_risk_factors: ["fall_history", "balance_issues", "polypharmacy"]
+    recommendation:
+      action: "برنامج وقاية شامل: تعديلات بيئية + تمارين توازن + مراجعة أدوية"
+      protocol: "تقييم أولي + متابعة شهرية لمدة 6 أشهر"
+      evidence_level: "1a"
+      evidence_refs: ["Cochrane Falls Prevention 2018", "Otago Exercise (-35%)"]
+      priority: 1
+      justification_template: >
+        المريض عمره {age} سنة مع ضعف بصر — خطر سقوط مرتفع.
+        Cochrane 2018: التدخل متعدد العوامل يقلل السقوط بـ 24-35%.
+        Otago Exercise Program: تقليل السقوط بنسبة 35%.
+
+  # ────────────────────────────────────────────────────────
+  # 3. التثقيف النفسي والتكيف
+  # ────────────────────────────────────────────────────────
+  - rule_id: "BASE_PSYCH_01"
+    technique: "Psychological Adjustment Support"
+    technique_ar: "دعم التكيف النفسي"
+    category: "baseline"
+    conditions:
+      has_vision_pattern: ["any"]
+      observation_loinc_range:
+        "44261-6": { min: 5, max: 27 }
+    recommendation:
+      action: "تقييم نفسي + دعم التكيف حسب مرحلة كوبلر-روس"
+      protocol: "4-8 جلسات دعم نفسي متخصص في فقد البصر"
+      evidence_level: "2a"
+      evidence_refs: ["Horowitz 2004", "Nollett 2019 RCT"]
+      priority: 2
+      justification_template: >
+        PHQ-9 = {phq9} (يشير إلى {severity}).
+        الدعم النفسي ضروري لتحسين الالتزام ببرنامج التأهيل
+        ونتائج التأهيل. Nollett 2019: تحسن معنوي في جودة الحياة.

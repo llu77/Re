@@ -25,6 +25,7 @@ from tools.perceptual_learning_planner import plan_perceptual_learning
 from tools.environmental_assessment import assess_environment
 from tools.telerehab_session_manager import manage_telerehab_session
 from utils.security import sanitize_patient_input, validate_medical_output
+from cdss import run_cdss_evaluation
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -610,6 +611,69 @@ TOOLS = [
             },
             "required": ["action"]
         }
+    },
+    {
+        "name": "cdss_evaluate",
+        "description": """محرك القرار السريري المتكامل (CDSS) — يقبل بيانات FHIR أو يدوية.
+        يُجري تقييماً سريرياً شاملاً بناءً على قواعد YAML مع:
+        - حواجز أمان (Guardrails): كشف التناقضات قبل التقييم
+        - مبررات (XAI): سبب كل توصية بأرقام المريض الحقيقية
+        - FHIR: يقبل حزم HL7 FHIR R4 مباشرةً من أنظمة المستشفيات
+        - تتبع النتائج: يتعلم من نتائج المريض السابقة
+        input_type: "fhir" | "manual" | "log_outcome" | "get_history"
+        يعمل بالتوازي مع الأدوات الأخرى — استخدمه عند:
+        1. استلام بيانات FHIR من نظام مستشفى
+        2. طلب تقييم شامل مع مبررات تفصيلية
+        3. تسجيل نتيجة تقنية لمريض""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "input_type": {
+                    "type": "string",
+                    "enum": ["fhir", "manual", "log_outcome", "get_history"],
+                    "description": "نوع الإدخال"
+                },
+                "fhir_bundle": {
+                    "type": "object",
+                    "description": "حزمة FHIR R4 Bundle (عند input_type=fhir)"
+                },
+                "patient_data": {
+                    "type": "object",
+                    "description": "بيانات المريض اليدوية (عند input_type=manual)",
+                    "properties": {
+                        "diagnosis": {"type": "string"},
+                        "icd10_codes": {"type": "array", "items": {"type": "string"}},
+                        "vision_pattern": {"type": "string"},
+                        "va_logmar": {"type": "number"},
+                        "va_decimal": {"type": "number"},
+                        "phq9_score": {"type": "number"},
+                        "age": {"type": "number"},
+                        "cognitive_status": {"type": "string"},
+                        "functional_goals": {"type": "array", "items": {"type": "string"}},
+                        "equipment_available": {"type": "array", "items": {"type": "string"}},
+                        "setting": {"type": "string"}
+                    }
+                },
+                "patient_id": {
+                    "type": "string",
+                    "description": "معرف المريض (اختياري، لتتبع النتائج)"
+                },
+                "language": {
+                    "type": "string",
+                    "enum": ["ar", "en"],
+                    "description": "لغة التقرير"
+                },
+                "technique_id": {
+                    "type": "string",
+                    "description": "معرف التقنية (عند input_type=log_outcome)"
+                },
+                "outcome": {
+                    "type": "object",
+                    "description": "نتيجة التقنية (عند input_type=log_outcome)"
+                }
+            },
+            "required": ["input_type"]
+        }
     }
 ]
 
@@ -670,6 +734,9 @@ def execute_tool(tool_name: str, tool_input: dict) -> dict:
 
         elif tool_name == "telerehab_session_manager":
             return manage_telerehab_session(tool_input)
+
+        elif tool_name == "cdss_evaluate":
+            return run_cdss_evaluation(tool_input)
 
         else:
             return {"error": f"أداة غير معروفة: {tool_name}"}

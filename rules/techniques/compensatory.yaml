@@ -1,0 +1,250 @@
+# ═══════════════════════════════════════════════════════════════
+# القواعد السريرية — التقنيات التعويضية (Compensatory Techniques)
+# ═══════════════════════════════════════════════════════════════
+# هذه التقنيات تساعد المريض على التكيف مع الفقد البصري
+# عبر إعادة تدريب الجهاز البصري على استراتيجيات بديلة.
+# ═══════════════════════════════════════════════════════════════
+
+rules:
+
+  # ────────────────────────────────────────────────────────
+  # 1. تدريب الرؤية اللامركزية التقليدي (EVT Traditional)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_EVT_01"
+    technique: "Eccentric Viewing Training (EVT) — Traditional"
+    technique_ar: "تدريب الرؤية اللامركزية التقليدي"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["central_scotoma"]
+      has_condition_icd10: ["H35.30", "H35.31", "H35.32", "H35.51"]
+      exclude_condition_icd10: ["F03.90", "F02.80", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.3, max: 1.5 }
+      cognitive_status: { exclude: ["severe_impairment", "moderate_impairment"] }
+    recommendation:
+      action: "تدريب PRL (Preferred Retinal Locus) لتحسين الإبصار المركزي الوظيفي"
+      protocol: "12-16 جلسة، 45 دقيقة، مرتين أسبوعياً"
+      evidence_level: "2b"
+      evidence_refs: ["Nilsson 2003", "Seiple 2005"]
+      priority: 2
+      justification_template: >
+        المريض لديه فقد مركزي ({diagnosis}) مع VA={va} LogMAR.
+        EVT التقليدي مناسب لتدريب استخدام نقطة تثبيت بديلة (PRL).
+        مستوى الدليل: 2b (دراسات أترابية).
+
+  # ────────────────────────────────────────────────────────
+  # 2. EVT مع Microperimetry Biofeedback (MBFT)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_MBFT_01"
+    technique: "Microperimetry Biofeedback Training (MBFT)"
+    technique_ar: "تدريب التثبيت بالتغذية الراجعة مع Microperimetry"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["central_scotoma"]
+      has_condition_icd10: ["H35.30", "H35.31", "H35.32", "H35.51"]
+      exclude_condition_icd10: ["F03.90", "F02.80", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.5, max: 1.5 }
+      cognitive_status: { exclude: ["severe_impairment", "moderate_impairment"] }
+      equipment_available: ["MAIA", "MP-3"]
+    recommendation:
+      action: "10-12 جلسة MBFT باستخدام Microperimetry مع تثبيت صوتي"
+      protocol: "جلسة أسبوعية، 20-30 دقيقة تدريب فعلي لكل عين"
+      evidence_level: "1b"
+      evidence_refs: ["Vingolo 2018 RCT", "Tarita-Nistor 2014"]
+      priority: 1
+      justification_template: >
+        المريض لديه فقد مركزي ({diagnosis}) مع VA={va} LogMAR.
+        MBFT عبر {equipment} أفضل من EVT التقليدي لأنه يوفر تغذية راجعة
+        فورية لموقع التثبيت. مستوى الدليل: 1b (RCT).
+
+  # ────────────────────────────────────────────────────────
+  # 3. تدريب المسح البصري — طريقة Zihl
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_SCAN_ZIHL_01"
+    technique: "Scanning Training — Zihl Method"
+    technique_ar: "تدريب المسح البصري — طريقة Zihl"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["hemianopia", "hemianopia_right", "hemianopia_left", "quadrantanopia"]
+      has_condition_icd10: ["H53.46", "H53.47", "H53.43"]
+      exclude_condition_icd10: ["F03.90", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 1.3 }
+    recommendation:
+      action: "برنامج مسح بصري منظم (Systematic Scanning Training) لتعويض فقد المجال"
+      protocol: "15-20 جلسة، 45 دقيقة، 3 مرات أسبوعياً"
+      evidence_level: "1a"
+      evidence_refs: ["Pollock 2019 Cochrane", "Zihl 1995"]
+      priority: 1
+      justification_template: >
+        المريض لديه {diagnosis} ({pattern}). تدريب المسح البصري (Zihl)
+        هو المعيار الذهبي لتأهيل عيوب المجال البصري.
+        مستوى الدليل: 1a (Cochrane Systematic Review).
+
+  # ────────────────────────────────────────────────────────
+  # 4. NeuroEyeCoach — تدريب مسح منزلي
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_NEUROEYECOACH_01"
+    technique: "NeuroEyeCoach Home Scanning Training"
+    technique_ar: "تدريب المسح المنزلي — NeuroEyeCoach"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["hemianopia", "hemianopia_right", "hemianopia_left", "quadrantanopia"]
+      has_condition_icd10: ["H53.46", "H53.47", "H53.43"]
+      exclude_condition_icd10: ["F03.90", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 1.0 }
+      setting: ["home", "hybrid", "telerehab"]
+    recommendation:
+      action: "برنامج NeuroEyeCoach المنزلي — 30 دقيقة يومياً لمدة 6 أسابيع"
+      protocol: "تدريب يومي ذاتي مع متابعة أسبوعية"
+      evidence_level: "2a"
+      evidence_refs: ["Aimola 2014", "Lane 2010"]
+      priority: 2
+      justification_template: >
+        المريض لديه {diagnosis} ومناسب للتدريب المنزلي.
+        NeuroEyeCoach يوفر تدريب مسح تفاعلي عبر الكمبيوتر
+        مع نتائج مقاربة للتدريب السريري. مستوى الدليل: 2a.
+
+  # ────────────────────────────────────────────────────────
+  # 5. تدريب المسح السمعي-البصري (AViST)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_AVIST_01"
+    technique: "Audio-Visual Scanning Training (AViST)"
+    technique_ar: "تدريب المسح السمعي-البصري"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["hemianopia", "hemianopia_right", "hemianopia_left"]
+      has_condition_icd10: ["H53.46", "H53.47"]
+      exclude_condition_icd10: ["F03.90", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 1.3 }
+    recommendation:
+      action: "تدريب مسح بدمج المحفزات السمعية والبصرية لتحسين الاكتشاف في الجانب المصاب"
+      protocol: "12 جلسة، 45 دقيقة، 3 مرات أسبوعياً"
+      evidence_level: "2b"
+      evidence_refs: ["Bolognini 2005", "Dundon 2015"]
+      priority: 3
+      justification_template: >
+        المريض لديه {diagnosis}. AViST يستخدم التحفيز السمعي-البصري
+        المتزامن لتعزيز الكشف في الجانب المصاب عبر التكامل الحسي.
+        مستوى الدليل: 2b. خيار تكميلي مع Scanning Training.
+
+  # ────────────────────────────────────────────────────────
+  # 6. تأهيل حركات العين — Convergence
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_OCULO_CONV_01"
+    technique: "Oculomotor Convergence Training"
+    technique_ar: "تدريب التقارب البصري"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["oculomotor_dysfunction"]
+      has_condition_icd10: ["S06.0", "H51.11"]
+      exclude_condition_icd10: ["F03.90"]
+      patient_age: { max: 70 }
+    recommendation:
+      action: "تمارين تقارب (Brock String, Pencil Push-ups, Hart Chart)"
+      protocol: "12-16 جلسة، 30 دقيقة، مرتين أسبوعياً + تمارين منزلية"
+      evidence_level: "1b"
+      evidence_refs: ["CITT 2008 RCT", "Scheiman 2005"]
+      priority: 1
+      justification_template: >
+        المريض لديه خلل حركي عيني ({diagnosis}) مناسب لتدريب التقارب.
+        CITT RCT أثبت فعالية التدريب السريري + المنزلي.
+        مستوى الدليل: 1b.
+
+  # ────────────────────────────────────────────────────────
+  # 7. تأهيل حركات العين — Saccades
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_OCULO_SACC_01"
+    technique: "Saccadic Eye Movement Training"
+    technique_ar: "تدريب حركات العين السريعة (Saccades)"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["oculomotor_dysfunction", "hemianopia"]
+      has_condition_icd10: ["S06.0", "H53.46"]
+      exclude_condition_icd10: ["F03.90"]
+    recommendation:
+      action: "تمارين سرعة ودقة حركات العين (Anti-saccade, Pro-saccade, SART)"
+      protocol: "10-12 جلسة، 30 دقيقة، مرتين أسبوعياً"
+      evidence_level: "2b"
+      evidence_refs: ["Ciuffreda 2007", "Thiagarajan 2014"]
+      priority: 2
+      justification_template: >
+        المريض لديه خلل في حركات العين السريعة بعد {diagnosis}.
+        تدريب Saccades يحسن سرعة ودقة حركات العين.
+        مستوى الدليل: 2b.
+
+  # ────────────────────────────────────────────────────────
+  # 8. علاج التكيف المنشوري (Prism Adaptation)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_PRISM_ADAPT_01"
+    technique: "Prism Adaptation Therapy for Visual Neglect"
+    technique_ar: "علاج التكيف المنشوري للإهمال البصري"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["visual_neglect", "hemianopia"]
+      has_condition_icd10: ["R41.842", "H53.46"]
+      exclude_condition_icd10: ["F03.90"]
+      observation_loinc_range:
+        "70770-3": { min: 0.0, max: 1.5 }
+    recommendation:
+      action: "علاج بنظارات منشورية 10° لتصحيح الإهمال البصري"
+      protocol: "10-14 جلسة، 20 دقيقة تعرض + مهام وظيفية"
+      evidence_level: "1b"
+      evidence_refs: ["Rossetti 1998 Lancet", "Frassinetti 2002"]
+      priority: 1
+      justification_template: >
+        المريض لديه إهمال بصري ({diagnosis}). Prism Adaptation هو
+        العلاج الأول للإهمال البصري بعد السكتة الدماغية.
+        مستوى الدليل: 1b (Lancet RCT).
+
+  # ────────────────────────────────────────────────────────
+  # 9. التعلم الإدراكي — Contrast Detection
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_PL_CONTRAST_01"
+    technique: "Perceptual Learning — Contrast Detection Training"
+    technique_ar: "التعلم الإدراكي — تدريب كشف التباين"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["central_scotoma", "general_reduction"]
+      has_condition_icd10: ["H35.30", "H35.31", "H35.32", "H54.2"]
+      exclude_condition_icd10: ["F03.90", "R41.82"]
+      observation_loinc_range:
+        "70770-3": { min: 0.3, max: 1.3 }
+        "29271-4": { min: 0.5, max: 1.5 }
+      patient_age: { max: 80 }
+    recommendation:
+      action: "40 جلسة تدريب كشف تباين (Gabor patches) لتحسين حساسية التباين"
+      protocol: "جلسة يومية 30 دقيقة لمدة 6-8 أسابيع"
+      evidence_level: "1b"
+      evidence_refs: ["Polat 2004", "Levi 2009"]
+      priority: 2
+      justification_template: >
+        المريض لديه {diagnosis} مع CS={cs} log units (منخفضة).
+        تدريب Gabor patches يحسن CS بـ 0.1-0.3 log units.
+        مستوى الدليل: 1b (RCTs).
+
+  # ────────────────────────────────────────────────────────
+  # 10. التأهيل عن بعد (Telerehab LVR)
+  # ────────────────────────────────────────────────────────
+  - rule_id: "COMP_TELEREHAB_01"
+    technique: "Telerehabilitation for Low Vision"
+    technique_ar: "التأهيل البصري عن بعد"
+    category: "compensatory"
+    conditions:
+      has_vision_pattern: ["central_scotoma", "general_reduction", "hemianopia"]
+      observation_loinc_range:
+        "70770-3": { min: 0.3, max: 1.5 }
+      setting: ["telerehab", "home"]
+    recommendation:
+      action: "برنامج تأهيل بصري عن بعد مكافئ للتأهيل الحضوري"
+      protocol: "8-12 جلسة، 45-60 دقيقة، عبر Zoom/Teams"
+      evidence_level: "1b"
+      evidence_refs: ["Bittner 2024 RCT"]
+      priority: 3
+      justification_template: >
+        المريض مناسب للتأهيل عن بعد ({setting}).
+        Bittner 2024 RCT أثبت تكافؤ النتائج مع التأهيل الحضوري.
+        مستوى الدليل: 1b.
