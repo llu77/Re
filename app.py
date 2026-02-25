@@ -1,6 +1,6 @@
 """
-مستشار التأهيل البصري — واجهة المستخدم (Patient-Centric)
-Vision Rehab AI Consultant — Streamlit UI
+مستشار التأهيل الطبي — واجهة المستخدم (Patient-Centric)
+Medical Rehabilitation AI Consultant — Streamlit UI
 =============================================
 """
 
@@ -14,6 +14,7 @@ import streamlit as st
 from datetime import datetime
 from utils.security import sanitize_patient_input, validate_medical_output
 from rehab_consultant import SYSTEM_PROMPT, TOOLS, execute_tool, extract_text_response
+from orchestrator import RehabOrchestrator
 from cdss import run_cdss_evaluation
 from assessments import run_assessment
 from interventions import run_intervention
@@ -23,8 +24,8 @@ from interventions import run_intervention
 # ═══════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="مستشار التأهيل البصري الذكي",
-    page_icon="👁️",
+    page_title="مستشار التأهيل الطبي الذكي",
+    page_icon="Re",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -36,6 +37,7 @@ st.set_page_config(
 PATIENTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "patients")
 
 ICD10_OPTIONS = {
+    # Vision
     "H35.30": "AMD — تنكس بقعي مرتبط بالعمر",
     "H35.32": "AMD رطبة — Exudative AMD",
     "H53.46": "Hemianopia — عمى شقي",
@@ -49,6 +51,35 @@ ICD10_OPTIONS = {
     "H26.9": "Cataract — كتاراكت",
     "H33.0": "Retinal detachment",
     "E11.3": "Diabetic retinopathy",
+    # Orthopedic
+    "M17.1": "Knee OA — خشونة الركبة",
+    "S72.0": "Femoral neck fracture — كسر عنق الفخذ",
+    "M54.5": "Low back pain — ألم أسفل الظهر",
+    "S83.5": "ACL tear — قطع الرباط الصليبي",
+    "M75.1": "Rotator cuff syndrome — متلازمة الكفة المدورة",
+    "M16.1": "Hip OA — خشونة مفصل الورك",
+    "S42.0": "Clavicle fracture — كسر الترقوة",
+    # Neurological
+    "I63.9": "Stroke — السكتة الدماغية",
+    "S06.9": "TBI — إصابة دماغية رضية",
+    "G35": "Multiple Sclerosis — التصلب المتعدد",
+    "G20": "Parkinson's — باركنسون",
+    "G82.2": "Paraplegia — شلل سفلي",
+    "G81.9": "Hemiplegia — شلل نصفي",
+    "G51.0": "Bell's palsy — شلل الوجه",
+    # Cardiac
+    "I25.1": "CAD — مرض الشرايين التاجية",
+    "I50.9": "Heart failure — فشل القلب",
+    "I21.9": "MI — احتشاء عضلة القلب",
+    # Pulmonary
+    "J44.1": "COPD — انسداد رئوي مزمن",
+    "U07.1": "COVID-19 — كوفيد-19",
+    # Pediatric
+    "G80.9": "Cerebral palsy — شلل دماغي",
+    "Q66.0": "Clubfoot — حنف القدم",
+    # Pain
+    "G89.4": "Chronic pain — ألم مزمن",
+    "M79.7": "Fibromyalgia — فيبروميالجيا",
 }
 
 VISION_PATTERNS = [
@@ -62,27 +93,28 @@ FUNCTIONAL_GOALS = [
 ]
 
 TOOLS_MANIFEST = [
-    ("🎨", "تمارين بصرية SVG", "visual_exercise"),
-    ("🗄️", "قاعدة بيانات المرضى", "patient_database"),
-    ("🔬", "بحث PubMed", "pubmed"),
-    ("🧮", "حسابات بصرية", "calculator"),
-    ("📚", "قاعدة المعرفة", "knowledge_base"),
-    ("📄", "توليد التقارير", "documents"),
-    ("📋", "التقييم الوظيفي", "functional_assessment"),
-    ("🔭", "توصية الأجهزة", "device_recommender"),
-    ("📖", "قراءة عربية", "arabic_reading"),
-    ("💭", "فحص نفسي", "depression_screening"),
-    ("📊", "تتبع النتائج", "outcome_tracker"),
-    ("📨", "الإحالة", "referral"),
-    ("🎯", "توصية التقنيات", "technique_recommender"),
-    ("🧠", "التعلم الإدراكي", "perceptual_learning"),
-    ("🏠", "تقييم البيئة", "environmental_assessment"),
-    ("💻", "جلسة عن بعد", "telerehab"),
-    ("🔍", "جلب مقال", "pubmed_fetch"),
-    ("📐", "خطة تأهيل", "outcome_plan"),
-    ("🏥", "تقييم CDSS", "cdss_evaluate"),
-    ("📈", "تقييمات سريرية", "clinical_assessment"),
-    ("⚡", "تدخلات علاجية", "clinical_intervention"),
+    ("VE", "تمارين بصرية SVG", "visual_exercise"),
+    ("DB", "قاعدة بيانات المرضى", "patient_database"),
+    ("PM", "بحث PubMed", "pubmed"),
+    ("CA", "حسابات بصرية", "calculator"),
+    ("KB", "قاعدة المعرفة", "knowledge_base"),
+    ("DC", "توليد التقارير", "documents"),
+    ("FA", "التقييم الوظيفي", "functional_assessment"),
+    ("DV", "توصية الأجهزة", "device_recommender"),
+    ("AR", "قراءة عربية", "arabic_reading"),
+    ("PS", "فحص نفسي", "depression_screening"),
+    ("OT", "تتبع النتائج", "outcome_tracker"),
+    ("RF", "الإحالة", "referral"),
+    ("TR", "توصية التقنيات", "technique_recommender"),
+    ("PL", "التعلم الإدراكي", "perceptual_learning"),
+    ("EN", "تقييم البيئة", "environmental_assessment"),
+    ("TL", "جلسة عن بعد", "telerehab"),
+    ("FT", "جلب مقال", "pubmed_fetch"),
+    ("RP", "خطة تأهيل", "outcome_plan"),
+    ("CD", "تقييم CDSS", "cdss_evaluate"),
+    ("CL", "تقييمات سريرية", "clinical_assessment"),
+    ("IN", "تدخلات علاجية", "clinical_intervention"),
+    ("TP", "خطة علاجية", "treatment_plan"),
 ]
 
 
@@ -136,7 +168,7 @@ def generate_patient_id() -> tuple:
     counter = _read_counter() + 1
     _write_counter(counter)
     year = datetime.now().strftime("%Y")
-    pid = f"VR-{year}-{counter:04d}"
+    pid = f"MR-{year}-{counter:04d}"
     return pid, counter
 
 
@@ -264,6 +296,13 @@ def new_patient_template(pid: str, file_number: int) -> dict:
         "functional_goals": [], "notes": [], "assessment_results": [],
         "intervention_sessions": [], "cdss_evaluations": [], "documents": [],
         "chat_history": [], "created_at": now, "updated_at": now,
+        "rehabilitation_type": "",
+        "treatment_plans": [],
+        "pain_scores": [],
+        "rom_measurements": [],
+        "strength_measurements": [],
+        "balance_scores": [],
+        "functional_scores": [],
     }
 
 
@@ -893,6 +932,14 @@ def build_patient_system_context(patient: dict) -> str:
         ts = s.get("timestamp", "")[:10]
         recent_sessions += f"  - {stype} ({ts})\n"
 
+    rehab_type = patient.get("rehabilitation_type", "") or "غير محدد"
+    treatment_plans_count = len(patient.get("treatment_plans", []))
+    active_plans = [p for p in patient.get("treatment_plans", []) if p.get("status") == "active"]
+
+    recent_plans = ""
+    for plan in active_plans[-2:]:
+        recent_plans += f"  - {plan.get('plan_title', '')} ({plan.get('rehabilitation_type', '')})\n"
+
     ctx = (
         f"\n\n--- سياق المريض الحالي ---\n"
         f"رقم الملف: {fnum}\n"
@@ -900,6 +947,7 @@ def build_patient_system_context(patient: dict) -> str:
         f"الاسم: {patient.get('name', '')}\n"
         f"العمر: {patient.get('age', '—')}\n"
         f"الجنس: {'ذكر' if patient.get('gender') == 'male' else 'أنثى'}\n"
+        f"نوع التأهيل: {rehab_type}\n"
         f"التشخيص: {patient.get('diagnosis_text', '')} ({icd})\n"
         f"حدة الإبصار: {patient.get('va_logmar', '—')} LogMAR\n"
         f"مجال الرؤية: {patient.get('visual_field_degrees', '—')} درجة\n"
@@ -909,7 +957,8 @@ def build_patient_system_context(patient: dict) -> str:
         f"الأهداف الوظيفية: {goals}\n"
         f"عدد التقييمات: {len(patient.get('assessment_results', []))} | "
         f"عدد الجلسات: {len(patient.get('intervention_sessions', []))} | "
-        f"عدد الملاحظات: {len(patient.get('notes', []))}\n"
+        f"عدد الملاحظات: {len(patient.get('notes', []))} | "
+        f"عدد الخطط العلاجية: {treatment_plans_count}\n"
     )
     if recent_notes:
         ctx += f"آخر الملاحظات:\n{recent_notes}"
@@ -917,32 +966,23 @@ def build_patient_system_context(patient: dict) -> str:
         ctx += f"آخر التقييمات:\n{recent_assess}"
     if recent_sessions:
         ctx += f"آخر الجلسات:\n{recent_sessions}"
+    if recent_plans:
+        ctx += f"الخطط العلاجية النشطة:\n{recent_plans}"
     ctx += (
         f"---\n"
         f"عند الإجابة، استخدم بيانات هذا المريض (ملف #{fnum}) تحديداً.\n"
         f"يمكنك استخدام أداة patient_database للبحث عن مرضى آخرين أو استرجاع بيانات إضافية.\n"
+        f"استخدم أداة record_treatment_plan لحفظ الخطط العلاجية في ملف المريض.\n"
         f"بادر بطرح أسئلة لاستكمال المعلومات الناقصة.\n"
     )
     return ctx
 
 
-def chat_with_patient_context(user_text: str, patient: dict = None, images: list = None) -> dict:
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return {
-            "text": "⚠️ **مفتاح API غير موجود!**\n\nيرجى إضافة `ANTHROPIC_API_KEY` في متغيرات البيئة (Environment Variables) لتفعيل المحادثة مع Claude.",
-            "tool_calls": [], "thinking_used": False,
-        }
+_orchestrator = RehabOrchestrator()
 
-    client = anthropic.Anthropic(api_key=api_key)
-    user_text = sanitize_patient_input(user_text)
 
-    # Build system prompt with patient context
-    system = SYSTEM_PROMPT
-    if patient:
-        system = system + build_patient_system_context(patient)
-
-    # Build messages from chat history
+def _build_api_messages(patient: dict, user_text: str, images: list = None) -> list:
+    """Build API messages from chat history + current message."""
     chat_history = patient.get("chat_history", []) if patient else []
     api_messages = []
     for msg in chat_history:
@@ -951,7 +991,6 @@ def chat_with_patient_context(user_text: str, patient: dict = None, images: list
         else:
             api_messages.append({"role": "assistant", "content": [{"type": "text", "text": msg["content"]}]})
 
-    # Current message
     current_content = []
     if images:
         for img in images:
@@ -961,65 +1000,79 @@ def chat_with_patient_context(user_text: str, patient: dict = None, images: list
             })
     current_content.append({"type": "text", "text": user_text})
     api_messages.append({"role": "user", "content": current_content})
+    return api_messages
 
-    api_params = {
-        "model": "claude-sonnet-4-6",
-        "max_tokens": 16384,
-        "system": system,
-        "tools": TOOLS,
-        "messages": api_messages,
-    }
-    if st.session_state.use_thinking:
-        api_params["thinking"] = {
-            "type": "enabled",
-            "budget_tokens": st.session_state.thinking_budget,
+
+def chat_with_patient_context(user_text: str, patient: dict = None, images: list = None) -> dict:
+    """Synchronous chat (used for non-streaming contexts like AI summary)."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {
+            "text": "[تنبيه] **مفتاح API غير موجود!**\n\nيرجى إضافة `ANTHROPIC_API_KEY` في متغيرات البيئة.",
+            "tool_calls": [], "thinking_used": False,
         }
 
-    tool_calls_log = []
-    max_iterations = 20
-    iteration = 0
+    user_text = sanitize_patient_input(user_text)
+    system = SYSTEM_PROMPT
+    if patient:
+        system = system + build_patient_system_context(patient)
 
-    while iteration < max_iterations:
-        iteration += 1
-        try:
-            response = client.messages.create(**api_params)
-        except anthropic.AuthenticationError:
-            return {"text": "⚠️ **خطأ في المصادقة:** مفتاح API غير صالح. تحقق من ANTHROPIC_API_KEY.", "tool_calls": [], "thinking_used": False}
-        except anthropic.APIConnectionError:
-            return {"text": "⚠️ **خطأ في الاتصال:** تحقق من اتصالك بالإنترنت.", "tool_calls": [], "thinking_used": False}
-        except anthropic.RateLimitError:
-            return {"text": "⚠️ **تجاوز حد الاستخدام:** يرجى الانتظار قليلاً ثم إعادة المحاولة.", "tool_calls": [], "thinking_used": False}
+    api_messages = _build_api_messages(patient, user_text, images)
 
-        if response.stop_reason == "end_turn":
-            result_text = extract_text_response(response)
-            return {"text": validate_medical_output(result_text), "tool_calls": tool_calls_log, "thinking_used": st.session_state.use_thinking}
+    try:
+        return _orchestrator.execute(
+            message=user_text,
+            patient=patient,
+            messages=api_messages,
+            system=system,
+            images=images,
+            stream=False,
+            thinking_budget=st.session_state.thinking_budget,
+            use_thinking=st.session_state.use_thinking,
+        )
+    except anthropic.AuthenticationError:
+        return {"text": "[تنبيه] **خطأ في المصادقة:** مفتاح API غير صالح.", "tool_calls": [], "thinking_used": False}
+    except anthropic.APIConnectionError:
+        return {"text": "[تنبيه] **خطأ في الاتصال:** تحقق من اتصالك بالإنترنت.", "tool_calls": [], "thinking_used": False}
+    except anthropic.RateLimitError:
+        return {"text": "[تنبيه] **تجاوز حد الاستخدام:** يرجى الانتظار.", "tool_calls": [], "thinking_used": False}
 
-        if response.stop_reason == "tool_use":
-            api_params["messages"].append({"role": "assistant", "content": response.content})
-            tool_results = []
-            for block in response.content:
-                if hasattr(block, "type") and block.type == "tool_use":
-                    result = execute_tool(block.name, block.input)
-                    log_entry = {"name": block.name, "input_preview": str(block.input)[:120]}
-                    # حفظ بيانات SVG للتمارين البصرية لعرضها في المحادثة
-                    if block.name == "generate_visual_exercise" and isinstance(result, dict) and "svg" in result:
-                        log_entry["svg_data"] = result["svg"]
-                        log_entry["svg_title"] = result.get("title", "تمرين بصري")
-                        log_entry["svg_instructions"] = result.get("instructions", "")
-                        log_entry["svg_duration"] = result.get("duration_minutes", 10)
-                        log_entry["svg_reps"] = result.get("repetitions", 3)
-                        log_entry["svg_evidence"] = result.get("evidence_level", "B")
-                    tool_calls_log.append(log_entry)
-                    tool_results.append({
-                        "type": "tool_result", "tool_use_id": block.id,
-                        "content": json.dumps(result, ensure_ascii=False),
-                    })
-            api_params["messages"].append({"role": "user", "content": tool_results})
-        else:
-            result_text = extract_text_response(response)
-            return {"text": validate_medical_output(result_text), "tool_calls": tool_calls_log, "thinking_used": False}
 
-    return {"text": "⚠️ تم الوصول للحد الأقصى من التكرارات.", "tool_calls": tool_calls_log, "thinking_used": False}
+def chat_with_patient_context_stream(user_text: str, patient: dict = None,
+                                     images: list = None, placeholder=None) -> dict:
+    """Streaming chat — tokens appear word-by-word in the placeholder."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {
+            "text": "[تنبيه] **مفتاح API غير موجود!**",
+            "tool_calls": [], "thinking_used": False,
+        }
+
+    user_text = sanitize_patient_input(user_text)
+    system = SYSTEM_PROMPT
+    if patient:
+        system = system + build_patient_system_context(patient)
+
+    api_messages = _build_api_messages(patient, user_text, images)
+
+    try:
+        return _orchestrator.execute(
+            message=user_text,
+            patient=patient,
+            messages=api_messages,
+            system=system,
+            images=images,
+            stream=True,
+            placeholder=placeholder,
+            thinking_budget=st.session_state.thinking_budget,
+            use_thinking=st.session_state.use_thinking,
+        )
+    except anthropic.AuthenticationError:
+        return {"text": "[تنبيه] **خطأ في المصادقة:** مفتاح API غير صالح.", "tool_calls": [], "thinking_used": False}
+    except anthropic.APIConnectionError:
+        return {"text": "[تنبيه] **خطأ في الاتصال:** تحقق من اتصالك بالإنترنت.", "tool_calls": [], "thinking_used": False}
+    except anthropic.RateLimitError:
+        return {"text": "[تنبيه] **تجاوز حد الاستخدام:** يرجى الانتظار.", "tool_calls": [], "thinking_used": False}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1040,7 +1093,7 @@ def render_tool_calls(tool_calls: list):
     for tc in tool_calls:
         st.markdown(f"""
         <div class="tool-call-card">
-            <div class="tool-call-header">⚙️ استخدام أداة</div>
+            <div class="tool-call-header">استخدام أداة</div>
             <span class="tool-call-name">{html.escape(tool_display_name(tc['name']))}</span>
             <div style="color:#78350F;font-size:10px;margin-top:4px;font-family:monospace;opacity:0.7">
                 {html.escape(tc.get('input_preview', ''))}
@@ -1059,7 +1112,7 @@ def render_message(msg: dict):
             return
         st.markdown(f"""
         <div class="msg-user">
-            <div class="avatar avatar-user">👤</div>
+            <div class="avatar avatar-user">M</div>
             <div>
                 <div class="bubble bubble-user">{html.escape(content)}</div>
                 <div class="bubble-footer">{html.escape(ts)}</div>
@@ -1075,7 +1128,7 @@ def render_message(msg: dict):
 
         col_av, col_bub = st.columns([0.06, 0.94])
         with col_av:
-            st.markdown('<div class="avatar avatar-ai" style="margin-top:4px">🤖</div>', unsafe_allow_html=True)
+            st.markdown('<div class="avatar avatar-ai" style="margin-top:4px;font-size:12px;font-weight:800;color:white">Re</div>', unsafe_allow_html=True)
         with col_bub:
             st.markdown('<div class="bubble bubble-ai" style="max-width:100%">', unsafe_allow_html=True)
             st.markdown(content)
@@ -1088,12 +1141,12 @@ def render_message(msg: dict):
                 ev_badge = f'<span style="background:rgba(11,132,87,0.2);color:#10A567;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">مستوى الدليل: {html.escape(ev)}</span>' if ev else ""
                 st.markdown(f"""
                 <div class="visual-exercise-card">
-                    <div class="ve-header">🎯 {html.escape(tc.get("svg_title", "تمرين بصري"))}</div>
+                    <div class="ve-header">{html.escape(tc.get("svg_title", "تمرين بصري"))}</div>
                     <div class="ve-instructions">{html.escape(tc.get("svg_instructions", ""))}</div>
                     <div class="ve-svg">{tc["svg_data"]}</div>
                     <div class="ve-footer">
-                        <span>⏱ {tc.get("svg_duration", 10)} دقيقة</span>
-                        <span>🔁 {tc.get("svg_reps", 3)} مرات</span>
+                        <span>{tc.get("svg_duration", 10)} دقيقة</span>
+                        <span>{tc.get("svg_reps", 3)} مرات</span>
                         {ev_badge}
                     </div>
                 </div>
@@ -1110,22 +1163,22 @@ def render_patient_registry():
     st.markdown(f"""
     <div class="page-header">
         <div class="ph-left">
-            <span class="ph-icon">👁️</span>
+            <span class="ph-icon" style="font-size:28px;font-weight:900;color:white">Re</span>
             <div>
-                <h1 class="ph-title">مستشار التأهيل البصري الذكي</h1>
-                <p class="ph-sub">Vision Rehabilitation AI Consultant · Claude Sonnet 4.6</p>
+                <h1 class="ph-title">مستشار التأهيل الطبي الذكي</h1>
+                <p class="ph-sub">Medical Rehabilitation AI Consultant · Claude Sonnet 4.6</p>
             </div>
         </div>
         <div class="ph-badges">
             {api_badge}
-            <span class="badge badge-blue">🔬 21 أداة متخصصة</span>
+            <span class="badge badge-blue">22 أداة متخصصة</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("## 📋 سجل المرضى")
+    st.markdown("## سجل المرضى")
 
-    if st.button("➕ إنشاء ملف مريض جديد", type="primary", key="new_patient_btn"):
+    if st.button("+ إنشاء ملف مريض جديد", type="primary", key="new_patient_btn"):
         st.session_state.show_new_patient_form = True
 
     # New patient form
@@ -1137,7 +1190,7 @@ def render_patient_registry():
     if not patients:
         st.markdown("""
         <div class="empty-state">
-            <span class="empty-state-icon">👥</span>
+            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا يوجد مرضى مسجلون بعد.<br>اضغط على "إنشاء ملف مريض جديد" للبدء.</p>
         </div>""", unsafe_allow_html=True)
         return
@@ -1177,8 +1230,24 @@ def render_patient_registry():
                     st.rerun()
 
 
+REHAB_TYPES = {
+    "": "-- اختر نوع التأهيل --",
+    "musculoskeletal": "عضلي هيكلي",
+    "neurological": "عصبي",
+    "cardiopulmonary": "قلبي رئوي",
+    "vision": "بصري",
+    "pediatric": "أطفال",
+    "geriatric": "كبار السن",
+    "pain": "إدارة الألم",
+    "psychosocial": "نفسي اجتماعي",
+}
+
+
 def render_new_patient_form():
-    with st.expander("📝 بيانات المريض الجديد", expanded=True):
+    with st.expander("بيانات المريض الجديد", expanded=True):
+        rehab_type = st.selectbox("نوع التأهيل", list(REHAB_TYPES.keys()),
+            format_func=lambda x: REHAB_TYPES[x], key="np_rehab_type")
+
         col1, col2 = st.columns(2)
         with col1:
             name = st.text_input("اسم المريض (عربي)", key="np_name")
@@ -1199,7 +1268,7 @@ def render_new_patient_form():
 
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("💾 حفظ وفتح الملف", type="primary", key="save_np"):
+            if st.button("حفظ وفتح الملف", type="primary", key="save_np"):
                 if not name.strip():
                     st.error("يرجى إدخال اسم المريض")
                     return
@@ -1207,6 +1276,7 @@ def render_new_patient_form():
                 patient = new_patient_template(pid, file_number)
                 patient.update({
                     "name": name.strip(), "age": int(age), "gender": gender,
+                    "rehabilitation_type": rehab_type,
                     "diagnosis_icd10": icd10,
                     "diagnosis_text": ", ".join(ICD10_OPTIONS.get(c, c) for c in icd10),
                     "va_logmar": float(va), "vision_pattern": pattern,
@@ -1259,20 +1329,20 @@ def render_patient_file(patient: dict):
     st.markdown(f"""
     <div class="patient-header">
         <div>
-            <p class="ph-name">👤 {html.escape(name)}</p>
+            <p class="ph-name">{html.escape(name)}</p>
             <p class="ph-meta">ملف {html.escape(str(fnum_display))} · العمر: {html.escape(str(age))} · التشخيص: {html.escape(dx)} ({html.escape(icd)}) · VA: {html.escape(str(va_str))}</p>
         </div>
         <div class="ph-badges">
             <span class="badge badge-green" style="font-size:12px;font-weight:900">{html.escape(str(fnum_display))}</span>
-            <span class="badge badge-blue">👁️ {html.escape(pattern_ar)}</span>
+            <span class="badge badge-blue">{html.escape(pattern_ar)}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     # Tabs
     tab_summary, tab_chat, tab_notes, tab_assess, tab_cdss, tab_intervene, tab_docs = st.tabs([
-        "📊 الملخص", "💬 المحادثة", "📝 الملاحظات",
-        "🔬 التقييمات", "🏥 CDSS", "⚡ التدخلات", "📄 التقارير"
+        "الملخص", "المحادثة", "الملاحظات",
+        "التقييمات", "CDSS", "التدخلات", "التقارير"
     ])
 
     with tab_summary:
@@ -1303,11 +1373,11 @@ def render_summary_tab(patient: dict):
 
     # Workflow progress bar
     steps = [
-        ("📋", "التسجيل", True),
-        ("🔬", "التقييم", n_assess > 0),
-        ("🏥", "CDSS", n_cdss > 0),
-        ("⚡", "التدخل", n_sessions > 0),
-        ("📄", "التقارير", len(patient.get("documents", [])) > 0),
+        ("1", "التسجيل", True),
+        ("2", "التقييم", n_assess > 0),
+        ("3", "CDSS", n_cdss > 0),
+        ("4", "التدخل", n_sessions > 0),
+        ("5", "التقارير", len(patient.get("documents", [])) > 0),
     ]
     steps_html = ""
     for i, (icon, label, done) in enumerate(steps):
@@ -1361,7 +1431,7 @@ def render_summary_tab(patient: dict):
     st.markdown("")
 
     # AI Summary button
-    if st.button("🤖 توليد ملخص AI للمريض", key="ai_summary", type="primary"):
+    if st.button("توليد ملخص AI للمريض", key="ai_summary", type="primary"):
         with st.spinner("يحلل بيانات المريض..."):
             prompt = (
                 f"لخّص حالة هذا المريض سريرياً واقترح الخطوات التالية:\n"
@@ -1376,7 +1446,7 @@ def render_summary_tab(patient: dict):
 
     # Recent activity timeline
     all_activities = []
-    type_icons = {"ملاحظة": "📝", "تقييم": "🔬", "جلسة": "⚡", "CDSS": "🏥", "وثيقة": "📄"}
+    type_icons = {"ملاحظة": "N", "تقييم": "A", "جلسة": "S", "CDSS": "C", "وثيقة": "D"}
     type_colors = {"ملاحظة": "#2E8BC0", "تقييم": "#7C3AED", "جلسة": "#0B8457", "CDSS": "#D97706", "وثيقة": "#DC2626"}
     for n in patient.get("notes", []):
         all_activities.append({"time": n.get("timestamp", ""), "type": "ملاحظة", "desc": n.get("content", "")[:60]})
@@ -1393,7 +1463,7 @@ def render_summary_tab(patient: dict):
         all_activities.sort(key=lambda x: x["time"], reverse=True)
         st.markdown('<div style="font-size:15px;font-weight:800;color:var(--primary);margin:20px 0 12px">آخر الأنشطة</div>', unsafe_allow_html=True)
         for act in all_activities[:6]:
-            icon = type_icons.get(act["type"], "📌")
+            icon = type_icons.get(act["type"], "-")
             color = type_colors.get(act["type"], "#718096")
             st.markdown(f"""
             <div class="activity-item">
@@ -1407,7 +1477,7 @@ def render_summary_tab(patient: dict):
     else:
         st.markdown("""
         <div class="empty-state">
-            <span class="empty-state-icon">📊</span>
+            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا توجد أنشطة بعد. ابدأ بإجراء تقييم أو إضافة ملاحظة.</p>
         </div>""", unsafe_allow_html=True)
 
@@ -1447,7 +1517,7 @@ def render_chat_tab(patient: dict):
     st.markdown('<div class="input-wrapper"><div class="input-card">', unsafe_allow_html=True)
 
     uploaded_file = None
-    show_upload = st.checkbox("📎 إرفاق صورة طبية", value=False, key=f"upload_{pid}")
+    show_upload = st.checkbox("إرفاق صورة طبية", value=False, key=f"upload_{pid}")
     if show_upload:
         uploaded_file = st.file_uploader("ارفع صورة", type=["png", "jpg", "jpeg", "webp"], key=f"file_{pid}", label_visibility="collapsed")
 
@@ -1477,25 +1547,32 @@ def render_chat_tab(patient: dict):
             ext = uploaded_file.name.rsplit(".", 1)[-1].lower()
             media_map = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
             images = [{"media_type": media_map.get(ext, "image/jpeg"), "data": img_b64}]
-        _send_chat_message(patient, user_input.strip(), images)
+        # Show user message immediately + stream response
+        with chat_area:
+            render_message({"role": "user", "content": user_input.strip(), "time": datetime.now().strftime("%H:%M"), "tool_calls": []})
+            stream_placeholder = st.empty()
+        _send_chat_message(patient, user_input.strip(), images, placeholder=stream_placeholder)
         st.rerun()
 
 
-def _send_chat_message(patient: dict, text: str, images: list = None):
+def _send_chat_message(patient: dict, text: str, images: list = None, placeholder=None):
     pid = patient["id"]
     now = datetime.now().strftime("%H:%M")
     patient.setdefault("chat_history", [])
     patient["chat_history"].append({"role": "user", "content": text, "time": now, "tool_calls": []})
 
     try:
-        result = chat_with_patient_context(text, patient, images)
+        if placeholder:
+            result = chat_with_patient_context_stream(text, patient, images, placeholder)
+        else:
+            result = chat_with_patient_context(text, patient, images)
         patient["chat_history"].append({
             "role": "assistant", "content": result["text"],
             "time": datetime.now().strftime("%H:%M"), "tool_calls": result["tool_calls"],
         })
     except Exception as e:
         patient["chat_history"].append({
-            "role": "assistant", "content": f"⚠️ حدث خطأ: {str(e)}",
+            "role": "assistant", "content": f"[تنبيه] حدث خطأ: {str(e)}",
             "time": datetime.now().strftime("%H:%M"), "tool_calls": [],
         })
 
@@ -1509,12 +1586,12 @@ def _send_chat_message(patient: dict, text: str, images: list = None):
 
 def render_notes_tab(patient: dict):
     pid = patient["id"]
-    st.markdown("### 📝 الملاحظات السريرية")
+    st.markdown("### الملاحظات السريرية")
 
     note_type = st.selectbox("نوع الملاحظة", ["ملاحظة عامة", "تقييم", "متابعة", "إحالة"], key=f"nt_{pid}")
     note_content = st.text_area("محتوى الملاحظة", height=100, key=f"nc_{pid}")
 
-    if st.button("➕ إضافة ملاحظة", key=f"add_note_{pid}", type="primary"):
+    if st.button("+ إضافة ملاحظة", key=f"add_note_{pid}", type="primary"):
         if note_content.strip():
             patient.setdefault("notes", [])
             patient["notes"].append({
@@ -1543,7 +1620,7 @@ def render_notes_tab(patient: dict):
                 </div>
                 <div class="note-card-body">{html.escape(note.get('content', ''))}</div>
             </div>""", unsafe_allow_html=True)
-            if st.button("🗑️ حذف", key=f"del_note_{pid}_{idx}"):
+            if st.button("حذف", key=f"del_note_{pid}_{idx}"):
                 patient["notes"].pop(idx)
                 save_patient(patient)
                 st.session_state.patients[pid] = patient
@@ -1551,7 +1628,7 @@ def render_notes_tab(patient: dict):
     else:
         st.markdown("""
         <div class="empty-state">
-            <span class="empty-state-icon">📝</span>
+            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا توجد ملاحظات بعد. أضف ملاحظتك الأولى أعلاه.</p>
         </div>""", unsafe_allow_html=True)
 
@@ -1562,21 +1639,21 @@ def render_notes_tab(patient: dict):
 
 def render_assessments_tab(patient: dict):
     pid = patient["id"]
-    st.markdown("### 🔬 التقييمات السريرية الرقمية")
+    st.markdown("### التقييمات السريرية الرقمية")
     st.caption("أجرِ تقييمات رقمية متخصصة — تُحفظ النتائج تلقائياً في ملف المريض.")
 
     # Previous results
     prev = patient.get("assessment_results", [])
     if prev:
-        with st.expander(f"📊 نتائج سابقة ({len(prev)} تقييم)", expanded=False):
+        with st.expander(f"نتائج سابقة ({len(prev)} تقييم)", expanded=False):
             for a in reversed(prev):
                 st.write(f"**{a.get('type', '')}** — {a.get('timestamp', '')[:16]}")
                 st.json(a.get("result", {}))
                 st.markdown("---")
 
     assess_type = st.selectbox("نوع التقييم", ["fixation", "reading", "visual_search", "contrast"],
-        format_func=lambda x: {"fixation": "👁️ ثبات التثبيت (BCEA)", "reading": "📖 سرعة القراءة (MNREAD)",
-            "visual_search": "🔍 المسح البصري", "contrast": "🎨 حساسية التباين"}.get(x, x), key=f"at_{pid}")
+        format_func=lambda x: {"fixation": "ثبات التثبيت (BCEA)", "reading": "سرعة القراءة (MNREAD)",
+            "visual_search": "المسح البصري", "contrast": "حساسية التباين"}.get(x, x), key=f"at_{pid}")
 
     if assess_type == "fixation":
         st.info("أدخل إحداثيات تتبع العين (X, Y) لجلستين.")
@@ -1651,7 +1728,7 @@ def _save_assessment(patient: dict, atype: str, result: dict):
     patient["assessment_results"].append({"timestamp": datetime.now().isoformat(), "type": atype, "result": result})
     save_patient(patient)
     st.session_state.patients[patient["id"]] = patient
-    st.success("✅ تم حفظ نتيجة التقييم في ملف المريض")
+    st.success("تم حفظ نتيجة التقييم في ملف المريض")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1660,13 +1737,13 @@ def _save_assessment(patient: dict, atype: str, result: dict):
 
 def render_cdss_tab(patient: dict):
     pid = patient["id"]
-    st.markdown("### 🏥 نظام دعم القرار السريري (CDSS)")
+    st.markdown("### نظام دعم القرار السريري (CDSS)")
     st.caption("يُملأ تلقائياً من بيانات المريض. يمكنك تعديل القيم قبل التقييم.")
 
     # Previous evaluations
     prev_cdss = patient.get("cdss_evaluations", [])
     if prev_cdss:
-        with st.expander(f"📊 تقييمات سابقة ({len(prev_cdss)})", expanded=False):
+        with st.expander(f"تقييمات سابقة ({len(prev_cdss)})", expanded=False):
             for ev in reversed(prev_cdss):
                 st.write(f"**{ev.get('timestamp', '')[:16]}**")
                 recs = ev.get("result", {}).get("recommendations", [])
@@ -1690,7 +1767,7 @@ def render_cdss_tab(patient: dict):
 
     language = st.radio("لغة التقرير", ["ar", "en"], horizontal=True, key=f"cdss_lang_{pid}")
 
-    if st.button("🔍 تشغيل تقييم CDSS", type="primary", key=f"cdss_run_{pid}"):
+    if st.button("تشغيل تقييم CDSS", type="primary", key=f"cdss_run_{pid}"):
         icd_list = [c.strip() for c in icd_input.split(",") if c.strip()]
         patient_data = {
             "age": patient.get("age", 60), "active_icd10": icd_list, "vision_patterns": patterns,
@@ -1707,28 +1784,28 @@ def render_cdss_tab(patient: dict):
                 patient["cdss_evaluations"].append({"timestamp": datetime.now().isoformat(), "result": result})
                 save_patient(patient)
                 st.session_state.patients[pid] = patient
-                st.success("✅ تم حفظ نتيجة CDSS في ملف المريض")
+                st.success("تم حفظ نتيجة CDSS في ملف المريض")
             except Exception as e:
                 st.error(f"خطأ: {e}")
 
 
 def _render_cdss_result(result: dict):
     if "error" in result:
-        st.error(f"⛔ {result['error']}")
+        st.error(f"{result['error']}")
         return
 
     for err in result.get("errors", []):
         msg = err.get("message_ar", str(err)) if isinstance(err, dict) else str(err)
-        st.error(f"🔴 {msg}")
+        st.error(msg)
     for warn in result.get("warnings", []):
         msg = warn.get("message_ar", str(warn)) if isinstance(warn, dict) else str(warn)
-        st.warning(f"🟡 {msg}")
+        st.warning(msg)
 
     recs = result.get("recommendations", [])
     c1, c2, c3 = st.columns(3)
     c1.metric("القواعد المُقيَّمة", result.get("total_rules_evaluated", "—"))
     c2.metric("التوصيات", result.get("total_matched", len(recs)))
-    c3.metric("التحقق", "✅ صالح" if result.get("is_valid", True) else "⛔ أخطاء")
+    c3.metric("التحقق", "صالح" if result.get("is_valid", True) else "أخطاء")
 
     report = result.get("clinical_report", "") or result.get("report", "")
     if report:
@@ -1745,7 +1822,7 @@ def _render_cdss_result(result: dict):
 
     audit = result.get("audit_trail", {})
     if audit:
-        with st.expander("🔍 مسار التدقيق"):
+        with st.expander("مسار التدقيق"):
             st.json(audit)
 
 
@@ -1755,20 +1832,20 @@ def _render_cdss_result(result: dict):
 
 def render_interventions_tab(patient: dict):
     pid = patient["id"]
-    st.markdown("### ⚡ التدخلات العلاجية الرقمية")
+    st.markdown("### التدخلات العلاجية الرقمية")
     st.caption("شغّل جلسات تأهيل رقمية — تُحفظ النتائج تلقائياً في ملف المريض.")
 
     prev = patient.get("intervention_sessions", [])
     if prev:
-        with st.expander(f"📊 جلسات سابقة ({len(prev)})", expanded=False):
+        with st.expander(f"جلسات سابقة ({len(prev)})", expanded=False):
             for s in reversed(prev):
                 st.write(f"**{s.get('type', '')}** — {s.get('timestamp', '')[:16]}")
                 st.json(s.get("result", {}))
                 st.markdown("---")
 
     int_type = st.selectbox("نوع التدخل", ["scanning", "perceptual_learning", "device_routing", "visual_augmentation"],
-        format_func=lambda x: {"scanning": "🎯 تدريب المسح البصري", "perceptual_learning": "🧠 التعلم الإدراكي",
-            "device_routing": "🔭 التوجيه الذكي للمعدات", "visual_augmentation": "👓 التعزيز البصري"}.get(x, x),
+        format_func=lambda x: {"scanning": "تدريب المسح البصري", "perceptual_learning": "التعلم الإدراكي",
+            "device_routing": "التوجيه الذكي للمعدات", "visual_augmentation": "التعزيز البصري"}.get(x, x),
         key=f"it_{pid}")
 
     if int_type == "scanning":
@@ -1805,7 +1882,7 @@ def render_interventions_tab(patient: dict):
             result = run_intervention({"intervention_type": "device_routing", "va_logmar": va, "visual_field_degrees": vf,
                 "has_cognitive_decline": cog, "functional_goals": dr_goals, "budget_usd": 5000})
             for w in result.get("guardrail_warnings", []):
-                st.warning(f"⚠️ {w.get('message_ar', w)}")
+                st.warning(f"[تنبيه] {w.get('message_ar', w)}")
             dev = result.get("primary_device")
             if dev:
                 st.success(f"**الجهاز:** {dev['name_ar']} ({dev['name']}) — ${dev['price_usd']}")
@@ -1820,7 +1897,7 @@ def render_interventions_tab(patient: dict):
                 if mode == "environment_analysis":
                     st.write(f"**تحليل البيئة:** إضاءة {data.get('estimated_lux', 'N/A')} لوكس")
                 else:
-                    st.write(f"**{mode}:** تم المعالجة ✅")
+                    st.write(f"**{mode}:** تم المعالجة تم")
             _save_intervention(patient, "visual_augmentation", result)
 
 
@@ -1829,7 +1906,7 @@ def _save_intervention(patient: dict, itype: str, result: dict):
     patient["intervention_sessions"].append({"timestamp": datetime.now().isoformat(), "type": itype, "result": result})
     save_patient(patient)
     st.session_state.patients[patient["id"]] = patient
-    st.success("✅ تم حفظ نتيجة الجلسة في ملف المريض")
+    st.success("تم حفظ نتيجة الجلسة في ملف المريض")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1838,12 +1915,12 @@ def _save_intervention(patient: dict, itype: str, result: dict):
 
 def render_documents_tab(patient: dict):
     pid = patient["id"]
-    st.markdown("### 📄 التقارير والوثائق")
+    st.markdown("### التقارير والوثائق")
     st.caption("ولّد تقارير سريرية وخطابات إحالة بالذكاء الاصطناعي — تُحفظ تلقائياً.")
 
     prev_docs = patient.get("documents", [])
     if prev_docs:
-        with st.expander(f"📁 وثائق سابقة ({len(prev_docs)})", expanded=False):
+        with st.expander(f"وثائق سابقة ({len(prev_docs)})", expanded=False):
             for d in reversed(prev_docs):
                 st.write(f"**{d.get('type', '')}** — {d.get('timestamp', '')[:16]}")
                 st.markdown(d.get("content", ""))
@@ -1855,7 +1932,7 @@ def render_documents_tab(patient: dict):
         specialty = st.selectbox("التخصص", ["ophthalmology", "neurology", "psychiatry", "psychology",
             "pediatrics", "ot", "om", "social_work", "optometry"], key=f"ref_spec_{pid}")
 
-    if st.button(f"🤖 توليد {doc_type}", type="primary", key=f"gen_doc_{pid}"):
+    if st.button(f"توليد {doc_type}", type="primary", key=f"gen_doc_{pid}"):
         with st.spinner("يولد الوثيقة..."):
             if doc_type == "تقرير شامل":
                 prompt = (f"أنشئ تقريراً سريرياً شاملاً لهذا المريض بصيغة SOAP.\n"
@@ -1882,7 +1959,7 @@ def render_documents_tab(patient: dict):
             })
             save_patient(patient)
             st.session_state.patients[pid] = patient
-            st.success("✅ تم حفظ الوثيقة في ملف المريض")
+            st.success("تم حفظ الوثيقة في ملف المريض")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1917,9 +1994,9 @@ def render_sidebar():
                 </circle>
               </svg>
             </div>
-            <h2 class="sb-title">مستشار التأهيل البصري</h2>
-            <p class="sb-subtitle">Vision Rehab AI Consultant</p>
-            <div class="sb-model-badge">🤖 Claude Sonnet 4.6 · Extended Thinking</div>
+            <h2 class="sb-title">مستشار التأهيل الطبي</h2>
+            <p class="sb-subtitle">Medical Rehab AI Consultant</p>
+            <div class="sb-model-badge">Claude Sonnet 4.6 · Extended Thinking</div>
         </div>
         <div class="sb-body">
         """, unsafe_allow_html=True)
@@ -1930,7 +2007,7 @@ def render_sidebar():
             st.markdown('<div style="text-align:center;margin-bottom:12px"><span class="badge badge-green">● API متصل</span></div>', unsafe_allow_html=True)
         else:
             st.markdown('<div style="text-align:center;margin-bottom:12px"><span class="badge badge-red">○ API غير متصل</span></div>', unsafe_allow_html=True)
-            st.error("⚠️ ANTHROPIC_API_KEY غير موجود!")
+            st.error("ANTHROPIC_API_KEY غير موجود!")
 
         # Settings
         st.markdown('<div class="sb-section-label">الإعدادات</div>', unsafe_allow_html=True)
