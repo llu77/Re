@@ -88,9 +88,40 @@ VISION_PATTERNS = [
 ]
 
 FUNCTIONAL_GOALS = [
-    "reading", "face_recognition", "mobility", "driving",
-    "computer_use", "tv_watching", "writing", "ADL",
+    # General / ADL
+    "ADL", "mobility", "transfers", "stair_climbing",
+    "self_care", "dressing", "feeding", "toileting",
+    # Upper extremity
+    "reaching", "gripping", "fine_motor", "writing",
+    # Communication
+    "reading", "computer_use", "communication",
+    # Social / community
+    "face_recognition", "driving", "community_access",
+    "return_to_work", "leisure_activities",
+    # Vision-specific
+    "tv_watching",
+    # Cardiopulmonary
+    "exercise_tolerance", "endurance",
+    # Neuro
+    "balance", "coordination", "cognitive_function",
+    # Pain
+    "pain_management", "sleep_quality",
 ]
+
+FUNCTIONAL_GOALS_AR = {
+    "ADL": "الأنشطة اليومية", "mobility": "التنقل", "transfers": "الانتقالات",
+    "stair_climbing": "صعود الدرج", "self_care": "العناية الشخصية",
+    "dressing": "ارتداء الملابس", "feeding": "تناول الطعام", "toileting": "استخدام الحمام",
+    "reaching": "مد اليد", "gripping": "القبض", "fine_motor": "المهارات الدقيقة",
+    "writing": "الكتابة", "reading": "القراءة", "computer_use": "استخدام الحاسوب",
+    "communication": "التواصل", "face_recognition": "التعرف على الوجوه",
+    "driving": "القيادة", "community_access": "المشاركة المجتمعية",
+    "return_to_work": "العودة للعمل", "leisure_activities": "الأنشطة الترفيهية",
+    "tv_watching": "مشاهدة التلفاز", "exercise_tolerance": "تحمل التمارين",
+    "endurance": "التحمل", "balance": "التوازن", "coordination": "التنسيق",
+    "cognitive_function": "الوظائف الإدراكية", "pain_management": "إدارة الألم",
+    "sleep_quality": "جودة النوم",
+}
 
 TOOLS_MANIFEST = [
     ("VE", "تمارين بصرية SVG", "visual_exercise"),
@@ -250,19 +281,16 @@ def search_patients(query: str) -> list:
 
 def get_patient_summary(patient: dict) -> dict:
     """استخراج ملخص المريض بدون بيانات ضخمة (محادثات/تفاصيل)"""
-    return {
+    summary = {
         "id": patient.get("id"),
         "file_number": patient.get("file_number"),
         "name": patient.get("name"),
         "name_en": patient.get("name_en"),
         "age": patient.get("age"),
         "gender": patient.get("gender"),
+        "rehabilitation_type": patient.get("rehabilitation_type", ""),
         "diagnosis_text": patient.get("diagnosis_text"),
         "diagnosis_icd10": patient.get("diagnosis_icd10", []),
-        "va_logmar": patient.get("va_logmar"),
-        "va_snellen": patient.get("va_snellen"),
-        "visual_field_degrees": patient.get("visual_field_degrees"),
-        "vision_pattern": patient.get("vision_pattern"),
         "cognitive_status": patient.get("cognitive_status"),
         "functional_goals": patient.get("functional_goals", []),
         "phq9_score": patient.get("phq9_score"),
@@ -271,9 +299,25 @@ def get_patient_summary(patient: dict) -> dict:
         "num_notes": len(patient.get("notes", [])),
         "num_cdss": len(patient.get("cdss_evaluations", [])),
         "num_documents": len(patient.get("documents", [])),
+        "num_treatment_plans": len(patient.get("treatment_plans", [])),
         "created_at": patient.get("created_at"),
         "updated_at": patient.get("updated_at"),
     }
+    # Include specialty-specific fields
+    rehab_type = patient.get("rehabilitation_type", "")
+    if rehab_type == "vision":
+        summary["va_logmar"] = patient.get("va_logmar")
+        summary["va_snellen"] = patient.get("va_snellen")
+        summary["visual_field_degrees"] = patient.get("visual_field_degrees")
+        summary["vision_pattern"] = patient.get("vision_pattern")
+    if rehab_type in ("orthopedic", "neuro", "pain"):
+        pain_scores = patient.get("pain_scores", [])
+        summary["last_pain_score"] = pain_scores[-1]["value"] if pain_scores else None
+    if rehab_type == "neuro":
+        summary["affected_side"] = patient.get("affected_side", "")
+    if rehab_type == "cardiac":
+        summary["nyha_class"] = patient.get("nyha_class", "")
+    return summary
 
 
 def delete_patient(patient_id: str):
@@ -303,6 +347,8 @@ def new_patient_template(pid: str, file_number: int) -> dict:
         "strength_measurements": [],
         "balance_scores": [],
         "functional_scores": [],
+        "affected_side": "",
+        "nyha_class": "",
     }
 
 
@@ -949,9 +995,26 @@ def build_patient_system_context(patient: dict) -> str:
         f"الجنس: {'ذكر' if patient.get('gender') == 'male' else 'أنثى'}\n"
         f"نوع التأهيل: {rehab_type}\n"
         f"التشخيص: {patient.get('diagnosis_text', '')} ({icd})\n"
-        f"حدة الإبصار: {patient.get('va_logmar', '—')} LogMAR\n"
-        f"مجال الرؤية: {patient.get('visual_field_degrees', '—')} درجة\n"
-        f"نمط الفقد: {patient.get('vision_pattern', '—')}\n"
+    )
+    # Specialty-specific context
+    rt = patient.get("rehabilitation_type", "")
+    if rt == "vision":
+        ctx += (
+            f"حدة الإبصار: {patient.get('va_logmar', '—')} LogMAR\n"
+            f"مجال الرؤية: {patient.get('visual_field_degrees', '—')} درجة\n"
+            f"نمط الفقد: {patient.get('vision_pattern', '—')}\n"
+        )
+    if rt in ("orthopedic", "neuro", "pain"):
+        pain_scores = patient.get("pain_scores", [])
+        last_pain = pain_scores[-1]["value"] if pain_scores else "لم يُقيَّم"
+        ctx += f"مستوى الألم (VAS): {last_pain}\n"
+    if rt == "neuro":
+        affected = {"right": "أيمن", "left": "أيسر", "bilateral": "ثنائي"}.get(patient.get("affected_side", ""), "—")
+        ctx += f"الجانب المصاب: {affected}\n"
+    if rt == "cardiac":
+        ctx += f"تصنيف NYHA: {patient.get('nyha_class', '—')}\n"
+
+    ctx += (
         f"الحالة الإدراكية: {patient.get('cognitive_status', 'normal')}\n"
         f"PHQ-9: {patient.get('phq9_score', 'لم يُقيَّم')}\n"
         f"الأهداف الوظيفية: {goals}\n"
@@ -1253,18 +1316,43 @@ def render_new_patient_form():
             name = st.text_input("اسم المريض (عربي)", key="np_name")
             age = st.number_input("العمر", 0, 120, 60, key="np_age")
             gender = st.selectbox("الجنس", ["male", "female"], format_func=lambda x: "ذكر" if x == "male" else "أنثى", key="np_gender")
-            va = st.number_input("حدة الإبصار (LogMAR)", -0.3, 3.0, 1.0, 0.1, format="%.1f", key="np_va")
-        with col2:
-            icd10 = st.multiselect("التشخيص (ICD-10)", list(ICD10_OPTIONS.keys()),
-                format_func=lambda x: f"{x}: {ICD10_OPTIONS[x]}", key="np_icd10")
-            pattern = st.selectbox("نمط الفقد البصري", [""] + VISION_PATTERNS, key="np_pattern")
-            vf = st.number_input("مجال الرؤية (درجات)", 0.0, 180.0, 0.0, 5.0, key="np_vf")
             cog = st.selectbox("الحالة الإدراكية",
                 ["normal", "mild_impairment", "moderate_impairment", "severe_impairment"],
                 format_func=lambda x: {"normal": "طبيعي", "mild_impairment": "خفيف",
                     "moderate_impairment": "متوسط", "severe_impairment": "شديد"}.get(x, x), key="np_cog")
+        with col2:
+            icd10 = st.multiselect("التشخيص (ICD-10)", list(ICD10_OPTIONS.keys()),
+                format_func=lambda x: f"{x}: {ICD10_OPTIONS[x]}", key="np_icd10")
+            phq9 = st.number_input("PHQ-9 (اكتئاب)", 0, 27, 0, key="np_phq9")
 
-        goals = st.multiselect("الأهداف الوظيفية", FUNCTIONAL_GOALS, key="np_goals")
+        # Specialty-specific fields
+        va = None
+        pattern = ""
+        vf = None
+        pain_level = None
+        affected_side = ""
+
+        if rehab_type == "vision":
+            st.markdown("**بيانات بصرية**")
+            vc1, vc2, vc3 = st.columns(3)
+            va = vc1.number_input("حدة الإبصار (LogMAR)", -0.3, 3.0, 1.0, 0.1, format="%.1f", key="np_va")
+            pattern = vc2.selectbox("نمط الفقد البصري", [""] + VISION_PATTERNS, key="np_pattern")
+            vf = vc3.number_input("مجال الرؤية (درجات)", 0.0, 180.0, 0.0, 5.0, key="np_vf")
+
+        if rehab_type in ("orthopedic", "neuro", "pain"):
+            st.markdown("**بيانات إضافية**")
+            pc1, pc2 = st.columns(2)
+            pain_level = pc1.slider("مستوى الألم (VAS 0-10)", 0, 10, 0, key="np_pain")
+            if rehab_type == "neuro":
+                affected_side = pc2.selectbox("الجانب المصاب", ["", "right", "left", "bilateral"],
+                    format_func=lambda x: {"": "—", "right": "أيمن", "left": "أيسر", "bilateral": "ثنائي"}.get(x, x), key="np_side")
+
+        if rehab_type == "cardiac":
+            st.markdown("**بيانات قلبية**")
+            nyha_class = st.selectbox("تصنيف NYHA", ["I", "II", "III", "IV"], key="np_nyha")
+
+        goals = st.multiselect("الأهداف الوظيفية", FUNCTIONAL_GOALS,
+            format_func=lambda x: FUNCTIONAL_GOALS_AR.get(x, x), key="np_goals")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -1279,10 +1367,26 @@ def render_new_patient_form():
                     "rehabilitation_type": rehab_type,
                     "diagnosis_icd10": icd10,
                     "diagnosis_text": ", ".join(ICD10_OPTIONS.get(c, c) for c in icd10),
-                    "va_logmar": float(va), "vision_pattern": pattern,
-                    "visual_field_degrees": float(vf) if vf > 0 else None,
                     "cognitive_status": cog, "functional_goals": goals,
+                    "phq9_score": int(phq9) if phq9 else None,
                 })
+                # Vision-specific
+                if va is not None:
+                    patient["va_logmar"] = float(va)
+                if pattern:
+                    patient["vision_pattern"] = pattern
+                if vf and vf > 0:
+                    patient["visual_field_degrees"] = float(vf)
+                # Pain
+                if pain_level is not None and pain_level > 0:
+                    patient["pain_scores"] = [{"value": pain_level, "timestamp": datetime.now().isoformat(), "scale": "VAS"}]
+                # Neuro
+                if affected_side:
+                    patient["affected_side"] = affected_side
+                # Cardiac
+                if rehab_type == "cardiac":
+                    patient["nyha_class"] = nyha_class
+
                 save_patient(patient)
                 st.session_state.patients[pid] = patient
                 st.session_state.current_page = "patient_file"
@@ -1311,37 +1415,36 @@ def render_patient_file(patient: dict):
     # Patient header
     name = patient.get("name", pid)
     dx = patient.get("diagnosis_text", "—") or "—"
-    va = patient.get("va_logmar")
-    va_str = f"{va} LogMAR" if va is not None else "—"
     icd = ", ".join(patient.get("diagnosis_icd10", [])) or "—"
     age = patient.get("age", "—")
-    pattern = patient.get("vision_pattern", "—") or "—"
-    pattern_map = {
-        "central_scotoma": "عتمة مركزية", "hemianopia": "عمى شقي",
-        "tunnel_vision": "رؤية أنبوبية", "total_blindness": "فقدان كامل",
-        "peripheral_loss": "فقد محيطي", "general_blur": "ضبابية عامة",
-    }
-    pattern_ar = pattern_map.get(pattern, pattern)
+    rehab_type = patient.get("rehabilitation_type", "")
+    rehab_type_ar = REHAB_TYPES.get(rehab_type, rehab_type) or "عام"
 
     fnum = patient.get("file_number", "—")
     fnum_display = f"#{fnum}" if isinstance(fnum, int) else fnum
+
+    # Build meta line based on rehab type
+    meta_parts = [f"ملف {html.escape(str(fnum_display))}", f"العمر: {html.escape(str(age))}", f"التشخيص: {html.escape(dx)} ({html.escape(icd)})"]
+    if rehab_type == "vision" and patient.get("va_logmar") is not None:
+        meta_parts.append(f"VA: {patient.get('va_logmar')} LogMAR")
+    meta_line = " · ".join(meta_parts)
 
     st.markdown(f"""
     <div class="patient-header">
         <div>
             <p class="ph-name">{html.escape(name)}</p>
-            <p class="ph-meta">ملف {html.escape(str(fnum_display))} · العمر: {html.escape(str(age))} · التشخيص: {html.escape(dx)} ({html.escape(icd)}) · VA: {html.escape(str(va_str))}</p>
+            <p class="ph-meta">{meta_line}</p>
         </div>
         <div class="ph-badges">
             <span class="badge badge-green" style="font-size:12px;font-weight:900">{html.escape(str(fnum_display))}</span>
-            <span class="badge badge-blue">{html.escape(pattern_ar)}</span>
+            <span class="badge badge-blue">{html.escape(rehab_type_ar)}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     # Tabs
-    tab_summary, tab_chat, tab_notes, tab_assess, tab_cdss, tab_intervene, tab_docs = st.tabs([
-        "الملخص", "المحادثة", "الملاحظات",
+    tab_summary, tab_chat, tab_notes, tab_plans, tab_assess, tab_cdss, tab_intervene, tab_docs = st.tabs([
+        "الملخص", "المحادثة", "الملاحظات", "الخطط العلاجية",
         "التقييمات", "CDSS", "التدخلات", "التقارير"
     ])
 
@@ -1351,6 +1454,8 @@ def render_patient_file(patient: dict):
         render_chat_tab(patient)
     with tab_notes:
         render_notes_tab(patient)
+    with tab_plans:
+        render_treatment_plans_tab(patient)
     with tab_assess:
         render_assessments_tab(patient)
     with tab_cdss:
@@ -1401,29 +1506,61 @@ def render_summary_tab(patient: dict):
     </div>
     """, unsafe_allow_html=True)
 
-    # Patient info grid
-    va_val = patient.get('va_logmar', '—')
-    vf_val = patient.get('visual_field_degrees', '—')
+    # Patient info grid — dynamic based on rehabilitation type
     cog_map = {"normal": "طبيعي", "mild_impairment": "خفيف", "moderate_impairment": "متوسط", "severe_impairment": "شديد"}
     cog_val = cog_map.get(patient.get('cognitive_status', 'normal'), '—')
+    rehab_type = patient.get("rehabilitation_type", "") or "—"
+    rehab_type_ar = REHAB_TYPES.get(rehab_type, rehab_type)
+    goals_ar = ", ".join(FUNCTIONAL_GOALS_AR.get(g, g) for g in patient.get("functional_goals", [])) or "—"
+    n_plans = len(patient.get("treatment_plans", []))
 
     fnum_s = patient.get("file_number", "—")
     fnum_badge = f"#{fnum_s}" if isinstance(fnum_s, int) else str(fnum_s)
 
+    # Core info items (always shown)
+    info_items = f"""
+            <div class="info-item"><div class="info-label">رقم الملف</div><div class="info-value" style="color:var(--secondary);font-weight:900;font-size:18px">{html.escape(fnum_badge)}</div></div>
+            <div class="info-item"><div class="info-label">نوع التأهيل</div><div class="info-value">{html.escape(rehab_type_ar)}</div></div>
+            <div class="info-item"><div class="info-label">التشخيص</div><div class="info-value">{html.escape(patient.get('diagnosis_text', '—') or '—')}</div></div>
+            <div class="info-item"><div class="info-label">ICD-10</div><div class="info-value">{html.escape(', '.join(patient.get('diagnosis_icd10', [])) or '—')}</div></div>"""
+
+    # Specialty-specific items
+    if rehab_type == "vision":
+        va_val = patient.get('va_logmar', '—')
+        vf_val = patient.get('visual_field_degrees', '—')
+        info_items += f"""
+            <div class="info-item"><div class="info-label">حدة الإبصار</div><div class="info-value">{html.escape(str(va_val))} LogMAR</div></div>
+            <div class="info-item"><div class="info-label">مجال الرؤية</div><div class="info-value">{html.escape(str(vf_val))} درجة</div></div>
+            <div class="info-item"><div class="info-label">نمط الفقد</div><div class="info-value">{html.escape(patient.get('vision_pattern', '—') or '—')}</div></div>"""
+    elif rehab_type in ("orthopedic", "pain"):
+        pain_scores = patient.get("pain_scores", [])
+        last_pain = pain_scores[-1]["value"] if pain_scores else "—"
+        info_items += f"""
+            <div class="info-item"><div class="info-label">مستوى الألم (VAS)</div><div class="info-value">{html.escape(str(last_pain))}/10</div></div>"""
+    elif rehab_type == "neuro":
+        affected = {"right": "أيمن", "left": "أيسر", "bilateral": "ثنائي"}.get(patient.get("affected_side", ""), "—")
+        pain_scores = patient.get("pain_scores", [])
+        last_pain = pain_scores[-1]["value"] if pain_scores else "—"
+        info_items += f"""
+            <div class="info-item"><div class="info-label">الجانب المصاب</div><div class="info-value">{html.escape(str(affected))}</div></div>
+            <div class="info-item"><div class="info-label">مستوى الألم (VAS)</div><div class="info-value">{html.escape(str(last_pain))}/10</div></div>"""
+    elif rehab_type == "cardiac":
+        nyha = patient.get("nyha_class", "—")
+        info_items += f"""
+            <div class="info-item"><div class="info-label">تصنيف NYHA</div><div class="info-value">{html.escape(str(nyha))}</div></div>"""
+
+    # Common items (always shown)
+    info_items += f"""
+            <div class="info-item"><div class="info-label">الحالة الإدراكية</div><div class="info-value">{html.escape(cog_val)}</div></div>
+            <div class="info-item"><div class="info-label">PHQ-9</div><div class="info-value">{html.escape(str(patient.get('phq9_score', '—') or '—'))}</div></div>
+            <div class="info-item"><div class="info-label">الأهداف</div><div class="info-value">{html.escape(goals_ar)}</div></div>
+            <div class="info-item"><div class="info-label">الخطط العلاجية</div><div class="info-value">{n_plans}</div></div>
+            <div class="info-item"><div class="info-label">تاريخ الإنشاء</div><div class="info-value">{html.escape(patient.get('created_at', '—')[:10])}</div></div>"""
+
     st.markdown(f"""
     <div style="margin-top:4px">
         <div style="font-size:15px;font-weight:800;color:var(--primary);margin-bottom:12px">المعلومات الأساسية</div>
-        <div class="info-grid">
-            <div class="info-item"><div class="info-label">رقم الملف</div><div class="info-value" style="color:var(--secondary);font-weight:900;font-size:18px">{html.escape(fnum_badge)}</div></div>
-            <div class="info-item"><div class="info-label">المعرف</div><div class="info-value" style="font-family:monospace;font-size:12px">{html.escape(patient.get('id', '—'))}</div></div>
-            <div class="info-item"><div class="info-label">التشخيص</div><div class="info-value">{html.escape(patient.get('diagnosis_text', '—') or '—')}</div></div>
-            <div class="info-item"><div class="info-label">ICD-10</div><div class="info-value">{html.escape(', '.join(patient.get('diagnosis_icd10', [])) or '—')}</div></div>
-            <div class="info-item"><div class="info-label">حدة الإبصار</div><div class="info-value">{html.escape(str(va_val))} LogMAR</div></div>
-            <div class="info-item"><div class="info-label">مجال الرؤية</div><div class="info-value">{html.escape(str(vf_val))} درجة</div></div>
-            <div class="info-item"><div class="info-label">نمط الفقد</div><div class="info-value">{html.escape(patient.get('vision_pattern', '—') or '—')}</div></div>
-            <div class="info-item"><div class="info-label">الحالة الإدراكية</div><div class="info-value">{html.escape(cog_val)}</div></div>
-            <div class="info-item"><div class="info-label">الأهداف</div><div class="info-value">{html.escape(', '.join(patient.get('functional_goals', [])) or '—')}</div></div>
-            <div class="info-item"><div class="info-label">تاريخ الإنشاء</div><div class="info-value">{html.escape(patient.get('created_at', '—')[:10])}</div></div>
+        <div class="info-grid">{info_items}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1433,13 +1570,17 @@ def render_summary_tab(patient: dict):
     # AI Summary button
     if st.button("توليد ملخص AI للمريض", key="ai_summary", type="primary"):
         with st.spinner("يحلل بيانات المريض..."):
+            r_type = REHAB_TYPES.get(patient.get("rehabilitation_type", ""), "عام")
+            goals_list = ", ".join(FUNCTIONAL_GOALS_AR.get(g, g) for g in patient.get("functional_goals", [])) or "لم تُحدد"
             prompt = (
                 f"لخّص حالة هذا المريض سريرياً واقترح الخطوات التالية:\n"
                 f"الاسم: {patient.get('name')}, العمر: {patient.get('age')}\n"
+                f"نوع التأهيل: {r_type}\n"
                 f"التشخيص: {patient.get('diagnosis_text')} ({', '.join(patient.get('diagnosis_icd10', []))})\n"
-                f"VA: {patient.get('va_logmar')} LogMAR, مجال الرؤية: {patient.get('visual_field_degrees')}\n"
-                f"النمط: {patient.get('vision_pattern')}, الأهداف: {', '.join(patient.get('functional_goals', []))}\n"
-                f"عدد التقييمات: {len(patient.get('assessment_results', []))}, عدد الجلسات: {len(patient.get('intervention_sessions', []))}"
+                f"الأهداف الوظيفية: {goals_list}\n"
+                f"عدد التقييمات: {len(patient.get('assessment_results', []))}, "
+                f"عدد الجلسات: {len(patient.get('intervention_sessions', []))}, "
+                f"عدد الخطط العلاجية: {len(patient.get('treatment_plans', []))}"
             )
             result = chat_with_patient_context(prompt, patient)
             st.markdown(result["text"])
@@ -1480,6 +1621,106 @@ def render_summary_tab(patient: dict):
             <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا توجد أنشطة بعد. ابدأ بإجراء تقييم أو إضافة ملاحظة.</p>
         </div>""", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Tab: Treatment Plans
+# ═══════════════════════════════════════════════════════════════
+
+def render_treatment_plans_tab(patient: dict):
+    pid = patient["id"]
+    plans = patient.get("treatment_plans", [])
+
+    st.markdown("### الخطط العلاجية")
+    st.caption("الخطط العلاجية المسجلة عبر المحادثة مع المستشار — يمكن تعديل حالتها.")
+
+    if not plans:
+        st.markdown("""
+        <div class="empty-state">
+            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
+            <p class="empty-state-text">لا توجد خطط علاجية بعد. اطلب من المستشار في المحادثة إعداد خطة علاجية.</p>
+        </div>""", unsafe_allow_html=True)
+        return
+
+    # Summary metrics
+    active_count = sum(1 for p in plans if p.get("status") == "active")
+    completed_count = sum(1 for p in plans if p.get("status") == "completed")
+    st.markdown(f"""
+    <div class="metric-row">
+        <div class="metric-card"><span class="metric-num">{len(plans)}</span><span class="metric-label">إجمالي الخطط</span></div>
+        <div class="metric-card"><span class="metric-num">{active_count}</span><span class="metric-label">نشطة</span></div>
+        <div class="metric-card"><span class="metric-num">{completed_count}</span><span class="metric-label">مكتملة</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Display each plan
+    for i, plan in enumerate(reversed(plans)):
+        plan_idx = len(plans) - 1 - i
+        status = plan.get("status", "active")
+        status_ar = {"active": "نشطة", "completed": "مكتملة", "cancelled": "ملغاة"}.get(status, status)
+        status_color = {"active": "green", "completed": "blue", "cancelled": "orange"}.get(status, "blue")
+        title = plan.get("plan_title", f"خطة #{plan_idx + 1}")
+        r_type = REHAB_TYPES.get(plan.get("rehabilitation_type", ""), "عام")
+        created = plan.get("created_at", "")[:10]
+
+        with st.expander(f"{title} — {r_type} [{status_ar}] ({created})", expanded=(i == 0 and status == "active")):
+            # Goals
+            goals = plan.get("goals", [])
+            if goals:
+                st.markdown("**الأهداف:**")
+                for g in goals:
+                    timeframe = g.get("timeframe", "")
+                    desc = g.get("description", str(g) if isinstance(g, str) else "")
+                    tf_label = f" ({timeframe})" if timeframe else ""
+                    st.markdown(f"- {desc}{tf_label}")
+
+            # Interventions
+            interventions = plan.get("interventions", [])
+            if interventions:
+                st.markdown("**التدخلات:**")
+                for inv in interventions:
+                    if isinstance(inv, dict):
+                        freq = inv.get("frequency", "")
+                        st.markdown(f"- {inv.get('name', inv.get('type', ''))} — {freq}")
+                    else:
+                        st.markdown(f"- {inv}")
+
+            # Precautions
+            precautions = plan.get("precautions", [])
+            if precautions:
+                st.markdown("**الاحتياطات:**")
+                for pr in precautions:
+                    st.markdown(f"- {pr}")
+
+            # Follow-up
+            followup = plan.get("follow_up_schedule", "")
+            if followup:
+                st.markdown(f"**جدول المتابعة:** {followup}")
+
+            # Notes
+            notes = plan.get("notes", "")
+            if notes:
+                st.markdown(f"**ملاحظات:** {notes}")
+
+            # Status toggle
+            col1, col2, col3 = st.columns(3)
+            if status == "active":
+                if col1.button("اكتمال", key=f"plan_complete_{pid}_{plan_idx}"):
+                    patient["treatment_plans"][plan_idx]["status"] = "completed"
+                    save_patient(patient)
+                    st.session_state.patients[pid] = patient
+                    st.rerun()
+                if col2.button("إلغاء", key=f"plan_cancel_{pid}_{plan_idx}"):
+                    patient["treatment_plans"][plan_idx]["status"] = "cancelled"
+                    save_patient(patient)
+                    st.session_state.patients[pid] = patient
+                    st.rerun()
+            elif status in ("completed", "cancelled"):
+                if col1.button("إعادة تفعيل", key=f"plan_reactivate_{pid}_{plan_idx}"):
+                    patient["treatment_plans"][plan_idx]["status"] = "active"
+                    save_patient(patient)
+                    st.session_state.patients[pid] = patient
+                    st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1760,7 +2001,8 @@ def render_cdss_tab(patient: dict):
         patterns = st.multiselect("نمط الفقد", VISION_PATTERNS,
             default=[patient.get("vision_pattern", "")] if patient.get("vision_pattern") else [], key=f"cdss_pat_{pid}")
         goals = st.multiselect("الأهداف", FUNCTIONAL_GOALS,
-            default=patient.get("functional_goals", []), key=f"cdss_goals_{pid}")
+            default=patient.get("functional_goals", []),
+            format_func=lambda x: FUNCTIONAL_GOALS_AR.get(x, x), key=f"cdss_goals_{pid}")
         cog = st.selectbox("الحالة الإدراكية", ["normal", "mild_impairment", "moderate_impairment", "severe_impairment"],
             index=["normal", "mild_impairment", "moderate_impairment", "severe_impairment"].index(patient.get("cognitive_status", "normal")),
             key=f"cdss_cog_{pid}")
@@ -1877,7 +2119,8 @@ def render_interventions_tab(patient: dict):
         va = col1.number_input("VA", 0.0, 3.0, float(patient.get("va_logmar", 1.0) or 1.0), 0.1, key=f"dr_va_{pid}")
         vf = col2.number_input("مجال الرؤية", 0.0, 180.0, float(patient.get("visual_field_degrees", 60) or 60), 5.0, key=f"dr_vf_{pid}")
         cog = st.checkbox("تدهور إدراكي", value=patient.get("cognitive_status", "normal") != "normal", key=f"dr_cog_{pid}")
-        dr_goals = st.multiselect("الأهداف", FUNCTIONAL_GOALS, default=patient.get("functional_goals", []), key=f"dr_g_{pid}")
+        dr_goals = st.multiselect("الأهداف", FUNCTIONAL_GOALS, default=patient.get("functional_goals", []),
+            format_func=lambda x: FUNCTIONAL_GOALS_AR.get(x, x), key=f"dr_g_{pid}")
         if st.button("توصية الجهاز", key=f"run_dr_{pid}", type="primary"):
             result = run_intervention({"intervention_type": "device_routing", "va_logmar": va, "visual_field_degrees": vf,
                 "has_cognitive_decline": cog, "functional_goals": dr_goals, "budget_usd": 5000})
@@ -1929,26 +2172,33 @@ def render_documents_tab(patient: dict):
     doc_type = st.selectbox("نوع الوثيقة", ["تقرير شامل", "خطاب إحالة", "خطة علاجية"], key=f"doc_type_{pid}")
 
     if doc_type == "خطاب إحالة":
-        specialty = st.selectbox("التخصص", ["ophthalmology", "neurology", "psychiatry", "psychology",
-            "pediatrics", "ot", "om", "social_work", "optometry"], key=f"ref_spec_{pid}")
+        specialty = st.selectbox("التخصص", ["ophthalmology", "neurology", "orthopedics", "cardiology",
+            "pulmonology", "psychiatry", "psychology", "pediatrics", "ot", "om",
+            "social_work", "optometry", "pain_management"], key=f"ref_spec_{pid}")
 
     if st.button(f"توليد {doc_type}", type="primary", key=f"gen_doc_{pid}"):
         with st.spinner("يولد الوثيقة..."):
+            r_type = REHAB_TYPES.get(patient.get("rehabilitation_type", ""), "عام")
+            goals_str = ", ".join(FUNCTIONAL_GOALS_AR.get(g, g) for g in patient.get("functional_goals", [])) or "لم تُحدد"
             if doc_type == "تقرير شامل":
                 prompt = (f"أنشئ تقريراً سريرياً شاملاً لهذا المريض بصيغة SOAP.\n"
                     f"اسم المريض: {patient.get('name')}, العمر: {patient.get('age')}\n"
-                    f"التشخيص: {patient.get('diagnosis_text')}, VA: {patient.get('va_logmar')}\n"
-                    f"الأهداف: {', '.join(patient.get('functional_goals', []))}\n"
+                    f"نوع التأهيل: {r_type}\n"
+                    f"التشخيص: {patient.get('diagnosis_text')}\n"
+                    f"الأهداف: {goals_str}\n"
                     f"عدد التقييمات: {len(patient.get('assessment_results', []))}\n"
-                    f"عدد الجلسات: {len(patient.get('intervention_sessions', []))}")
+                    f"عدد الجلسات: {len(patient.get('intervention_sessions', []))}\n"
+                    f"عدد الخطط العلاجية: {len(patient.get('treatment_plans', []))}")
             elif doc_type == "خطاب إحالة":
                 prompt = (f"أنشئ خطاب إحالة لتخصص {specialty} لهذا المريض.\n"
                     f"اسم المريض: {patient.get('name')}, العمر: {patient.get('age')}\n"
-                    f"التشخيص: {patient.get('diagnosis_text')}, VA: {patient.get('va_logmar')}")
+                    f"نوع التأهيل: {r_type}\n"
+                    f"التشخيص: {patient.get('diagnosis_text')}")
             else:
                 prompt = (f"أنشئ خطة علاجية تفصيلية لهذا المريض.\n"
-                    f"التشخيص: {patient.get('diagnosis_text')}, النمط: {patient.get('vision_pattern')}\n"
-                    f"VA: {patient.get('va_logmar')}, الأهداف: {', '.join(patient.get('functional_goals', []))}")
+                    f"نوع التأهيل: {r_type}\n"
+                    f"التشخيص: {patient.get('diagnosis_text')}\n"
+                    f"الأهداف: {goals_str}")
 
             result = chat_with_patient_context(prompt, patient)
             st.markdown(result["text"])

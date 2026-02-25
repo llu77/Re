@@ -219,26 +219,34 @@ SYSTEM_PROMPT = """
 <behavioral_guidelines>
 1. **المنهج السريري:**
    - ابدأ دائماً بفهم الحالة الكاملة قبل إعطاء أي توصية
-   - اسأل عن: التشخيص، حدة الإبصار، المجال البصري، حساسية التباين، الوظائف اليومية المتأثرة
+   - حدد نوع التأهيل المطلوب واسأل الأسئلة المناسبة لكل تخصص:
+     * عضلي هيكلي: موقع الألم، ROM، القوة العضلية، الوظائف المتأثرة
+     * عصبي: الجانب المصاب، مستوى الإصابة، التوازن، التنسيق، الإدراك
+     * قلبي رئوي: تحمل الجهد، NYHA class، العلامات الحيوية
+     * بصري: حدة الإبصار، المجال البصري، حساسية التباين، نمط الفقد
+     * أطفال: العمر النمائي، المراحل الحركية، التواصل
+     * كبار السن: خطر السقوط، الاستقلالية، الأدوية
+     * ألم: VAS، مدة الألم، العوامل المحفزة والمخففة
    - استخدم التفكير العميق (Extended Thinking) للحالات المعقدة
    - قدم توصيات مبنية على أدلة علمية مع ذكر المراجع
 
 2. **البحث العلمي:**
    - عند الحاجة لمعلومات حديثة، استخدم أداة البحث في PubMed
-   - ركز على: Systematic Reviews, Meta-analyses, RCTs, Clinical Guidelines
+   - ركز على: Systematic Reviews, Meta-analyses, RCTs, Clinical Practice Guidelines
    - صنف مستوى الدليل (Level of Evidence) لكل توصية
    - لا تقدم معلومات غير موثقة كحقائق
 
 3. **تحليل الصور:**
-   - عند استلام صور طبية (تقارير فحص، OCT، Visual Fields، صور قاع العين)
+   - عند استلام صور طبية (أشعة، MRI، OCT، Visual Fields، صور قاع العين، صور جروح)
    - حلل بمنهجية: الوصف → التفسير → الربط السريري → التوصيات
    - انتبه: أنت لا تقدم تشخيصاً نهائياً بل تحليلاً مساعداً يتطلب مراجعة الطبيب
 
 4. **الخطط العلاجية:**
    - اتبع نموذج SMART Goals (Specific, Measurable, Achievable, Relevant, Time-bound)
    - قسم الخطة إلى: أهداف قصيرة/متوسطة/طويلة المدى
-   - حدد: التقنيات، الأجهزة، التمارين، جدول المتابعة
+   - حدد: التقنيات، الأجهزة، التمارين، جدول المتابعة، الاحتياطات
    - اذكر معايير النجاح ومؤشرات التقدم
+   - استخدم أداة record_treatment_plan لحفظ الخطة في ملف المريض
 
 5. **التوثيق:**
    - لا تقم بتوثيق أو تلخيص أي معلومات إلا بعد موافقة صريحة من المستخدم
@@ -1101,14 +1109,12 @@ def query_patient_database(params: dict) -> dict:
 
     def _summary(p):
         """ملخص مريض بدون محادثات"""
-        return {
+        s = {
             "id": p.get("id"), "file_number": p.get("file_number"),
             "name": p.get("name"), "age": p.get("age"), "gender": p.get("gender"),
+            "rehabilitation_type": p.get("rehabilitation_type", ""),
             "diagnosis_text": p.get("diagnosis_text"),
             "diagnosis_icd10": p.get("diagnosis_icd10", []),
-            "va_logmar": p.get("va_logmar"), "va_snellen": p.get("va_snellen"),
-            "visual_field_degrees": p.get("visual_field_degrees"),
-            "vision_pattern": p.get("vision_pattern"),
             "cognitive_status": p.get("cognitive_status"),
             "functional_goals": p.get("functional_goals", []),
             "phq9_score": p.get("phq9_score"),
@@ -1116,8 +1122,21 @@ def query_patient_database(params: dict) -> dict:
             "num_interventions": len(p.get("intervention_sessions", [])),
             "num_notes": len(p.get("notes", [])),
             "num_cdss": len(p.get("cdss_evaluations", [])),
+            "num_treatment_plans": len(p.get("treatment_plans", [])),
             "created_at": p.get("created_at"), "updated_at": p.get("updated_at"),
         }
+        # Specialty-specific fields
+        rt = p.get("rehabilitation_type", "")
+        if rt == "vision":
+            s.update({"va_logmar": p.get("va_logmar"), "visual_field_degrees": p.get("visual_field_degrees"), "vision_pattern": p.get("vision_pattern")})
+        if rt in ("orthopedic", "neuro", "pain"):
+            ps = p.get("pain_scores", [])
+            s["last_pain_score"] = ps[-1]["value"] if ps else None
+        if rt == "neuro":
+            s["affected_side"] = p.get("affected_side", "")
+        if rt == "cardiac":
+            s["nyha_class"] = p.get("nyha_class", "")
+        return s
 
     action = params.get("action", "")
 
