@@ -2,9 +2,6 @@
 
 ## الدليل الشامل: من البنية السريرية إلى التنفيذ التقني
 
-> **الإصدار:** 2.0 — إعادة بناء كاملة
-> **النموذج:** Claude Sonnet 4.6 (`claude-sonnet-4-6`) عبر Anthropic Messages API
-> **الفلسفة:** السريري أولاً — التقنية تخدم المحتوى وليس العكس
 
 -----
 
@@ -95,7 +92,7 @@
 └───────────────────────────────────────────────────────┼─────────────┘
                                                         │
 ┌───────────────────────────────────────────────────────┼─────────────┐
-│                   Claude Sonnet 4.6 Engine             │             │
+│              Engine             │             │
 │                                                        ▼             │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │                    System Prompt الشامل                        │ │
@@ -498,14 +495,7 @@ rehabilitation_components:
     └── multiple_pathology_guide.yaml
 ```
 
-### 3.4 كيف يستخدم Claude هذه البروتوكولات
-
-```
-المستخدم: "مريض 55 سنة، RP، مجال بصري 10 درجات، VA 6/18"
-                    │
-                    ▼
-    Claude يُفعّل Extended Thinking (high effort)
-                    │
+             │
                     ▼
     Tool Call: search_knowledge_base(
         query="retinitis pigmentosa rehabilitation tunnel vision",
@@ -523,13 +513,13 @@ rehabilitation_components:
     )
                     │
                     ▼
-    Claude يفكر (Interleaved Thinking):
+     يفكر (Interleaved Thinking):
     "البروتوكول المحلي يوصي بـ O&M + reverse telescope.
      أبحاث PubMed تُظهر دليل جديد على VR training.
      المريض عمره 55 → needs vocational assessment too."
                     │
                     ▼
-    Claude يُقدم خطة شاملة مخصصة مع مراجع
+     يُقدم خطة شاملة مخصصة مع مراجع
 ```
 
 -----
@@ -1333,16 +1323,16 @@ SYSTEM_PROMPT = """
 System Prompt
     │
     ├── يُعرّف الأدوات المتاحة ←───→ Tool Use (الفصل 13)
-    │   "لديك 12 أداة..."              Claude يعرف متى يستدعي كل أداة
+    │   "لديك 12 أداة..."              يعرف متى يستدعي كل أداة
     │
     ├── يُحدد المنهج السريري ←───→ Extended Thinking (الفصل 12)
-    │   "التقييم الشامل أولاً"          Claude يُفكر بعمق قبل الإجابة
+    │   "التقييم الشامل أولاً"           يُفكر بعمق قبل الإجابة
     │
     ├── يُعرّف التخصصات ←─────→ RAG Knowledge Base (الفصل 16)
     │   "CVI, AMD, Hemianopia..."       القاعدة المعرفية تُغطي كل تخصص
     │
     ├── يُحدد قواعد الصور ←───→ Vision (الفصل 15)
-    │   "تحليل منهجي: وصف→تفسير"       Claude يتبع بروتوكول التحليل
+    │   "تحليل منهجي: وصف→تفسير"        يتبع بروتوكول التحليل
     │
     ├── يُحدد قواعد التوثيق ←──→ Prompt Chaining (الفصل 17)
     │   "بعد الموافقة فقط"              Chain يطلب الموافقة قبل الخطوة 6
@@ -1357,16 +1347,15 @@ System Prompt
 
 ### 12.1 لماذا ضروري في التأهيل البصري؟
 
-التأهيل البصري يتطلب **تفكيراً متعدد الطبقات**: التشخيص → نمط الفقدان → التأثير الوظيفي → الأجهزة المناسبة → التدريبات → العوامل النفسية → المتابعة. Extended Thinking يسمح لـ Claude بالتفكير بعمق قبل الإجابة.
+التأهيل البصري يتطلب **تفكيراً متعدد الطبقات**: التشخيص → نمط الفقدان → التأثير الوظيفي → الأجهزة المناسبة → التدريبات → العوامل النفسية → المتابعة. Extended Thinking يسمح بالتفكير بعمق قبل الإجابة.
 
 ### 12.2 أوضاع التفكير
 
 ```python
 # ═══ الوضع 1: تفكير تكيفي (Adaptive) — لـ Opus 4.6 ═══
-# Claude يُقرر تلقائياً كم يحتاج من التفكير
+#  يُقرر تلقائياً كم يحتاج من التفكير
 
 response = client.messages.create(
-    model="claude-opus-4-6",
     max_tokens=16000,
     thinking={
         "type": "adaptive",
@@ -1376,11 +1365,10 @@ response = client.messages.create(
     messages=[{"role": "user", "content": user_query}]
 )
 
-# ═══ الوضع 2: تفكير يدوي (Manual) — لـ Sonnet 4.6 ═══
+# ═══ الوضع 2: تفكير يدوي (Manual) — 
 # نحدد ميزانية التفكير بالتوكنز
 
 response = client.messages.create(
-    model="claude-sonnet-4-6",
     max_tokens=16000,
     thinking={
         "type": "enabled",
@@ -1441,7 +1429,6 @@ THINKING_LEVELS = {
 # Claude يُفكر بين كل استدعاء أداة — ضروري للحالات المعقدة
 
 response = client.messages.create(
-    model="claude-sonnet-4-6",
     max_tokens=16000,
     thinking={"type": "enabled", "budget_tokens": 10000},
     tools=ALL_TOOLS,
@@ -1584,9 +1571,7 @@ referral_generator_tool = {
 ### 13.3 Tool Loop — حلقة استدعاء الأدوات
 
 ```python
-import anthropic
-
-client = anthropic.Anthropic()
+import anthrop
 
 async def run_with_tool_loop(
     user_message: str,
@@ -1619,7 +1604,6 @@ async def run_with_tool_loop(
     # حلقة الأدوات
     while True:
         response = client.messages.create(
-            model="claude-sonnet-4-6",
             max_tokens=16000,
             system=system,
             messages=messages,
@@ -1633,7 +1617,7 @@ async def run_with_tool_loop(
 
         # إذا يريد استدعاء أدوات
         if response.stop_reason == "tool_use":
-            # أضف رد Claude (مع tool_use blocks)
+            # أضف رد  (مع tool_use blocks)
             messages.append({
                 "role": "assistant",
                 "content": response.content
