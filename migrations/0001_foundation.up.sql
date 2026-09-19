@@ -15,13 +15,19 @@
 -- ── الأدوار ─────────────────────────────────────────────────────────────
 -- على مستوى العنقود، ولذلك تُنشأ بحراسة. كلمات المرور للتطوير فقط؛ في
 -- الإنتاج تُدار خارج الترحيل.
+--
+-- NOSUPERUSER NOBYPASSRLS صريحان وإن كانا الافتراض: الـsuperuser يتجاوز RLS
+-- كلياً وبصمت، فدور تطبيق بهذه الصفة يُبطل كل عزل في هذا الملف بلا أي خطأ.
+-- `test_application_roles_cannot_bypass_rls` يفرض ذلك.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_practitioner') THEN
-        CREATE ROLE app_practitioner LOGIN PASSWORD 'dev_practitioner';
+        CREATE ROLE app_practitioner LOGIN NOSUPERUSER NOBYPASSRLS
+            PASSWORD 'dev_practitioner';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_patient') THEN
-        CREATE ROLE app_patient LOGIN PASSWORD 'dev_patient';
+        CREATE ROLE app_patient LOGIN NOSUPERUSER NOBYPASSRLS
+            PASSWORD 'dev_patient';
     END IF;
 END
 $$;

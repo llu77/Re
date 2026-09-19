@@ -398,3 +398,25 @@ def test_review_time_is_stored_and_queryable(owner, seed):
     with owner.cursor() as cursor:
         cursor.execute("SELECT review_seconds FROM proposals WHERE id=%s", (proposal,))
         assert cursor.fetchone()[0] == pytest.approx(90, abs=5)
+
+
+# ── امتيازات الأدوار ────────────────────────────────────────────────────
+@pytest.mark.parametrize("role", ["app_practitioner", "app_patient"])
+def test_application_roles_cannot_bypass_rls(owner, role):
+    """
+    دور التطبيق ليس superuser ولا يحمل BYPASSRLS.
+
+    كلاهما يتجاوز عزل الصفوف **بصمت وبلا أي خطأ**: لا سياسة تُطبَّق، ولا سجل
+    يُكتب، ولا اختبار آخر في هذا الملف يلاحظ. نشرٌ بدور كهذا يُبطل عزل
+    المستأجرين وترشيح نقطة العبور معاً بينما يبقى كل شيء أخضر.
+    """
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = %s", (role,)
+        )
+        row = cursor.fetchone()
+
+    assert row is not None, f"الدور {role} غير موجود — الترحيل لم يُطبَّق"
+    is_superuser, bypasses_rls = row
+    assert not is_superuser, f"{role} دور superuser — يتجاوز RLS كلياً"
+    assert not bypasses_rls, f"{role} يحمل BYPASSRLS — يتجاوز RLS كلياً"
