@@ -17,6 +17,7 @@
 
 const TOKEN_KEY = 'symbol.patient.token';
 const PLAN_KEY = 'symbol.patient.plan';
+const IMAGES_KEY = 'symbol.patient.illustrations';
 const DB_NAME = 'symbol-portal';
 const QUEUE_STORE = 'pending-sessions';
 
@@ -26,6 +27,9 @@ const state = {
     plan: null,
     steps: [],
     index: 0,
+    // خريطة: اسم التمرين ← ترميم الرسم المعتمد. لا يدخلها إلا ما جاء من
+    // مجموعة صور معتمدة اجتازت التحقق الآلي من الجانب المصاب.
+    illustrations: {},
 };
 
 /* ── التخزين المحلي ─────────────────────────────────────────────────── */
@@ -93,10 +97,12 @@ function forgetSession() {
     try {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(PLAN_KEY);
+        localStorage.removeItem(IMAGES_KEY);
     } catch { /* تخزين معطّل */ }
     state.plan = null;
     state.steps = [];
     state.index = 0;
+    state.illustrations = {};
     $('acting-as').hidden = true;
 }
 
@@ -135,6 +141,36 @@ function cachedPlan() {
     try { return JSON.parse(localStorage.getItem(PLAN_KEY) || 'null'); } catch { return null; }
 }
 
+function cacheImages(images) {
+    try { localStorage.setItem(IMAGES_KEY, JSON.stringify(images)); } catch { /* حصة ممتلئة */ }
+}
+
+function cachedImages() {
+    try { return JSON.parse(localStorage.getItem(IMAGES_KEY) || '{}'); } catch { return {}; }
+}
+
+/**
+ * يجلب مجموعة الصور المعتمدة ويحوّلها إلى خريطة باسم التمرين.
+ *
+ * الجانب يُطابَق مع جانب الخطة: مجموعة لجانب آخر لا تُعرض ولو كانت معتمدة.
+ * ذلك يحدث عند تحديث الخطة وحدها، والصورة القديمة حينها تخصّ حالة أخرى.
+ */
+async function loadIllustrations(plan) {
+    try {
+        const set = await api('/content/ILLUSTRATION_SET');
+        const images = {};
+        if (set && plan && set.affected_side === plan.affected_side) {
+            for (const item of (set.content.illustrations || [])) {
+                if (item && item.exercise_type && item.svg) images[item.exercise_type] = item.svg;
+            }
+        }
+        cacheImages(images);
+        return images;
+    } catch {
+        return cachedImages();   // دون اتصال: آخر مجموعة معتمدة محفوظة
+    }
+}
+
 /** يحوّل الخطة المعتمدة إلى خطوات. لا يخترع خطوة غير موجودة فيها. */
 function stepsOf(plan) {
     if (!plan || !plan.content) return [];
@@ -154,12 +190,15 @@ function renderStep() {
     $('step-title').textContent = step.title || `الخطوة ${state.index + 1}`;
     $('step-text').textContent = step.text || '';
 
-    // الصورة المعتمدة فقط، وجانبها المصاب معلَّم نصاً لا لوناً
+    // الصورة المعتمدة فقط، وجانبها المصاب معلَّم نصاً لا لوناً.
+    //
+    // `step.illustration` اسم تمرين لا ترميم: قاعدة البيانات تمنع وجود أي
+    // SVG في حمولة خطة، فالصورة الوحيدة الممكنة هنا هي ما جاء من مجموعة
+    // معتمدة اجتازت التحقق. خطةٌ تحمل رسماً بنفسها لا توجد أصلاً.
     const figure = $('step-figure');
     const side = state.plan && state.plan.affected_side;
-    if (step.illustration && side) {
-        $('step-image').innerHTML = '';
-        $('step-image').textContent = step.illustration;
+    const markup = state.illustrations[step.illustration];
+    if (markup && side && drawIllustration($('step-image'), markup)) {
         $('step-side').textContent = `الجانب المصاب: ${sideLabel(side)}`;
         figure.hidden = false;
     } else {
@@ -168,6 +207,42 @@ function renderStep() {
 
     $('prev').disabled = state.index === 0;
     $('next').disabled = state.index >= state.steps.length - 1;
+}
+
+/**
+ * يرسم رسماً معتمداً، أو لا يرسم شيئاً.
+ *
+ * الخادم لا يسلّم إلا رسماً اجتاز فحص القائمة البيضاء في
+ * `core/illustrations.py`، والمحفّز في قاعدة البيانات يمنع غير ذلك. وهذا
+ * الفحص الثاني هنا دفاعٌ في العمق لا تكرار: لو سُلّم يوماً ما لم يُفحص —
+ * بخلل أو باختراق — فلن ينفّذ شيئاً على جهاز المريض.
+ *
+ * `textContent` كان يعرض ترميم الـSVG نصاً خاماً: آمن، وبلا صورة.
+ */
+function drawIllustration(container, markup) {
+    container.replaceChildren();
+    let document_;
+    try {
+        document_ = new DOMParser().parseFromString(markup, 'image/svg+xml');
+    } catch {
+        return false;
+    }
+
+    const root = document_.documentElement;
+    if (!root || root.nodeName.toLowerCase() !== 'svg') return false;
+    if (document_.querySelector('parsererror')) return false;
+
+    for (const element of [root, ...root.querySelectorAll('*')]) {
+        const name = element.nodeName.toLowerCase();
+        if (name === 'script' || name === 'foreignobject' || name === 'image') return false;
+        for (const attribute of element.getAttributeNames()) {
+            const lowered = attribute.toLowerCase();
+            if (lowered.startsWith('on') || lowered.endsWith('href')) return false;
+        }
+    }
+
+    container.appendChild(document_.importNode(root, true));
+    return true;
 }
 
 function sideLabel(side) {
@@ -189,6 +264,7 @@ async function loadPlan() {
     state.plan = plan;
     state.steps = stepsOf(plan);
     state.index = 0;
+    state.illustrations = plan ? await loadIllustrations(plan) : {};
 
     const hasPlan = state.steps.length > 0;
     $('plan-empty').hidden = hasPlan;

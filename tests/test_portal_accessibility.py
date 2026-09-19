@@ -442,6 +442,68 @@ def test_two_hundred_percent_zoom_keeps_the_page_usable(page):
 CAREGIVER_EMAIL = "portal.caregiver@example.test"
 
 
+def test_the_portal_draws_a_verified_illustration(owner, seed, portal_server, patient_token):
+    """
+    الطرف الأخير من القاعدة 4: ما اجتاز التحقق والاعتماد يُرسَم فعلاً.
+
+    كانت البوابة تضع ترميم الـSVG بـ`textContent`، فتعرضه نصاً خاماً: آمن،
+    وبلا صورة. والآن ترسمه — ولا ترسم إلا ما جاء من مجموعة معتمدة، لأن
+    قاعدة البيانات تمنع وجود رسم في حمولة خطة أصلاً.
+    """
+    from core import illustration_gate
+    from tools.visual_exercises import generate_visual_exercise
+
+    practitioner = Actor(id=seed.practitioner_a, role="PRACTITIONER", tenant_id=seed.tenant_a)
+    drawing = generate_visual_exercise(
+        {"exercise_type": "scanning_grid", "difficulty": 3, "side": "right"}
+    )["svg"]
+
+    images = proposals.create(
+        practitioner, patient_id=seed.patient_a, kind="ILLUSTRATION_SET",
+        payload={"illustrations": [
+            {"exercise_type": "scanning_grid", "svg": drawing}
+        ]},
+        affected_side="RIGHT",
+    )
+    illustration_gate.verify_proposal(practitioner, images.id)
+    proposals.submit(images.id, practitioner)
+    proposals.approve(images.id, practitioner)
+
+    plan = proposals.create(
+        practitioner, patient_id=seed.patient_a, kind="PLAN",
+        payload={"steps": [
+            {"title": "مسح بصري", "text": "امسح الشبكة من اليمين.",
+             "illustration": "scanning_grid"}
+        ]},
+        affected_side="RIGHT",
+    )
+    cite_evidence_as(practitioner, plan.id)
+    proposals.submit(plan.id, practitioner)
+    proposals.approve(plan.id, practitioner)
+
+    with playwright_api.sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=CHROMIUM, args=["--no-sandbox"])
+        context = browser.new_context(viewport={"width": 390, "height": 844}, locale="ar-SA")
+        context.add_init_script(f"localStorage.setItem({TOKEN_KEY!r}, {patient_token!r});")
+        opened = context.new_page()
+        opened.goto(f"{portal_server}/app/", wait_until="networkidle", timeout=60000)
+        opened.wait_for_selector("#step-figure:not([hidden])", timeout=20000)
+
+        # عنصر SVG حقيقي مرسوم، لا نصّ ترميم معروض
+        assert opened.locator("#step-image svg").count() == 1
+        assert "<svg" not in opened.inner_text("#step-image")
+        assert "الأيمن" in opened.inner_text("#step-side")
+
+        painted = opened.evaluate(
+            "() => { const r = document.querySelector('#step-image svg')"
+            ".getBoundingClientRect(); return [r.width, r.height]; }"
+        )
+        assert painted[0] > 50 and painted[1] > 50, painted
+
+        assert not opened.evaluate(OVERLAP_SCRIPT)
+        browser.close()
+
+
 def test_the_portal_tells_a_caregiver_they_are_a_caregiver(owner, seed, portal_server,
                                                            patient_token):
     """

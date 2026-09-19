@@ -409,3 +409,53 @@ def test_only_retrieval_records_a_source():
         if "record_retrieved_source" in path.read_text(encoding="utf-8")
     }
     assert callers == {SOURCE_WRITER}, f"مستدعون غير متوقَّعون: {sorted(callers)}"
+
+
+# ── القاعدة 4: مسار تحقق واحد للصور ─────────────────────────────────────
+VERIFICATION_WRITER = "core/illustration_gate.py"
+
+
+def test_only_the_gate_records_an_illustration_verification():
+    """
+    الكتابة في `illustration_verification` من موضع واحد.
+
+    صفّ تحقق يكتبه غيرُ البوابة هو بالضبط «مسار التسليم البديل» الذي تمنعه
+    القاعدة 4: يكفي `INSERT` واحد في غير موضعه ليمرّ رسمٌ لم يُقَس.
+    """
+    writers = {
+        _relative(path)
+        for path in _all_project_files()
+        if "INSERT INTO illustration_verification" in path.read_text(encoding="utf-8")
+    }
+    assert writers == {VERIFICATION_WRITER}, f"كاتبون غير متوقَّعين: {sorted(writers)}"
+
+
+def test_the_side_classification_covers_every_generator():
+    """
+    كل مولّد مصنَّف: يحمل جانباً أو لا يحمله.
+
+    نوع بلا تصنيف يرفضه التحقق وقت التشغيل، وهذا الاختبار يكشفه وقت البناء
+    بدل أن يكتشفه ممارس أمام مريض.
+    """
+    import ast
+
+    from core.illustrations import SIDE_BEARING_TYPES, SIDE_NEUTRAL_TYPES
+
+    source = (ROOT / "tools" / "visual_exercises.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    generators = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            for key, value in zip(node.keys, node.values):
+                if (
+                    isinstance(key, ast.Constant)
+                    and isinstance(key.value, str)
+                    and isinstance(value, ast.Name)
+                    and value.id.startswith("_")
+                ):
+                    generators.add(key.value)
+
+    assert generators, "لم يُعثر على جدول المولّدات — الاختبار بلا معنى"
+    classified = SIDE_BEARING_TYPES | SIDE_NEUTRAL_TYPES
+    assert generators <= classified, f"مولّدات بلا تصنيف: {sorted(generators - classified)}"

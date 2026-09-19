@@ -17,11 +17,12 @@ from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
 from api.deps import enforce_auth_rate_limit, enforce_evidence_rate_limit, practitioner
-from core import caregivers, citations, escalation, proposals
+from core import caregivers, citations, escalation, illustration_gate, proposals
 from core.identity import AuthenticationFailed, Principal, authenticate, revoke_session
 from core.caregivers import CaregiverLink, ConsentSource
 from core.evidence import EvidenceQuery, NoEvidence, UnknownTerm, retrieval, vocabulary
 from core.evidence.transport import TransportError
+from core.illustrations import IllustrationRejected
 from core.types import AffectedSide, InvalidTransition, Proposal, ProposalKind
 
 router = APIRouter(prefix="/practitioner", tags=["practitioner"])
@@ -167,7 +168,7 @@ def submit_proposal(
     """
     try:
         return ProposalView.of(_or_404(proposals.submit, proposal_id, principal))
-    except proposals.EvidenceRequired as exc:
+    except (proposals.EvidenceRequired, proposals.IllustrationNotVerified) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
@@ -195,6 +196,10 @@ def edit_and_approve_proposal(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="المقترح غير موجود") from exc
     except InvalidTransition as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="حالة المقترح لا تسمح بذلك") from exc
+    except IllustrationRejected as exc:
+        # الحمولة المعدَّلة تُفحص قبل كتابتها؛ فشلُها يُبلَّغ بسببه لا بـ«حالة
+        # لا تسمح»، فالممارس يحتاج أن يعرف ما الذي رُفض ولماذا.
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return ProposalView.of(proposal)
 
 
@@ -544,3 +549,40 @@ def add_citation(
         published_year=citation.published_year, locator=citation.locator,
         added_by=citation.added_by, added_at=citation.added_at,
     )
+
+
+# ── بوابة الصور ─────────────────────────────────────────────────────────
+class VerdictView(BaseModel):
+    exercise_type: str
+    side: str
+    bias: float
+    element_count: int
+
+
+@router.post(
+    "/proposals/{proposal_id}/verify-illustration",
+    response_model=list[VerdictView],
+)
+def verify_illustration(
+    principal: Annotated[Principal, practitioner], proposal_id: UUID
+) -> list[VerdictView]:
+    """
+    يفحص صور المقترح آلياً ويسجّل الحكم — القاعدة 4.
+
+    الفشل 409 بسببه، والحجب مسجَّل في قاعدة البيانات سواء نجح أو فشل. ولا
+    توجد نقطة نهاية تتجاوز هذا الفحص: المحفّز يرفض أي انتقال بدونه.
+    """
+    try:
+        verdicts = illustration_gate.verify_proposal(principal.actor, proposal_id)
+    except IllustrationRejected as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    return [
+        VerdictView(
+            exercise_type=verdict.exercise_type,
+            side=verdict.side,
+            bias=verdict.bias,
+            element_count=verdict.element_count,
+        )
+        for verdict in verdicts
+    ]
