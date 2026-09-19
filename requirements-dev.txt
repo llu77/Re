@@ -1,0 +1,10 @@
+# متطلبات التطوير والاختبار
+# ==========================
+# تثبيت: pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt
+
+pytest>=8.0,<9.0
+
+# عميل HTTP لـ fastapi.testclient
+httpx>=0.27,<1.0

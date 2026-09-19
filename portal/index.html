@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B4F6C">
+<title>برنامجي — Symbol Rehab</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!--
+  بوابة المريض.
+
+  الجمهور: بالغ بإعاقة حركية أو عصبية، وأحياناً مرافق. الوصولية هنا متطلب لا
+  ميزة، ولذلك:
+    • خطوة واحدة في كل شاشة، وتنقّل بزرّين كبيرين لا بقائمة.
+    • كل عنصر تفاعلي ≥ 56 نقطة — فوق حد 44 لأن الجمهور ذو إعاقة حركية.
+    • لا مهلة زمنية على أي تفاعل في الصفحة كلها.
+    • زر البلاغ ظاهر دائماً بلا تموضع ثابت: صفّ في شبكة الصفحة، والتمرير
+      داخل المحتوى وحده. فلا يعلو شيئاً ولا يعلوه شيء في أي وضع تمرير.
+      (تدقيق المرحلة 0 وجد في الواجهة القديمة شريط إدخال لاصق يحجب آخر رسالة.)
+    • بنية دلالية: landmarks و<button> حقيقية وعناوين متدرّجة، لا div قابلة
+      للنقر — فقارئ الشاشة والكيبورد يعملان دون ARIA إضافي.
+-->
+
+<a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+
+<!--
+  كل ما عدا زر البلاغ يقع داخل وعاء تمرير واحد. الزر وحده خارجه فيبقى ظاهراً
+  دائماً دون أن يعلو شيئاً: لا تموضع ثابت ولا لاصق، بل صفّ مستقل في الشبكة.
+  حين يكبّر المريض النص 200% تكبر الترويسة والتبويبات معهـ — فتمرَّر مع
+  المحتوى بدل أن تزاحم الزر على شاشة واحدة.
+-->
+<div class="shell">
+
+<header class="top" role="banner">
+  <div class="top__row">
+    <div>
+      <h1 class="top__title">برنامجي</h1>
+      <p class="top__day" id="today-label" aria-live="polite"></p>
+    </div>
+    <!-- الخروج ظاهر دائماً بعد الدخول: الجهاز قد يكون مشتركاً مع مرافق -->
+    <button class="btn btn--out" type="button" id="logout" hidden>خروج</button>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="أقسام البوابة">
+  <button class="tab" type="button" data-view="plan" aria-current="page">خطة اليوم</button>
+  <button class="tab" type="button" data-view="progress">تقدّمي</button>
+</nav>
+
+<main id="main" class="main" tabindex="-1">
+
+  <!--
+    صفة المستخدم: يظهر للمرافق فقط. من يسجّل الأداء يجب أن يرى باسم من
+    يسجّله — خطوة تُسجَّل «تمّت» باسم المريض وقد أدّاها غيره تُفسد المتابعة.
+  -->
+  <p class="notice notice--mode" id="acting-as" hidden></p>
+
+  <!-- ── حالة التحميل والأخطاء ─────────────────────────────────────── -->
+  <p class="notice" id="status" role="status" aria-live="polite" hidden></p>
+
+  <!-- ── الدخول ────────────────────────────────────────────────────── -->
+  <!--
+    البوابة لا تُنشئ حسابات ولا تستعيد كلمات مرور: الحساب يصدر من العيادة.
+    نموذج حقيقي بـ<form> و<label> مرتبطة و`autocomplete`، فمدير كلمات المرور
+    والكيبورد وقارئ الشاشة تعمل كلها دون شيفرة إضافية.
+  -->
+  <section class="view" id="view-login" hidden aria-labelledby="login-heading">
+    <h2 class="login__heading" id="login-heading">تسجيل الدخول</h2>
+
+    <form id="login-form">
+      <div class="field">
+        <label class="field__label" for="login-email">البريد الإلكتروني</label>
+        <input class="field__input" type="email" id="login-email" name="email"
+               autocomplete="username" inputmode="email" required>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="login-password">كلمة المرور</label>
+        <input class="field__input" type="password" id="login-password" name="password"
+               autocomplete="current-password" required>
+      </div>
+
+      <p class="login__error" id="login-error" role="alert" hidden></p>
+
+      <button class="btn" type="submit" id="login-submit">ادخل</button>
+    </form>
+
+    <p class="login__help">
+      الحساب يصدر من عيادتك. إن نسيت كلمة المرور فاطلب من ممارسك إعادة تعيينها.
+    </p>
+  </section>
+
+  <!-- ── خطة اليوم ─────────────────────────────────────────────────── -->
+  <section class="view" id="view-plan" aria-labelledby="plan-heading">
+    <h2 class="visually-hidden" id="plan-heading">خطة اليوم</h2>
+
+    <div class="empty" id="plan-empty" hidden>
+      <p class="empty__text">لا توجد خطة معتمدة الآن.</p>
+      <p class="empty__hint">ستظهر خطتك هنا بمجرد أن يعتمدها الممارس.</p>
+    </div>
+
+    <article class="step" id="step-card" hidden aria-labelledby="step-title">
+      <p class="step__counter" id="step-counter"></p>
+
+      <h3 class="step__title" id="step-title"></h3>
+
+      <figure class="step__figure" id="step-figure" hidden>
+        <!-- الصورة المعتمدة. الجانب المصاب معلَّم نصاً أيضاً، لا لوناً فقط. -->
+        <div class="step__image" id="step-image" role="img"></div>
+        <figcaption class="step__side" id="step-side"></figcaption>
+      </figure>
+
+      <p class="step__text" id="step-text"></p>
+
+      <button class="btn btn--speak" type="button" id="speak">
+        <span aria-hidden="true">▶</span> اقرأ الخطوة بصوت
+      </button>
+
+      <div class="step__nav">
+        <button class="btn btn--ghost" type="button" id="prev">السابقة</button>
+        <button class="btn btn--ghost" type="button" id="next">التالية</button>
+      </div>
+    </article>
+
+    <!-- ── تسجيل الجلسة: بلمسة واحدة ───────────────────────────────── -->
+    <section class="record" id="record" hidden aria-labelledby="record-heading">
+      <h3 class="record__heading" id="record-heading">كيف كانت اليوم؟</h3>
+
+      <div class="record__choices">
+        <button class="btn btn--done" type="button" data-outcome="DONE">تمّت</button>
+        <button class="btn btn--partial" type="button" data-outcome="PARTIAL">جزئياً</button>
+        <button class="btn btn--unable" type="button" data-outcome="UNABLE">لم أستطع</button>
+      </div>
+
+      <details class="record__more">
+        <summary class="record__summary">أريد إضافة تفاصيل</summary>
+
+        <div class="field">
+          <label class="field__label" for="difficulty">الصعوبة: من 0 (سهلة) إلى 10 (صعبة جداً)</label>
+          <input class="field__range" type="range" id="difficulty" min="0" max="10" step="1" value="5">
+          <output class="field__output" id="difficulty-out" for="difficulty">5</output>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="pain">الألم: من 0 (لا ألم) إلى 10 (شديد)</label>
+          <input class="field__range" type="range" id="pain" min="0" max="10" step="1" value="0">
+          <output class="field__output" id="pain-out" for="pain">0</output>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="reason">ملاحظة (اختيارية)</label>
+          <textarea class="field__text" id="reason" rows="3"></textarea>
+          <button class="btn btn--ghost" type="button" id="dictate" hidden>
+            <span aria-hidden="true">🎙</span> أملِ الملاحظة بصوتك
+          </button>
+        </div>
+      </details>
+
+      <p class="record__done" id="record-done" role="status" hidden></p>
+    </section>
+  </section>
+
+  <!-- ── تقدّمي ────────────────────────────────────────────────────── -->
+  <section class="view" id="view-progress" hidden aria-labelledby="progress-heading">
+    <h2 class="progress__heading" id="progress-heading">تقدّمي</h2>
+
+    <p class="progress__lead" id="progress-lead"></p>
+
+    <!--
+      الرسم بصري وبسيط، ولكل يوم نصّ مكافئ في الجدول أسفله: قارئ الشاشة لا
+      يقرأ المربعات، فالمعلومة نفسها متاحة بالنص لا بالشكل وحده.
+    -->
+    <ol class="calendar" id="calendar" aria-hidden="true"></ol>
+
+    <table class="progress__table">
+      <caption class="visually-hidden">أيام الأسبوعين الماضيين وما سُجِّل فيها</caption>
+      <thead>
+        <tr><th scope="col">اليوم</th><th scope="col">ما سُجِّل</th></tr>
+      </thead>
+      <tbody id="progress-rows"></tbody>
+    </table>
+  </section>
+</main>
+
+</div><!-- .shell -->
+
+<!--
+  زر البلاغ: ظاهر دائماً في كل الشاشات لأنه صفّ مستقل في شبكة الصفحة، لا طبقة
+  ثابتة فوقها. المحتوى يمرَّر داخل `main` وحده فلا يمرّ تحت الشريط أبداً.
+-->
+<p class="offline" id="offline" role="status" hidden>
+  لا يوجد اتصال. خطتك محفوظة هنا، وسيُرسَل ما تسجّله عند عودة الاتصال.
+</p>
+
+<div class="alarm" role="complementary" aria-label="بلاغ عاجل">
+  <button class="btn btn--alarm" type="button" id="alarm">أحتاج مساعدة الآن</button>
+</div>
+
+<dialog class="sheet" id="alarm-sheet" aria-labelledby="alarm-heading">
+  <h2 class="sheet__heading" id="alarm-heading">أخبِر الممارس بما يحدث</h2>
+  <label class="field__label" for="alarm-body">ما الذي تشعر به؟</label>
+  <textarea class="field__text" id="alarm-body" rows="4"></textarea>
+  <p class="sheet__note">
+    هذا ليس استشارة طبية. إن كانت حالتك طارئة فاتصل بالإسعاف فوراً.
+  </p>
+  <div class="sheet__actions">
+    <button class="btn btn--alarm" type="button" id="alarm-send">أرسِل البلاغ</button>
+    <button class="btn btn--ghost" type="button" id="alarm-cancel">تراجع</button>
+  </div>
+  <p class="sheet__ack" id="alarm-ack" role="status" hidden></p>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

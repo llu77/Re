@@ -1,0 +1,420 @@
+/*
+ * بوابة المريض — الطبقة البصرية
+ * ==============================
+ * الوصولية هنا قيد تصميم لا تحسين لاحق. القرارات التي تحكم هذا الملف:
+ *
+ *   • كل مقاس بـrem لا px، فتكبير المتصفح إلى 200% يكبّر كل شيء معاً ولا
+ *     يكسر تخطيطاً.
+ *   • كل عنصر تفاعلي ≥ 3.5rem (56px) — فوق حدّ WCAG البالغ 44، لأن الجمهور
+ *     ذو إعاقة حركية.
+ *   • شريط البلاغ صفٌّ مستقل في شبكة الصفحة، والتمرير داخل `main` وحده.
+ *     شريط ثابت فوق صفحة تُمرَّر يمرّ المحتوى تحته في كل وضع تمرير عدا
+ *     الأسفل، وحجز `padding-bottom` لا يمنع ذلك بل يمنع حجب آخر المحتوى
+ *     فقط. هنا لا يعلو الشريطُ شيئاً ولا يعلوه شيء، في أي مقاس وأي تمرير.
+ *     (تدقيق المرحلة 0 رصد في الواجهة القديمة شريطاً لاصقاً يحجب آخر رسالة.)
+ *   • لا يُعبَّر عن أي معلومة باللون وحده: كل حالة لها نصّ أو شكل معها.
+ *   • كل نسب التباين هنا محسوبة ومُختبَرة في tests/portal، لا مقدَّرة.
+ */
+
+:root {
+    /* التباين مقابل الأبيض محسوب ومثبَّت في الاختبار */
+    --ink: #10212B;        /* 16.5:1 */
+    --ink-soft: #42525B;   /*  8.1:1 */
+    --primary: #0B4F6C;    /*  8.9:1 */
+    --done: #0B6E4F;       /*  6.3:1 */
+    --partial: #8A5000;    /*  6.5:1 */
+    --unable: #A3120B;     /*  7.9:1 */
+
+    --surface: #FFFFFF;
+    --surface-sunk: #F1F5F7;
+    --line: #C8D2D8;
+
+    --tap: 3.5rem;         /* 56px — الحد الأدنى لكل عنصر تفاعلي */
+    --gap: 1rem;
+    --radius: 0.75rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/*
+ * إخفاء `hidden` يُهزَم بأي `display` صريح في ورقة المؤلّف — و`.tabs` عندنا
+ * `flex`. الإخفاء هنا ضمانٌ لا تنسيق: شريط التبويبات وزر البلاغ يختفيان قبل
+ * تسجيل الدخول، فلا يجوز أن يعتمد ظهورهما على ترتيب القواعد.
+ */
+[hidden] { display: none !important; }
+
+html {
+    font-size: 125%;       /* أساس 20px: نصّ كبير افتراضاً لا بإعداد */
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    /*
+     * صفوف الشبكة: وعاء التمرير · تنبيه الاتصال · شريط البلاغ. الصفّان
+     * الأخيران `auto` فيختفيان بلا أثر حين يُخفَيان، والأول يأخذ الباقي.
+     *
+     * لماذا يدخل رأس الصفحة وتبويباتها في وعاء التمرير: عند تكبير النص 200%
+     * على هاتف يتجاوز ارتفاعُ الترويسة والتبويبات وحدهما الشاشةَ. لو كانت
+     * صفوفاً مستقلة لانضغط صفّ المحتوى إلى صفر وفاض صندوقه فوق الشريط.
+     * داخل الوعاء تمرَّر معه، ويبقى الزر الطارئ — وهو وحده ما لا يجوز أن
+     * يغيب — خارجها.
+     */
+    min-height: 100vh;          /* احتياط لمتصفح بلا dvh */
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    overflow: hidden;           /* التمرير مسؤولية `.shell` وحده */
+    font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
+    line-height: 1.7;
+    color: var(--ink);
+    background: var(--surface);
+}
+
+/* حركة أقل لمن طلبها من نظامه */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ── التركيز: مرئي دائماً وبسماكة كافية ─────────────────────────────── */
+:focus-visible {
+    outline: 0.25rem solid var(--primary);
+    outline-offset: 0.15rem;
+    border-radius: 0.25rem;
+}
+
+.skip-link {
+    position: absolute;
+    inset-inline-start: 0.5rem;
+    top: -6rem;
+    z-index: 20;
+    padding: 0.75rem 1rem;
+    background: var(--primary);
+    color: var(--surface);
+    border-radius: var(--radius);
+    text-decoration: none;
+}
+.skip-link:focus { top: 0.5rem; }
+
+.visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* ── الترويسة والتبويبات ────────────────────────────────────────────── */
+.top {
+    padding: 1.25rem var(--gap) 0.75rem;
+    background: var(--primary);
+    color: var(--surface);
+}
+.top__row {
+    display: flex;
+    flex-wrap: wrap;            /* الخروج ينزل سطراً بدل أن يضغط العنوان */
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.top__title { margin: 0; font-size: 1.5rem; }
+.top__day { margin: 0.25rem 0 0; font-size: 0.95rem; opacity: 0.95; }
+
+/*
+ * الالتفاف لا التقلّص: التبويبان يتراصّان عمودياً حين يضيق العرض. بدونه
+ * يفرض أعرضُ تبويب حدّاً أدنى على الصفحة كلها (الشبكة عمود واحد) فتفيض
+ * الصفحة أفقياً عند تكبير 200%.
+ */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0 var(--gap);
+    background: var(--primary);
+}
+
+.tab {
+    flex: 1 1 8rem;
+    min-height: var(--tap);
+    padding: 0 0.75rem;
+    font: inherit;
+    font-weight: 600;
+    color: var(--surface);
+    background: transparent;
+    border: none;
+    border-bottom: 0.3rem solid transparent;
+    cursor: pointer;
+}
+/* التبويب النشط يُميَّز بالخط السفلي والوزن معاً، لا باللون وحده */
+.tab[aria-current="page"] {
+    border-bottom-color: var(--surface);
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.shell {
+    overflow-y: auto;
+    overscroll-behavior: contain;  /* لا يُمرَّر ما خلفه حين يبلغ طرفه */
+}
+
+.main {
+    max-width: 38rem;
+    margin-inline: auto;
+    padding: var(--gap);
+}
+.main:focus { outline: none; }
+
+.notice {
+    margin: 0 0 var(--gap);
+    padding: 0.75rem var(--gap);
+    background: var(--surface-sunk);
+    border-inline-start: 0.3rem solid var(--primary);
+    border-radius: var(--radius);
+}
+
+/* صفة المرافق: تمييز بالحدّ والوزن مع النص، لا باللون وحده */
+.notice--mode { font-weight: 700; border-inline-start-color: var(--partial); }
+
+/* ── الخطوة ─────────────────────────────────────────────────────────── */
+.empty { padding: 2rem 0; text-align: center; }
+.empty__text { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 600; }
+.empty__hint { margin: 0; color: var(--ink-soft); }
+
+.step {
+    padding: var(--gap);
+    background: var(--surface);
+    border: 0.125rem solid var(--line);
+    border-radius: var(--radius);
+}
+.step__counter { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
+.step__title { margin: 0.25rem 0 0.75rem; font-size: 1.4rem; line-height: 1.4; }
+.step__text { margin: 0 0 var(--gap); font-size: 1.15rem; }
+
+.step__figure { margin: 0 0 var(--gap); }
+.step__image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 11rem;
+    padding: 0.5rem;
+    background: var(--surface-sunk);
+    border-radius: var(--radius);
+}
+.step__image svg { max-width: 100%; height: auto; }
+
+/* الجانب المصاب نصّاً صريحاً — لا يُترك للّون ولا للصورة وحدها */
+.step__side {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-weight: 700;
+    color: var(--surface);
+    background: var(--primary);
+    border-radius: var(--radius);
+    text-align: center;
+}
+
+.step__nav { display: flex; flex-wrap: wrap; gap: var(--gap); margin-top: var(--gap); }
+/* الالتفاف لا التقلّص: عند تكبير 200% تتراصّ الكلمة الواحدة ولا تفيض */
+.step__nav .btn { flex: 1 1 8rem; }
+
+/* ── الأزرار ────────────────────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-weight: 700;
+    color: var(--surface);
+    background: var(--primary);
+    border: 0.125rem solid transparent;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+.btn + .btn { margin-top: 0.5rem; }
+.step__nav .btn + .btn, .record__choices .btn + .btn,
+.sheet__actions .btn + .btn { margin-top: 0; }
+
+/*
+ * المعطَّل يبقى مقروءاً: `opacity` لا تُخفَّض، واللون يُقلَب مع الخلفية.
+ * بدون قلب اللون يرث `.btn--ghost` أزرقه الداكن فوق رمادي داكن (1.1:1).
+ */
+.btn:disabled {
+    opacity: 1;
+    color: var(--surface);           /* 8.1:1 فوق --ink-soft */
+    background: var(--ink-soft);
+    border-color: var(--ink-soft);
+    cursor: not-allowed;
+}
+
+.btn--ghost {
+    color: var(--primary);
+    background: var(--surface);
+    border-color: var(--primary);
+}
+.btn--speak { margin-top: 0.5rem; }
+.btn--done { background: var(--done); }
+.btn--partial { background: var(--partial); }
+.btn--unable { background: var(--unable); }
+.btn--alarm { background: var(--unable); font-size: 1.1rem; }
+/* الخروج فوق الترويسة: أبيض على --primary = 8.9:1 */
+.btn--out {
+    width: auto;
+    color: var(--surface);
+    background: transparent;
+    border-color: var(--surface);
+}
+
+/* ── التسجيل ────────────────────────────────────────────────────────── */
+.record {
+    margin-top: 1.25rem;
+    padding: var(--gap);
+    background: var(--surface-sunk);
+    border-radius: var(--radius);
+}
+.record__heading { margin: 0 0 0.75rem; font-size: 1.25rem; }
+.record__choices { display: flex; flex-direction: column; gap: 0.5rem; }
+.record__more { margin-top: var(--gap); }
+.record__summary {
+    min-height: var(--tap);
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+}
+.record__done {
+    margin: var(--gap) 0 0;
+    padding: 0.75rem;
+    font-weight: 700;
+    color: var(--surface);
+    background: var(--done);
+    border-radius: var(--radius);
+}
+
+.field { margin-top: var(--gap); }
+.field__label { display: block; margin-bottom: 0.35rem; font-weight: 600; }
+.field__range { width: 100%; min-height: var(--tap); }
+.field__output {
+    display: inline-block;
+    min-width: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+}
+.field__text {
+    width: 100%;
+    min-height: 5rem;
+    padding: 0.75rem;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 0.125rem solid var(--line);
+    border-radius: var(--radius);
+}
+
+/* ── الدخول ─────────────────────────────────────────────────────────── */
+.login__heading { margin: 0 0 var(--gap); font-size: 1.4rem; }
+.login__help { margin: var(--gap) 0 0; color: var(--ink-soft); }
+.login__error {
+    margin: var(--gap) 0 0;
+    padding: 0.75rem;
+    font-weight: 700;
+    color: var(--surface);
+    background: var(--unable);   /* أبيض على --unable = 7.9:1 */
+    border-radius: var(--radius);
+}
+.field__input {
+    width: 100%;
+    min-height: var(--tap);
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 0.125rem solid var(--line);
+    border-radius: var(--radius);
+}
+
+/* ── تقدّمي ─────────────────────────────────────────────────────────── */
+.progress__heading { margin: 0 0 0.5rem; font-size: 1.4rem; }
+.progress__lead { margin: 0 0 var(--gap); font-size: 1.15rem; }
+
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.4rem;
+    margin: 0 0 var(--gap);
+    padding: 0;
+    list-style: none;
+}
+.calendar li {
+    aspect-ratio: 1;
+    border-radius: 0.4rem;
+    background: var(--surface-sunk);
+    border: 0.125rem solid var(--line);
+}
+/* اليوم المسجَّل يُميَّز بالتعبئة والعلامة معاً، لا باللون وحده */
+.calendar li[data-recorded="true"] {
+    background: var(--done);
+    border-color: var(--done);
+}
+
+.progress__table { width: 100%; border-collapse: collapse; }
+.progress__table th, .progress__table td {
+    padding: 0.6rem 0.5rem;
+    text-align: start;
+    border-bottom: 0.0625rem solid var(--line);
+}
+.progress__table th { font-weight: 700; }
+
+/* ── شريط البلاغ ────────────────────────────────────────────────────── */
+.alarm {
+    padding: 0.75rem var(--gap);
+    background: var(--surface);
+    border-top: 0.125rem solid var(--line);
+}
+
+/* ── ورقة البلاغ ────────────────────────────────────────────────────── */
+.sheet {
+    width: min(34rem, 92vw);
+    /* الصفحة خلفها لا تمرَّر، فالورقة تمرَّر بنفسها عند تكبير النص */
+    max-height: 90dvh;
+    overflow-y: auto;
+    padding: var(--gap);
+    color: var(--ink);
+    background: var(--surface);
+    border: 0.125rem solid var(--line);
+    border-radius: var(--radius);
+}
+.sheet::backdrop { background: rgba(16, 33, 43, 0.6); }
+.sheet__heading { margin: 0 0 0.75rem; font-size: 1.25rem; }
+.sheet__note { margin: 0.75rem 0; color: var(--ink-soft); }
+.sheet__actions { display: flex; flex-direction: column; gap: 0.5rem; }
+.sheet__ack {
+    margin: var(--gap) 0 0;
+    padding: 0.75rem;
+    background: var(--surface-sunk);
+    border-inline-start: 0.3rem solid var(--done);
+    border-radius: var(--radius);
+}
+
+.offline {
+    margin: 0;
+    padding: 0.6rem var(--gap);
+    color: var(--surface);
+    background: var(--ink);
+    text-align: center;
+}
+
+/* شاشات أوسع: خيارات التسجيل في صفّ واحد */
+@media (min-width: 52rem) {
+    .main { max-width: 60rem; }
+    .record__choices { flex-direction: row; }
+    .record__choices .btn { flex: 1; }
+}

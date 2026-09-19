@@ -42,6 +42,13 @@ python3 -c "from orchestrator import RehabOrchestrator; print('orchestrator OK')
 python3 -c "from agents import BaseAgent, AssessmentAgent, TreatmentAgent; print('agents OK')"
 ```
 
+## Authorship
+
+Commits and pull requests in this repository are authored by **omar
+<info@symbolai.net>**. Do not add Claude co-author trailers, session links,
+or "Generated with Claude Code" footers to commit messages or pull request
+descriptions.
+
 ## Environment Variables
 
 - `ANTHROPIC_API_KEY` — Required for Claude API access.

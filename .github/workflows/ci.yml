@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # القاعدة تأتي كخدمة هنا؛ في التطوير المحلي يُستخدم scripts/dev_db.sh
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      SYMBOL_DATABASE_URL: postgresql://symbol_owner:symbol_ci@localhost:5432/symbol_rehab
+      SYMBOL_PRACTITIONER_PASSWORD: dev_practitioner
+      SYMBOL_PATIENT_PASSWORD: dev_patient
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: تثبيت التبعيات
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: عميل PostgreSQL لاختبار انعكاس الترحيلات
+        run: sudo apt-get install -y --no-install-recommends postgresql-client-16
+
+      # المالك دور عادي لا superuser: الـsuperuser يتجاوز RLS كلياً، فتشغيل
+      # الاختبارات به يجعل فحوص العزل أضعف مما تبدو ويخالف ما يجب أن يكون
+      # عليه الإنتاج.
+      - name: مالك غير superuser
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE symbol_owner LOGIN CREATEROLE NOSUPERUSER NOBYPASSRLS
+              PASSWORD 'symbol_ci';
+          CREATE DATABASE symbol_rehab OWNER symbol_owner;
+          SQL
+          psql -h localhost -U postgres -d symbol_rehab -v ON_ERROR_STOP=1 \
+              -c 'GRANT ALL ON SCHEMA public TO symbol_owner'
+
+      - name: الترحيلات
+        run: python -m migrations.run up
+
+      - name: انعكاس الترحيلات
+        run: |
+          python -m migrations.run down --all
+          python -m migrations.run up
+
+      - name: الاختبارات
+        run: python -m pytest tests/ -q
+
+      - name: لا TODO ولا placeholder ولا mock في مسار الإنتاج
+        run: |
+          ! grep -rniE '\b(TODO|FIXME|XXX|HACK)\b' \
+              --include='*.py' --include='*.sql' core/ api/ migrations/

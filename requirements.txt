@@ -3,10 +3,22 @@
 # تثبيت: pip install -r requirements.txt
 
 # ─── Anthropic Claude API (إلزامي) ───
-anthropic>=0.40.0
+anthropic>=0.40.0,<1.0
+
+# ─── طبقة المجال: PostgreSQL + واجهة HTTP (إلزامي) — core/ و api/ ───
+psycopg[binary,pool]>=3.2,<4.0
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+
+# ─── قواعد CDSS بصيغة YAML (إلزامي) — cdss/engine.py:9 ───
+PyYAML>=6.0,<7.0
+
+# ─── معالجة الصور للتدخلات البصرية (إلزامي) — interventions/visual_augmentation.py:14-15 ───
+numpy>=1.26,<3.0
+opencv-python-headless>=4.9,<5.0
 
 # ─── HTTP Requests لـ PubMed API (إلزامي) ───
-requests>=2.31.0
+requests>=2.31.0,<3.0
 
 # ─── RAG مع Vector DB (اختياري — للإنتاج) ───
 # فعّل إذا كنت تستخدم Pinecone:
@@ -29,8 +41,8 @@ requests>=2.31.0
 # pypdf>=4.0.0
 # python-docx>=1.1.0
 
-# ─── واجهة مستخدم (اختياري) ───
-# streamlit>=1.35.0
+# ─── واجهة المستخدم (إلزامي) — app.py:13 ───
+streamlit>=1.35.0,<2.0
 # fastapi>=0.111.0
 # uvicorn>=0.30.0
 

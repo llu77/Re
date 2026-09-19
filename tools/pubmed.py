@@ -1,241 +1,161 @@
 """
-PubMed Integration — البحث في المصادر العلمية
-==============================================
-يستخدم NCBI E-Utilities API للبحث الحر والمجاني في PubMed
+PubMed — واجهة الأداة القديمة فوق طبقة الأدلة
+===============================================
+لم يعد في هذا الملف اتصالٌ بالشبكة ولا نصّ استعلام حرّ. كلاهما انتقل إلى
+`core.evidence`: الاتصال إلى `transport.py` وحده، والاستعلام إلى مفردات
+مغلقة يفحصها `vocabulary.py`.
+
+**ما تغيّر ولماذا:** كان هذا الملف يمرّر `params["query"]` — نصّاً يؤلّفه
+النموذج — إلى NCBI كما هو. سياق المريض في هذا النظام عربيّ، ولا شيء كان
+يمنع ملاحظةً سريرية من الخروج في سطر عنوان HTTP. القاعدة 5 تمنع ذلك،
+ومعيار القبول 2 يختبره.
+
+**حدّ مُعلَن:** ما يُسترجع هنا لا يُخزَّن، فلا يصلح للاستشهاد. التخزين يحتاج
+فاعلاً ومستأجراً، وهما لا يوجدان في هذا المسار القديم. المقترحات تُنشأ
+وتُستشهَد عبر بوابة الممارس (`/practitioner/evidence/search` ثم
+`/practitioner/proposals/{id}/citations`)، حيث يُخزَّن كل مصدر ويصير
+الاستشهاد به قابلاً للتحقق.
 """
 
-import os
-import requests
-import xml.etree.ElementTree as ET
-from typing import Optional
+from typing import Any, Dict
 
-NCBI_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+from core.evidence import vocabulary
+from core.evidence.pubmed import fetch_articles, search_ids
+from core.evidence.transport import TransportError, default_transport
+from core.evidence.types import (
+    ARTICLE_TYPE,
+    CONDITION,
+    INTERVENTION,
+    POPULATION,
+    EvidenceQuery,
+    UnknownTerm,
+)
+
+_NOT_CITABLE = (
+    "هذه النتائج للاطلاع فقط ولا تصلح للاستشهاد: الاستشهاد يحتاج مصدراً"
+    " مخزَّناً يُسترجع عبر بوابة الممارس."
+)
 
 
-def _get_api_key() -> Optional[str]:
-    """جلب NCBI API Key من متغيرات البيئة"""
-    return os.environ.get("NCBI_API_KEY")
+def _allowed(facet: str) -> list[Dict[str, str]]:
+    return [{"term": term, "label": label} for term, label in vocabulary.terms(facet)]
+
+
+def _refusal(facet: str, exc: Exception) -> Dict[str, Any]:
+    """
+    رفضٌ يقول ما المسموح، لا رفضٌ صامت.
+
+    النموذج لا يخمّن مصطلحاً بديلاً من عنده: القائمة تُعطى له صريحةً ليختار
+    منها، وما ليس فيها لا يُبحَث به.
+    """
+    return {
+        "error": str(exc),
+        "allowed_terms": {facet: _allowed(facet)},
+        "note": "المصطلحات مغلقة عمداً: لا نصّ حرّ يغادر هذا النظام.",
+    }
 
 
 def search_pubmed_api(params: dict) -> dict:
     """
-    البحث في PubMed عبر E-Utilities API
+    بحث في PubMed باستعلام مُركَّب من مفردات مغلقة.
 
-    Args:
-        params: {
-            query (str): مصطلحات البحث بالإنجليزية
-            max_results (int): عدد النتائج (افتراضي: 10)
-            date_range (str): "2020:2026"
-            article_types (list): ["review", "clinical-trial", ...]
+    `params`: condition · intervention · population? · from_year? · to_year?
+    · article_types?
+    """
+    condition = str(params.get("condition", "")).strip()
+    intervention = str(params.get("intervention", "")).strip()
+    population = str(params.get("population", "")).strip() or None
+
+    if not condition or not intervention:
+        return {
+            "error": "البحث يحتاج حالة وتدخّلاً من المفردات المغلقة",
+            "allowed_terms": {
+                CONDITION: _allowed(CONDITION),
+                INTERVENTION: _allowed(INTERVENTION),
+            },
         }
 
-    Returns:
-        dict: نتائج البحث أو رسالة خطأ
-    """
-    query = params.get("query", "")
-    max_results = params.get("max_results", 10)
-    date_range = params.get("date_range", "")
-    article_types = params.get("article_types", [])
-
-    if not query:
-        return {"error": "يجب تحديد مصطلحات البحث"}
-
-    # الخطوة 1: ESearch — البحث والحصول على IDs
-    search_params = {
-        "db": "pubmed",
-        "term": query,
-        "retmax": max_results,
-        "retmode": "json",
-        "sort": "relevance",
-    }
-
-    api_key = _get_api_key()
-    if api_key:
-        search_params["api_key"] = api_key
-
-    # إضافة فلتر التاريخ
-    if date_range and ":" in date_range:
-        parts = date_range.split(":")
-        if len(parts) == 2:
-            search_params["datetype"] = "pdat"
-            search_params["mindate"] = parts[0].strip()
-            search_params["maxdate"] = parts[1].strip()
-
-    # إضافة فلتر نوع المقال
-    if article_types:
-        type_filters = " OR ".join([f"{t}[pt]" for t in article_types])
-        search_params["term"] += f" AND ({type_filters})"
+    years = None
+    first, last = params.get("from_year"), params.get("to_year")
+    if first and last:
+        years = (int(first), int(last))
 
     try:
-        response = requests.get(
-            f"{NCBI_BASE}/esearch.fcgi",
-            params=search_params,
-            timeout=15
+        query = EvidenceQuery(
+            condition=condition,
+            intervention=intervention,
+            population=population,
+            years=years,
+            article_types=frozenset(params.get("article_types") or []),
         )
-        response.raise_for_status()
-        search_data = response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"فشل الاتصال بـ PubMed: {str(e)}"}
-    except ValueError:
-        return {"error": "استجابة غير صالحة من PubMed"}
+    except UnknownTerm as exc:
+        message = str(exc)
+        for facet in (CONDITION, INTERVENTION, POPULATION, ARTICLE_TYPE):
+            if facet in message:
+                return _refusal(facet, exc)
+        return {"error": message}
 
-    id_list = search_data.get("esearchresult", {}).get("idlist", [])
-    total_count = search_data.get("esearchresult", {}).get("count", "0")
+    transport = default_transport()
+    try:
+        term, ids = search_ids(transport, query)
+        articles = fetch_articles(transport, ids)
+    except TransportError as exc:
+        # انقطاع المصدر ليس غياب دليل، ولا يُقرأ نتيجةً سلبية.
+        return {"error": f"تعذّر الوصول إلى PubMed: {exc}", "results": []}
 
-    if not id_list:
+    if not articles:
         return {
             "results": [],
-            "total_count": 0,
-            "query_used": query,
-            "message": "لم يتم العثور على نتائج لهذا البحث"
+            "returned_count": 0,
+            "query_used": term,
+            "message": "لم يُعثر على مصادر. لا يُقترح محتوى سريري بلا مصدر.",
         }
 
-    # الخطوة 2: ESummary — جلب ملخصات المقالات
-    summary_params = {
-        "db": "pubmed",
-        "id": ",".join(id_list),
-        "retmode": "json",
-    }
-    if api_key:
-        summary_params["api_key"] = api_key
-
-    try:
-        summary_response = requests.get(
-            f"{NCBI_BASE}/esummary.fcgi",
-            params=summary_params,
-            timeout=15
-        )
-        summary_response.raise_for_status()
-        summary_data = summary_response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"فشل جلب ملخصات المقالات: {str(e)}"}
-
-    # تنظيم النتائج
-    articles = []
-    for pmid in id_list:
-        article_data = summary_data.get("result", {}).get(pmid, {})
-        if not article_data:
-            continue
-
-        articles.append({
-            "pmid": pmid,
-            "title": article_data.get("title", ""),
-            "authors": [
-                a.get("name", "")
-                for a in article_data.get("authors", [])[:5]
-            ],
-            "journal": article_data.get("source", ""),
-            "pub_date": article_data.get("pubdate", ""),
-            "doi": next(
-                (
-                    aid["value"]
-                    for aid in article_data.get("articleids", [])
-                    if aid.get("idtype") == "doi"
-                ),
-                ""
-            ),
-            "pubmed_url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-        })
-
     return {
-        "results": articles,
-        "total_count": int(total_count),
+        "results": [
+            {
+                "pmid": article.external_id,
+                "title": article.title,
+                "journal": article.journal,
+                "pub_year": article.published_year,
+                "doi": article.doi,
+                "abstract": article.abstract,
+                "mesh_terms": list(article.mesh),
+                "pubmed_url": article.url,
+            }
+            for article in articles
+        ],
         "returned_count": len(articles),
-        "query_used": search_params["term"]
+        "query_used": term,
+        "citable": False,
+        "note": _NOT_CITABLE,
     }
 
 
 def fetch_pubmed_article(pmid: str) -> dict:
-    """
-    جلب الملخص الكامل لمقال عبر PMID
-
-    Args:
-        pmid: معرف المقال في PubMed
-
-    Returns:
-        dict: بيانات المقال الكاملة أو رسالة خطأ
-    """
-    if not pmid or not str(pmid).strip().isdigit():
+    """تفاصيل مقال واحد بمعرّفه. الرقم وحده يغادر، ولا شيء سواه."""
+    identifier = str(pmid).strip()
+    if not identifier.isdigit():
         return {"error": "PMID غير صالح"}
 
-    fetch_params = {
-        "db": "pubmed",
-        "id": str(pmid).strip(),
-        "retmode": "xml",
-        "rettype": "abstract",
-    }
-
-    api_key = _get_api_key()
-    if api_key:
-        fetch_params["api_key"] = api_key
-
     try:
-        response = requests.get(
-            f"{NCBI_BASE}/efetch.fcgi",
-            params=fetch_params,
-            timeout=15
-        )
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"فشل جلب المقال: {str(e)}"}
+        articles = fetch_articles(default_transport(), [identifier])
+    except TransportError as exc:
+        return {"error": f"تعذّر جلب المقال: {exc}"}
 
-    try:
-        root = ET.fromstring(response.content)
-    except ET.ParseError:
-        return {"error": "فشل في قراءة استجابة XML"}
+    if not articles:
+        return {"error": f"المقال {identifier} غير موجود أو تم سحبه"}
 
-    article = root.find(".//PubmedArticle")
-    if article is None:
-        return {"error": f"المقال {pmid} غير موجود أو تم سحبه"}
-
-    # استخراج العنوان
-    title = article.findtext(".//ArticleTitle", "")
-
-    # استخراج الملخص (مع دعم الملخصات المقسمة)
-    abstract_parts = article.findall(".//AbstractText")
-    abstract_sections = []
-    for part in abstract_parts:
-        label = part.get("Label", "")
-        text = part.text or ""
-        if label:
-            abstract_sections.append(f"**{label}:** {text}")
-        else:
-            abstract_sections.append(text)
-    abstract = " ".join(abstract_sections)
-
-    # استخراج معلومات النشر
-    pub_year = article.findtext(".//PubDate/Year", "")
-    journal = article.findtext(".//Journal/Title", "")
-
-    # استخراج المؤلفين
-    authors = []
-    for author in article.findall(".//Author")[:10]:
-        last = author.findtext("LastName", "")
-        first = author.findtext("ForeName", "")
-        if last:
-            authors.append(f"{last} {first}".strip())
-
-    # استخراج MeSH Terms
-    mesh_terms = [
-        m.findtext("DescriptorName", "")
-        for m in article.findall(".//MeshHeading")
-    ]
-
-    # استخراج DOI
-    doi = ""
-    for article_id in article.findall(".//ArticleId"):
-        if article_id.get("IdType") == "doi":
-            doi = article_id.text or ""
-            break
-
+    article = articles[0]
     return {
-        "pmid": pmid,
-        "title": title,
-        "authors": authors,
-        "journal": journal,
-        "pub_year": pub_year,
-        "abstract": abstract,
-        "mesh_terms": mesh_terms[:15],
-        "doi": doi,
-        "pubmed_url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+        "pmid": article.external_id,
+        "title": article.title,
+        "journal": article.journal,
+        "pub_year": article.published_year,
+        "abstract": article.abstract,
+        "mesh_terms": list(article.mesh),
+        "doi": article.doi,
+        "pubmed_url": article.url,
+        "citable": False,
+        "note": _NOT_CITABLE,
     }

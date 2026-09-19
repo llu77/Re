@@ -1,0 +1,202 @@
+# ════════════════════════════════════════════════════════════════════════
+# مفردات البحث في الأدلة — مغلقة عمداً
+# ════════════════════════════════════════════════════════════════════════
+# لا يخرج إلى الشبكة مصطلحٌ ليس في هذا الملف. التوسيع تعديلُ ملف يُراجَع
+# كشيفرة، لا اجتهادٌ وقت التشغيل — لأن الاجتهاد وقت التشغيل هو بالضبط الباب
+# الذي تخرج منه ملاحظة مريض في سطر عنوان.
+#
+# `term`  — ما يُرسَل إلى PubMed. إنجليزي، ومحاذٍ لرؤوس MeSH حيث أمكن؛
+#           والمطابقة التلقائية في PubMed تتكفّل بالباقي.
+# `label` — ما يُعرض للممارس. عربي، ولا يغادر هذا الخادم أبداً.
+#
+# البذرة: أنواع التأهيل الثمانية في `app.py::REHAB_TYPES` وما يقابلها من
+# تشخّصات وتدخّلات شائعة في إعادة التأهيل.
+# ════════════════════════════════════════════════════════════════════════
+
+conditions:
+  # ── عضلي هيكلي ──
+  - term: Musculoskeletal Diseases
+    label: أمراض الجهاز العضلي الهيكلي
+  - term: Low Back Pain
+    label: ألم أسفل الظهر
+  - term: Neck Pain
+    label: ألم الرقبة
+  - term: Osteoarthritis, Knee
+    label: خشونة الركبة
+  - term: Shoulder Impingement Syndrome
+    label: متلازمة انحشار الكتف
+  - term: Rotator Cuff Injuries
+    label: إصابات الكفة المدورة
+  - term: Anterior Cruciate Ligament Injuries
+    label: إصابات الرباط الصليبي الأمامي
+  - term: Hip Fractures
+    label: كسور الورك
+  - term: Arthroplasty, Replacement, Knee
+    label: استبدال مفصل الركبة
+  - term: Frozen Shoulder
+    label: الكتف المتجمد
+
+  # ── عصبي ──
+  - term: Stroke
+    label: السكتة الدماغية
+  - term: Hemiplegia
+    label: الشلل النصفي
+  - term: Spinal Cord Injuries
+    label: إصابات الحبل الشوكي
+  - term: Parkinson Disease
+    label: داء باركنسون
+  - term: Multiple Sclerosis
+    label: التصلب المتعدد
+  - term: Brain Injuries, Traumatic
+    label: إصابة الدماغ الرضية
+  - term: Cerebral Palsy
+    label: الشلل الدماغي
+  - term: Peripheral Nervous System Diseases
+    label: اعتلال الأعصاب الطرفية
+  - term: Aphasia
+    label: الحبسة الكلامية
+  - term: Dysphagia
+    label: عسر البلع
+
+  # ── قلبي رئوي ──
+  - term: Myocardial Infarction
+    label: احتشاء عضلة القلب
+  - term: Heart Failure
+    label: قصور القلب
+  - term: Coronary Artery Bypass
+    label: مجازة الشريان التاجي
+  - term: Pulmonary Disease, Chronic Obstructive
+    label: الانسداد الرئوي المزمن
+  - term: Asthma
+    label: الربو
+  - term: COVID-19
+    label: كوفيد-19
+
+  # ── بصري ──
+  - term: Vision, Low
+    label: ضعف البصر
+  - term: Hemianopsia
+    label: العمى الشقي
+  - term: Macular Degeneration
+    label: التنكس البقعي
+  - term: Diabetic Retinopathy
+    label: اعتلال الشبكية السكري
+  - term: Glaucoma
+    label: الزرق
+  - term: Visual Field Defects
+    label: عيوب المجال البصري
+
+  # ── أطفال وكبار السن ──
+  - term: Developmental Disabilities
+    label: الإعاقات النمائية
+  - term: Frailty
+    label: الهشاشة
+  - term: Sarcopenia
+    label: ضمور العضلات المرتبط بالعمر
+  - term: Accidental Falls
+    label: السقوط
+  - term: Dementia
+    label: الخرف
+
+  # ── ألم ونفسي اجتماعي ──
+  - term: Chronic Pain
+    label: الألم المزمن
+  - term: Fibromyalgia
+    label: الألم العضلي الليفي
+  - term: Depression
+    label: الاكتئاب
+  - term: Anxiety
+    label: القلق
+  - term: Quality of Life
+    label: جودة الحياة
+
+interventions:
+  - term: Exercise Therapy
+    label: العلاج بالتمارين
+  - term: Physical Therapy Modalities
+    label: وسائل العلاج الطبيعي
+  - term: Occupational Therapy
+    label: العلاج الوظيفي
+  - term: Resistance Training
+    label: تمارين المقاومة
+  - term: Aerobic Exercise
+    label: التمارين الهوائية
+  - term: Balance Training
+    label: تدريب التوازن
+  - term: Gait Training
+    label: تدريب المشي
+  - term: Range of Motion Exercises
+    label: تمارين مدى الحركة
+  - term: Stretching Exercises
+    label: تمارين الإطالة
+  - term: Breathing Exercises
+    label: تمارين التنفس
+  - term: Constraint-Induced Movement Therapy
+    label: العلاج بالحركة المقيدة
+  - term: Mirror Therapy
+    label: العلاج بالمرآة
+  - term: Virtual Reality Exposure Therapy
+    label: العلاج بالواقع الافتراضي
+  - term: Telerehabilitation
+    label: التأهيل عن بُعد
+  - term: Home Care Services
+    label: الرعاية المنزلية
+  - term: Activities of Daily Living
+    label: أنشطة الحياة اليومية
+  - term: Self-Management
+    label: الإدارة الذاتية
+  - term: Patient Education as Topic
+    label: تثقيف المريض
+  - term: Cognitive Behavioral Therapy
+    label: العلاج المعرفي السلوكي
+  - term: Visual Training
+    label: التدريب البصري
+  - term: Reading Rehabilitation
+    label: إعادة تأهيل القراءة
+  - term: Assistive Devices
+    label: الأجهزة المساعدة
+  - term: Orthotic Devices
+    label: الأجهزة التقويمية
+  - term: Speech Therapy
+    label: علاج النطق
+  - term: Manual Therapy
+    label: العلاج اليدوي
+  - term: Transcutaneous Electric Nerve Stimulation
+    label: التنبيه الكهربائي عبر الجلد
+  - term: Hydrotherapy
+    label: العلاج المائي
+  - term: Treatment Adherence and Compliance
+    label: الالتزام بالعلاج
+
+populations:
+  - term: Aged
+    label: كبار السن
+  - term: Aged, 80 and over
+    label: من تجاوز الثمانين
+  - term: Middle Aged
+    label: متوسطو العمر
+  - term: Adult
+    label: البالغون
+  - term: Adolescent
+    label: المراهقون
+  - term: Child
+    label: الأطفال
+  - term: Female
+    label: الإناث
+  - term: Male
+    label: الذكور
+
+# أنواع المقالات: تُرسَل بلاحقة [pt] التي تفهمها PubMed
+article_types:
+  - term: systematic review
+    label: مراجعة منهجية
+  - term: meta-analysis
+    label: تحليل بعدي
+  - term: randomized controlled trial
+    label: تجربة معشّاة مضبوطة
+  - term: practice guideline
+    label: دليل ممارسة
+  - term: review
+    label: مراجعة
+  - term: clinical trial
+    label: تجربة سريرية
