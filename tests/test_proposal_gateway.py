@@ -401,6 +401,21 @@ def test_review_time_is_stored_and_queryable(owner, seed):
 
 
 # ── امتيازات الأدوار ────────────────────────────────────────────────────
+def test_connecting_owner_is_not_a_superuser(owner):
+    """
+    حتى دور المالك — الذي يُشغّل الترحيلات ويقرأ الجلسات — ليس superuser.
+
+    الـsuperuser يتجاوز RLS، فيُبطل `FORCE ROW LEVEL SECURITY`، ويُظهر أيضاً
+    قيم الصف المخالف في سجل الخادم عند انتهاك قيد. كلاهما يخالف القواعد.
+    """
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user")
+        is_superuser, bypasses_rls = cursor.fetchone()
+
+    assert not is_superuser, "دور الاتصال superuser — RLS معطّل فعلياً"
+    assert not bypasses_rls, "دور الاتصال يحمل BYPASSRLS — RLS معطّل فعلياً"
+
+
 @pytest.mark.parametrize("role", ["app_practitioner", "app_patient"])
 def test_application_roles_cannot_bypass_rls(owner, role):
     """
@@ -420,3 +435,32 @@ def test_application_roles_cannot_bypass_rls(owner, role):
     is_superuser, bypasses_rls = row
     assert not is_superuser, f"{role} دور superuser — يتجاوز RLS كلياً"
     assert not bypasses_rls, f"{role} يحمل BYPASSRLS — يتجاوز RLS كلياً"
+
+
+@pytest.mark.parametrize("role_conn", ["practitioner_conn", "patient_conn"])
+def test_no_application_role_can_forge_an_audit_entry(request, seed, role_conn):
+    """
+    سجل التدقيق غير قابل للتزوير، لا append-only فحسب.
+
+    المحفّزات تكتب بصلاحيات مالكها (SECURITY DEFINER)، فلا يحتاج أي دور تطبيق
+    الكتابة المباشرة — وسحبها يعني أن كل صف في السجل واقعة حدثت فعلاً، لا
+    سطراً كتبه من أراد.
+    """
+    connection = request.getfixturevalue(role_conn)
+    with pytest.raises(pg_errors.InsufficientPrivilege):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO audit_log (tenant_id, entity, entity_id, action)"
+                " VALUES (%s, 'proposal', gen_random_uuid(), 'FORGED')",
+                (seed.tenant_a,),
+            )
+
+
+def test_transitions_are_still_audited_after_the_revoke(owner, seed):
+    """حارس: سحب الصلاحية لم يُسكِت السجل."""
+    proposal = _drive_to(owner, seed, "APPROVED")
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM audit_log WHERE entity_id = %s", (proposal,)
+        )
+        assert cursor.fetchone()[0] == 3

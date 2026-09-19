@@ -100,26 +100,49 @@ def test_patient_gate_reads_only_through_the_delivery_gateway():
     )
 
 
-def test_delivery_gateway_is_the_only_patient_role_reader():
-    """لا وحدة أخرى تفتح جلسة بدور `patient`."""
+def test_deliverable_view_is_read_only_by_the_gateway():
+    """
+    العرض `patient_deliverable_v` لا يُستعلَم إلا من `core.delivery`.
+
+    الصياغة الأولى لهذا الاختبار كانت «لا وحدة تفتح جلسة بدور المريض خارج
+    البوابة» — وهي أوسع من الضمانة: المريض يكتب جلساته وبلاغاته بدوره، وذلك
+    ليس تسليم محتوى سريري. الضمانة المقصودة أضيق وأدق: **قراءة المحتوى
+    القابل للتسليم** تمر من مكان واحد.
+    """
     offenders = []
     for path in _python_files("core", "api"):
         if _relative(path) == "core/delivery.py":
             continue
-        source = path.read_text(encoding="utf-8")
-        if '"patient"' in source and "db.session" in source:
-            tree = ast.parse(source)
-            for node in ast.walk(tree):
-                if (
-                    isinstance(node, ast.Call)
-                    and isinstance(node.func, ast.Attribute)
-                    and node.func.attr == "session"
-                    and node.args
-                    and isinstance(node.args[0], ast.Constant)
-                    and node.args[0].value == "patient"
-                ):
-                    offenders.append(_relative(path))
-    assert not offenders, f"وحدات تقرأ بدور المريض خارج نقطة العبور: {sorted(set(offenders))}"
+        if "patient_deliverable_v" in path.read_text(encoding="utf-8"):
+            offenders.append(_relative(path))
+    assert not offenders, f"وحدات تقرأ العرض خارج نقطة العبور: {sorted(offenders)}"
+
+
+def test_patient_role_writes_are_confined_to_patient_authored_data():
+    """
+    ما يكتبه دور المريض محصور في بياناته هو: جلساته وبلاغاته.
+
+    الصلاحيات في الترحيل تمنع غير ذلك أصلاً؛ هذا الاختبار يجعل أي توسيع
+    مستقبلي قراراً واعياً لا سهواً.
+    """
+    allowed = {"core/delivery.py", "core/sessions.py", "core/escalation.py"}
+    offenders = []
+    for path in _python_files("core", "api"):
+        name = _relative(path)
+        if name in allowed:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "session"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and node.args[0].value == "patient"
+            ):
+                offenders.append(name)
+    assert not offenders, f"وحدات تكتب بدور المريض خارج المسموح: {sorted(set(offenders))}"
 
 
 # ── معيار القبول 14: مصدر زمن واحد ──────────────────────────────────────

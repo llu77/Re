@@ -17,7 +17,7 @@ from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
 from api.deps import enforce_auth_rate_limit, practitioner
-from core import proposals
+from core import escalation, proposals
 from core.identity import AuthenticationFailed, Principal, authenticate, revoke_session
 from core.types import AffectedSide, InvalidTransition, Proposal, ProposalKind
 
@@ -209,3 +209,54 @@ def _or_404(action, proposal_id: UUID, principal: Principal) -> Proposal:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="المقترح غير موجود") from exc
     except InvalidTransition as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="حالة المقترح لا تسمح بذلك") from exc
+
+
+# ── العلامات الحمراء ────────────────────────────────────────────────────
+class RedFlagView(BaseModel):
+    id: UUID
+    patient_id: UUID
+    body: str
+    reported_at: Any
+    acknowledged_at: Any
+    escalation_seconds: float | None
+
+
+class AcknowledgeRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+@router.get("/red-flags", response_model=list[RedFlagView])
+def open_red_flags(
+    principal: Annotated[Principal, practitioner], limit: int = 50
+) -> list[RedFlagView]:
+    """البلاغات غير المستلَمة، الأقدم أولاً. تتصدّر ما يراه الممارس."""
+    return [
+        RedFlagView(
+            id=flag.id, patient_id=flag.patient_id, body=flag.body,
+            reported_at=flag.reported_at, acknowledged_at=flag.acknowledged_at,
+            escalation_seconds=flag.escalation_seconds,
+        )
+        for flag in escalation.open_reports(principal.actor, limit=limit)
+    ]
+
+
+@router.post("/red-flags/{report_id}/acknowledge", response_model=RedFlagView)
+def acknowledge_red_flag(
+    principal: Annotated[Principal, practitioner],
+    report_id: UUID,
+    body: AcknowledgeRequest | None = None,
+) -> RedFlagView:
+    """يسجّل الاستلام مرة واحدة، ومنه يُحسب زمن التصعيد."""
+    try:
+        flag = escalation.acknowledge(
+            report_id, principal.actor, note=body.note if body else None
+        )
+    except escalation.AlreadyAcknowledged as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="البلاغ مُستلَم بالفعل"
+        ) from exc
+    return RedFlagView(
+        id=flag.id, patient_id=flag.patient_id, body=flag.body,
+        reported_at=flag.reported_at, acknowledged_at=flag.acknowledged_at,
+        escalation_seconds=flag.escalation_seconds,
+    )

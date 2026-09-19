@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from core import db, identity
+from uuid import uuid4
+
+from core import db, escalation, identity
 from tests.conftest import requires_db
 
 pytest.importorskip("httpx")
@@ -247,3 +249,122 @@ def test_patient_response_hides_review_state(client, accounts):
     delivered = client.get("/patient/plan", headers=_auth(patient_token)).json()
     for leaked in ("status", "reviewer_id", "rejection_reason", "priority", "queued_at"):
         assert leaked not in delivered, f"تسرّب حقل مراجعة إلى المريض: {leaked}"
+
+
+# ── أداء المريض والتصعيد عبر البوابتين ──────────────────────────────────
+def _approved_plan(client, practitioner_token, patient_id) -> str:
+    proposal_id = _create_plan(client, practitioner_token, patient_id)
+    client.post(f"/practitioner/proposals/{proposal_id}/submit", headers=_auth(practitioner_token))
+    client.post(f"/practitioner/proposals/{proposal_id}/approve", headers=_auth(practitioner_token))
+    return proposal_id
+
+
+def test_patient_records_a_session_and_sees_it_in_progress(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+    plan_id = _approved_plan(client, practitioner_token, accounts.patient_a)
+
+    before = client.get("/patient/progress", headers=_auth(patient_token)).json()
+    assert before["done_today"] is False and before["adherent_days"] == 0
+
+    response = client.post(
+        "/patient/sessions",
+        headers=_auth(patient_token),
+        json={"plan_id": plan_id, "outcome": "DONE", "client_uuid": str(uuid4()),
+              "difficulty": 4, "pain": 2},
+    )
+    assert response.status_code == 201, response.text
+
+    after = client.get("/patient/progress", headers=_auth(patient_token)).json()
+    assert after["done_today"] is True
+    assert after["adherent_days"] == 1
+    assert len(after["days"]) == after["total_days"], "الأيام الخالية غائبة عن المقام"
+
+
+def test_resending_a_session_is_idempotent_over_http(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+    plan_id = _approved_plan(client, practitioner_token, accounts.patient_a)
+
+    body = {"plan_id": plan_id, "outcome": "PARTIAL", "client_uuid": str(uuid4())}
+    first = client.post("/patient/sessions", headers=_auth(patient_token), json=body)
+    second = client.post("/patient/sessions", headers=_auth(patient_token), json=body)
+
+    assert first.json()["id"] == second.json()["id"]
+    progress = client.get("/patient/progress?days=2", headers=_auth(patient_token)).json()
+    assert sum(day["sessions"] for day in progress["days"]) == 1
+
+
+def test_a_session_on_an_unapproved_plan_is_refused_over_http(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+    draft_id = _create_plan(client, practitioner_token, accounts.patient_a)
+
+    response = client.post(
+        "/patient/sessions",
+        headers=_auth(patient_token),
+        json={"plan_id": draft_id, "outcome": "DONE", "client_uuid": str(uuid4())},
+    )
+    assert response.status_code == 409
+
+
+def test_red_flag_reaches_the_practitioner_and_returns_only_an_acknowledgement(
+    client, accounts
+):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+
+    response = client.post(
+        "/patient/red-flag",
+        headers=_auth(patient_token),
+        json={"body": "هل هذا الألم في صدري طبيعي؟"},
+    )
+    assert response.status_code == 201
+    payload = response.json()
+
+    # تأكيد استلام فقط: لا تقييم ولا طمأنة ولا حقل سريري
+    assert payload["acknowledgement"] == escalation.ACKNOWLEDGEMENT
+    assert set(payload) == {"id", "reported_at", "acknowledgement"}
+    assert "طبيعي" not in payload["acknowledgement"]
+
+    queue = client.get("/practitioner/red-flags", headers=_auth(practitioner_token)).json()
+    assert [item["id"] for item in queue] == [payload["id"]]
+    assert queue[0]["reported_at"] is not None
+
+
+def test_acknowledging_a_red_flag_records_escalation_time(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+    flag_id = client.post(
+        "/patient/red-flag", headers=_auth(patient_token), json={"body": "دوخة"}
+    ).json()["id"]
+
+    acknowledged = client.post(
+        f"/practitioner/red-flags/{flag_id}/acknowledge",
+        headers=_auth(practitioner_token), json={"note": "اتُّصل بالمريض"},
+    )
+    assert acknowledged.status_code == 200
+    assert acknowledged.json()["escalation_seconds"] is not None
+
+    again = client.post(
+        f"/practitioner/red-flags/{flag_id}/acknowledge",
+        headers=_auth(practitioner_token), json={},
+    )
+    assert again.status_code == 409
+
+
+@pytest.mark.parametrize("body", [{}, {"body": ""}, {"body": "   "}])
+def test_an_empty_red_flag_is_refused_by_the_contract(client, accounts, body):
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+    response = client.post("/patient/red-flag", headers=_auth(patient_token), json=body)
+    assert response.status_code == 422
+
+
+def test_the_patient_gate_exposes_no_review_state_for_red_flags(client, accounts):
+    """المريض لا يعرف من استلم بلاغه ولا متى — يعرف أنه وصل."""
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+    payload = client.post(
+        "/patient/red-flag", headers=_auth(patient_token), json={"body": "ألم"}
+    ).json()
+    for leaked in ("acknowledged_at", "acknowledged_by", "escalation_seconds", "patient_id"):
+        assert leaked not in payload
