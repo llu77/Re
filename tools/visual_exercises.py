@@ -63,6 +63,32 @@ def generate_visual_exercise(params: dict) -> dict:
 # SVG Helpers
 # ─────────────────────────────────────────────────────────────
 
+def _side_marker(side: str, W: int, H: int) -> list:
+    """
+    علامة الجانب المصاب: شريط وسهم على حافة ذلك الجانب.
+
+    وظيفتان في علامة واحدة. سريرياً هي مرساة تسحب النظر نحو الميدان
+    المفقود — وهو أسلوب معروف في تأهيل العمى الشقي. وهندسياً هي ما يجعل
+    الجانب **مقروءاً في المخرَج**: التحقق في `core.illustrations` يقيس
+    الصورة ولا يسأل المولّد عمّا استلمه، فما لا يظهر في الرسم لا وجود له.
+
+    الاصطلاح: يسار الصورة هو يسار المريض، بلا انعكاس.
+    """
+    if side not in ("left", "right"):
+        return []
+
+    band_w = 26
+    band_x = 6 if side == "left" else W - band_w - 6
+    tip = 10 if side == "left" else W - 10
+    base = 46 if side == "left" else W - 46
+    return [
+        f'<rect x="{band_x}" y="40" width="{band_w}" height="{H - 80}" '
+        f'rx="8" fill="#E8A020" opacity="0.3"/>',
+        f'<polygon points="{tip},{H // 2} {base},{H // 2 - 30} '
+        f'{base},{H // 2 + 30}" fill="#E8A020" opacity="0.9"/>',
+    ]
+
+
 def _svg_wrap(content: str, w: int = 500, h: int = 380, bg: str = "#0D1B2A") -> str:
     return (
         f'<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" '
@@ -93,6 +119,11 @@ def _scanning_grid(difficulty: int, side: str) -> str:
     colors = ["#2E8BC0", "#10A567", "#E8A020", "#C0392B", "#9B59B6"]
 
     elements = []
+
+    # العلامة نفسها التي تحملها بقية الأنواع ذات الجانب: توحيدها يجعل
+    # اللغة البصرية واحدة عند المريض، ويجعل إشارة الجانب في كل الأنواع
+    # فوق عتبة التحقق بهامش واحد لا بهوامش متفاوتة.
+    elements.extend(_side_marker(side, W, H))
 
     # خط الوسط إذا كان hemianopia
     if side in ("left", "right"):
@@ -205,9 +236,14 @@ def _fixation_cross(difficulty: int, side: str) -> str:
         f'</circle>'
     )
 
-    # نقطة PRL المقترحة (أسفل يسار للـ AMD)
+    # نقطة PRL المقترحة، أسفل المركز مباشرةً.
+    #
+    # كانت تُزاح أفقياً بحسب `side`، وكانت "both" تأخذ فرع اليسار صامتةً —
+    # فيحصل مريضٌ ثنائي الجانب على رسمٍ أحادي الجانب. وهذا النوع مصنَّف
+    # «لا يحمل جانباً» في `core.illustrations`، فالإزاحة الأفقية تناقض
+    # تصنيفه. الإزاحة صارت رأسية: إبصار لامركزي بلا ادّعاء جانب.
     prl_offset = 30 + difficulty * 10
-    prl_x = cx + prl_offset if side != "right" else cx - prl_offset
+    prl_x = cx
     prl_y = cy + prl_offset
     elements.append(
         f'<circle cx="{prl_x}" cy="{prl_y}" r="8" '
@@ -271,11 +307,16 @@ def _contrast_chart(difficulty: int, side: str) -> str:
                 f' font-family="Cairo,Arial">{letter}</text>'
             )
 
-        # تسمية التباين
-        elements.append(
-            f'<text x="8" y="{y:.0f}" fill="rgba(255,255,255,0.3)" '
-            f'font-size="9" text-anchor="start">{ct}%</text>'
-        )
+        # تسمية التباين على الجانبين معاً.
+        #
+        # كانت على اليسار وحده، فكانت اللوحة منحازة يساراً بمقدار قابل
+        # للقياس رغم أنها لا تحمل جانباً سريرياً. ومريضٌ بعمى شقي أيسر
+        # كان يفقد التسمية كلها. التكرار يُصلح الاثنين.
+        for label_x, anchor in ((8, "start"), (W - 8, "end")):
+            elements.append(
+                f'<text x="{label_x}" y="{y:.0f}" fill="rgba(255,255,255,0.3)" '
+                f'font-size="9" text-anchor="{anchor}">{ct}%</text>'
+            )
 
     # عنوان
     elements.append(
@@ -324,6 +365,11 @@ def _reading_ruler(difficulty: int, side: str) -> str:
 
     # خلفية مُعتِمة لكل الصفحة
     elements.append(f'<rect x="0" y="0" width="{W}" height="{H}" fill="#1A1A2E"/>')
+
+    # كان هذا المولّد يستقبل `side` ويتجاهله تماماً: مخرَجه لليمين واليسار
+    # متطابق حرفياً. مريض العمى الشقي يفقد طرف السطر في جانبه المصاب فيتيه
+    # عن بداية السطر التالي، والعلامة هي ما يعيده إليه.
+    elements.extend(_side_marker(side, W, H))
 
     # الأسطر
     for i, line in enumerate(lines):
@@ -374,7 +420,6 @@ def _tracking_exercise(difficulty: int, side: str) -> str:
     الصعوبة تحدد تعقيد المسار وعدد الأهداف.
     """
     W, H = 500, 380
-    cx, cy = W // 2, H // 2
 
     # توليد نقاط المسار بالتريج
     num_points = 6 + difficulty * 2
@@ -382,16 +427,34 @@ def _tracking_exercise(difficulty: int, side: str) -> str:
     radius_y = 130 - difficulty * 10
     rotation_offset = difficulty * 15
 
+    # انحياز المسار نحو الجانب المصاب.
+    #
+    # كان هذا المولّد أيضاً يستقبل `side` ويتجاهله. وتدريب التتبّع في العمى
+    # الشقي يسحب النظر نحو الميدان المفقود، فمسارٌ متمركز لا يدرّب شيئاً
+    # مما يحتاجه المريض. الإزاحة محسوبة من نصف القطر لا ثابتة، فلا يخرج
+    # المسار عن اللوحة عند أي صعوبة.
+    room = max(0, W // 2 - int(radius_x * 1.35) - 12)
+    shift = {"left": -room, "right": room}.get(side, 0)
+    cx, cy = W // 2 + shift, H // 2
+
     path_points = []
     for i in range(num_points + 1):
         angle = (2 * math.pi * i / num_points) + math.radians(rotation_offset)
-        # إضافة تموج للصعوبة الأعلى
-        wobble = 1 + (difficulty - 1) * 0.15 * math.sin(angle * difficulty)
+        # إضافة تموج للصعوبة الأعلى.
+        #
+        # `cos(2·d·θ)` لا `sin(d·θ)`: الأولى متماثلة حول المحور الرأسي عند
+        # أي صعوبة، والثانية لم تكن — فكان المسار ينحاز جانبياً بلا سبب
+        # سريري، وينازع التحققَ في تمييز ما يمثّل الجانب مما لا يمثّله.
+        wobble = 1 + (difficulty - 1) * 0.15 * math.cos(2 * angle * difficulty)
         x = cx + radius_x * wobble * math.cos(angle)
         y = cy + radius_y * wobble * math.sin(angle)
         path_points.append((x, y))
 
     elements = []
+
+    # تدريب التتبّع في العمى الشقي يسحب النظر نحو الميدان المفقود، فالعلامة
+    # هي نقطة البدء واتجاه السحب معاً.
+    elements.extend(_side_marker(side, W, H))
 
     # رسم المسار
     path_d = f"M {path_points[0][0]:.1f} {path_points[0][1]:.1f}"
@@ -411,9 +474,11 @@ def _tracking_exercise(difficulty: int, side: str) -> str:
     # نقاط الهدف على المسار
     target_colors = ["#10A567", "#E8A020", "#C0392B", "#9B59B6"]
     num_targets = min(difficulty + 2, len(path_points) - 1)
-    step = len(path_points) // num_targets
+    # توزيع متساوٍ على المسار. القسمة الصحيحة السابقة كانت تكدّس الأهداف
+    # في قوس واحد، فيصير الرسم منحازاً بلا سبب سريري — وانحيازٌ بلا سبب
+    # يخلط على التحقق ما يمثّل الجانب بما لا يمثّله.
     for i in range(num_targets):
-        idx = (i * step) % (len(path_points) - 1)
+        idx = round(i * (len(path_points) - 1) / num_targets)
         px, py = path_points[idx]
         color = target_colors[i % len(target_colors)]
         elements.append(
