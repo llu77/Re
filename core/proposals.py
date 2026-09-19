@@ -19,6 +19,7 @@ from psycopg.types.json import Jsonb
 
 from core import db
 from core.types import (
+    EVIDENCE_REQUIRED_KINDS,
     Actor,
     AffectedSide,
     InvalidTransition,
@@ -27,6 +28,7 @@ from core.types import (
 )
 
 __all__ = [
+    "EvidenceRequired",
     "approve",
     "create",
     "edit_and_approve",
@@ -55,6 +57,15 @@ _PENDING_QUEUE = _SELECT + (
 
 class ProposalNotFound(LookupError):
     """المقترح غير موجود، أو خارج نطاق المستأجر الحالي — لا نميّز بينهما."""
+
+
+class EvidenceRequired(Exception):
+    """
+    نوع مُلزِم يُقدَّم بلا استشهاد. القاعدة 3.
+
+    المنع الفعلي في محفّز الانتقالات لا هنا؛ هذا الفحص يسبقه ليعطي خطأً
+    يفهمه الممارس بدل «انتقال غير مسموح» الذي لا يقول له ما ينقصه.
+    """
 
 
 def _to_proposal(row: Mapping[str, Any]) -> Proposal:
@@ -146,10 +157,31 @@ def get(proposal_id: UUID, actor: Actor) -> Proposal:
     return _to_proposal(row)
 
 
+_KIND_AND_EVIDENCE = """
+SELECT p.kind,
+       EXISTS (SELECT 1 FROM proposal_citations c WHERE c.proposal_id = p.id) AS cited
+FROM proposals p WHERE p.id = %s
+"""
+
+
 def submit(proposal_id: UUID, actor: Actor) -> Proposal:
-    """يدخل الطابور. `queued_at` هنا هو بداية قياس زمن المراجعة."""
+    """
+    يدخل الطابور. `queued_at` هنا هو بداية قياس زمن المراجعة.
+
+    الفحص المسبق للاستشهاد على نسق `reject`: قاعدة البيانات تبقى الحَكَم،
+    والفحص هنا لأجل رسالة مفهومة قبل رحلة الشبكة.
+    """
     try:
         with db.session("practitioner", tenant_id=actor.tenant_id, actor_id=actor.id) as cursor:
+            cursor.execute(_KIND_AND_EVIDENCE, (proposal_id,))
+            row = cursor.fetchone()
+            if row is None:
+                raise ProposalNotFound(str(proposal_id))
+            if row["kind"] in EVIDENCE_REQUIRED_KINDS and not row["cited"]:
+                raise EvidenceRequired(
+                    f"لا يدخل طابور المراجعة مقترح {row['kind']} بلا استشهاد بمصدر مسترجَع"
+                )
+
             cursor.execute(
                 "UPDATE proposals SET status = 'PENDING', queued_at = now()"
                 " WHERE id = %s RETURNING id",

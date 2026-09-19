@@ -16,10 +16,12 @@ from uuid import UUID
 from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
-from api.deps import enforce_auth_rate_limit, practitioner
-from core import caregivers, escalation, proposals
+from api.deps import enforce_auth_rate_limit, enforce_evidence_rate_limit, practitioner
+from core import caregivers, citations, escalation, proposals
 from core.identity import AuthenticationFailed, Principal, authenticate, revoke_session
 from core.caregivers import CaregiverLink, ConsentSource
+from core.evidence import EvidenceQuery, NoEvidence, UnknownTerm, retrieval, vocabulary
+from core.evidence.transport import TransportError
 from core.types import AffectedSide, InvalidTransition, Proposal, ProposalKind
 
 router = APIRouter(prefix="/practitioner", tags=["practitioner"])
@@ -157,7 +159,16 @@ def read_proposal(
 def submit_proposal(
     principal: Annotated[Principal, practitioner], proposal_id: UUID
 ) -> ProposalView:
-    return ProposalView.of(_or_404(proposals.submit, proposal_id, principal))
+    """
+    الدخول إلى الطابور.
+
+    نوعٌ مُلزِم بلا استشهاد يُردّ بـ409 ورسالة تقول ما ينقص — والمنع الفعلي
+    في محفّز الانتقالات لا هنا.
+    """
+    try:
+        return ProposalView.of(_or_404(proposals.submit, proposal_id, principal))
+    except proposals.EvidenceRequired as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.post("/proposals/{proposal_id}/approve", response_model=ProposalView)
@@ -366,3 +377,170 @@ def revoke_caregiver(
             status.HTTP_409_CONFLICT, detail="الموافقة مسحوبة أصلاً أو غير موجودة"
         )
     return CaregiverLinkView.of(link)
+
+
+# ── الأدلة والاستشهاد ───────────────────────────────────────────────────
+class EvidenceSearchRequest(BaseModel):
+    """
+    استعلام مُركَّب من مفردات مغلقة.
+
+    **لا حقل نصّ حرّ هنا، ولن يُضاف.** هذا هو الموضع الذي كان يخرج منه سياق
+    المريض إلى NCBI في الواجهة القديمة؛ العقد نفسه يمنعه الآن.
+    """
+
+    condition: str = Field(max_length=120)
+    intervention: str = Field(max_length=120)
+    population: str | None = Field(default=None, max_length=120)
+    from_year: int | None = Field(default=None, ge=1900, le=2200)
+    to_year: int | None = Field(default=None, ge=1900, le=2200)
+    article_types: list[str] = Field(default_factory=list, max_length=6)
+
+
+class SourceView(BaseModel):
+    id: UUID
+    external_id: str
+    title: str
+    url: str
+    journal: str | None
+    published_year: int | None
+    doi: str | None
+    abstract: str | None
+    mesh: list[str]
+
+
+class CitationRequest(BaseModel):
+    source_id: UUID
+    locator: str | None = Field(default=None, max_length=500)
+
+
+class CitationView(BaseModel):
+    source_id: UUID
+    external_id: str
+    title: str
+    url: str
+    published_year: int | None
+    locator: str | None
+    added_by: UUID
+    added_at: Any
+
+
+class TermView(BaseModel):
+    term: str
+    label: str
+
+
+@router.get("/evidence/vocabulary", response_model=dict[str, list[TermView]])
+def evidence_vocabulary(
+    principal: Annotated[Principal, practitioner],
+) -> dict[str, list[TermView]]:
+    """
+    المفردات المغلقة كما هي، للاختيار منها.
+
+    الواجهة لا تخترع مصطلحاً ولا تسمح بكتابته: ما ليس هنا لا يُبحَث به.
+    """
+    return {
+        facet: [TermView(term=term, label=label) for term, label in vocabulary.terms(facet)]
+        for facet in vocabulary.FACETS
+    }
+
+
+@router.post("/evidence/search", response_model=list[SourceView])
+def search_evidence(
+    principal: Annotated[Principal, practitioner], body: EvidenceSearchRequest
+) -> list[SourceView]:
+    """
+    يبحث في المصادر الخارجية ويخزّن ما استُرجع.
+
+    غياب النتيجة رفضٌ صريح (404) لا قائمة فارغة: القاعدة 3 تقول إن الغياب
+    يمنع المحتوى، فلا تُعرض نتيجة فارغة كأنها بحثٌ ناجح بلا مقالات.
+    """
+    enforce_evidence_rate_limit(str(principal.actor.id))
+
+    years = None
+    if body.from_year is not None or body.to_year is not None:
+        if body.from_year is None or body.to_year is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, detail="مدى السنوات يحتاج طرفيه"
+            )
+        years = (body.from_year, body.to_year)
+
+    try:
+        query = EvidenceQuery(
+            condition=body.condition,
+            intervention=body.intervention,
+            population=body.population,
+            years=years,
+            article_types=frozenset(body.article_types),
+        )
+    except UnknownTerm as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    try:
+        sources = retrieval.search(principal.actor, query)
+    except NoEvidence as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except TransportError as exc:
+        # انقطاع المصدر ليس غياب دليل: نميّزهما فلا يُقرأ العطل نتيجةً سلبية.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="تعذّر الوصول إلى مصدر الأدلة الآن. لم يُجرَ البحث.",
+        ) from exc
+
+    return [
+        SourceView(
+            id=source.id, external_id=source.external_id, title=source.title,
+            url=source.url, journal=source.journal,
+            published_year=source.published_year, doi=source.doi,
+            abstract=source.abstract, mesh=list(source.mesh),
+        )
+        for source in sources
+    ]
+
+
+@router.get("/proposals/{proposal_id}/citations", response_model=list[CitationView])
+def proposal_citations(
+    principal: Annotated[Principal, practitioner], proposal_id: UUID
+) -> list[CitationView]:
+    """أدلّة المقترح. يراها الممارس بجانب ما يراجعه، لا في شاشة أخرى."""
+    return [
+        CitationView(
+            source_id=item.source_id, external_id=item.external_id, title=item.title,
+            url=item.url, published_year=item.published_year, locator=item.locator,
+            added_by=item.added_by, added_at=item.added_at,
+        )
+        for item in citations.for_proposal(principal.actor, proposal_id)
+    ]
+
+
+@router.post(
+    "/proposals/{proposal_id}/citations",
+    response_model=CitationView,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_citation(
+    principal: Annotated[Principal, practitioner],
+    proposal_id: UUID,
+    body: CitationRequest,
+) -> CitationView:
+    """
+    يربط المقترح بمصدر استُرجع فعلاً.
+
+    `source_id` معرّف صفٍّ في `evidence_sources`، لا رقم PMID يكتبه أحد:
+    معرّفٌ لم يُسترجع لا صفّ له، فالمفتاح الخارجي يرفضه.
+    """
+    try:
+        citation = citations.cite(
+            principal.actor, proposal_id=proposal_id,
+            source_id=body.source_id, locator=body.locator,
+        )
+    except citations.CitationRefused as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="تعذّر الاستشهاد: المصدر غير مسترجَع، أو حالة المقترح نهائية.",
+        ) from exc
+    return CitationView(
+        source_id=citation.source_id, external_id=citation.external_id,
+        title=citation.title, url=citation.url,
+        published_year=citation.published_year, locator=citation.locator,
+        added_by=citation.added_by, added_at=citation.added_at,
+    )

@@ -19,7 +19,7 @@ import pytest
 from core import db, escalation, proposals, sessions
 from core.clock import local_day, now
 from core.types import Actor
-from tests.conftest import requires_db
+from tests.conftest import cite_evidence_as, requires_db
 
 psycopg = pytest.importorskip("psycopg")
 
@@ -47,6 +47,7 @@ def approved_plan(practitioner, seed):
         practitioner, patient_id=seed.patient_a, kind="PLAN",
         payload={"home_program": "تمارين يومية"},
     )
+    cite_evidence_as(practitioner, plan.id)
     proposals.submit(plan.id, practitioner)
     return proposals.approve(plan.id, practitioner).id
 
@@ -244,6 +245,7 @@ def test_session_on_another_patients_plan_is_refused(practitioner, seed):
     theirs = proposals.create(
         other, patient_id=seed.patient_b, kind="PLAN", payload={"x": 1}
     )
+    cite_evidence_as(other, theirs.id)
     proposals.submit(theirs.id, other)
     proposals.approve(theirs.id, other)
 

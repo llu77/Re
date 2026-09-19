@@ -13,7 +13,7 @@ from datetime import timedelta
 
 from core.clock import now
 from core.types import ALLOWED_TRANSITIONS, DELIVERABLE_STATUSES
-from tests.conftest import requires_db, set_actor
+from tests.conftest import cite_evidence, requires_db, set_actor
 
 psycopg = pytest.importorskip("psycopg")
 from psycopg import errors as pg_errors  # noqa: E402
@@ -45,6 +45,9 @@ def _insert(owner, seed, **overrides):
 
 
 def _queue(owner, proposal_id):
+    # بوابة القسم 3: لا دخول للطابور بلا استشهاد بمصدر مسترجَع. موضعه هنا
+    # لأن هذه هي النقطة الوحيدة التي يمرّ منها DRAFT ← PENDING في هذا الملف.
+    cite_evidence(owner, proposal_id)
     with owner.cursor() as cursor:
         cursor.execute(
             "UPDATE proposals SET status='PENDING', queued_at=now() WHERE id=%s", (proposal_id,)
@@ -387,6 +390,7 @@ def test_practitioner_sees_own_tenant(owner, practitioner_conn, seed):
 # ── قياس زمن المراجعة ───────────────────────────────────────────────────
 def test_review_time_is_stored_and_queryable(owner, seed):
     proposal = _insert(owner, seed)
+    cite_evidence(owner, proposal)
     with owner.cursor() as cursor:
         cursor.execute(
             "UPDATE proposals SET status='PENDING', queued_at = now() - interval '90 seconds'"

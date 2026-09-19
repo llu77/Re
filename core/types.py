@@ -21,6 +21,7 @@ __all__ = [
     "Actor",
     "AffectedSide",
     "DELIVERABLE_STATUSES",
+    "EVIDENCE_REQUIRED_KINDS",
     "Deliverable",
     "Gate",
     "PROPOSAL_TTL",
@@ -51,6 +52,18 @@ PROPOSAL_TTL = timedelta(hours=48)
 
 #: الحالتان الوحيدتان القابلتان للتسليم للمريض.
 DELIVERABLE_STATUSES: frozenset[str] = frozenset({"APPROVED", "EDITED_APPROVED"})
+
+#: أنواع لا تدخل طابور المراجعة بلا استشهاد واحد على الأقل — القاعدة 3.
+#:
+#: نظيرها في قاعدة البيانات جدول `evidence_required_kind`، والمحفّز هو الذي
+#: يفرض المنع لا هذا الثابت؛ واختبار يقارن الاثنين فيمنع انحرافهما.
+#:
+#: خارج القائمة عمداً: `ILLUSTRATION_SET` يرث دليل الخطة التي يتبعها، و
+#: `DOCUMENTATION` يسجّل ما جرى فعلاً لا توصية — وإلزامه باستشهاد يُنتج
+#: استشهاداً شكلياً يُضعف معنى البوابة بدل أن يقوّيها.
+EVIDENCE_REQUIRED_KINDS: frozenset[str] = frozenset(
+    {"PLAN", "PLAN_UPDATE", "READINESS"}
+)
 
 #: أنواع يستحيل تمثيلها بلا جانب مصاب — مفروض أيضاً بقيد CHECK في المخطط.
 SIDE_REQUIRED_KINDS: frozenset[str] = frozenset({"ILLUSTRATION_SET"})

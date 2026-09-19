@@ -344,3 +344,68 @@ def test_core_does_not_depend_on_streamlit_or_the_model_client():
         if banned:
             offenders[_relative(path)] = sorted(banned)
     assert not offenders, f"طبقة المجال تعتمد على الواجهة: {offenders}"
+
+
+# ── معيار القبول 2: حدٌّ خارجي واحد ─────────────────────────────────────
+#: الوحدة الوحيدة المسموح لها بالاتصال بالشبكة. سؤال «ما الذي يغادر هذا
+#: النظام؟» يجب أن يبقى له جواب واحد يُقرأ في ملف واحد.
+HTTP_BOUNDARY = "core/evidence/transport.py"
+
+NETWORK_LIBRARIES = {"requests", "urllib", "urllib3", "httpx", "aiohttp", "socket", "http"}
+
+
+def _network_imports(tree: ast.AST) -> list[str]:
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in NETWORK_LIBRARIES:
+                    found.append(f"{alias.name} في السطر {node.lineno}")
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            if node.module.split(".")[0] in NETWORK_LIBRARIES:
+                found.append(f"from {node.module} في السطر {node.lineno}")
+    return found
+
+
+def test_only_one_module_speaks_to_the_network():
+    """
+    لا اتصال خارجي خارج `core/evidence/transport.py`.
+
+    قبل القسم 3 كان `tools/pubmed.py` يتصل بنفسه بنصّ استعلام حرّ. الاختبار
+    هنا هو ما يمنع عودة موضع اتصال ثانٍ لا يمر على المفردات المغلقة.
+    """
+    offenders = {}
+    for path in _all_project_files():
+        name = _relative(path)
+        if name == HTTP_BOUNDARY or name.startswith("tests/"):
+            continue
+        found = _network_imports(ast.parse(path.read_text(encoding="utf-8")))
+        if found:
+            offenders[name] = found
+
+    assert not offenders, f"اتصال خارجي خارج الحدّ الوحيد: {offenders}"
+
+
+def test_the_http_boundary_exists_and_is_the_one_that_imports_requests():
+    """حارس: لو اختفى الحدّ نفسه لمرّ الاختبار أعلاه فارغاً."""
+    boundary = ROOT / HTTP_BOUNDARY
+    assert boundary.exists(), "حدّ الشبكة غير موجود"
+    assert _network_imports(ast.parse(boundary.read_text(encoding="utf-8")))
+
+
+# ── «المسترجَع آلياً فقط»: مسار كتابة واحد ──────────────────────────────
+SOURCE_WRITER = "core/evidence/retrieval.py"
+
+
+def test_only_retrieval_records_a_source():
+    """
+    `record_retrieved_source` هي المسار الوحيد للكتابة في `evidence_sources`،
+    ووحدة الاسترجاع وحدها تستدعيها. الصلاحيات تمنع البقية، وهذا يمنع أن
+    يصير هناك مستدعٍ ثانٍ يخزّن مصدراً لم يأتِ من المصدر الخارجي.
+    """
+    callers = {
+        _relative(path)
+        for path in _all_project_files()
+        if "record_retrieved_source" in path.read_text(encoding="utf-8")
+    }
+    assert callers == {SOURCE_WRITER}, f"مستدعون غير متوقَّعون: {sorted(callers)}"

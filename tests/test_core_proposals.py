@@ -11,7 +11,7 @@ import pytest
 
 from core import db, delivery, proposals
 from core.types import Actor, InvalidTransition
-from tests.conftest import requires_db
+from tests.conftest import cite_evidence_as, requires_db
 
 pytestmark = requires_db
 
@@ -34,10 +34,18 @@ def _reset_pools():
 
 
 def _plan(actor, seed, **overrides):
-    return proposals.create(
+    """
+    مقترح خطة مستشهَد به.
+
+    الاستشهاد جزء من إنشاء الخطة منذ القسم 3: خطةٌ بلا مصدر لا تدخل الطابور
+    أصلاً، فبناؤها في الاختبار بلا مصدر يبني حالةً لا توجد في الإنتاج.
+    """
+    proposal = proposals.create(
         actor, patient_id=seed.patient_a, kind="PLAN",
         payload={"home_program": "تمارين يومية"}, **overrides
     )
+    cite_evidence_as(actor, proposal.id)
+    return proposal
 
 
 # ── دورة الحياة ─────────────────────────────────────────────────────────
@@ -213,6 +221,7 @@ def test_patient_sees_only_their_own_content(practitioner, other_practitioner, s
     theirs = proposals.create(
         other_practitioner, patient_id=seed.patient_b, kind="PLAN", payload={"x": 1}
     )
+    cite_evidence_as(other_practitioner, theirs.id)
     proposals.submit(theirs.id, other_practitioner)
     proposals.approve(theirs.id, other_practitioner)
 

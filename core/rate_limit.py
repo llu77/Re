@@ -19,7 +19,13 @@ from dataclasses import dataclass
 
 from core.clock import now
 
-__all__ = ["AUTH_LIMIT", "RateLimit", "RateLimitExceeded", "RateLimiter"]
+__all__ = [
+    "AUTH_LIMIT",
+    "EVIDENCE_LIMIT",
+    "RateLimit",
+    "RateLimitExceeded",
+    "RateLimiter",
+]
 
 
 class RateLimitExceeded(Exception):
@@ -38,6 +44,10 @@ class RateLimit:
 
 #: المصادقة: عشر محاولات في الدقيقة لكل معرّف.
 AUTH_LIMIT = RateLimit(max_events=10, window_seconds=60.0)
+
+#: بحث الأدلة: عشرون بحثاً في الدقيقة لكل ممارس. مراجعة مقترح واحد تحتاج
+#: بحثاً أو اثنين، والعشرون هامشٌ واسع لجلسة عمل لا لحلقة آلية.
+EVIDENCE_LIMIT = RateLimit(max_events=20, window_seconds=60.0)
 
 
 class RateLimiter:

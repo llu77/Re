@@ -52,7 +52,12 @@ def accounts(owner, seed):
         cursor.execute(
             "UPDATE patients SET user_id = %s WHERE id = %s", (patient_user, seed.patient_a)
         )
+    _PRACTITIONER_A[:] = [seed.practitioner_a, seed.tenant_a]
     return seed
+
+
+#: (معرّف الممارس، معرّف مستأجره) — يملؤه `accounts`، ويستعمله `_create_plan`.
+_PRACTITIONER_A: list = [None, None]
 
 
 @pytest.fixture
@@ -123,7 +128,13 @@ def test_login_is_rate_limited(client):
 
 
 # ── المسار الكامل ───────────────────────────────────────────────────────
-def _create_plan(client, token, patient_id) -> str:
+def _create_plan(client, token, patient_id, *, tenant_id=None, author=None) -> str:
+    """
+    خطة جاهزة للتقديم: تُنشأ ويُستشهَد لها بمصدر مسترجَع.
+
+    منذ القسم 3 لا تدخل خطة الطابور بلا استشهاد، فخطة بلا مصدر في الاختبار
+    حالةٌ لا توجد في الإنتاج.
+    """
     response = client.post(
         "/practitioner/proposals",
         headers=_auth(token),
@@ -134,7 +145,20 @@ def _create_plan(client, token, patient_id) -> str:
         },
     )
     assert response.status_code == 201, response.text
-    return response.json()["id"]
+    proposal_id = response.json()["id"]
+
+    from core.types import Actor
+    from tests.conftest import cite_evidence_as
+
+    cite_evidence_as(
+        Actor(
+            id=author or _PRACTITIONER_A[0],
+            role="PRACTITIONER",
+            tenant_id=tenant_id or _PRACTITIONER_A[1],
+        ),
+        proposal_id,
+    )
+    return proposal_id
 
 
 def test_full_flow_from_draft_to_patient(client, accounts):

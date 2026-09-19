@@ -23,7 +23,7 @@ import pytest
 
 from core import caregivers, identity, proposals
 from core.types import Actor
-from tests.conftest import requires_db
+from tests.conftest import cite_evidence_as, requires_db
 
 pytestmark = requires_db
 
@@ -105,6 +105,7 @@ def patient_token(owner, seed, portal_server):
         ]},
         affected_side="RIGHT",
     )
+    cite_evidence_as(practitioner, plan.id)
     proposals.submit(plan.id, practitioner)
     proposals.approve(plan.id, practitioner)
 

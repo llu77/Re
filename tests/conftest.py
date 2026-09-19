@@ -165,3 +165,51 @@ def set_actor(connection, *, tenant_id=None, actor_id=None, patient_id=None) -> 
         ):
             if value is not None:
                 cursor.execute("SELECT set_config(%s, %s, false)", (key, str(value)))
+
+
+# ── أدلة للاختبار ───────────────────────────────────────────────────────
+#: مصدر ثابت يقوم مقام ما يُسترجع من PubMed. يُدرَج بالمسار الإنتاجي نفسه
+#: (`record_retrieved_source`)، فلا يلتفّ الاختبار على ما يفرضه المخطط.
+TEST_SOURCE = (
+    "PUBMED",
+    "10000001",
+    "Evidence-based rehabilitation: a reference used by the test suite",
+    "https://pubmed.ncbi.nlm.nih.gov/10000001/",
+)
+
+_RECORD_SOURCE = """
+SELECT record_retrieved_source(%s, %s, %s, %s, NULL, NULL, NULL, NULL, '[]'::jsonb) AS id
+"""
+
+_CITE = """
+INSERT INTO proposal_citations (proposal_id, source_id, added_by)
+VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
+"""
+
+
+def cite_evidence(connection, proposal_id, *, added_by=None) -> UUID:
+    """
+    يمنح مقترحاً استشهاداً بمصدر مسترجَع، باتصال خام.
+
+    بوابة القسم 3 تمنع دخول الطابور بلا استشهاد، فكل اختبار يقود مقترحاً إلى
+    `PENDING` صار يحتاج مصدراً — تماماً كما يحتاجه الممارس.
+    """
+    with connection.cursor() as cursor:
+        if added_by is None:
+            cursor.execute("SELECT created_by FROM proposals WHERE id = %s", (proposal_id,))
+            added_by = cursor.fetchone()[0]
+        cursor.execute(_RECORD_SOURCE, TEST_SOURCE)
+        source = cursor.fetchone()[0]
+        cursor.execute(_CITE, (proposal_id, source, added_by))
+    return source
+
+
+def cite_evidence_as(actor, proposal_id) -> UUID:
+    """النسخة التي تمر بدور الممارس وتجمّعاته — للاختبارات التي تملك فاعلاً."""
+    from core import db
+
+    with db.session("practitioner", tenant_id=actor.tenant_id, actor_id=actor.id) as cursor:
+        cursor.execute(_RECORD_SOURCE, TEST_SOURCE)
+        source = cursor.fetchone()["id"]
+        cursor.execute(_CITE, (proposal_id, source, actor.id))
+    return source

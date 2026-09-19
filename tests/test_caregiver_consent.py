@@ -15,7 +15,7 @@ from psycopg import errors as pg_errors
 
 from core import caregivers, identity, proposals
 from core.types import Actor
-from tests.conftest import requires_db, set_actor
+from tests.conftest import cite_evidence_as, requires_db, set_actor
 
 pytestmark = requires_db
 
@@ -236,6 +236,7 @@ def test_a_caregiver_reads_only_the_linked_patient(actor_a, seed, caregiver, pat
     plan = proposals.create(
         actor_a, patient_id=seed.patient_a, kind="PLAN", payload={"steps": []},
     )
+    cite_evidence_as(actor_a, plan.id)
     proposals.submit(plan.id, actor_a)
     proposals.approve(plan.id, actor_a)
 
@@ -266,6 +267,7 @@ def test_a_session_recorded_by_a_caregiver_is_attributed_to_them(
     plan = proposals.create(
         actor_a, patient_id=seed.patient_a, kind="PLAN", payload={"steps": []},
     )
+    cite_evidence_as(actor_a, plan.id)
     proposals.submit(plan.id, actor_a)
     proposals.approve(plan.id, actor_a)
 
