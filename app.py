@@ -402,10 +402,20 @@ CUSTOM_CSS = """
 html, body, .stApp, [class*="css"] {
     font-family: 'Cairo', 'Tajawal', -apple-system, sans-serif !important; direction: rtl;
 }
+/*
+ * الخلفية فقط. لا `position` ولا `overflow` هنا:
+ *
+ * Streamlit يضع `.stApp` بـ`position: absolute; inset: 0`، وداخله
+ * `.stAppViewContainer` مُطلَق أيضاً. تحويل `.stApp` إلى `relative` يُخرجه من
+ * ذلك العقد فينهار ارتفاعه إلى صفر، و`overflow-x: hidden` يجعل المحور الآخر
+ * غير مرئي أيضاً — فيصير صندوقاً قاصّاً بارتفاع صفر يبتلع الواجهة كلها.
+ * النتيجة: صفحة بيضاء لا محتوى فيها ولا زرّ قابل للنقر، والزخرفة وحدها ظاهرة.
+ *
+ * الطبقتان الزخرفيتان أدناه `position: fixed`، فلا تحتاجان سلفاً متموضعاً
+ * ولا تُنشئان فيضاً أفقياً — لا شيء هنا كان يخدمهما أصلاً.
+ */
 .stApp {
     background: var(--bg) !important;
-    position: relative;
-    overflow-x: hidden;
 }
 
 /* ── Animated Background ── */
