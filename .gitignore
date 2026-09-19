@@ -40,3 +40,9 @@ embeddings/
 # Secrets
 *.pem
 *.key
+
+# ═══ بيانات المرضى — PHI. لا تُلتزم إطلاقاً (تدقيق المرحلة 0، ح-8) ═══
+data/patients/
+data/outcomes/
+!data/patients/.gitkeep
+!data/outcomes/.gitkeep

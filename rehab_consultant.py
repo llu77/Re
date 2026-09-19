@@ -1024,7 +1024,7 @@ TOOLS = [
                 },
                 "rehabilitation_type": {
                     "type": "string",
-                    "enum": ["musculoskeletal", "neurological", "cardiopulmonary", "vision", "pediatric", "geriatric", "pain", "psychosocial"],
+                    "enum": ["orthopedic", "neuro", "cardiac", "vision", "pediatric", "geriatric", "pain", "psychosocial"],
                     "description": "نوع التأهيل"
                 },
                 "goals_short_term": {
@@ -1299,6 +1299,7 @@ def query_patient_database(params: dict) -> dict:
 def record_treatment_plan(params: dict) -> dict:
     """تسجيل خطة علاجية في ملف المريض الحالي"""
     import os as _os
+    import re as _re
     from datetime import datetime as _dt
 
     _patients_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "data", "patients")
@@ -1318,34 +1319,51 @@ def record_treatment_plan(params: dict) -> dict:
         "status": "active",
     }
 
-    # Try to find the current patient from context (using streamlit session state)
+    # سياق المريض الحالي يأتي من جلسة Streamlit. غيابه ليس خطأً —
+    # المسار غير التفاعلي (CLI/اختبار) يُعيد الخطة دون ربطها بملف.
     try:
         import streamlit as st
         pid = st.session_state.get("current_patient_id")
-        if pid and pid in st.session_state.get("patients", {}):
-            patient = st.session_state.patients[pid]
-            patient.setdefault("treatment_plans", [])
-            patient["treatment_plans"].append(plan)
-            # Save to disk
-            import re
-            safe_id = re.sub(r'[^A-Za-z0-9_\-]', '', pid)
-            path = _os.path.join(_patients_dir, f"{safe_id}.json")
-            patient["updated_at"] = _dt.now().isoformat()
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(patient, f, ensure_ascii=False, indent=2)
-            return {
-                "status": "ok",
-                "message": f"تم تسجيل الخطة العلاجية '{plan['plan_title']}' في ملف المريض",
-                "plan_id": len(patient["treatment_plans"]),
-                "patient_id": pid,
-            }
+        patients = st.session_state.get("patients", {})
     except Exception:
-        pass
+        pid, patients = None, {}
+
+    if not pid or pid not in patients:
+        return {
+            "status": "not_saved",
+            "message": "أُعدّت الخطة العلاجية ولم تُحفظ — لا يوجد مريض مفتوح.",
+            "plan": plan,
+        }
+
+    patient = patients[pid]
+    safe_id = _re.sub(r'[^A-Za-z0-9_\-]', '', pid)
+    path = _os.path.join(_patients_dir, f"{safe_id}.json")
+
+    # نكتب أولاً ثم نُعدّل الحالة في الذاكرة. العكس (السلوك السابق) كان يترك
+    # الذاكرة تحمل خطة غير موجودة على القرص عند فشل الكتابة.
+    candidate = dict(patient)
+    candidate["treatment_plans"] = list(patient.get("treatment_plans", [])) + [plan]
+    candidate["updated_at"] = _dt.now().isoformat()
+
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(candidate, f, ensure_ascii=False, indent=2)
+    except (OSError, TypeError, ValueError) as exc:
+        return {
+            "status": "error",
+            "message": "تعذّر حفظ الخطة العلاجية في ملف المريض. لم يُسجَّل شيء.",
+            "error_type": type(exc).__name__,
+            "patient_id": pid,
+        }
+
+    patient.setdefault("treatment_plans", []).append(plan)
+    patient["updated_at"] = candidate["updated_at"]
 
     return {
         "status": "ok",
-        "message": "تم إعداد الخطة العلاجية (لم يتم ربطها بملف مريض محدد)",
-        "plan": plan,
+        "message": f"تم تسجيل الخطة العلاجية '{plan['plan_title']}' في ملف المريض",
+        "plan_id": len(patient["treatment_plans"]),
+        "patient_id": pid,
     }
 
 

@@ -365,6 +365,7 @@ def init_session():
         "use_thinking": True,
         "pending_query": None,
         "show_new_patient_form": False,
+        "pending_delete_id": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1280,6 +1281,9 @@ def render_patient_registry():
             </div>
             """, unsafe_allow_html=True)
 
+            if st.session_state.get("pending_delete_id") == pid:
+                st.warning("حذف نهائي لملف المريض ولا يمكن التراجع عنه.")
+
             c1, c2 = st.columns(2)
             with c1:
                 if st.button("فتح الملف", key=f"open_{pid}", use_container_width=True):
@@ -1287,17 +1291,26 @@ def render_patient_registry():
                     st.session_state.current_patient_id = pid
                     st.rerun()
             with c2:
-                if st.button("حذف", key=f"del_{pid}", use_container_width=True):
-                    delete_patient(pid)
-                    del st.session_state.patients[pid]
+                pending_delete = st.session_state.get("pending_delete_id")
+                if pending_delete == pid:
+                    if st.button("تأكيد الحذف", key=f"del_yes_{pid}", use_container_width=True):
+                        delete_patient(pid)
+                        st.session_state.patients.pop(pid, None)
+                        st.session_state.pending_delete_id = None
+                        st.rerun()
+                    if st.button("تراجع", key=f"del_no_{pid}", use_container_width=True):
+                        st.session_state.pending_delete_id = None
+                        st.rerun()
+                elif st.button("حذف", key=f"del_{pid}", use_container_width=True):
+                    st.session_state.pending_delete_id = pid
                     st.rerun()
 
 
 REHAB_TYPES = {
     "": "-- اختر نوع التأهيل --",
-    "musculoskeletal": "عضلي هيكلي",
-    "neurological": "عصبي",
-    "cardiopulmonary": "قلبي رئوي",
+    "orthopedic": "عضلي هيكلي",
+    "neuro": "عصبي",
+    "cardiac": "قلبي رئوي",
     "vision": "بصري",
     "pediatric": "أطفال",
     "geriatric": "كبار السن",
@@ -1627,6 +1640,15 @@ def render_summary_tab(patient: dict):
 # Tab: Treatment Plans
 # ═══════════════════════════════════════════════════════════════
 
+def _plan_goal_text(goal) -> str:
+    """نص الهدف. المخطط يعلنه سلسلة نصية؛ نتسامح مع dict في السجلات القديمة."""
+    if isinstance(goal, dict):
+        description = goal.get("description", "")
+        timeframe = goal.get("timeframe", "")
+        return f"{description} ({timeframe})" if timeframe else description
+    return str(goal)
+
+
 def render_treatment_plans_tab(patient: dict):
     pid = patient["id"]
     plans = patient.get("treatment_plans", [])
@@ -1661,46 +1683,60 @@ def render_treatment_plans_tab(patient: dict):
         status_color = {"active": "green", "completed": "blue", "cancelled": "orange"}.get(status, "blue")
         title = plan.get("plan_title", f"خطة #{plan_idx + 1}")
         r_type = REHAB_TYPES.get(plan.get("rehabilitation_type", ""), "عام")
-        created = plan.get("created_at", "")[:10]
+        created = plan.get("timestamp", "")[:10]
 
         with st.expander(f"{title} — {r_type} [{status_ar}] ({created})", expanded=(i == 0 and status == "active")):
-            # Goals
-            goals = plan.get("goals", [])
-            if goals:
-                st.markdown("**الأهداف:**")
-                for g in goals:
-                    timeframe = g.get("timeframe", "")
-                    desc = g.get("description", str(g) if isinstance(g, str) else "")
-                    tf_label = f" ({timeframe})" if timeframe else ""
-                    st.markdown(f"- {desc}{tf_label}")
+            # الأهداف — record_treatment_plan يكتب goals_short_term/goals_long_term
+            for key, label in (("goals_short_term", "الأهداف قصيرة المدى"),
+                               ("goals_long_term", "الأهداف طويلة المدى")):
+                goals = plan.get(key, [])
+                if goals:
+                    st.markdown(f"**{label}:**")
+                    for g in goals:
+                        st.markdown(f"- {_plan_goal_text(g)}")
 
-            # Interventions
+            # التدخلات
             interventions = plan.get("interventions", [])
             if interventions:
                 st.markdown("**التدخلات:**")
                 for inv in interventions:
                     if isinstance(inv, dict):
-                        freq = inv.get("frequency", "")
-                        st.markdown(f"- {inv.get('name', inv.get('type', ''))} — {freq}")
+                        detail = " · ".join(
+                            v for v in (inv.get("description", ""), inv.get("frequency", ""),
+                                        inv.get("duration", ""), inv.get("intensity", ""))
+                            if v
+                        )
+                        name = inv.get("name", inv.get("type", ""))
+                        st.markdown(f"- {name}" + (f" — {detail}" if detail else ""))
                     else:
                         st.markdown(f"- {inv}")
 
-            # Precautions
+            # الاحتياطات
             precautions = plan.get("precautions", [])
             if precautions:
                 st.markdown("**الاحتياطات:**")
                 for pr in precautions:
                     st.markdown(f"- {pr}")
 
-            # Follow-up
-            followup = plan.get("follow_up_schedule", "")
-            if followup:
-                st.markdown(f"**جدول المتابعة:** {followup}")
+            # البرنامج المنزلي — كان يُحفظ ولا يُعرض إطلاقاً (تدقيق المرحلة 0، ح-3)
+            home_program = plan.get("home_program", "")
+            if home_program:
+                st.markdown("**البرنامج المنزلي:**")
+                st.markdown(home_program)
 
-            # Notes
-            notes = plan.get("notes", "")
-            if notes:
-                st.markdown(f"**ملاحظات:** {notes}")
+            # الجرعة والمتابعة
+            dosage = " · ".join(
+                v for v in (
+                    plan.get("frequency", ""),
+                    f"{plan['duration_weeks']} أسبوعاً" if plan.get("duration_weeks") else "",
+                ) if v
+            )
+            if dosage:
+                st.markdown(f"**الجرعة:** {dosage}")
+
+            reassessment = plan.get("reassessment_date", "")
+            if reassessment:
+                st.markdown(f"**إعادة التقييم:** {reassessment}")
 
             # Status toggle
             col1, col2, col3 = st.columns(3)
@@ -2075,7 +2111,7 @@ def _render_cdss_result(result: dict):
 def render_interventions_tab(patient: dict):
     pid = patient["id"]
     st.markdown("### التدخلات العلاجية الرقمية")
-    st.caption("شغّل جلسات تأهيل رقمية — تُحفظ النتائج تلقائياً في ملف المريض.")
+    st.caption("توصية الجهاز تُحفظ في ملف المريض. أوضاع المحاكاة لعرض الخوارزمية فقط ولا تُحفظ — استجاباتها مولَّدة، لا أداء مريض.")
 
     prev = patient.get("intervention_sessions", [])
     if prev:
@@ -2091,28 +2127,28 @@ def render_interventions_tab(patient: dict):
         key=f"it_{pid}")
 
     if int_type == "scanning":
+        _render_simulation_notice()
         col1, col2 = st.columns(2)
         blind_side = col1.selectbox("الجانب الأعمى", ["right", "left"], key=f"sc_s_{pid}")
         num_trials = col2.slider("المحاولات", 10, 50, 20, key=f"sc_n_{pid}")
-        if st.button("تشغيل", key=f"run_sc_{pid}", type="primary"):
+        if st.button("تشغيل المحاكاة", key=f"run_sc_{pid}"):
             result = run_intervention({"intervention_type": "scanning", "action": "simulate_session", "blind_side": blind_side, "num_trials": num_trials})
             s = result["session_summary"]
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("المحاولات", s["total_trials"]); c2.metric("الدقة", f"{s['accuracy_pct']}%")
+            c1.metric("المحاولات", s["total_trials"]); c2.metric("الدقة (محاكاة)", f"{s['accuracy_pct']}%")
             c3.metric("أعلى صعوبة", s["max_difficulty_reached"]); c4.metric("الانعكاسات", s["total_reversals"])
-            _save_intervention(patient, "scanning", result)
 
     elif int_type == "perceptual_learning":
+        _render_simulation_notice()
         col1, col2 = st.columns(2)
         sc = col1.slider("تباين البداية", 0.1, 1.0, 1.0, 0.05, key=f"pl_c_{pid}")
         num_t = col2.slider("المحاولات", 20, 100, 50, key=f"pl_n_{pid}")
-        if st.button("تشغيل", key=f"run_pl_{pid}", type="primary"):
+        if st.button("تشغيل المحاكاة", key=f"run_pl_{pid}"):
             result = run_intervention({"intervention_type": "perceptual_learning", "action": "simulate_session", "starting_contrast": sc, "num_trials": num_t})
             s = result["session_summary"]
             c1, c2, c3 = st.columns(3)
-            c1.metric("المحاولات", s["total_trials"]); c2.metric("الدقة", f"{s['accuracy_pct']}%")
+            c1.metric("المحاولات", s["total_trials"]); c2.metric("الدقة (محاكاة)", f"{s['accuracy_pct']}%")
             c3.metric("التباين النهائي", f"{s['ending_contrast']:.3f}")
-            _save_intervention(patient, "perceptual_learning", result)
 
     elif int_type == "device_routing":
         col1, col2 = st.columns(2)
@@ -2133,15 +2169,25 @@ def render_interventions_tab(patient: dict):
             _save_intervention(patient, "device_routing", result)
 
     elif int_type == "visual_augmentation":
-        st.info("محاكاة معالجة صورة لأنماط ضعف البصر.")
-        if st.button("تشغيل العرض", key=f"run_va_{pid}", type="primary"):
+        _render_simulation_notice()
+        st.caption("عرض توضيحي لمرشّحات معالجة الصورة على إطار اختباري مولَّد. "
+                   "لا يقرأ كاميرا ولا يقيس بيئة المريض.")
+        if st.button("تشغيل العرض", key=f"run_va_{pid}"):
             result = run_intervention({"intervention_type": "visual_augmentation", "action": "demo"})
-            for mode, data in result.get("demo_results", {}).items():
+            for mode in result.get("demo_results", {}):
                 if mode == "environment_analysis":
-                    st.write(f"**تحليل البيئة:** إضاءة {data.get('estimated_lux', 'N/A')} لوكس")
-                else:
-                    st.write(f"**{mode}:** تم المعالجة تم")
-            _save_intervention(patient, "visual_augmentation", result)
+                    # قراءة اللوكس مشتقة من إطار مولَّد، لا من بيئة المريض —
+                    # عرضها كقياس كان تلفيقاً سريرياً (تدقيق المرحلة 0، ح-1).
+                    continue
+                st.write(f"**{mode}:** تمت المعالجة")
+
+
+def _render_simulation_notice():
+    """وضع محاكاة: الاستجابات مولَّدة خوارزمياً ولا تُكتب في السجل الطبي."""
+    st.warning(
+        "[محاكاة] هذا عرض لسلوك الخوارزمية. الاستجابات مولَّدة ولا تمثّل أداء "
+        "المريض، ولا تُحفظ في ملفه."
+    )
 
 
 def _save_intervention(patient: dict, itype: str, result: dict):
