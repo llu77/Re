@@ -97,6 +97,7 @@ function forgetSession() {
     state.plan = null;
     state.steps = [];
     state.index = 0;
+    $('acting-as').hidden = true;
 }
 
 async function api(path, options = {}) {
@@ -350,8 +351,25 @@ function showSignedIn(signedIn) {
 }
 
 async function openSession() {
+    await showActingAs();
     await loadPlan();
     if (navigator.onLine) flushQueue();
+}
+
+/** يُظهر الصفة للمرافق. صامت للمريض نفسه: لا داعي لإخباره أنه هو. */
+async function showActingAs() {
+    const banner = $('acting-as');
+    try {
+        const who = await api('/session');
+        const isCaregiver = who.acting_as === 'CAREGIVER';
+        banner.textContent = isCaregiver
+            ? 'أنت تستخدم البوابة بصفة مرافق. ما تسجّله يُنسب إليك ويظهر للممارس.'
+            : '';
+        banner.hidden = !isCaregiver;
+    } catch {
+        // دون اتصال أو بجلسة منتهية: لا نعرض صفة قد تكون خاطئة
+        banner.hidden = true;
+    }
 }
 
 async function doLogin(event) {

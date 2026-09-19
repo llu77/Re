@@ -17,8 +17,9 @@ from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
 from api.deps import enforce_auth_rate_limit, practitioner
-from core import escalation, proposals
+from core import caregivers, escalation, proposals
 from core.identity import AuthenticationFailed, Principal, authenticate, revoke_session
+from core.caregivers import CaregiverLink, ConsentSource
 from core.types import AffectedSide, InvalidTransition, Proposal, ProposalKind
 
 router = APIRouter(prefix="/practitioner", tags=["practitioner"])
@@ -260,3 +261,108 @@ def acknowledge_red_flag(
         reported_at=flag.reported_at, acknowledged_at=flag.acknowledged_at,
         escalation_seconds=flag.escalation_seconds,
     )
+
+
+# ── موافقة المرافق ──────────────────────────────────────────────────────
+class GrantCaregiverRequest(BaseModel):
+    """
+    توثيق موافقة ومنح وصول في فعل واحد.
+
+    الحقلان معاً إلزاميان: لا يوجد منحٌ بلا نصّ موافقة، ولا توثيقُ موافقة
+    بلا منح — فالصفّ الواحد هو الاثنان.
+    """
+
+    caregiver_user_id: UUID
+    relationship: str = Field(min_length=1, max_length=200)
+    consent_text: str = Field(min_length=1, max_length=8000)
+    consent_given_by: ConsentSource
+
+    @field_validator("relationship", "consent_text")
+    @classmethod
+    def not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("الحقل لا يكون مسافات")
+        return value.strip()
+
+
+class CaregiverLinkView(BaseModel):
+    id: UUID
+    patient_id: UUID
+    caregiver_user_id: UUID
+    relationship: str
+    consent_text: str
+    consent_given_by: str
+    granted_by: UUID
+    granted_at: Any
+    revoked_at: Any
+    is_active: bool
+
+    @classmethod
+    def of(cls, link: CaregiverLink) -> "CaregiverLinkView":
+        return cls(
+            id=link.id,
+            patient_id=link.patient_id,
+            caregiver_user_id=link.caregiver_user_id,
+            relationship=link.relationship,
+            consent_text=link.consent_text,
+            consent_given_by=link.consent_given_by,
+            granted_by=link.granted_by,
+            granted_at=link.granted_at,
+            revoked_at=link.revoked_at,
+            is_active=link.is_active,
+        )
+
+
+@router.get("/patients/{patient_id}/caregivers", response_model=list[CaregiverLinkView])
+def patient_caregivers(
+    principal: Annotated[Principal, practitioner], patient_id: UUID
+) -> list[CaregiverLinkView]:
+    """الموافقات الفاعلة أولاً، والمسحوبة بعدها — السجل كله مرئي للممارس."""
+    return [
+        CaregiverLinkView.of(link)
+        for link in caregivers.for_patient(principal.actor, patient_id)
+    ]
+
+
+@router.post(
+    "/patients/{patient_id}/caregivers",
+    response_model=CaregiverLinkView,
+    status_code=status.HTTP_201_CREATED,
+)
+def grant_caregiver(
+    principal: Annotated[Principal, practitioner],
+    patient_id: UUID,
+    body: GrantCaregiverRequest,
+) -> CaregiverLinkView:
+    try:
+        link = caregivers.grant(
+            principal.actor,
+            patient_id=patient_id,
+            caregiver_user_id=body.caregiver_user_id,
+            relationship=body.relationship,
+            consent_text=body.consent_text,
+            consent_given_by=body.consent_given_by,
+        )
+    except caregivers.LinkRefused as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="تعذّر منح المرافق: الحساب ليس بدور مرافق، أو من مستأجر آخر،"
+                   " أو مرتبط بمريض آخر بموافقة سارية.",
+        ) from exc
+    return CaregiverLinkView.of(link)
+
+
+@router.post("/caregivers/{link_id}/revoke", response_model=CaregiverLinkView)
+def revoke_caregiver(
+    principal: Annotated[Principal, practitioner], link_id: UUID
+) -> CaregiverLinkView:
+    """
+    يسحب الموافقة. الوصول ينقطع في اللحظة نفسها: جلسات المرافق المفتوحة
+    تُبطَل بمحفّز، واشتقاق سياق المريض يقرأ الصفّ في كل طلب.
+    """
+    link = caregivers.revoke(principal.actor, link_id)
+    if link is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="الموافقة مسحوبة أصلاً أو غير موجودة"
+        )
+    return CaregiverLinkView.of(link)

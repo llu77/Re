@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from core import identity, proposals
+from core import caregivers, identity, proposals
 from core.types import Actor
 from tests.conftest import requires_db
 
@@ -436,6 +436,51 @@ def test_two_hundred_percent_zoom_keeps_the_page_usable(page):
 
     assert not page.evaluate(OVERLAP_SCRIPT), "تداخل عند تكبير 200%"
     assert page.get_by_role("button", name="أحتاج مساعدة الآن").is_visible()
+
+
+CAREGIVER_EMAIL = "portal.caregiver@example.test"
+
+
+def test_the_portal_tells_a_caregiver_they_are_a_caregiver(owner, seed, portal_server,
+                                                           patient_token):
+    """
+    من يسجّل الأداء يرى باسم من يسجّله.
+
+    خطوة تُسجَّل «تمّت» في سجل المريض وقد أدّاها مرافقه تُفسد المتابعة كلها،
+    فالصفة معروضة لا مستنتَجة.
+    """
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO users (tenant_id, role, email, password_hash)"
+            " VALUES (%s, 'CAREGIVER', %s, %s) RETURNING id",
+            (seed.tenant_a, CAREGIVER_EMAIL, identity.hash_password(SECRET)),
+        )
+        caregiver_id = cursor.fetchone()[0]
+
+    practitioner = Actor(id=seed.practitioner_a, role="PRACTITIONER", tenant_id=seed.tenant_a)
+    caregivers.grant(
+        practitioner,
+        patient_id=seed.patient_a,
+        caregiver_user_id=caregiver_id,
+        relationship="زوجة المريض",
+        consent_text="أوافق على أن يطّلع مرافقي على خطتي وأن يسجّل أدائي نيابةً عني.",
+        consent_given_by="PATIENT",
+    )
+    token, _ = identity.authenticate(CAREGIVER_EMAIL, SECRET, "PATIENT")
+
+    with playwright_api.sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=CHROMIUM, args=["--no-sandbox"])
+        context = browser.new_context(viewport={"width": 390, "height": 844}, locale="ar-SA")
+        context.add_init_script(f"localStorage.setItem({TOKEN_KEY!r}, {token!r});")
+        opened = context.new_page()
+        opened.goto(f"{portal_server}/app/", wait_until="networkidle", timeout=60000)
+        opened.wait_for_selector("#acting-as", state="visible", timeout=20000)
+
+        assert "بصفة مرافق" in opened.inner_text("#acting-as")
+        assert "تمرين الجلوس إلى الوقوف" in opened.inner_text("body")
+        assert not opened.evaluate(OVERLAP_SCRIPT)
+        assert not opened.evaluate(CONTRAST_SCRIPT)
+        browser.close()
 
 
 def test_the_service_worker_never_caches_clinical_content(page):

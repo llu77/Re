@@ -77,6 +77,24 @@ def logout(principal: Annotated[Principal, patient]) -> None:
     revoke_session(principal.session_id)
 
 
+class ActingAsView(BaseModel):
+    """
+    من يستخدم البوابة الآن: المريض نفسه أم مرافقه.
+
+    لا معرّف ولا اسم ولا شيء سريري — الغرض الوحيد أن تُظهر الواجهة الصفة،
+    فلا يُسجَّل أداءٌ باسم المريض وأحدهما يظن أنه الآخر.
+    """
+
+    acting_as: Literal["PATIENT", "CAREGIVER"]
+
+
+@router.get("/session", response_model=ActingAsView)
+def current_session(principal: Annotated[Principal, patient]) -> ActingAsView:
+    _patient_id(principal)   # حساب بلا سياق مريض لا جلسة له
+    acting = "CAREGIVER" if principal.actor.role == "CAREGIVER" else "PATIENT"
+    return ActingAsView(acting_as=acting)
+
+
 @router.get("/plan", response_model=DeliverableView | None)
 def current_plan(principal: Annotated[Principal, patient]) -> DeliverableView | None:
     """

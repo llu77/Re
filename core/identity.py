@@ -85,7 +85,11 @@ def _hash_token(token: str) -> str:
 
 _USER_BY_EMAIL = (
     "SELECT u.id, u.tenant_id, u.role, u.password_hash, u.is_active,"
-    " (SELECT p.id FROM patients p WHERE p.user_id = u.id LIMIT 1) AS patient_id"
+    " COALESCE("
+    "   (SELECT p.id FROM patients p WHERE p.user_id = u.id LIMIT 1),"
+    "   (SELECT l.patient_id FROM caregiver_links l"
+    "     WHERE l.caregiver_user_id = u.id AND l.revoked_at IS NULL)"
+    " ) AS patient_id"
     " FROM users u WHERE u.email = %s"
 )
 
@@ -94,9 +98,19 @@ _INSERT_SESSION = (
     " VALUES (%s, %s, %s, %s) RETURNING id"
 )
 
+#: سياق المريض للحساب: ملفّه هو، أو ملفّ من يرافقه بموافقة سارية.
+#:
+#: يُقرأ في كل طلب لا عند تسجيل الدخول وحده، فسحبُ الموافقة يقطع الوصول فوراً.
+#: ولا `LIMIT` في الشقّ الثاني عمداً: الفهرس الجزئي يضمن صفّاً فاعلاً واحداً
+#: لكل مرافق، ولو خُرق ذلك يوماً لرفع استعلامٌ فرعيّ بصفّين خطأً — فيفشل
+#: الدخول مغلقاً بدل أن يُختار مريض بالتخمين.
 _SESSION_BY_TOKEN = (
     "SELECT s.id, s.gate, s.expires_at, u.id AS user_id, u.tenant_id, u.role, u.is_active,"
-    " (SELECT p.id FROM patients p WHERE p.user_id = u.id LIMIT 1) AS patient_id"
+    " COALESCE("
+    "   (SELECT p.id FROM patients p WHERE p.user_id = u.id LIMIT 1),"
+    "   (SELECT l.patient_id FROM caregiver_links l"
+    "     WHERE l.caregiver_user_id = u.id AND l.revoked_at IS NULL)"
+    " ) AS patient_id"
     " FROM sessions s JOIN users u ON u.id = s.user_id"
     " WHERE s.token_hash = %s AND s.revoked_at IS NULL"
 )

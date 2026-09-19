@@ -368,3 +368,135 @@ def test_the_patient_gate_exposes_no_review_state_for_red_flags(client, accounts
     ).json()
     for leaked in ("acknowledged_at", "acknowledged_by", "escalation_seconds", "patient_id"):
         assert leaked not in payload
+
+
+# ── المرافق عبر HTTP ────────────────────────────────────────────────────
+CAREGIVER_EMAIL = "caregiver.http@example.test"
+CONSENT = "أوافق على أن يطّلع مرافقي على خطتي وأن يسجّل أدائي نيابةً عني."
+
+
+@pytest.fixture
+def caregiver_user(owner, accounts):
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO users (tenant_id, role, email, password_hash)"
+            " VALUES (%s, 'CAREGIVER', %s, %s) RETURNING id",
+            (accounts.tenant_a, CAREGIVER_EMAIL, identity.hash_password(SECRET)),
+        )
+        return cursor.fetchone()[0]
+
+
+def _grant(client, token, patient_id, caregiver_user_id, **overrides):
+    body = {
+        "caregiver_user_id": str(caregiver_user_id),
+        "relationship": "زوجة المريض",
+        "consent_text": CONSENT,
+        "consent_given_by": "PATIENT",
+    }
+    body.update(overrides)
+    return client.post(
+        f"/practitioner/patients/{patient_id}/caregivers", headers=_auth(token), json=body
+    )
+
+
+def test_a_caregiver_without_consent_is_refused_by_the_patient_gate(
+    client, accounts, caregiver_user
+):
+    """يدخل البوابة ولا يجد مريضاً: لا محتوى، ولا تسريب لوجود مريض أصلاً."""
+    token = _login(client, "patient", CAREGIVER_EMAIL)
+    assert client.get("/patient/plan", headers=_auth(token)).status_code == 403
+    assert client.get("/patient/session", headers=_auth(token)).status_code == 403
+
+
+def test_consent_opens_the_patient_gate_for_the_caregiver(
+    client, accounts, caregiver_user
+):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    granted = _grant(client, practitioner_token, accounts.patient_a, caregiver_user)
+    assert granted.status_code == 201, granted.text
+    assert granted.json()["consent_text"] == CONSENT
+
+    caregiver_token = _login(client, "patient", CAREGIVER_EMAIL)
+    session = client.get("/patient/session", headers=_auth(caregiver_token))
+    assert session.status_code == 200
+    assert session.json() == {"acting_as": "CAREGIVER"}
+
+
+def test_the_patient_sees_their_own_capacity(client, accounts):
+    token = _login(client, "patient", PATIENT_EMAIL)
+    assert client.get("/patient/session", headers=_auth(token)).json() == {
+        "acting_as": "PATIENT"
+    }
+
+
+def test_a_grant_without_consent_text_is_refused_by_the_contract(
+    client, accounts, caregiver_user
+):
+    """لا منح بلا نصّ موافقة — يُرفض في العقد قبل أن يبلغ قاعدة البيانات."""
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    for bad in ({"consent_text": ""}, {"consent_text": "   "}, {"relationship": " "}):
+        response = _grant(
+            client, practitioner_token, accounts.patient_a, caregiver_user, **bad
+        )
+        assert response.status_code == 422, response.text
+
+
+def test_revoking_consent_closes_the_caregivers_open_session(
+    client, accounts, caregiver_user
+):
+    """الرمز الذي كان يعمل قبل السحب يتوقف بعده — لا ينتظر انتهاء صلاحيته."""
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    link_id = _grant(
+        client, practitioner_token, accounts.patient_a, caregiver_user
+    ).json()["id"]
+
+    caregiver_token = _login(client, "patient", CAREGIVER_EMAIL)
+    assert client.get("/patient/plan", headers=_auth(caregiver_token)).status_code == 200
+
+    revoked = client.post(
+        f"/practitioner/caregivers/{link_id}/revoke", headers=_auth(practitioner_token)
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["is_active"] is False
+
+    assert client.get("/patient/plan", headers=_auth(caregiver_token)).status_code == 401
+
+
+def test_a_practitioner_of_another_tenant_sees_no_consent_rows(
+    client, accounts, caregiver_user, owner
+):
+    """عزل المستأجر يشمل سجل الموافقات: لا قراءة عبر الحدود."""
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    _grant(client, practitioner_token, accounts.patient_a, caregiver_user)
+
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s",
+            (identity.hash_password(SECRET), accounts.practitioner_b),
+        )
+    other_token = _login(client, "practitioner", "practitioner.B@example.test")
+    listed = client.get(
+        f"/practitioner/patients/{accounts.patient_a}/caregivers",
+        headers=_auth(other_token),
+    )
+    assert listed.status_code == 200
+    assert listed.json() == []
+
+
+def test_no_bulk_caregiver_endpoint(client):
+    """لا منح ولا سحب بالجملة: كل موافقة قرار مستقل بمعرّف في المسار."""
+    from api.app import create_app as _create_app
+
+    for path, methods in _create_app().openapi()["paths"].items():
+        if "caregiver" not in path:
+            continue
+        for method, operation in methods.items():
+            if method not in {"post", "patch", "put"}:
+                continue
+            schema = (
+                operation.get("requestBody", {})
+                .get("content", {})
+                .get("application/json", {})
+                .get("schema", {})
+            )
+            assert schema.get("type") != "array", (path, method)

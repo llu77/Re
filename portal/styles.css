@@ -176,6 +176,9 @@ body {
     border-radius: var(--radius);
 }
 
+/* صفة المرافق: تمييز بالحدّ والوزن مع النص، لا باللون وحده */
+.notice--mode { font-weight: 700; border-inline-start-color: var(--partial); }
+
 /* ── الخطوة ─────────────────────────────────────────────────────────── */
 .empty { padding: 2rem 0; text-align: center; }
 .empty__text { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 600; }
