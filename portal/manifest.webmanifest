@@ -1,0 +1,11 @@
+{
+  "name": "برنامجي — Symbol Rehab",
+  "short_name": "برنامجي",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0B4F6C"
+}

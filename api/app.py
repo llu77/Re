@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from psycopg import errors as pg_errors
 
 from api.patient import router as patient_router
@@ -61,6 +63,14 @@ def create_app() -> FastAPI:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": _CONSTRAINT_MESSAGES.get(constraint, _FALLBACK_MESSAGE)},
         )
+
+    # بوابة المريض: ملفات ساكنة تستهلك `/patient/*`. تُخدم من الأصل نفسه
+    # فلا حاجة إلى CORS ولا إلى نطاق ثانٍ.
+    #
+    # بلا شرط عمداً: نشرٌ بلا مجلد البوابة يجب أن يفشل عند الإقلاع لا أن يعمل
+    # بلا واجهة — `StaticFiles` ترفع الخطأ هنا.
+    portal = Path(__file__).resolve().parent.parent / "portal"
+    app.mount("/app", StaticFiles(directory=portal, html=True), name="portal")
 
     @app.get("/health", tags=["ops"])
     def health() -> dict[str, str]:
