@@ -1,0 +1,18 @@
+# سمة Streamlit — لوحة Symbol AI.
+#
+# عناصر Streamlit نفسها (المنزلق، المفتاح، حلقة التركيز) تُلوَّن من هنا لا
+# من CSS: لونها الافتراضي أحمر مرجاني لا صلة له بالعلامة، وكانت تظهر به
+# وسط واجهة زرقاء. CSS لا يصل إلى بعضها لأنها تُرسَم داخل Shadow DOM.
+[theme]
+base = "light"
+primaryColor = "#2455CC"          # نظير الأزرق الأغمق: 6.5:1 مع الأبيض
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F8FC"
+textColor = "#101B33"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

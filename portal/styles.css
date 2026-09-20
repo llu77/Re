@@ -1,74 +1,113 @@
 /*
  * بوابة المريض — الطبقة البصرية
  * ==============================
- * الوصولية هنا قيد تصميم لا تحسين لاحق. القرارات التي تحكم هذا الملف:
+ * نظام تصميم مشتقّ من علامة Symbol AI: أزرقها ولازوردها الداكن ولمستها
+ * السماوية، لا ألوان مختارة بالذوق. القيم كلها رموز في `:root` فيتغيّر
+ * النظام كله من موضع واحد.
  *
- *   • كل مقاس بـrem لا px، فتكبير المتصفح إلى 200% يكبّر كل شيء معاً ولا
- *     يكسر تخطيطاً.
- *   • كل عنصر تفاعلي ≥ 3.5rem (56px) — فوق حدّ WCAG البالغ 44، لأن الجمهور
+ * القرارات التي تحكم هذا الملف — وكلها جاءت من عيوب مقيسة لا من تفضيل:
+ *
+ *   • كل مقاس بـrem لا px، فتكبير المتصفح إلى 200% يكبّر كل شيء معاً.
+ *   • كل عنصر تفاعلي ≥ 3rem (48px)، فوق حدّ WCAG البالغ 44 لأن الجمهور
  *     ذو إعاقة حركية.
- *   • شريط البلاغ صفٌّ مستقل في شبكة الصفحة، والتمرير داخل `main` وحده.
+ *   • شريط البلاغ صفٌّ مستقل في شبكة الصفحة، والتمرير داخل `.shell` وحده.
  *     شريط ثابت فوق صفحة تُمرَّر يمرّ المحتوى تحته في كل وضع تمرير عدا
  *     الأسفل، وحجز `padding-bottom` لا يمنع ذلك بل يمنع حجب آخر المحتوى
  *     فقط. هنا لا يعلو الشريطُ شيئاً ولا يعلوه شيء، في أي مقاس وأي تمرير.
- *     (تدقيق المرحلة 0 رصد في الواجهة القديمة شريطاً لاصقاً يحجب آخر رسالة.)
  *   • لا يُعبَّر عن أي معلومة باللون وحده: كل حالة لها نصّ أو شكل معها.
- *   • كل نسب التباين هنا محسوبة ومُختبَرة في tests/portal، لا مقدَّرة.
+ *   • كل نسب التباين هنا محسوبة ومُختبَرة في tests/، لا مقدَّرة. الأرقام
+ *     المكتوبة بجانب كل رمز هي نسبته فعلاً.
+ *
+ * مقياس الخطّ: أساسه 16px — المعيار القياسي للويب. الجمهور مرضى إعادة
+ * تأهيل بصري، فنصّ المتن 17px لا 16: أكبر قليلاً من المعتاد حيث تُقرأ
+ * التعليمات، وقياسيٌّ فيما عداه. التكبير يبقى متاحاً من المتصفح، والصفحة
+ * تصمد عند 250% (يختبره `test_the_portal_survives_250_percent_text`).
  */
 
 :root {
-    /* التباين مقابل الأبيض محسوب ومثبَّت في الاختبار */
-    --ink: #10212B;        /* 16.5:1 */
-    --ink-soft: #42525B;   /*  8.1:1 */
-    --primary: #0B4F6C;    /*  8.9:1 */
-    --done: #0B6E4F;       /*  6.3:1 */
-    --partial: #8A5000;    /*  6.5:1 */
-    --unable: #A3120B;     /*  7.9:1 */
+    /* ── العلامة ────────────────────────────────────────────────────── */
+    /* أزرق العلامة كما هو. 4.62:1 على الأبيض — على الحافة، فلا يُستعمل
+       نصّاً؛ موضعه التعبئة والحدود وحلقة التركيز. */
+    --brand: #306BF5;
+    /* أغمق درجةً ليحمل نصّاً أبيض بهامش مريح: 6.47:1 في الاتجاهين */
+    --brand-strong: #2455CC;
+    --brand-tint: #EFF4FE;      /* خلفية خفيفة من العائلة نفسها */
+    --navy: #061840;            /* لازورد العلامة — الأبيض عليه 17.3:1 */
+    --cyan: #63D7EE;            /* لمسة على الداكن وحده: 10.3:1 فوق النافي */
 
+    /* ── النصّ والأسطح ──────────────────────────────────────────────── */
+    --ink: #101B33;             /* 17.1:1 */
+    --ink-soft: #52606D;        /*  6.5:1 */
     --surface: #FFFFFF;
-    --surface-sunk: #F1F5F7;
-    --line: #C8D2D8;
+    --surface-sunk: #F5F8FC;
+    --line: #DCE3EC;
+    --line-strong: #C3CEDB;
 
-    --tap: 3.5rem;         /* 56px — الحد الأدنى لكل عنصر تفاعلي */
+    /* ── الحالات ────────────────────────────────────────────────────── */
+    --done: #0E6B46;            /* 6.5:1 */
+    --partial: #8A4B00;         /* 6.8:1 */
+    --unable: #A3120B;          /* 7.9:1 */
+
+    /* ── المقاسات ───────────────────────────────────────────────────── */
+    --tap: 3rem;                /* 48px — فوق حدّ WCAG البالغ 44 */
     --gap: 1rem;
-    --radius: 0.75rem;
+    --gap-sm: 0.5rem;
+    --gap-lg: 1.5rem;
+    --radius: 0.625rem;
+    --radius-sm: 0.375rem;
+    --measure: 46rem;        /* عرض عمود القراءة */
+    --pad-inline: 1rem;      /* هامش العمود — تُحاذيه الترويسة والتبويبات */
+
+    /* ظلّ خافت جداً: عمقٌ يُحسّ ولا يُرى، فلا يصير التصميم ثقيلاً */
+    --lift: 0 1px 2px rgba(6, 24, 64, 0.06), 0 1px 3px rgba(6, 24, 64, 0.04);
+    --lift-lg: 0 4px 12px rgba(6, 24, 64, 0.08), 0 1px 3px rgba(6, 24, 64, 0.05);
+
+    /* ── مقياس الخطّ ────────────────────────────────────────────────── */
+    --fs-xs: 0.8125rem;         /* 13px — بيانات ثانوية */
+    --fs-sm: 0.875rem;          /* 14px — تسميات */
+    --fs-base: 1rem;            /* 16px */
+    --fs-body: 1.0625rem;       /* 17px — متن التعليمات */
+    --fs-lg: 1.25rem;           /* 20px */
+    --fs-xl: 1.375rem;          /* 22px */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 /*
- * إخفاء `hidden` يُهزَم بأي `display` صريح في ورقة المؤلّف — و`.tabs` عندنا
- * `flex`. الإخفاء هنا ضمانٌ لا تنسيق: شريط التبويبات وزر البلاغ يختفيان قبل
- * تسجيل الدخول، فلا يجوز أن يعتمد ظهورهما على ترتيب القواعد.
+ * إخفاء `hidden` يُهزَم بأي `display` صريح في ورقة المؤلّف — و`.tabs`
+ * عندنا `flex`. الإخفاء هنا ضمانٌ لا تنسيق: شريط التبويبات وزر البلاغ
+ * يختفيان قبل تسجيل الدخول، فلا يجوز أن يعتمد ظهورهما على ترتيب القواعد.
  */
 [hidden] { display: none !important; }
 
 html {
-    font-size: 125%;       /* أساس 20px: نصّ كبير افتراضاً لا بإعداد */
+    font-size: 100%;            /* 16px — الأساس القياسي، والتكبير للمتصفح */
     -webkit-text-size-adjust: 100%;
 }
 
 body {
-    margin: 0;
     /*
      * صفوف الشبكة: وعاء التمرير · تنبيه الاتصال · شريط البلاغ. الصفّان
      * الأخيران `auto` فيختفيان بلا أثر حين يُخفَيان، والأول يأخذ الباقي.
      *
-     * لماذا يدخل رأس الصفحة وتبويباتها في وعاء التمرير: عند تكبير النص 200%
-     * على هاتف يتجاوز ارتفاعُ الترويسة والتبويبات وحدهما الشاشةَ. لو كانت
-     * صفوفاً مستقلة لانضغط صفّ المحتوى إلى صفر وفاض صندوقه فوق الشريط.
-     * داخل الوعاء تمرَّر معه، ويبقى الزر الطارئ — وهو وحده ما لا يجوز أن
-     * يغيب — خارجها.
+     * لماذا يدخل رأس الصفحة وتبويباتها في وعاء التمرير: عند تكبير النص
+     * 200% على هاتف يتجاوز ارتفاعُ الترويسة والتبويبات وحدهما الشاشةَ. لو
+     * كانت صفوفاً مستقلة لانضغط صفّ المحتوى إلى صفر وفاض صندوقه فوق
+     * الشريط. داخل الوعاء تمرَّر معه، ويبقى الزر الطارئ — وهو وحده ما لا
+     * يجوز أن يغيب — خارجها.
      */
     min-height: 100vh;          /* احتياط لمتصفح بلا dvh */
     height: 100dvh;
+    margin: 0;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto auto;
     overflow: hidden;           /* التمرير مسؤولية `.shell` وحده */
-    font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
-    line-height: 1.7;
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: var(--fs-base);
+    line-height: 1.6;
     color: var(--ink);
-    background: var(--surface);
+    background: var(--surface-sunk);
+    -webkit-font-smoothing: antialiased;
 }
 
 /* حركة أقل لمن طلبها من نظامه */
@@ -82,9 +121,9 @@ body {
 
 /* ── التركيز: مرئي دائماً وبسماكة كافية ─────────────────────────────── */
 :focus-visible {
-    outline: 0.25rem solid var(--primary);
-    outline-offset: 0.15rem;
-    border-radius: 0.25rem;
+    outline: 0.1875rem solid var(--brand);
+    outline-offset: 0.125rem;
+    border-radius: var(--radius-sm);
 }
 
 .skip-link {
@@ -92,10 +131,11 @@ body {
     inset-inline-start: 0.5rem;
     top: -6rem;
     z-index: 20;
-    padding: 0.75rem 1rem;
-    background: var(--primary);
+    padding: 0.625rem 1rem;
+    font-weight: 600;
+    background: var(--brand-strong);
     color: var(--surface);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     text-decoration: none;
 }
 .skip-link:focus { top: 0.5rem; }
@@ -109,117 +149,192 @@ body {
     white-space: nowrap;
 }
 
-/* ── الترويسة والتبويبات ────────────────────────────────────────────── */
+/* ── الترويسة ───────────────────────────────────────────────────────── */
+/*
+ * صفّان لا صفّ واحد: العلامة والخروج فوق، ثم اسم الشاشة وتاريخها. حشرُ
+ * الأربعة في صفٍّ واحد يدفع زرّ الخروج إلى وسط الشريط على الهاتف، فيبدو
+ * تائهاً ويصعب قصده.
+ */
 .top {
-    padding: 1.25rem var(--gap) 0.75rem;
-    background: var(--primary);
+    padding: 0.5rem 0 0.5rem;
+    background: var(--navy);
     color: var(--surface);
+}
+.top__row, .top__sub {
+    max-width: var(--measure);
+    margin-inline: auto;
+    padding-inline: var(--pad-inline);
 }
 .top__row {
     display: flex;
-    flex-wrap: wrap;            /* الخروج ينزل سطراً بدل أن يضغط العنوان */
+    flex-wrap: wrap;            /* الخروج ينزل سطراً بدل أن يضغط العلامة */
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: var(--gap-sm);
 }
-.top__title { margin: 0; font-size: 1.5rem; }
-.top__day { margin: 0.25rem 0 0; font-size: 0.95rem; opacity: 0.95; }
+/* `baseline` لا `center`: العنوان والتاريخ بمقاسين، فيستقيمان على خطّ
+   الكتابة بدل أن يتأرجح أحدهما حول منتصف الآخر. */
+.top__sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-top: 0.375rem;
+}
 
+/* العلامة: الرمز ثم الاسم. الرمز `aria-hidden` والاسم نصّ حقيقي، فقارئ
+   الشاشة يقرأ اسماً لا يصف مربّعات. */
+.brand { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.brand__mark { width: 1.75rem; height: 1.75rem; flex-shrink: 0; display: block; }
+.brand__name {
+    font-size: var(--fs-base);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+.top__title {
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--cyan);          /* 10.3:1 فوق النافي */
+}
+.top__day {
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: 400;
+    color: #CBD6E6;              /* 11.8:1 فوق النافي */
+}
 /*
- * الالتفاف لا التقلّص: التبويبان يتراصّان عمودياً حين يضيق العرض. بدونه
- * يفرض أعرضُ تبويب حدّاً أدنى على الصفحة كلها (الشبكة عمود واحد) فتفيض
- * الصفحة أفقياً عند تكبير 200%.
+ * التبويبات: شريط تنقّل بمؤشّر سفلي. الالتفاف لا التقلّص — بدونه يفرض
+ * أعرضُ تبويب حدّاً أدنى على الصفحة كلها (الشبكة عمود واحد) فتفيض الصفحة
+ * أفقياً عند تكبير 200%.
  */
 .tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
-    padding: 0 var(--gap);
-    background: var(--primary);
+    gap: 0;
+    /* الشريط الداكن يمتدّ للحافة، والتبويبات تُحاذي حافة البطاقة داخله:
+       نصفُ ما تبقّى من العرض، زائد هامش العمود. بلا غلافٍ إضافي يكسر `nav`. */
+    padding-inline: max(var(--pad-inline),
+                        calc((100% - var(--measure)) / 2 + var(--pad-inline)));
+    background: var(--navy);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .tab {
-    flex: 1 1 8rem;
+    flex: 1 1 6rem;
     min-height: var(--tap);
     padding: 0 0.75rem;
     font: inherit;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--surface);
+    color: #D7E0EE;              /* 13.0:1 فوق النافي */
     background: transparent;
     border: none;
-    border-bottom: 0.3rem solid transparent;
+    border-bottom: 0.1875rem solid transparent;
     cursor: pointer;
 }
-/* التبويب النشط يُميَّز بالخط السفلي والوزن معاً، لا باللون وحده */
+.tab:hover { color: var(--surface); }
+/* النشط يُميَّز بالخطّ السفلي واللون والوزن معاً، لا باللون وحده */
 .tab[aria-current="page"] {
-    border-bottom-color: var(--surface);
-    background: rgba(255, 255, 255, 0.14);
+    color: var(--surface);
+    border-bottom-color: var(--cyan);
 }
 
 .shell {
     overflow-y: auto;
     overscroll-behavior: contain;  /* لا يُمرَّر ما خلفه حين يبلغ طرفه */
+    background: var(--surface-sunk);
 }
 
 .main {
-    max-width: 38rem;
+    max-width: var(--measure);
     margin-inline: auto;
-    padding: var(--gap);
+    padding: var(--gap-lg) var(--pad-inline);
 }
 .main:focus { outline: none; }
+
+/* ── البطاقة: الوحدة البصرية الأساسية ───────────────────────────────── */
+.step, .record, .sheet, #view-login {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--lift);
+}
 
 .notice {
     margin: 0 0 var(--gap);
     padding: 0.75rem var(--gap);
-    background: var(--surface-sunk);
-    border-inline-start: 0.3rem solid var(--primary);
-    border-radius: var(--radius);
+    font-size: var(--fs-sm);
+    background: var(--brand-tint);
+    border: 1px solid var(--line);
+    border-inline-start: 0.1875rem solid var(--brand);
+    border-radius: var(--radius-sm);
+}
+/* صفة المرافق: تمييز بالحدّ والوزن مع النص، لا باللون وحده */
+.notice--mode {
+    font-weight: 600;
+    background: #FDF6EC;
+    border-inline-start-color: var(--partial);
 }
 
-/* صفة المرافق: تمييز بالحدّ والوزن مع النص، لا باللون وحده */
-.notice--mode { font-weight: 700; border-inline-start-color: var(--partial); }
+/* ── الفراغ ─────────────────────────────────────────────────────────── */
+.empty {
+    padding: 2.5rem var(--gap);
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+.empty__text { margin: 0 0 0.375rem; font-size: var(--fs-base); font-weight: 600; }
+.empty__hint { margin: 0; font-size: var(--fs-sm); color: var(--ink-soft); }
 
 /* ── الخطوة ─────────────────────────────────────────────────────────── */
-.empty { padding: 2rem 0; text-align: center; }
-.empty__text { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 600; }
-.empty__hint { margin: 0; color: var(--ink-soft); }
-
-.step {
-    padding: var(--gap);
-    background: var(--surface);
-    border: 0.125rem solid var(--line);
-    border-radius: var(--radius);
+.step { padding: var(--gap-lg) var(--gap); }
+.step__counter {
+    margin: 0;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
 }
-.step__counter { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
-.step__title { margin: 0.25rem 0 0.75rem; font-size: 1.4rem; line-height: 1.4; }
-.step__text { margin: 0 0 var(--gap); font-size: 1.15rem; }
+.step__title {
+    margin: 0.375rem 0 0.75rem;
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    line-height: 1.35;
+}
+.step__text { margin: 0 0 var(--gap); font-size: var(--fs-body); }
 
 .step__figure { margin: 0 0 var(--gap); }
 .step__image {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 11rem;
-    padding: 0.5rem;
+    min-height: 10rem;
+    padding: var(--gap-sm);
     background: var(--surface-sunk);
-    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
 }
 .step__image svg { max-width: 100%; height: auto; }
 
 /* الجانب المصاب نصّاً صريحاً — لا يُترك للّون ولا للصورة وحدها */
 .step__side {
-    margin-top: 0.5rem;
+    margin-top: var(--gap-sm);
     padding: 0.5rem 0.75rem;
-    font-weight: 700;
+    font-size: var(--fs-sm);
+    font-weight: 600;
     color: var(--surface);
-    background: var(--primary);
-    border-radius: var(--radius);
+    background: var(--brand-strong);
+    border-radius: var(--radius-sm);
     text-align: center;
 }
 
-.step__nav { display: flex; flex-wrap: wrap; gap: var(--gap); margin-top: var(--gap); }
+.step__nav { display: flex; flex-wrap: wrap; gap: var(--gap-sm); margin-top: var(--gap); }
 /* الالتفاف لا التقلّص: عند تكبير 200% تتراصّ الكلمة الواحدة ولا تفيض */
-.step__nav .btn { flex: 1 1 8rem; }
+.step__nav .btn { flex: 1 1 7rem; }
 
 /* ── الأزرار ────────────────────────────────────────────────────────── */
 .btn {
@@ -229,16 +344,17 @@ body {
     gap: 0.5rem;
     width: 100%;
     min-height: var(--tap);
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 1.125rem;
     font: inherit;
-    font-weight: 700;
+    font-size: var(--fs-sm);
+    font-weight: 600;
     color: var(--surface);
-    background: var(--primary);
-    border: 0.125rem solid transparent;
-    border-radius: var(--radius);
+    background: var(--brand-strong);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     cursor: pointer;
 }
-.btn + .btn { margin-top: 0.5rem; }
+.btn + .btn { margin-top: var(--gap-sm); }
 .step__nav .btn + .btn, .record__choices .btn + .btn,
 .sheet__actions .btn + .btn { margin-top: 0; }
 
@@ -248,212 +364,273 @@ body {
  */
 .btn:disabled {
     opacity: 1;
-    color: var(--surface);           /* 8.1:1 فوق --ink-soft */
+    color: var(--surface);           /* 6.5:1 فوق --ink-soft */
     background: var(--ink-soft);
     border-color: var(--ink-soft);
     cursor: not-allowed;
 }
 
 .btn--ghost {
-    color: var(--primary);
+    color: var(--brand-strong);      /* 6.5:1 على الأبيض */
     background: var(--surface);
-    border-color: var(--primary);
+    border-color: var(--line-strong);
 }
-.btn--speak { margin-top: 0.5rem; }
+.btn--ghost:hover:not(:disabled) { background: var(--brand-tint); border-color: var(--brand); }
+
+.btn--speak { margin-top: var(--gap-sm); }
 .btn--done { background: var(--done); }
 .btn--partial { background: var(--partial); }
 .btn--unable { background: var(--unable); }
-.btn--alarm { background: var(--unable); font-size: 1.1rem; }
-/* الخروج فوق الترويسة: أبيض على --primary = 8.9:1 */
+.btn--alarm { background: var(--unable); font-size: var(--fs-base); }
+
+/* الخروج فوق الترويسة: أبيض على النافي = 17.3:1 */
+/*
+ * الخروج: أصغر بصرياً بحكم العرض وحده، لا بحكم الارتفاع.
+ *
+ * صغّرتُه أولاً إلى 36px ليتناسق مع الترويسة، فأسقط التدقيقُ أربعةَ عشر
+ * فحصاً: هو زرٌّ يستعمله المريض نفسه، فيلزمه حدّ اللمس نفسه. الأناقة لا
+ * تُشترى من حدٍّ وُضع لجمهورٍ ذي إعاقة حركية.
+ */
 .btn--out {
     width: auto;
+    min-height: var(--tap);
+    padding: 0 0.875rem;
+    font-size: var(--fs-sm);
     color: var(--surface);
     background: transparent;
-    border-color: var(--surface);
+    border-color: rgba(255, 255, 255, 0.45);
 }
+.btn--out:hover { background: rgba(255, 255, 255, 0.1); }
 
 /* ── التسجيل ────────────────────────────────────────────────────────── */
 .record {
-    margin-top: 1.25rem;
-    padding: var(--gap);
-    background: var(--surface-sunk);
-    border-radius: var(--radius);
+    margin-top: var(--gap-lg);
+    padding: var(--gap-lg) var(--gap);
 }
-.record__heading { margin: 0 0 0.75rem; font-size: 1.25rem; }
-.record__choices { display: flex; flex-direction: column; gap: 0.5rem; }
+.record__heading { margin: 0 0 0.75rem; font-size: var(--fs-base); font-weight: 600; }
+.record__choices { display: flex; flex-direction: column; gap: var(--gap-sm); }
 .record__more { margin-top: var(--gap); }
 .record__summary {
     min-height: var(--tap);
     display: flex;
     align-items: center;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--primary);
+    color: var(--brand-strong);
     cursor: pointer;
 }
 .record__done {
     margin: var(--gap) 0 0;
     padding: 0.75rem;
-    font-weight: 700;
+    font-size: var(--fs-sm);
+    font-weight: 600;
     color: var(--surface);
     background: var(--done);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
 }
 
 .field { margin-top: var(--gap); }
-.field__label { display: block; margin-bottom: 0.35rem; font-weight: 600; }
-.field__range { width: 100%; min-height: var(--tap); }
+.field__label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+}
+.field__range { width: 100%; min-height: var(--tap); accent-color: var(--brand-strong); }
 .field__output {
     display: inline-block;
-    min-width: 2.5rem;
+    min-width: 2.25rem;
     font-weight: 700;
     text-align: center;
 }
-.field__text {
+.field__text, .field__input {
     width: 100%;
-    min-height: 5rem;
-    padding: 0.75rem;
+    padding: 0.625rem 0.75rem;
     font: inherit;
+    font-size: var(--fs-base);
     color: var(--ink);
     background: var(--surface);
-    border: 0.125rem solid var(--line);
-    border-radius: var(--radius);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
 }
+.field__text { min-height: 4.5rem; }
+.field__input { min-height: var(--tap); }
+.field__text:focus, .field__input:focus { border-color: var(--brand); }
 
 /* ── الدخول ─────────────────────────────────────────────────────────── */
-.login__heading { margin: 0 0 var(--gap); font-size: 1.4rem; }
-.login__help { margin: var(--gap) 0 0; color: var(--ink-soft); }
+#view-login { padding: var(--gap-lg) var(--gap); }
+.login__heading {
+    margin: 0 0 0.375rem;
+    font-size: var(--fs-xl);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+.login__help {
+    margin: var(--gap) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--ink-soft);
+}
 .login__error {
     margin: var(--gap) 0 0;
     padding: 0.75rem;
-    font-weight: 700;
+    font-size: var(--fs-sm);
+    font-weight: 600;
     color: var(--surface);
-    background: var(--unable);   /* أبيض على --unable = 7.9:1 */
-    border-radius: var(--radius);
+    background: var(--unable);       /* أبيض على --unable = 7.9:1 */
+    border-radius: var(--radius-sm);
 }
-.field__input {
-    width: 100%;
-    min-height: var(--tap);
-    padding: 0.5rem 0.75rem;
-    font: inherit;
-    color: var(--ink);
-    background: var(--surface);
-    border: 0.125rem solid var(--line);
-    border-radius: var(--radius);
-}
+#login-submit { margin-top: var(--gap-lg); }
 
-/* ── تقدّمي ─────────────────────────────────────────────────────────── */
-/* ── مهامي ─────────────────────────────────────────────────────────── */
+/* ── مهامي ──────────────────────────────────────────────────────────── */
 /*
  * البطاقات ليست تفاعلية: لا شيء يُفتح بنقرة هنا بعد. فلا يلزمها حدّ اللمس،
  * ويلزمها ألّا تبدو قابلة للنقر — بطاقةٌ تشبه الزرّ ولا تستجيب أسوأ من نصّ.
  */
-.tasks__heading { margin: 0 0 var(--gap); font-size: 1.4rem; }
-
-.tasks { margin: 0; padding: 0; list-style: none; }
-
-.task {
-    padding: var(--gap);
-    margin-bottom: var(--gap);
-    background: var(--surface-sunk);
-    border: 1px solid var(--line);
-    border-inline-start: 0.35rem solid var(--primary);
-    border-radius: var(--radius);
+.tasks__heading, .progress__heading {
+    margin: 0 0 var(--gap);
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    letter-spacing: -0.01em;
 }
 
-.task__label { margin: 0; font-size: 1.15rem; font-weight: 600; }
+.tasks { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.625rem; }
 
-/* --ink-soft = 8.1:1 على الأبيض، وأعلى منه على السطح الغائر الأفتح */
-.task__hazard { margin: 0.35rem 0 0; color: var(--ink-soft); font-size: 1rem; }
+.task {
+    padding: 0.875rem var(--gap);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-inline-start: 0.1875rem solid var(--brand);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--lift);
+}
+.task__label { margin: 0; font-size: var(--fs-base); font-weight: 600; }
+/* --ink-soft = 6.5:1 على الأبيض */
+.task__hazard { margin: 0.25rem 0 0; font-size: var(--fs-sm); color: var(--ink-soft); }
 
 .dressing {
-    margin-top: 1.5rem;
+    margin-top: var(--gap-lg);
     padding-top: var(--gap);
     border-top: 1px solid var(--line);
 }
-
-.dressing__heading { margin: 0 0 0.35rem; font-size: 1.25rem; }
-.dressing__rule { margin: 0 0 var(--gap); color: var(--ink-soft); }
-
+.dressing__heading { margin: 0 0 0.25rem; font-size: var(--fs-base); font-weight: 600; }
+.dressing__rule { margin: 0 0 var(--gap); font-size: var(--fs-sm); color: var(--ink-soft); }
 .dressing__steps {
     margin: 0;
-    padding-inline-start: 1.5rem;   /* مساحة الترقيم في اتجاه RTL */
+    padding-inline-start: 1.375rem;   /* مساحة الترقيم في اتجاه RTL */
 }
+.dressing__step { margin-bottom: 0.5rem; font-size: var(--fs-body); line-height: 1.5; }
 
-.dressing__step { margin-bottom: 0.75rem; font-size: 1.15rem; line-height: 1.5; }
+/* ── تقدّمي ─────────────────────────────────────────────────────────── */
+.progress__lead { margin: 0 0 var(--gap); font-size: var(--fs-body); }
 
-.progress__heading { margin: 0 0 0.5rem; font-size: 1.4rem; }
-.progress__lead { margin: 0 0 var(--gap); font-size: 1.15rem; }
-
+/*
+ * خريطة الأيام. `max-width` ضروري: بلا سقفٍ تتمدّد الخلايا مع عمود المحتوى
+ * فتصير على الحاسوب مربّعات بعرض 110px تبتلع الشاشة. السقف يجعلها خريطة
+ * تُقرأ بنظرة، وهو ما تُراد له.
+ */
 .calendar {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 0.4rem;
-    margin: 0 0 var(--gap);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.375rem;
+    max-width: 21rem;
+    margin: 0 0 var(--gap-lg);
     padding: 0;
     list-style: none;
 }
 .calendar li {
     aspect-ratio: 1;
-    border-radius: 0.4rem;
-    background: var(--surface-sunk);
-    border: 0.125rem solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
 }
-/* اليوم المسجَّل يُميَّز بالتعبئة والعلامة معاً، لا باللون وحده */
+/* اليوم المسجَّل يُميَّز بالتعبئة والحدّ معاً، لا باللون وحده */
 .calendar li[data-recorded="true"] {
     background: var(--done);
     border-color: var(--done);
 }
 
-.progress__table { width: 100%; border-collapse: collapse; }
-.progress__table th, .progress__table td {
-    padding: 0.6rem 0.5rem;
-    text-align: start;
-    border-bottom: 0.0625rem solid var(--line);
+.progress__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
 }
-.progress__table th { font-weight: 700; }
+.progress__table th, .progress__table td {
+    padding: 0.625rem 0.75rem;
+    text-align: start;
+    border-bottom: 1px solid var(--line);
+}
+.progress__table thead th {
+    font-weight: 600;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    background: var(--surface-sunk);
+}
+.progress__table tr:last-child th,
+.progress__table tr:last-child td { border-bottom: none; }
 
 /* ── شريط البلاغ ────────────────────────────────────────────────────── */
 .alarm {
-    padding: 0.75rem var(--gap);
+    padding: 0.625rem var(--gap);
     background: var(--surface);
-    border-top: 0.125rem solid var(--line);
+    border-top: 1px solid var(--line-strong);
 }
+.alarm > .btn { max-width: calc(var(--measure) - 2 * var(--pad-inline)); margin-inline: auto; }
 
 /* ── ورقة البلاغ ────────────────────────────────────────────────────── */
 .sheet {
-    width: min(34rem, 92vw);
+    width: min(30rem, 92vw);
     /* الصفحة خلفها لا تمرَّر، فالورقة تمرَّر بنفسها عند تكبير النص */
     max-height: 90dvh;
     overflow-y: auto;
-    padding: var(--gap);
+    padding: var(--gap-lg) var(--gap);
     color: var(--ink);
-    background: var(--surface);
-    border: 0.125rem solid var(--line);
-    border-radius: var(--radius);
+    box-shadow: var(--lift-lg);
 }
-.sheet::backdrop { background: rgba(16, 33, 43, 0.6); }
-.sheet__heading { margin: 0 0 0.75rem; font-size: 1.25rem; }
-.sheet__note { margin: 0.75rem 0; color: var(--ink-soft); }
-.sheet__actions { display: flex; flex-direction: column; gap: 0.5rem; }
+.sheet::backdrop { background: rgba(6, 24, 64, 0.55); }
+.sheet__heading { margin: 0 0 0.75rem; font-size: var(--fs-lg); font-weight: 600; }
+.sheet__note { margin: 0.75rem 0; font-size: var(--fs-sm); color: var(--ink-soft); }
+.sheet__actions { display: flex; flex-direction: column; gap: var(--gap-sm); }
 .sheet__ack {
     margin: var(--gap) 0 0;
     padding: 0.75rem;
+    font-size: var(--fs-sm);
     background: var(--surface-sunk);
-    border-inline-start: 0.3rem solid var(--done);
-    border-radius: var(--radius);
+    border-inline-start: 0.1875rem solid var(--done);
+    border-radius: var(--radius-sm);
 }
 
 .offline {
     margin: 0;
-    padding: 0.6rem var(--gap);
+    padding: 0.5rem var(--gap);
+    font-size: var(--fs-sm);
     color: var(--surface);
     background: var(--ink);
     text-align: center;
 }
 
-/* شاشات أوسع: خيارات التسجيل في صفّ واحد */
-@media (min-width: 52rem) {
-    .main { max-width: 60rem; }
+/*
+ * ── الشاشات الأوسع ─────────────────────────────────────────────────
+ * عمود قراءة واحد يتّسع قليلاً، وخيارات التسجيل في صفّ. لا أعمدة متجاورة:
+ * عمودان يتنازعان العرض هما أول ما ينهار عند تكبير النصّ، وتدقيق التراكب
+ * يكشفه — والمكسب البصري لا يساوي المخاطرة.
+ */
+@media (min-width: 48rem) {
+    :root { --measure: 52rem; --pad-inline: 1.5rem; }
     .record__choices { flex-direction: row; }
-    .record__choices .btn { flex: 1; }
+    .record__choices .btn { flex: 1 1 8rem; }
+    .step { padding: var(--gap-lg); }
+}
+
+@media (min-width: 64rem) {
+    :root { --measure: 58rem; }
+    .brand__mark { width: 2rem; height: 2rem; }
+    .brand__name { font-size: var(--fs-lg); }
+    .top { padding: 0.75rem 0 0.625rem; }
+    .tab { flex: 0 1 10rem; }
+    .main { padding-block: 2rem; }
 }

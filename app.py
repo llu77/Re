@@ -23,9 +23,13 @@ from interventions import run_intervention
 # Page Config
 # ═══════════════════════════════════════════════════════════════
 
+# مسار مطلق لا نسبي: `streamlit run` من مجلّد آخر يجعل النسبي يشير إلى
+# لا شيء، فتسقط الأيقونة بصمت ويعود التبويب إلى رمز Streamlit الافتراضي.
+_BRAND_ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "portal", "icon-192.png")
+
 st.set_page_config(
-    page_title="مستشار التأهيل الطبي الذكي",
-    page_icon="Re",
+    page_title="مستشار التأهيل الطبي الذكي — Symbol AI",
+    page_icon=_BRAND_ICON if os.path.exists(_BRAND_ICON) else ":hospital:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -385,23 +389,38 @@ init_session()
 CUSTOM_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700;800&display=swap');
+/*
+ * لوحة Symbol AI — مشتقّة من العلامة لا مختارة بالذوق:
+ * لازوردها #061840، وأزرقها #306BF5، ولمستها السماوية #63D7EE.
+ *
+ * الأزرق على الأبيض 4.62:1 — على حافة الحدّ — فله نظيرٌ أغمق
+ * (--secondary-ink) لكل نصّ، ويبقى الأصل للتعبئة والحدود.
+ *
+ * هذه واجهة ممارس على شاشة مكتب: الكثافة عالية والأساس 14px، بخلاف بوابة
+ * المريض التي جمهورها ضعاف بصر.
+ */
 :root {
-    --primary: #1E3A5F; --primary-light: #2E5B8C;
-    --secondary: #2E8BC0; --secondary-light: #4FA8D8;
-    --accent: #0B8457; --accent-light: #10A567;
-    --bg: #EEF2F7; --card: #FFFFFF;
-    --text: #1A2744; --text-sub: #4A5568; --text-muted: #718096;
-    --border: #E2E8F0; --border-focus: #2E8BC0;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-    --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
-    --shadow-md: 0 10px 25px -5px rgba(0,0,0,0.08), 0 4px 10px -5px rgba(0,0,0,0.04);
-    --shadow-lg: 0 20px 40px -10px rgba(0,0,0,0.1);
-    --radius-sm: 8px; --radius: 12px; --radius-lg: 20px; --radius-xl: 28px;
+    --primary: #061840; --primary-light: #0E2A63;
+    --secondary: #306BF5; --secondary-light: #63D7EE;
+    --secondary-ink: #2455CC;                 /* 6.5:1 — نصّ الأزرق */
+    --accent: #0E6B46; --accent-light: #12885A;
+    --bg: #F5F8FC; --card: #FFFFFF;
+    --text: #101B33; --text-sub: #52606D; --text-muted: #6B7885;
+    --border: #DCE3EC; --border-focus: #306BF5;
+    /* ظلال خافتة بلون العلامة لا رمادٍ محايد: العمق يُحسّ ولا يُرى */
+    --shadow-sm: 0 1px 2px rgba(6,24,64,0.06), 0 1px 3px rgba(6,24,64,0.04);
+    --shadow: 0 2px 4px rgba(6,24,64,0.06), 0 1px 2px rgba(6,24,64,0.04);
+    --shadow-md: 0 4px 12px rgba(6,24,64,0.08), 0 1px 3px rgba(6,24,64,0.05);
+    --shadow-lg: 0 12px 28px rgba(6,24,64,0.10), 0 2px 6px rgba(6,24,64,0.06);
+    --radius-sm: 6px; --radius: 10px; --radius-lg: 14px; --radius-xl: 18px;
 }
 *, *::before, *::after { box-sizing: border-box; }
 html, body, .stApp, [class*="css"] {
     font-family: 'Cairo', 'Tajawal', -apple-system, sans-serif !important; direction: rtl;
+    font-size: 14px;
 }
+/* الأساس 14px، والنصّ الطويل 14 أيضاً — كثافة مكتب لا كثافة هاتف */
+.stApp p, .stApp li, .stApp label, .stApp span, .stApp div { font-size: inherit; }
 /*
  * الخلفية فقط. لا `position` ولا `overflow` هنا:
  *
@@ -418,65 +437,46 @@ html, body, .stApp, [class*="css"] {
     background: var(--bg) !important;
 }
 
-/* ── Animated Background ── */
-.stApp::before {
-    content: '';
-    position: fixed;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background:
-        radial-gradient(ellipse at 20% 50%, rgba(46,139,192,0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 20%, rgba(11,132,87,0.05) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 80%, rgba(30,58,95,0.04) 0%, transparent 50%);
-    animation: bgDrift 20s ease-in-out infinite alternate;
-    z-index: 0;
-    pointer-events: none;
-}
-@keyframes bgDrift {
-    0%   { transform: translate(0, 0) rotate(0deg); }
-    33%  { transform: translate(2%, -1%) rotate(1deg); }
-    66%  { transform: translate(-1%, 2%) rotate(-0.5deg); }
-    100% { transform: translate(1%, -2%) rotate(0.5deg); }
-}
-
-/* ── Floating Particles ── */
-.stApp::after {
-    content: '';
-    position: fixed;
-    width: 100%; height: 100%;
-    top: 0; left: 0;
-    background-image:
-        radial-gradient(2px 2px at 10% 20%, rgba(46,139,192,0.15) 50%, transparent 50%),
-        radial-gradient(2px 2px at 30% 70%, rgba(11,132,87,0.12) 50%, transparent 50%),
-        radial-gradient(3px 3px at 60% 30%, rgba(30,58,95,0.1) 50%, transparent 50%),
-        radial-gradient(2px 2px at 80% 60%, rgba(46,139,192,0.12) 50%, transparent 50%),
-        radial-gradient(2px 2px at 50% 90%, rgba(11,132,87,0.1) 50%, transparent 50%),
-        radial-gradient(3px 3px at 90% 10%, rgba(30,58,95,0.08) 50%, transparent 50%);
-    animation: particleFloat 30s linear infinite;
-    z-index: 0;
-    pointer-events: none;
-}
-@keyframes particleFloat {
-    0%   { transform: translateY(0); }
-    100% { transform: translateY(-100vh); }
-}
-
+/*
+ * لا خلفية متحرّكة ولا جسيمات طائرة.
+ *
+ * كانت `.stApp::before` تُدير تدرّجات في حلقة 20 ثانية، و`::after` تُطيّر
+ * نقاطاً عبر الشاشة كل 30 ثانية. حركةٌ دائمة خلف بيانات سريرية تُشتّت
+ * القارئ وتستهلك البطارية بلا مقابل، ولا مكان لها في أداة عمل.
+ */
 #MainMenu, footer, header, .stDeployButton,
 [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
 
 /* SIDEBAR */
+/*
+ * لازورد العلامة مسطّحاً لا تدرّجاً بثلاث محطّات: التدرّج يجعل تباين النصّ
+ * يتغيّر مع موضعه في الشريط، فنسبةٌ تُقاس عند الأعلى لا تصلح عند الأسفل.
+ * لونٌ واحد يعني نسبةً واحدة تُحسب مرة وتصحّ في كل موضع.
+ */
 [data-testid="stSidebar"] {
-    background: linear-gradient(170deg, #142540 0%, #1E3A5F 60%, #1A3252 100%) !important;
-    border-left: 1px solid rgba(255,255,255,0.06) !important; min-width: 280px !important;
+    background: #061840 !important;
+    border-left: 1px solid rgba(255,255,255,0.10) !important; min-width: 264px !important;
 }
+/* الأبيض على اللازورد 17.3:1، والسماوي 10.3:1 — كلاهما فوق الحدّ بمراحل */
+[data-testid="stSidebar"], [data-testid="stSidebar"] * { color: #E8EDF5; }
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 { color: #FFFFFF; }
 [data-testid="stSidebar"] > div:first-child { padding: 0 !important; }
 [data-testid="stSidebar"] .block-container { padding: 0 !important; }
 .sb-header {
-    background: linear-gradient(135deg, rgba(46,139,192,0.25) 0%, rgba(11,132,87,0.15) 100%);
-    border-bottom: 1px solid rgba(255,255,255,0.08); padding: 28px 20px 22px; text-align: center;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    padding: 18px 16px 16px; text-align: center;
 }
-.sb-logo-wrap { display: flex; justify-content: center; margin-bottom: 10px;
-    filter: drop-shadow(0 4px 20px rgba(46,139,192,0.55)); }
+/* العلامة والاسم في سطر واحد: ترويسةٌ تُعرِّف بالمنتج ولا تأخذ ربع الشريط */
+.sb-logo-wrap { gap: 10px; align-items: center; }
+.sb-mark { flex-shrink: 0; display: block; }
+.sb-wordmark {
+    font-size: 17px; font-weight: 700; letter-spacing: 0.01em;
+    color: #FFFFFF; direction: ltr;
+}
+.sb-logo-wrap { display: flex; justify-content: center; margin-bottom: 8px;
+    filter: drop-shadow(0 4px 20px rgba(48,107,245,0.55)); }
 .ai-loading { display: flex; gap: 6px; justify-content: center; align-items: center; padding: 20px 0; }
 .ai-loading-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--secondary); opacity: 0.3; }
 .ai-loading-dot:nth-child(1) { animation: aiDot 1.2s ease-in-out 0s infinite; }
@@ -484,8 +484,8 @@ html, body, .stApp, [class*="css"] {
 .ai-loading-dot:nth-child(3) { animation: aiDot 1.2s ease-in-out 0.4s infinite; }
 @keyframes aiDot { 0%,80%,100% { transform: scale(1); opacity:0.3; } 40% { transform: scale(1.6); opacity:1; } }
 .visual-exercise-card {
-    background: linear-gradient(135deg, rgba(30,58,95,0.9) 0%, rgba(11,50,40,0.9) 100%);
-    border: 2px solid rgba(46,139,192,0.5); border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, rgba(6,24,64,0.9) 0%, rgba(6,24,64,0.9) 100%);
+    border: 2px solid rgba(48,107,245,0.5); border-radius: var(--radius-lg);
     padding: 18px; margin: 14px 0 6px; box-shadow: var(--shadow-md);
 }
 .ve-header { font-weight: 800; font-size: 15px; color: #60C4F0; margin-bottom: 8px; }
@@ -494,34 +494,72 @@ html, body, .stApp, [class*="css"] {
 .ve-svg svg { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 .ve-footer { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 10px; display: flex; gap: 12px; }
 .sb-title { color: #FFF; font-size: 15px; font-weight: 800; margin: 0 0 4px; }
-.sb-subtitle { color: rgba(255,255,255,0.45); font-size: 10px; font-weight: 500;
+.sb-subtitle { color: rgba(255,255,255,0.45); font-size: 11px; font-weight: 500;
     letter-spacing: 0.5px; text-transform: uppercase; margin: 0; }
 .sb-model-badge {
     display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; padding: 4px 10px;
-    background: rgba(46,139,192,0.25); border: 1px solid rgba(46,139,192,0.4);
-    border-radius: 20px; font-size: 10px; color: #60C4F0; font-weight: 600;
+    background: rgba(48,107,245,0.25); border: 1px solid rgba(48,107,245,0.4);
+    border-radius: 20px; font-size: 11px; color: #60C4F0; font-weight: 600;
 }
 .sb-body { padding: 16px 14px; }
-.sb-section-label { color: rgba(255,255,255,0.35); font-size: 9px; font-weight: 700;
+.sb-section-label { color: rgba(255,255,255,0.35); font-size: 11px; font-weight: 700;
     letter-spacing: 2px; text-transform: uppercase; margin: 18px 0 8px 4px; }
 .sb-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
 .sb-stat { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
     border-radius: var(--radius-sm); padding: 12px 8px; text-align: center; transition: background 0.2s; }
 .sb-stat:hover { background: rgba(255,255,255,0.1); }
 .sb-stat-num { color: #60C4F0; font-size: 22px; font-weight: 900; line-height: 1; display: block; }
-.sb-stat-lbl { color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 500; display: block; margin-top: 4px; }
+.sb-stat-lbl { color: rgba(255,255,255,0.45); font-size: 11px; font-weight: 500; display: block; margin-top: 4px; }
 .tool-chip { display: flex; align-items: center; gap: 9px; padding: 8px 10px;
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
     border-radius: var(--radius-sm); margin-bottom: 5px; transition: all 0.2s; cursor: default; }
 .tool-chip:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.14); transform: translateX(-2px); }
-.tool-chip-icon { font-size: 13px; width: 18px; text-align: center; flex-shrink: 0; }
+/* الرمز اختصارٌ بحرفين (PM · DB · CA)، و18px تلفّه سطرين فيُقصّ.
+   `min-width` مع منع اللفّ يجعله شارةً تُقرأ في سطر واحد. */
+.tool-chip-icon {
+    font-size: 11px; min-width: 26px; text-align: center; flex-shrink: 0;
+    white-space: nowrap; font-weight: 700; letter-spacing: 0.03em;
+    color: #8FA6C8;
+}
 .tool-chip-name { color: rgba(255,255,255,0.75); font-size: 11px; font-weight: 500; flex: 1; }
-.tool-chip-badge { font-size: 8px; padding: 2px 6px; border-radius: 10px; font-weight: 700;
+.tool-chip-badge { font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 700;
     background: rgba(16,185,129,0.18); color: #34D399; border: 1px solid rgba(16,185,129,0.25); }
 .sb-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 14px 0; }
+/*
+ * تسميات عناصر Streamlit في الشريط الجانبي تُقصّ عند حافته: «حد التفكير»
+ * كانت تظهر «د التفكير». Streamlit يمنعها اللفّ افتراضياً، والشريط ضيّق
+ * بطبعه — فالسماح باللفّ هو الحلّ، لا توسيع الشريط على حساب المحتوى.
+ */
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"],
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] * {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+}
+/*
+ * عناصر Streamlit تُرسَم بهامش صفر لأن `.block-container` صُفِّرت، فتلتصق
+ * بحافة الشريط ويُقصّ أول حرف من التسمية العربية.
+ *
+ * جرّبتُ الحشو على `.block-container` نفسها فدفع المحتوى **خارج** الشريط:
+ * عرضُه مثبَّت والحاوية الداخلية تحسب عرضها بنفسها. فالحشو على العناصر
+ * وحدها، ومعه تسميةٌ قصيرة — والوحدة في تلميح لا في التسمية.
+ */
+
+
+[data-testid="stSidebar"] .stSlider,
+[data-testid="stSidebar"] .stToggle,
+[data-testid="stSidebar"] .stCheckbox,
+[data-testid="stSidebar"] .stRadio,
+[data-testid="stSidebar"] .stSelectbox,
+[data-testid="stSidebar"] .stTextInput,
+[data-testid="stSidebar"] .stNumberInput,
+[data-testid="stSidebar"] [data-testid="stAlert"] { padding-inline: 14px !important; }
+
 [data-testid="stSidebar"] .stButton > button {
     font-family: 'Cairo', sans-serif !important; background: rgba(220,38,38,0.12) !important;
-    color: rgba(252,165,165,0.9) !important; border: 1px solid rgba(220,38,38,0.25) !important;
+    color: #FFC9C9 !important; border: 1px solid rgba(220,38,38,0.45) !important;
     border-radius: var(--radius-sm) !important; font-size: 12px !important; font-weight: 600 !important;
     width: 100% !important; padding: 8px 16px !important; transition: all 0.2s !important;
 }
@@ -534,25 +572,26 @@ html, body, .stApp, [class*="css"] {
 
 /* PAGE HEADER */
 .page-header {
-    background: linear-gradient(135deg, #1E3A5F 0%, #2A6496 50%, #1A7A58 100%);
+    background: linear-gradient(135deg, #061840 0%, #1B3E82 100%);
     border-radius: 0 0 var(--radius-xl) var(--radius-xl);
     padding: 26px 32px 22px; margin: 0 -24px 24px; display: flex;
     align-items: center; justify-content: space-between; box-shadow: var(--shadow-md);
 }
 .ph-left { display: flex; align-items: center; gap: 16px; }
-.ph-icon { font-size: 38px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+.ph-mark { display: block; flex-shrink: 0; }
+.avatar-ai .ph-mark { border-radius: 3px; }
 .ph-title { color: white; font-size: 20px; font-weight: 800; margin: 0 0 3px; line-height: 1.2; }
 .ph-sub { color: rgba(255,255,255,0.65); font-size: 11px; font-weight: 500; margin: 0; }
 .ph-badges { display: flex; gap: 8px; flex-direction: column; align-items: flex-end; }
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px;
-    border-radius: 16px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    border-radius: 16px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .badge-green { background: rgba(16,185,129,0.2); color: #6EE7B7; border: 1px solid rgba(16,185,129,0.3); }
 .badge-blue { background: rgba(96,165,250,0.2); color: #93C5FD; border: 1px solid rgba(96,165,250,0.3); }
 .badge-red { background: rgba(239,68,68,0.2); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.3); }
 
 /* PATIENT HEADER */
 .patient-header {
-    background: linear-gradient(135deg, #1E3A5F, #2E5B8C);
+    background: linear-gradient(135deg, #061840, #1B3E82);
     border-radius: var(--radius); padding: 18px 24px; margin-bottom: 16px;
     display: flex; align-items: center; justify-content: space-between;
     box-shadow: var(--shadow); color: white;
@@ -569,7 +608,7 @@ html, body, .stApp, [class*="css"] {
 .patient-card:hover { border-color: var(--secondary); box-shadow: var(--shadow); transform: translateY(-2px); }
 .patient-card-name { font-size: 16px; font-weight: 700; color: var(--primary); margin: 0 0 6px; }
 .patient-card-dx { font-size: 12px; color: var(--text-sub); margin: 0 0 4px; }
-.patient-card-meta { font-size: 10px; color: var(--text-muted); }
+.patient-card-meta { font-size: 11px; color: var(--text-muted); }
 
 /* CHAT MESSAGES */
 .msg-user { display: flex; justify-content: flex-end; align-items: flex-end; gap: 10px; animation: msgIn 0.3s ease-out; }
@@ -577,8 +616,8 @@ html, body, .stApp, [class*="css"] {
 @keyframes msgIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center;
     justify-content: center; font-size: 20px; flex-shrink: 0; box-shadow: var(--shadow); }
-.avatar-user { background: linear-gradient(135deg, #1E3A5F, #2E8BC0); order: 1; }
-.avatar-ai { background: linear-gradient(135deg, #0B5E3D, #0B8457); order: -1; }
+.avatar-user { background: linear-gradient(135deg, #061840, #306BF5); order: 1; }
+.avatar-ai { background: linear-gradient(135deg, #0E6B46, #0E6B46); order: -1; }
 .bubble { max-width: 76%; padding: 14px 18px; font-size: 14px; line-height: 1.75;
     color: var(--text); box-shadow: var(--shadow); position: relative; word-break: break-word; }
 .bubble-user { background: linear-gradient(145deg, #EBF5FB, #D6EAF8); border: 1px solid #AED6F1;
@@ -586,7 +625,7 @@ html, body, .stApp, [class*="css"] {
 .bubble-ai { background: var(--card); border: 1px solid var(--border);
     border-radius: var(--radius-sm) var(--radius) var(--radius) var(--radius); order: 0; }
 .bubble-footer { display: flex; align-items: center; justify-content: flex-end; gap: 6px;
-    margin-top: 8px; font-size: 10px; color: var(--text-muted); }
+    margin-top: 8px; font-size: 11px; color: var(--text-muted); }
 .bubble-footer-ai { justify-content: flex-start; }
 .bubble h1,.bubble h2,.bubble h3 { color: var(--primary); }
 .bubble h1 { font-size: 17px; } .bubble h2 { font-size: 15px; } .bubble h3 { font-size: 13px; }
@@ -628,7 +667,7 @@ html, body, .stApp, [class*="css"] {
     background: linear-gradient(to top, var(--bg) 75%, transparent 100%); }
 .input-card { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius-xl);
     padding: 12px 16px 10px; box-shadow: var(--shadow-md); transition: border-color 0.25s, box-shadow 0.25s; }
-.input-card:focus-within { border-color: var(--secondary); box-shadow: 0 0 0 4px rgba(46,139,192,0.1), var(--shadow-md); }
+.input-card:focus-within { border-color: var(--secondary); box-shadow: 0 0 0 4px rgba(48,107,245,0.1), var(--shadow-md); }
 [data-testid="stTextArea"] { margin: 0 !important; }
 [data-testid="stTextArea"] > div { border: none !important; box-shadow: none !important; background: transparent !important; }
 [data-testid="stTextArea"] textarea { font-family: 'Cairo', sans-serif !important; font-size: 14px !important;
@@ -637,11 +676,11 @@ html, body, .stApp, [class*="css"] {
     padding: 4px 0 !important; min-height: 46px !important; }
 [data-testid="stTextArea"] textarea::placeholder { color: var(--text-muted) !important; }
 .send-col .stButton > button { font-family: 'Cairo', sans-serif !important;
-    background: linear-gradient(135deg, #1E3A5F, #2E5B8C) !important; color: white !important;
+    background: linear-gradient(135deg, #061840, #1B3E82) !important; color: white !important;
     border: none !important; border-radius: var(--radius) !important; font-size: 13px !important;
     font-weight: 700 !important; padding: 8px 20px !important; width: 100% !important;
-    box-shadow: 0 3px 10px rgba(30,58,95,0.35) !important; }
-.send-col .stButton > button:hover { background: linear-gradient(135deg, #2E5B8C, #3A79B8) !important; }
+    box-shadow: 0 3px 10px rgba(6,24,64,0.35) !important; }
+.send-col .stButton > button:hover { background: linear-gradient(135deg, #1B3E82, #306BF5) !important; }
 .clear-col .stButton > button { font-family: 'Cairo', sans-serif !important;
     background: transparent !important; color: var(--text-muted) !important;
     border: 1px solid var(--border) !important; border-radius: var(--radius) !important;
@@ -652,15 +691,15 @@ html, body, .stApp, [class*="css"] {
 .note-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-sm);
     padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow-sm); }
 .note-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.note-card-type { font-size: 10px; font-weight: 700; color: var(--secondary); text-transform: uppercase; }
-.note-card-time { font-size: 10px; color: var(--text-muted); }
+.note-card-type { font-size: 11px; font-weight: 700; color: var(--secondary); text-transform: uppercase; }
+.note-card-time { font-size: 11px; color: var(--text-muted); }
 .note-card-body { font-size: 13px; color: var(--text); line-height: 1.6; }
 
 /* WELCOME */
 .welcome-container { text-align: center; padding: 40px 20px 20px; }
-.welcome-emoji { font-size: 80px; display: block; margin-bottom: 20px; animation: welcomeFloat 3.5s ease-in-out infinite; }
+.welcome-emoji { font-size: 28px; display: block; margin-bottom: 20px; animation: welcomeFloat 3.5s ease-in-out infinite; }
 @keyframes welcomeFloat { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-12px) scale(1.03); } }
-.welcome-title { color: var(--primary); font-size: 28px; font-weight: 900; margin: 0 0 8px; }
+.welcome-title { color: var(--primary); font-size: 20px; font-weight: 900; margin: 0 0 8px; }
 .welcome-subtitle { color: var(--text-sub); font-size: 15px; margin: 0 0 32px;
     max-width: 520px; margin-left: auto; margin-right: auto; line-height: 1.7; }
 .feature-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 36px; }
@@ -684,13 +723,13 @@ html, body, .stApp, [class*="css"] {
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255,255,255,0.4);
     border-radius: var(--radius);
-    box-shadow: var(--shadow), 0 0 40px rgba(46,139,192,0.04);
+    box-shadow: var(--shadow), 0 0 40px rgba(48,107,245,0.04);
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .glass-card:hover {
-    box-shadow: var(--shadow-lg), 0 0 60px rgba(46,139,192,0.08);
+    box-shadow: var(--shadow-lg), 0 0 60px rgba(48,107,245,0.08);
     transform: translateY(-3px);
-    border-color: rgba(46,139,192,0.2);
+    border-color: rgba(48,107,245,0.2);
 }
 
 /* ── Enhanced Patient Cards ── */
@@ -698,7 +737,7 @@ html, body, .stApp, [class*="css"] {
     background: rgba(255,255,255,0.82);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border: 2px solid transparent;
-    border-image: linear-gradient(135deg, var(--border) 0%, rgba(46,139,192,0.15) 100%) 1;
+    border-image: linear-gradient(135deg, var(--border) 0%, rgba(48,107,245,0.15) 100%) 1;
     border-image-slice: 1;
     border-radius: var(--radius); border-image: none;
     border: 2px solid var(--border);
@@ -707,31 +746,24 @@ html, body, .stApp, [class*="css"] {
 }
 .patient-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, var(--secondary), var(--accent), var(--secondary));
+    background: linear-gradient(90deg, var(--secondary), var(--secondary-light), var(--secondary));
     opacity: 0; transition: opacity 0.3s;
 }
-.patient-card:hover { border-color: var(--secondary-light); box-shadow: var(--shadow-md), 0 4px 30px rgba(46,139,192,0.1); transform: translateY(-4px); }
+.patient-card:hover { border-color: var(--secondary-light); box-shadow: var(--shadow-md), 0 4px 30px rgba(48,107,245,0.1); transform: translateY(-4px); }
 .patient-card:hover::before { opacity: 1; }
 .patient-card-name { font-size: 17px; font-weight: 800; color: var(--primary); margin: 0 0 8px; letter-spacing: -0.3px; }
 .patient-card-dx { font-size: 12px; color: var(--text-sub); margin: 0 0 6px; line-height: 1.5; }
-.patient-card-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
+.patient-card-meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
 
 /* ── Enhanced Patient Header ── */
 .patient-header {
-    background: linear-gradient(135deg, #1E3A5F 0%, #2A5F8C 40%, #1A7A58 100%);
+    background: linear-gradient(135deg, #061840 0%, #153573 100%);
     border-radius: var(--radius-lg); padding: 22px 28px; margin-bottom: 20px;
     display: flex; align-items: center; justify-content: space-between;
-    box-shadow: var(--shadow-md), 0 4px 30px rgba(30,58,95,0.2); color: white;
+    box-shadow: var(--shadow-md), 0 4px 30px rgba(6,24,64,0.2); color: white;
     position: relative; overflow: hidden;
 }
-.patient-header::before {
-    content: ''; position: absolute; top: -50%; right: -20%; width: 60%; height: 200%;
-    background: radial-gradient(ellipse, rgba(255,255,255,0.06) 0%, transparent 70%);
-    animation: headerShine 6s ease-in-out infinite alternate;
-}
-@keyframes headerShine {
-    0% { transform: translateX(-20%); } 100% { transform: translateX(20%); }
-}
+/* لا وميض متحرّك هنا أيضاً: ترويسة ملفّ المريض تُقرأ ولا تُشاهَد. */
 .patient-header .ph-name { font-size: 19px; font-weight: 800; margin: 0; position: relative; z-index: 1; }
 .patient-header .ph-meta { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 6px; position: relative; z-index: 1; }
 .patient-header .ph-badges { display: flex; gap: 6px; position: relative; z-index: 1; }
@@ -744,12 +776,12 @@ html, body, .stApp, [class*="css"] {
 }
 .workflow-step {
     flex: 1; text-align: center; padding: 8px 4px; border-radius: var(--radius-sm);
-    font-size: 10px; font-weight: 600; color: var(--text-muted); transition: all 0.3s;
+    font-size: 11px; font-weight: 600; color: var(--text-muted); transition: all 0.3s;
     position: relative;
 }
 .workflow-step.active {
-    background: linear-gradient(135deg, rgba(46,139,192,0.12), rgba(11,132,87,0.08));
-    color: var(--primary); box-shadow: 0 2px 8px rgba(46,139,192,0.12);
+    background: linear-gradient(135deg, rgba(48,107,245,0.12), rgba(14,107,70,0.08));
+    color: var(--primary); box-shadow: 0 2px 8px rgba(48,107,245,0.12);
 }
 .workflow-step.done {
     background: rgba(16,185,129,0.08); color: var(--accent);
@@ -776,7 +808,7 @@ html, body, .stApp, [class*="css"] {
 }
 .metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 .metric-card:hover::after { opacity: 1; }
-.metric-num { font-size: 28px; font-weight: 900; color: var(--primary); line-height: 1; display: block; }
+.metric-num { font-size: 20px; font-weight: 900; color: var(--primary); line-height: 1; display: block; }
 .metric-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 6px; display: block; }
 
 /* ── Quick Actions ── */
@@ -788,9 +820,9 @@ html, body, .stApp, [class*="css"] {
     cursor: pointer; transition: all 0.25s; text-decoration: none;
 }
 .quick-action-btn:hover {
-    background: linear-gradient(135deg, rgba(46,139,192,0.08), rgba(11,132,87,0.06));
+    background: linear-gradient(135deg, rgba(48,107,245,0.08), rgba(14,107,70,0.06));
     border-color: var(--secondary); color: var(--primary); transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(46,139,192,0.1);
+    box-shadow: 0 4px 12px rgba(48,107,245,0.1);
 }
 
 /* ── Enhanced Tabs ── */
@@ -805,11 +837,11 @@ html, body, .stApp, [class*="css"] {
     color: var(--text-muted) !important; transition: all 0.25s !important;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    background: rgba(46,139,192,0.06) !important; color: var(--primary) !important;
+    background: rgba(48,107,245,0.06) !important; color: var(--primary) !important;
 }
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, rgba(46,139,192,0.12), rgba(11,132,87,0.08)) !important;
-    color: var(--primary) !important; box-shadow: 0 2px 8px rgba(46,139,192,0.1) !important;
+    background: linear-gradient(135deg, rgba(48,107,245,0.12), rgba(14,107,70,0.08)) !important;
+    color: var(--primary) !important; box-shadow: 0 2px 8px rgba(48,107,245,0.1) !important;
 }
 .stTabs [data-baseweb="tab-highlight"] {
     background: linear-gradient(90deg, var(--secondary), var(--accent)) !important;
@@ -820,16 +852,16 @@ html, body, .stApp, [class*="css"] {
 /* ── Enhanced Buttons ── */
 .stButton > button[kind="primary"], .stButton > button[data-testid*="primary"] {
     font-family: 'Cairo', sans-serif !important;
-    background: linear-gradient(135deg, #1E3A5F 0%, #2E5B8C 100%) !important;
+    background: linear-gradient(135deg, #061840 0%, #1B3E82 100%) !important;
     color: white !important; border: none !important;
     border-radius: var(--radius) !important; font-weight: 700 !important;
-    padding: 8px 20px !important; box-shadow: 0 4px 15px rgba(30,58,95,0.3) !important;
+    padding: 8px 20px !important; box-shadow: 0 4px 15px rgba(6,24,64,0.3) !important;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 .stButton > button[kind="primary"]:hover {
-    background: linear-gradient(135deg, #2E5B8C 0%, #3A79B8 100%) !important;
+    background: linear-gradient(135deg, #1B3E82 0%, #306BF5 100%) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(30,58,95,0.4) !important;
+    box-shadow: 0 6px 20px rgba(6,24,64,0.4) !important;
 }
 .stButton > button:not([kind="primary"]) {
     font-family: 'Cairo', sans-serif !important; border-radius: var(--radius-sm) !important;
@@ -847,7 +879,7 @@ html, body, .stApp, [class*="css"] {
 .stTextInput > div > div:focus-within, .stNumberInput > div > div:focus-within,
 .stSelectbox > div > div:focus-within {
     border-color: var(--secondary) !important;
-    box-shadow: 0 0 0 3px rgba(46,139,192,0.1) !important;
+    box-shadow: 0 0 0 3px rgba(48,107,245,0.1) !important;
 }
 
 /* ── Enhanced Expanders ── */
@@ -860,7 +892,7 @@ html, body, .stApp, [class*="css"] {
     transition: all 0.3s !important;
 }
 [data-testid="stExpander"]:hover {
-    box-shadow: var(--shadow) !important; border-color: rgba(46,139,192,0.15) !important;
+    box-shadow: var(--shadow) !important; border-color: rgba(48,107,245,0.15) !important;
 }
 [data-testid="stExpander"] summary {
     font-family: 'Cairo', sans-serif !important; font-weight: 700 !important;
@@ -894,12 +926,12 @@ html, body, .stApp, [class*="css"] {
 }
 .activity-dot {
     width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
-    background: var(--secondary); box-shadow: 0 0 0 3px rgba(46,139,192,0.15);
+    background: var(--secondary); box-shadow: 0 0 0 3px rgba(48,107,245,0.15);
 }
 .activity-content { flex: 1; }
 .activity-type { font-size: 11px; font-weight: 700; color: var(--primary); }
 .activity-desc { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
-.activity-time { font-size: 10px; color: var(--text-muted); }
+.activity-time { font-size: 11px; color: var(--text-muted); }
 
 /* ── Info Section ── */
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -907,22 +939,23 @@ html, body, .stApp, [class*="css"] {
     padding: 10px 14px; background: rgba(238,242,247,0.6); border-radius: var(--radius-sm);
     border: 1px solid rgba(226,232,240,0.5);
 }
-.info-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.info-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .info-value { font-size: 14px; font-weight: 600; color: var(--primary); margin-top: 2px; }
 
 /* ── Page Header Enhanced ── */
+/*
+ * تعريفٌ ثانٍ للترويسة يغلب الأول لأنه بعده. كان ينتهي بأخضر `#0E6B46`،
+ * فتبدأ الترويسة لازورداً وتنتهي أخضر — والعلامة لا تحمل أخضر أصلاً.
+ * والوميض المتحرّك حُذف معه: بريقٌ يمرّ كل ثماني ثوانٍ خلف عنوان صفحة
+ * يجذب العين إلى لا شيء.
+ */
 .page-header {
-    background: linear-gradient(135deg, #1E3A5F 0%, #2A6496 40%, #1A7A58 80%, #0B8457 100%);
-    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-    padding: 28px 34px 24px; margin: 0 -24px 28px; display: flex;
+    background: linear-gradient(135deg, #061840 0%, #1B3E82 100%);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    padding: 22px 28px 20px; margin: 0 -24px 24px; display: flex;
     align-items: center; justify-content: space-between;
-    box-shadow: var(--shadow-lg), 0 6px 40px rgba(30,58,95,0.15);
+    box-shadow: var(--shadow-md);
     position: relative; overflow: hidden;
-}
-.page-header::before {
-    content: ''; position: absolute; top: -50%; right: -30%; width: 80%; height: 200%;
-    background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 60%);
-    animation: headerShine 8s ease-in-out infinite alternate;
 }
 
 /* SCROLLBAR */
@@ -937,7 +970,7 @@ html, body, .stApp, [class*="css"] {
     background: rgba(255,255,255,0.5); border-radius: var(--radius-lg);
     border: 2px dashed var(--border);
 }
-.empty-state-icon { font-size: 60px; display: block; margin-bottom: 16px; opacity: 0.6; }
+.empty-state-icon { font-size: 26px; display: block; margin-bottom: 16px; opacity: 0.6; }
 .empty-state-text { color: var(--text-muted); font-size: 14px; }
 
 /* ── Loading Skeleton ── */
@@ -1169,7 +1202,7 @@ def render_tool_calls(tool_calls: list):
         <div class="tool-call-card">
             <div class="tool-call-header">استخدام أداة</div>
             <span class="tool-call-name">{html.escape(tool_display_name(tc['name']))}</span>
-            <div style="color:#78350F;font-size:10px;margin-top:4px;font-family:monospace;opacity:0.7">
+            <div style="color:#78350F;font-size: 11px;margin-top:4px;font-family:monospace;opacity:0.7">
                 {html.escape(tc.get('input_preview', ''))}
             </div>
         </div>""", unsafe_allow_html=True)
@@ -1202,7 +1235,7 @@ def render_message(msg: dict):
 
         col_av, col_bub = st.columns([0.06, 0.94])
         with col_av:
-            st.markdown('<div class="avatar avatar-ai" style="margin-top:4px;font-size:12px;font-weight:800;color:white">Re</div>', unsafe_allow_html=True)
+            st.markdown('<div class="avatar avatar-ai" style="margin-top:4px"><svg class="ph-mark" width="18" height="18" viewBox="0 0 3 3" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Symbol AI"><rect x="1" y="0" width="2" height="2" fill="#306BF5"/><rect x="0" y="1" width="2" height="1" fill="#63D7EE"/><rect x="1" y="2" width="1" height="1" fill="#63D7EE"/><rect x="1" y="1" width="1" height="1" fill="#061840"/></svg></div>', unsafe_allow_html=True)
         with col_bub:
             st.markdown('<div class="bubble bubble-ai" style="max-width:100%">', unsafe_allow_html=True)
             st.markdown(content)
@@ -1212,7 +1245,7 @@ def render_message(msg: dict):
         for tc in tool_calls:
             if tc.get("svg_data"):
                 ev = tc.get("svg_evidence", "")
-                ev_badge = f'<span style="background:rgba(11,132,87,0.2);color:#10A567;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">مستوى الدليل: {html.escape(ev)}</span>' if ev else ""
+                ev_badge = f'<span style="background:rgba(14,107,70,0.2);color:#12885A;padding:2px 8px;border-radius:10px;font-size: 11px;font-weight:700">مستوى الدليل: {html.escape(ev)}</span>' if ev else ""
                 st.markdown(f"""
                 <div class="visual-exercise-card">
                     <div class="ve-header">{html.escape(tc.get("svg_title", "تمرين بصري"))}</div>
@@ -1237,7 +1270,7 @@ def render_patient_registry():
     st.markdown(f"""
     <div class="page-header">
         <div class="ph-left">
-            <span class="ph-icon" style="font-size:28px;font-weight:900;color:white">Re</span>
+            <svg class="ph-mark" width="30" height="30" viewBox="0 0 3 3" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Symbol AI"><rect x="1" y="0" width="2" height="2" fill="#306BF5"/><rect x="0" y="1" width="2" height="1" fill="#63D7EE"/><rect x="1" y="2" width="1" height="1" fill="#63D7EE"/><rect x="1" y="1" width="1" height="1" fill="#061840"/></svg>
             <div>
                 <h1 class="ph-title">مستشار التأهيل الطبي الذكي</h1>
                 <p class="ph-sub">Medical Rehabilitation AI Consultant · Claude Sonnet 4.6</p>
@@ -1264,7 +1297,7 @@ def render_patient_registry():
     if not patients:
         st.markdown("""
         <div class="empty-state">
-            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
+            <span class="empty-state-icon" style="font-size: 22px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا يوجد مرضى مسجلون بعد.<br>اضغط على "إنشاء ملف مريض جديد" للبدء.</p>
         </div>""", unsafe_allow_html=True)
         return
@@ -1611,7 +1644,7 @@ def render_summary_tab(patient: dict):
     # Recent activity timeline
     all_activities = []
     type_icons = {"ملاحظة": "N", "تقييم": "A", "جلسة": "S", "CDSS": "C", "وثيقة": "D"}
-    type_colors = {"ملاحظة": "#2E8BC0", "تقييم": "#7C3AED", "جلسة": "#0B8457", "CDSS": "#D97706", "وثيقة": "#DC2626"}
+    type_colors = {"ملاحظة": "#306BF5", "تقييم": "#7C3AED", "جلسة": "#0E6B46", "CDSS": "#D97706", "وثيقة": "#DC2626"}
     for n in patient.get("notes", []):
         all_activities.append({"time": n.get("timestamp", ""), "type": "ملاحظة", "desc": n.get("content", "")[:60]})
     for a in patient.get("assessment_results", []):
@@ -1641,7 +1674,7 @@ def render_summary_tab(patient: dict):
     else:
         st.markdown("""
         <div class="empty-state">
-            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
+            <span class="empty-state-icon" style="font-size: 22px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا توجد أنشطة بعد. ابدأ بإجراء تقييم أو إضافة ملاحظة.</p>
         </div>""", unsafe_allow_html=True)
 
@@ -1669,7 +1702,7 @@ def render_treatment_plans_tab(patient: dict):
     if not plans:
         st.markdown("""
         <div class="empty-state">
-            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
+            <span class="empty-state-icon" style="font-size: 22px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا توجد خطط علاجية بعد. اطلب من المستشار في المحادثة إعداد خطة علاجية.</p>
         </div>""", unsafe_allow_html=True)
         return
@@ -1915,7 +1948,7 @@ def render_notes_tab(patient: dict):
     else:
         st.markdown("""
         <div class="empty-state">
-            <span class="empty-state-icon" style="font-size:40px;font-weight:800;color:var(--text-muted)">--</span>
+            <span class="empty-state-icon" style="font-size: 22px;font-weight:800;color:var(--text-muted)">--</span>
             <p class="empty-state-text">لا توجد ملاحظات بعد. أضف ملاحظتك الأولى أعلاه.</p>
         </div>""", unsafe_allow_html=True)
 
@@ -2277,28 +2310,19 @@ def render_sidebar():
         st.markdown("""
         <div class="sb-header">
             <div class="sb-logo-wrap">
-              <svg width="72" height="72" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(46,139,192,0.45)" stroke-width="1.5" stroke-dasharray="8 4">
-                  <animateTransform attributeName="transform" type="rotate" values="0 50 50;360 50 50" dur="18s" repeatCount="indefinite"/>
-                </circle>
-                <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(11,132,87,0.3)" stroke-width="1" stroke-dasharray="4 6">
-                  <animateTransform attributeName="transform" type="rotate" values="360 50 50;0 50 50" dur="12s" repeatCount="indefinite"/>
-                </circle>
-                <ellipse cx="50" cy="50" rx="30" ry="18" fill="#1E3A5F" stroke="#2E8BC0" stroke-width="1.8"/>
-                <circle cx="50" cy="50" r="11" fill="#2E8BC0">
-                  <animate attributeName="r" values="11;9;11" dur="3s" repeatCount="indefinite"/>
-                  <animate attributeName="fill" values="#2E8BC0;#4FA8D8;#2E8BC0" dur="3s" repeatCount="indefinite"/>
-                </circle>
-                <circle cx="50" cy="50" r="5" fill="#0B1E3F"/>
-                <circle cx="46" cy="46" r="2" fill="white" opacity="0.65"/>
-                <line x1="50" y1="8" x2="50" y2="50" stroke="rgba(46,139,192,0.55)" stroke-width="1.5">
-                  <animateTransform attributeName="transform" type="rotate" values="0 50 50;360 50 50" dur="5s" repeatCount="indefinite"/>
-                </line>
-                <circle cx="50" cy="50" r="20" fill="none" stroke="rgba(46,139,192,0.5)" stroke-width="1">
-                  <animate attributeName="r" values="20;46;20" dur="4s" repeatCount="indefinite"/>
-                  <animate attributeName="opacity" values="0.5;0;0.5" dur="4s" repeatCount="indefinite"/>
-                </circle>
+              <!--
+                علامة Symbol AI: أربعة مستطيلات على شبكة 3×3. ساكنة عمداً —
+                الشعار السابق كان يُدير ثلاث حلقات ويُنبض دائرةً بلا توقّف،
+                وحركةٌ دائمة في زاوية العين تُتعِب من يقرأ ملفّاً سريرياً.
+              -->
+              <svg class="sb-mark" width="40" height="40" viewBox="0 0 3 3"
+                   xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Symbol AI">
+                <rect x="1" y="0" width="2" height="2" fill="#306BF5"/>
+                <rect x="0" y="1" width="2" height="1" fill="#63D7EE"/>
+                <rect x="1" y="2" width="1" height="1" fill="#63D7EE"/>
+                <rect x="1" y="1" width="1" height="1" fill="#061840"/>
               </svg>
+              <span class="sb-wordmark">Symbol AI</span>
             </div>
             <h2 class="sb-title">مستشار التأهيل الطبي</h2>
             <p class="sb-subtitle">Medical Rehab AI Consultant</p>
@@ -2319,7 +2343,8 @@ def render_sidebar():
         st.markdown('<div class="sb-section-label">الإعدادات</div>', unsafe_allow_html=True)
         st.session_state.use_thinking = st.toggle("تفعيل التفكير العميق", value=st.session_state.use_thinking, key="toggle_thinking")
         if st.session_state.use_thinking:
-            st.session_state.thinking_budget = st.slider("حد التفكير (tokens)", 4000, 16000, st.session_state.thinking_budget, 1000, key="thinking_slider")
+            st.session_state.thinking_budget = st.slider("حد التفكير", 4000, 16000, st.session_state.thinking_budget, 1000,
+                key="thinking_slider", help="عدد الرموز (tokens) المخصّصة للتفكير العميق")
 
         st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
 

@@ -14,8 +14,11 @@
  * شبكي واحد.
  */
 
-const SHELL = 'symbol-shell-v2';
-const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest'];
+const SHELL = 'symbol-shell-v3';
+const ASSETS = [
+    './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
+    'logo.svg', 'icon-192.png', 'apple-touch-icon.png',
+];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(ASSETS)));
