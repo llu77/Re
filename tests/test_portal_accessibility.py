@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from core import caregivers, identity, proposals
+from core.adl import gate as adl_gate
 from core.types import Actor
 from tests.conftest import cite_evidence_as, requires_db
 
@@ -95,17 +96,32 @@ def patient_token(owner, seed, portal_server):
         )
 
     practitioner = Actor(id=seed.practitioner_a, role="PRACTITIONER", tenant_id=seed.tenant_a)
+    # برنامج لبس حقيقي: الخطوة تحمل الحقول البنيوية التي تفحصها البوابة
+    # (`action`/`side`/`garment`) والنصّ الذي يقرؤه المريض معاً. هكذا يُكتب
+    # البرنامج فعلاً، وهكذا تُدقَّق شاشة المهام على محتوى لا على فراغ.
     plan = proposals.create(
         practitioner, patient_id=seed.patient_a, kind="PLAN",
-        payload={"steps": [
-            {"title": "تمرين الجلوس إلى الوقوف",
-             "text": "اجلس على طرف الكرسي، ضع قدميك بعرض الكتفين، وانهض ببطء."},
-            {"title": "المشي في الممر",
-             "text": "امشِ عشر خطوات ذهاباً وإياباً مع الاستناد عند الحاجة."},
-        ]},
+        payload={
+            "module": "DRESSING",
+            "steps": [
+                {"action": "DON", "side": "AFFECTED", "garment": "القميص",
+                 "title": "أدخِل الذراع المصابة في الكمّ",
+                 "text": "اجلس على طرف الكرسي، وأدخِل الذراع المصابة أولاً والكمّ واسع."},
+                {"action": "DON", "side": "SOUND", "garment": "القميص",
+                 "title": "ثم الذراع السليمة",
+                 "text": "مرّر القميص خلف ظهرك، ثم أدخِل الذراع السليمة."},
+                {"action": "DOFF", "side": "SOUND", "garment": "القميص",
+                 "title": "عند الخلع: السليمة أولاً",
+                 "text": "أخرِج الذراع السليمة أولاً ليبقى الكمّ واسعاً للأخرى."},
+                {"action": "DOFF", "side": "AFFECTED", "garment": "القميص",
+                 "title": "ثم الذراع المصابة",
+                 "text": "أخرِج الذراع المصابة أخيراً بلا شدّ على الكتف."},
+            ],
+        },
         affected_side="RIGHT",
     )
     cite_evidence_as(practitioner, plan.id)
+    adl_gate.verify_proposal(practitioner, plan.id)
     proposals.submit(plan.id, practitioner)
     proposals.approve(plan.id, practitioner)
 
@@ -146,7 +162,12 @@ def anonymous_page(portal_server, patient_token):
 
 
 #: الشاشات التي تُدقَّق كلها، لا شاشة الخطة وحدها.
-SCREENS = ["login", "plan", "progress", "offline"]
+#: أول خطوة في الخطة المبذورة وعددُ خطواتها — الحارس ضد تدقيقٍ على صفحة
+#: فارغة. مكتوبان مرة واحدة: النصّ نفسه في ثلاثة مواضع يتعفّن في اثنين منها.
+FIRST_STEP_TITLE = "أدخِل الذراع المصابة في الكمّ"
+PLAN_STEP_COUNT = 4
+
+SCREENS = ["login", "plan", "tasks", "progress", "offline"]
 
 
 @pytest.fixture
@@ -164,6 +185,8 @@ def audited_page(request):
 def _open_screen(page, screen):
     if screen == "progress":
         page.get_by_role("button", name="تقدّمي").click()
+    elif screen == "tasks":
+        page.get_by_role("button", name="مهامي").click()
     elif screen == "offline":
         # انقطاع حقيقي من المتصفح: شريط التنبيه يظهر بحدث `offline` لا بحقن
         page.context.set_offline(True)
@@ -175,6 +198,7 @@ def _open_screen(page, screen):
     marker = {
         "login": "#login-form",
         "plan": "#step-card",
+        "tasks": "#dressing-steps li",
         "progress": "#progress-rows tr",
         "offline": "#offline",
     }[screen]
@@ -369,8 +393,8 @@ TOUCH_TARGET_SCRIPT = """
 def test_the_portal_renders_the_approved_plan(page):
     """حارس: بقية الفحوص بلا معنى على صفحة فارغة."""
     body = page.inner_text("body")
-    assert "الخطوة 1 من 2" in body
-    assert "تمرين الجلوس إلى الوقوف" in body
+    assert f"الخطوة 1 من {PLAN_STEP_COUNT}" in body
+    assert FIRST_STEP_TITLE in body
     assert "أحتاج مساعدة الآن" in body
 
 
@@ -442,6 +466,68 @@ def test_two_hundred_percent_zoom_keeps_the_page_usable(page):
 CAREGIVER_EMAIL = "portal.caregiver@example.test"
 
 
+def test_the_portal_draws_a_verified_illustration(owner, seed, portal_server, patient_token):
+    """
+    الطرف الأخير من القاعدة 4: ما اجتاز التحقق والاعتماد يُرسَم فعلاً.
+
+    كانت البوابة تضع ترميم الـSVG بـ`textContent`، فتعرضه نصاً خاماً: آمن،
+    وبلا صورة. والآن ترسمه — ولا ترسم إلا ما جاء من مجموعة معتمدة، لأن
+    قاعدة البيانات تمنع وجود رسم في حمولة خطة أصلاً.
+    """
+    from core import illustration_gate
+    from tools.visual_exercises import generate_visual_exercise
+
+    practitioner = Actor(id=seed.practitioner_a, role="PRACTITIONER", tenant_id=seed.tenant_a)
+    drawing = generate_visual_exercise(
+        {"exercise_type": "scanning_grid", "difficulty": 3, "side": "right"}
+    )["svg"]
+
+    images = proposals.create(
+        practitioner, patient_id=seed.patient_a, kind="ILLUSTRATION_SET",
+        payload={"illustrations": [
+            {"exercise_type": "scanning_grid", "svg": drawing}
+        ]},
+        affected_side="RIGHT",
+    )
+    illustration_gate.verify_proposal(practitioner, images.id)
+    proposals.submit(images.id, practitioner)
+    proposals.approve(images.id, practitioner)
+
+    plan = proposals.create(
+        practitioner, patient_id=seed.patient_a, kind="PLAN",
+        payload={"steps": [
+            {"title": "مسح بصري", "text": "امسح الشبكة من اليمين.",
+             "illustration": "scanning_grid"}
+        ]},
+        affected_side="RIGHT",
+    )
+    cite_evidence_as(practitioner, plan.id)
+    proposals.submit(plan.id, practitioner)
+    proposals.approve(plan.id, practitioner)
+
+    with playwright_api.sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=CHROMIUM, args=["--no-sandbox"])
+        context = browser.new_context(viewport={"width": 390, "height": 844}, locale="ar-SA")
+        context.add_init_script(f"localStorage.setItem({TOKEN_KEY!r}, {patient_token!r});")
+        opened = context.new_page()
+        opened.goto(f"{portal_server}/app/", wait_until="networkidle", timeout=60000)
+        opened.wait_for_selector("#step-figure:not([hidden])", timeout=20000)
+
+        # عنصر SVG حقيقي مرسوم، لا نصّ ترميم معروض
+        assert opened.locator("#step-image svg").count() == 1
+        assert "<svg" not in opened.inner_text("#step-image")
+        assert "الأيمن" in opened.inner_text("#step-side")
+
+        painted = opened.evaluate(
+            "() => { const r = document.querySelector('#step-image svg')"
+            ".getBoundingClientRect(); return [r.width, r.height]; }"
+        )
+        assert painted[0] > 50 and painted[1] > 50, painted
+
+        assert not opened.evaluate(OVERLAP_SCRIPT)
+        browser.close()
+
+
 def test_the_portal_tells_a_caregiver_they_are_a_caregiver(owner, seed, portal_server,
                                                            patient_token):
     """
@@ -478,7 +564,7 @@ def test_the_portal_tells_a_caregiver_they_are_a_caregiver(owner, seed, portal_s
         opened.wait_for_selector("#acting-as", state="visible", timeout=20000)
 
         assert "بصفة مرافق" in opened.inner_text("#acting-as")
-        assert "تمرين الجلوس إلى الوقوف" in opened.inner_text("body")
+        assert FIRST_STEP_TITLE in opened.inner_text("body")
         assert not opened.evaluate(OVERLAP_SCRIPT)
         assert not opened.evaluate(CONTRAST_SCRIPT)
         browser.close()
@@ -546,7 +632,7 @@ def test_login_shows_the_plan_and_logout_clears_it(anonymous_page):
     page.click("#login-submit")
     page.wait_for_selector("#step-card:not([hidden])", timeout=20000)
 
-    assert "تمرين الجلوس إلى الوقوف" in page.inner_text("body")
+    assert FIRST_STEP_TITLE in page.inner_text("body")
     assert page.evaluate(f"() => localStorage.getItem({TOKEN_KEY!r})")
     assert page.evaluate(f"() => localStorage.getItem({PLAN_KEY!r})")
 

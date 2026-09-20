@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from api.deps import enforce_auth_rate_limit, patient
 from core import delivery, escalation, sessions
+from core.adl.types import AdlTask
 from core.identity import AuthenticationFailed, Principal, authenticate, revoke_session
 from core.types import Deliverable, ProposalKind
 
@@ -260,3 +261,39 @@ def raise_red_flag(
     return RedFlagView(
         id=flag.id, reported_at=flag.reported_at, acknowledgement=acknowledgement
     )
+
+
+# ── مهام النشاط اليومي ──────────────────────────────────────────────────
+class AdlTaskView(BaseModel):
+    """
+    مهمة يجوز فتحها الآن.
+
+    لا حقل «مقفلة» ولا «تحتاج تفويضاً»: ما لا يجوز فتحه غائب عن الاستجابة
+    أصلاً. زرٌّ معطَّل يخبر المريض أن شيئاً يُمنع عنه، وهي معلومة ليست له
+    ولا تنفعه — ولو أرسلناها لصار إخفاؤها قراراً في الواجهة لا في البيانات.
+    """
+
+    code: str
+    module: str
+    label_ar: str
+    tier: int | None = None
+    hazard: str | None = None
+
+    @classmethod
+    def of(cls, task: AdlTask) -> "AdlTaskView":
+        return cls(
+            code=task.code, module=task.module, label_ar=task.label_ar,
+            tier=task.tier, hazard=task.hazard,
+        )
+
+
+@router.get("/adl/tasks", response_model=list[AdlTaskView])
+def adl_tasks(principal: Annotated[Principal, patient]) -> list[AdlTaskView]:
+    """
+    ما يجوز لهذا المريض فتحه الآن.
+
+    القائمة تتغيّر بين طلبين بلا أن يكتب أحدٌ شيئاً: بلاغ علامة حمراء غير
+    مُستلَم يُسقط المستويات الحرارية، واستلام الممارس له يعيدها.
+    """
+    tasks = delivery.list_adl_tasks(_patient_id(principal))
+    return [AdlTaskView.of(task) for task in tasks]

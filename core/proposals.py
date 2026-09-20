@@ -18,6 +18,7 @@ from psycopg import errors as pg_errors
 from psycopg.types.json import Jsonb
 
 from core import db
+from core.adl import gate as adl_gate
 from core.types import (
     EVIDENCE_REQUIRED_KINDS,
     Actor,
@@ -28,7 +29,9 @@ from core.types import (
 )
 
 __all__ = [
+    "DressingNotVerified",
     "EvidenceRequired",
+    "IllustrationNotVerified",
     "approve",
     "create",
     "edit_and_approve",
@@ -57,6 +60,24 @@ _PENDING_QUEUE = _SELECT + (
 
 class ProposalNotFound(LookupError):
     """المقترح غير موجود، أو خارج نطاق المستأجر الحالي — لا نميّز بينهما."""
+
+
+class IllustrationNotVerified(Exception):
+    """
+    مجموعة صور بلا تحقق ناجح مرتبط ببصمة حمولتها الحالية. القاعدة 4.
+
+    كما في `EvidenceRequired`: المنع في محفّز الانتقالات، وهذا الفحص يسبقه
+    ليقول للممارس ما ينقص بدل «انتقال غير مسموح».
+    """
+
+
+class DressingNotVerified(Exception):
+    """
+    برنامج لبس بلا فحص ترتيب ناجح مرتبط ببصمة حمولته الحالية.
+
+    كما في الصور: المنع في محفّز الانتقالات، وهذا الفحص يسبقه ليقول للممارس
+    ما ينقص بدل «انتقال غير مسموح».
+    """
 
 
 class EvidenceRequired(Exception):
@@ -159,7 +180,22 @@ def get(proposal_id: UUID, actor: Actor) -> Proposal:
 
 _KIND_AND_EVIDENCE = """
 SELECT p.kind,
-       EXISTS (SELECT 1 FROM proposal_citations c WHERE c.proposal_id = p.id) AS cited
+       EXISTS (SELECT 1 FROM proposal_citations c WHERE c.proposal_id = p.id) AS cited,
+       (p.kind <> 'ILLUSTRATION_SET' OR EXISTS (
+            SELECT 1 FROM illustration_verification v
+            WHERE v.proposal_id = p.id
+              AND v.verdict = 'PASS'
+              AND v.side = p.affected_side
+              AND v.payload_sha256 =
+                  encode(sha256(convert_to(p.payload::text, 'UTF8')), 'hex')
+       )) AS side_verified,
+       (p.payload->>'module' IS DISTINCT FROM 'DRESSING' OR EXISTS (
+            SELECT 1 FROM dressing_verification d
+            WHERE d.proposal_id = p.id
+              AND d.verdict = 'PASS'
+              AND d.payload_sha256 =
+                  encode(sha256(convert_to(p.payload::text, 'UTF8')), 'hex')
+       )) AS dressing_verified
 FROM proposals p WHERE p.id = %s
 """
 
@@ -180,6 +216,14 @@ def submit(proposal_id: UUID, actor: Actor) -> Proposal:
             if row["kind"] in EVIDENCE_REQUIRED_KINDS and not row["cited"]:
                 raise EvidenceRequired(
                     f"لا يدخل طابور المراجعة مقترح {row['kind']} بلا استشهاد بمصدر مسترجَع"
+                )
+            if not row["side_verified"]:
+                raise IllustrationNotVerified(
+                    "الصورة لم تجتز التحقق الآلي من الجانب المصاب، أو عُدّلت بعده"
+                )
+            if not row["dressing_verified"]:
+                raise DressingNotVerified(
+                    "برنامج اللبس لم يجتز فحص الترتيب السريري، أو عُدّل بعده"
                 )
 
             cursor.execute(
@@ -226,6 +270,36 @@ def edit_and_approve(
     """
     try:
         with db.session("practitioner", tenant_id=actor.tenant_id, actor_id=actor.id) as cursor:
+            cursor.execute(
+                "SELECT kind, affected_side FROM proposals WHERE id = %s", (proposal_id,)
+            )
+            current = cursor.fetchone()
+            if current is None:
+                raise ProposalNotFound(str(proposal_id))
+
+            if current["kind"] == "ILLUSTRATION_SET":
+                # الحمولة الجديدة تُفحص قبل أن تُكتب، وفي معاملتها نفسها.
+                #
+                # التحقق السابق يخصّ الحمولة السابقة وحدها — وهو الباب الذي
+                # كان هذا المسار يفتحه: فحصُ رسمٍ سليم ثم استبداله عند
+                # التعديل والاعتماد. إما أن تُكتب الحمولة وتحققها معاً، أو
+                # لا يُكتب شيء.
+                from core import illustration_gate
+
+                side = affected_side or current["affected_side"]
+                verdicts = illustration_gate.verdicts_for(payload, side)
+                illustration_gate.record_pass(
+                    cursor, actor, proposal_id, side, payload, verdicts
+                )
+
+            if adl_gate.declares_dressing(payload):
+                # نفس الباب الذي أُغلق في الصور: فحصُ برنامجٍ سليم ثم
+                # استبداله عند التعديل والاعتماد. الحمولة الجديدة تُفحص قبل
+                # أن تُكتب، وفي معاملتها نفسها.
+                adl_gate.record_pass(
+                    cursor, actor, proposal_id, payload, adl_gate.steps_for(payload)
+                )
+
             cursor.execute(
                 "INSERT INTO proposal_versions (proposal_id, version, payload, affected_side,"
                 " edited_by) SELECT id, version, payload, affected_side, %s FROM proposals"

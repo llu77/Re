@@ -17,6 +17,7 @@
 
 const TOKEN_KEY = 'symbol.patient.token';
 const PLAN_KEY = 'symbol.patient.plan';
+const IMAGES_KEY = 'symbol.patient.illustrations';
 const DB_NAME = 'symbol-portal';
 const QUEUE_STORE = 'pending-sessions';
 
@@ -26,6 +27,9 @@ const state = {
     plan: null,
     steps: [],
     index: 0,
+    // خريطة: اسم التمرين ← ترميم الرسم المعتمد. لا يدخلها إلا ما جاء من
+    // مجموعة صور معتمدة اجتازت التحقق الآلي من الجانب المصاب.
+    illustrations: {},
 };
 
 /* ── التخزين المحلي ─────────────────────────────────────────────────── */
@@ -93,10 +97,12 @@ function forgetSession() {
     try {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(PLAN_KEY);
+        localStorage.removeItem(IMAGES_KEY);
     } catch { /* تخزين معطّل */ }
     state.plan = null;
     state.steps = [];
     state.index = 0;
+    state.illustrations = {};
     $('acting-as').hidden = true;
 }
 
@@ -135,6 +141,36 @@ function cachedPlan() {
     try { return JSON.parse(localStorage.getItem(PLAN_KEY) || 'null'); } catch { return null; }
 }
 
+function cacheImages(images) {
+    try { localStorage.setItem(IMAGES_KEY, JSON.stringify(images)); } catch { /* حصة ممتلئة */ }
+}
+
+function cachedImages() {
+    try { return JSON.parse(localStorage.getItem(IMAGES_KEY) || '{}'); } catch { return {}; }
+}
+
+/**
+ * يجلب مجموعة الصور المعتمدة ويحوّلها إلى خريطة باسم التمرين.
+ *
+ * الجانب يُطابَق مع جانب الخطة: مجموعة لجانب آخر لا تُعرض ولو كانت معتمدة.
+ * ذلك يحدث عند تحديث الخطة وحدها، والصورة القديمة حينها تخصّ حالة أخرى.
+ */
+async function loadIllustrations(plan) {
+    try {
+        const set = await api('/content/ILLUSTRATION_SET');
+        const images = {};
+        if (set && plan && set.affected_side === plan.affected_side) {
+            for (const item of (set.content.illustrations || [])) {
+                if (item && item.exercise_type && item.svg) images[item.exercise_type] = item.svg;
+            }
+        }
+        cacheImages(images);
+        return images;
+    } catch {
+        return cachedImages();   // دون اتصال: آخر مجموعة معتمدة محفوظة
+    }
+}
+
 /** يحوّل الخطة المعتمدة إلى خطوات. لا يخترع خطوة غير موجودة فيها. */
 function stepsOf(plan) {
     if (!plan || !plan.content) return [];
@@ -154,12 +190,15 @@ function renderStep() {
     $('step-title').textContent = step.title || `الخطوة ${state.index + 1}`;
     $('step-text').textContent = step.text || '';
 
-    // الصورة المعتمدة فقط، وجانبها المصاب معلَّم نصاً لا لوناً
+    // الصورة المعتمدة فقط، وجانبها المصاب معلَّم نصاً لا لوناً.
+    //
+    // `step.illustration` اسم تمرين لا ترميم: قاعدة البيانات تمنع وجود أي
+    // SVG في حمولة خطة، فالصورة الوحيدة الممكنة هنا هي ما جاء من مجموعة
+    // معتمدة اجتازت التحقق. خطةٌ تحمل رسماً بنفسها لا توجد أصلاً.
     const figure = $('step-figure');
     const side = state.plan && state.plan.affected_side;
-    if (step.illustration && side) {
-        $('step-image').innerHTML = '';
-        $('step-image').textContent = step.illustration;
+    const markup = state.illustrations[step.illustration];
+    if (markup && side && drawIllustration($('step-image'), markup)) {
         $('step-side').textContent = `الجانب المصاب: ${sideLabel(side)}`;
         figure.hidden = false;
     } else {
@@ -168,6 +207,42 @@ function renderStep() {
 
     $('prev').disabled = state.index === 0;
     $('next').disabled = state.index >= state.steps.length - 1;
+}
+
+/**
+ * يرسم رسماً معتمداً، أو لا يرسم شيئاً.
+ *
+ * الخادم لا يسلّم إلا رسماً اجتاز فحص القائمة البيضاء في
+ * `core/illustrations.py`، والمحفّز في قاعدة البيانات يمنع غير ذلك. وهذا
+ * الفحص الثاني هنا دفاعٌ في العمق لا تكرار: لو سُلّم يوماً ما لم يُفحص —
+ * بخلل أو باختراق — فلن ينفّذ شيئاً على جهاز المريض.
+ *
+ * `textContent` كان يعرض ترميم الـSVG نصاً خاماً: آمن، وبلا صورة.
+ */
+function drawIllustration(container, markup) {
+    container.replaceChildren();
+    let document_;
+    try {
+        document_ = new DOMParser().parseFromString(markup, 'image/svg+xml');
+    } catch {
+        return false;
+    }
+
+    const root = document_.documentElement;
+    if (!root || root.nodeName.toLowerCase() !== 'svg') return false;
+    if (document_.querySelector('parsererror')) return false;
+
+    for (const element of [root, ...root.querySelectorAll('*')]) {
+        const name = element.nodeName.toLowerCase();
+        if (name === 'script' || name === 'foreignobject' || name === 'image') return false;
+        for (const attribute of element.getAttributeNames()) {
+            const lowered = attribute.toLowerCase();
+            if (lowered.startsWith('on') || lowered.endsWith('href')) return false;
+        }
+    }
+
+    container.appendChild(document_.importNode(root, true));
+    return true;
 }
 
 function sideLabel(side) {
@@ -189,6 +264,7 @@ async function loadPlan() {
     state.plan = plan;
     state.steps = stepsOf(plan);
     state.index = 0;
+    state.illustrations = plan ? await loadIllustrations(plan) : {};
 
     const hasPlan = state.steps.length > 0;
     $('plan-empty').hidden = hasPlan;
@@ -279,6 +355,94 @@ async function loadProgress() {
     }
 }
 
+/* ── مهامي ──────────────────────────────────────────────────────────── */
+
+/**
+ * يحلّ الجانب الرمزي إلى الطرف المعني.
+ *
+ * لا يُخترع اتجاه: إن كان الجانب المصاب غير معروف أو كان الجانبين معاً، يبقى
+ * الوصف رمزياً كما جاء. قولُ «الأيمن» لمريض لا نعرف جانبه أسوأ من قول
+ * «المصاب»، لأنه يبدو دقيقاً وهو تخمين.
+ */
+function limbLabel(side, affected) {
+    if (side === 'BOTH') return 'بالطرفين معاً';
+    const known = affected === 'LEFT' || affected === 'RIGHT';
+    if (!known) return side === 'AFFECTED' ? 'بالطرف المصاب' : 'بالطرف السليم';
+
+    const opposite = affected === 'LEFT' ? 'RIGHT' : 'LEFT';
+    const direction = side === 'AFFECTED' ? affected : opposite;
+    return direction === 'LEFT' ? 'بالطرف الأيسر' : 'بالطرف الأيمن';
+}
+
+const ACTION_LABEL = { DON: 'ارتدِ', DOFF: 'اخلع' };
+
+/** خطوات اللبس من الخطة المعتمدة، أو قائمة فارغة إن لم تكن برنامج لبس. */
+function dressingSteps(plan) {
+    if (!plan || !plan.content || plan.content.module !== 'DRESSING') return [];
+    const steps = plan.content.steps;
+    return Array.isArray(steps) ? steps : [];
+}
+
+async function loadTasks() {
+    const list = $('tasks-list');
+    let tasks = [];
+    try {
+        tasks = await api('/adl/tasks');
+    } catch (error) {
+        // قائمة قديمة أسوأ من لا قائمة: التعليق يرتفع ويقع بين طلبين، فقائمةٌ
+        // محفوظة قد تعرض مهمة حرارة بعد بلاغٍ علّقها. نُفرغ ونقول السبب.
+        list.innerHTML = '';
+        $('tasks-empty').hidden = true;
+        $('dressing').hidden = true;
+        say(error.message === 'unauthenticated'
+            ? 'سجّل الدخول لعرض مهامك.'
+            : 'تعذّر تحميل مهامك الآن. أعد المحاولة عند عودة الاتصال.');
+        return;
+    }
+
+    list.innerHTML = '';
+    for (const task of tasks) {
+        const item = document.createElement('li');
+        item.className = 'task';
+
+        const label = document.createElement('p');
+        label.className = 'task__label';
+        label.textContent = task.label_ar;
+        item.appendChild(label);
+
+        if (task.hazard) {
+            const hazard = document.createElement('p');
+            hazard.className = 'task__hazard';
+            // «انتبه لـ» لا «ممنوع»: المهمة مفتوحة، وهذا تنبيه لا منع
+            hazard.textContent = `انتبه لـ: ${task.hazard}`;
+            item.appendChild(hazard);
+        }
+        list.appendChild(item);
+    }
+
+    $('tasks-empty').hidden = tasks.length > 0;
+    renderDressing();
+}
+
+/** يعرض خطوات اللبس مرقَّمة بترتيبها المعتمد — لا يعيد ترتيبها ولا يصحّحها. */
+function renderDressing() {
+    const steps = dressingSteps(state.plan);
+    const container = $('dressing');
+    const list = $('dressing-steps');
+
+    container.hidden = steps.length === 0;
+    list.innerHTML = '';
+
+    for (const step of steps) {
+        const item = document.createElement('li');
+        item.className = 'dressing__step';
+        const action = ACTION_LABEL[step.action] || step.action;
+        const affected = state.plan ? state.plan.affected_side : null;
+        item.textContent = `${action} ${step.garment} ${limbLabel(step.side, affected)}`;
+        list.appendChild(item);
+    }
+}
+
 /* ── البلاغ ─────────────────────────────────────────────────────────── */
 
 async function sendAlarm() {
@@ -344,8 +508,9 @@ function showSignedIn(signedIn) {
     if (signedIn) {
         showView('plan');
     } else {
-        $('view-plan').hidden = true;
-        $('view-progress').hidden = true;
+        for (const view of document.querySelectorAll('.view')) {
+            if (view.id !== 'view-login') view.hidden = true;
+        }
         say('');
     }
 }
@@ -419,15 +584,24 @@ async function doLogout() {
 
 /* ── التبويبات ──────────────────────────────────────────────────────── */
 
+/**
+ * يُظهر شاشة واحدة ويخفي البقية.
+ *
+ * يمرّ على كل `.view` بدل قائمة مكتوبة يدوياً: تبويب يُضاف ولا يُضاف إلى
+ * القائمة كان سيبقى ظاهراً فوق غيره — وهو تراكبٌ لا يراه إلا من يجرّب.
+ */
 function showView(name) {
     for (const tab of document.querySelectorAll('.tab')) {
         const active = tab.dataset.view === name;
         if (active) tab.setAttribute('aria-current', 'page');
         else tab.removeAttribute('aria-current');
     }
-    $('view-plan').hidden = name !== 'plan';
-    $('view-progress').hidden = name !== 'progress';
+    for (const view of document.querySelectorAll('.view')) {
+        if (view.id === 'view-login') continue;   // تحكمه الجلسة لا التبويبات
+        view.hidden = view.id !== `view-${name}`;
+    }
     if (name === 'progress') loadProgress();
+    if (name === 'tasks') loadTasks();
 }
 
 /* ── الإقلاع ────────────────────────────────────────────────────────── */

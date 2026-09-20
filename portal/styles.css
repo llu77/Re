@@ -342,6 +342,45 @@ body {
 }
 
 /* ── تقدّمي ─────────────────────────────────────────────────────────── */
+/* ── مهامي ─────────────────────────────────────────────────────────── */
+/*
+ * البطاقات ليست تفاعلية: لا شيء يُفتح بنقرة هنا بعد. فلا يلزمها حدّ اللمس،
+ * ويلزمها ألّا تبدو قابلة للنقر — بطاقةٌ تشبه الزرّ ولا تستجيب أسوأ من نصّ.
+ */
+.tasks__heading { margin: 0 0 var(--gap); font-size: 1.4rem; }
+
+.tasks { margin: 0; padding: 0; list-style: none; }
+
+.task {
+    padding: var(--gap);
+    margin-bottom: var(--gap);
+    background: var(--surface-sunk);
+    border: 1px solid var(--line);
+    border-inline-start: 0.35rem solid var(--primary);
+    border-radius: var(--radius);
+}
+
+.task__label { margin: 0; font-size: 1.15rem; font-weight: 600; }
+
+/* --ink-soft = 8.1:1 على الأبيض، وأعلى منه على السطح الغائر الأفتح */
+.task__hazard { margin: 0.35rem 0 0; color: var(--ink-soft); font-size: 1rem; }
+
+.dressing {
+    margin-top: 1.5rem;
+    padding-top: var(--gap);
+    border-top: 1px solid var(--line);
+}
+
+.dressing__heading { margin: 0 0 0.35rem; font-size: 1.25rem; }
+.dressing__rule { margin: 0 0 var(--gap); color: var(--ink-soft); }
+
+.dressing__steps {
+    margin: 0;
+    padding-inline-start: 1.5rem;   /* مساحة الترقيم في اتجاه RTL */
+}
+
+.dressing__step { margin-bottom: 0.75rem; font-size: 1.15rem; line-height: 1.5; }
+
 .progress__heading { margin: 0 0 0.5rem; font-size: 1.4rem; }
 .progress__lead { margin: 0 0 var(--gap); font-size: 1.15rem; }
 
