@@ -18,6 +18,7 @@ from psycopg import errors as pg_errors
 from psycopg.types.json import Jsonb
 
 from core import db
+from core.adl import gate as adl_gate
 from core.types import (
     EVIDENCE_REQUIRED_KINDS,
     Actor,
@@ -28,6 +29,7 @@ from core.types import (
 )
 
 __all__ = [
+    "DressingNotVerified",
     "EvidenceRequired",
     "IllustrationNotVerified",
     "approve",
@@ -66,6 +68,15 @@ class IllustrationNotVerified(Exception):
 
     كما في `EvidenceRequired`: المنع في محفّز الانتقالات، وهذا الفحص يسبقه
     ليقول للممارس ما ينقص بدل «انتقال غير مسموح».
+    """
+
+
+class DressingNotVerified(Exception):
+    """
+    برنامج لبس بلا فحص ترتيب ناجح مرتبط ببصمة حمولته الحالية.
+
+    كما في الصور: المنع في محفّز الانتقالات، وهذا الفحص يسبقه ليقول للممارس
+    ما ينقص بدل «انتقال غير مسموح».
     """
 
 
@@ -177,7 +188,14 @@ SELECT p.kind,
               AND v.side = p.affected_side
               AND v.payload_sha256 =
                   encode(sha256(convert_to(p.payload::text, 'UTF8')), 'hex')
-       )) AS side_verified
+       )) AS side_verified,
+       (p.payload->>'module' IS DISTINCT FROM 'DRESSING' OR EXISTS (
+            SELECT 1 FROM dressing_verification d
+            WHERE d.proposal_id = p.id
+              AND d.verdict = 'PASS'
+              AND d.payload_sha256 =
+                  encode(sha256(convert_to(p.payload::text, 'UTF8')), 'hex')
+       )) AS dressing_verified
 FROM proposals p WHERE p.id = %s
 """
 
@@ -202,6 +220,10 @@ def submit(proposal_id: UUID, actor: Actor) -> Proposal:
             if not row["side_verified"]:
                 raise IllustrationNotVerified(
                     "الصورة لم تجتز التحقق الآلي من الجانب المصاب، أو عُدّلت بعده"
+                )
+            if not row["dressing_verified"]:
+                raise DressingNotVerified(
+                    "برنامج اللبس لم يجتز فحص الترتيب السريري، أو عُدّل بعده"
                 )
 
             cursor.execute(
@@ -268,6 +290,14 @@ def edit_and_approve(
                 verdicts = illustration_gate.verdicts_for(payload, side)
                 illustration_gate.record_pass(
                     cursor, actor, proposal_id, side, payload, verdicts
+                )
+
+            if adl_gate.declares_dressing(payload):
+                # نفس الباب الذي أُغلق في الصور: فحصُ برنامجٍ سليم ثم
+                # استبداله عند التعديل والاعتماد. الحمولة الجديدة تُفحص قبل
+                # أن تُكتب، وفي معاملتها نفسها.
+                adl_gate.record_pass(
+                    cursor, actor, proposal_id, payload, adl_gate.steps_for(payload)
                 )
 
             cursor.execute(

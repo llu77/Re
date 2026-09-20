@@ -524,3 +524,185 @@ def test_no_bulk_caregiver_endpoint(client):
                 .get("schema", {})
             )
             assert schema.get("type") != "array", (path, method)
+
+
+# ── مهام النشاط اليومي عبر البوابتين ────────────────────────────────────
+def _authorize(client, token, patient_id, tier, basis="تقييم موثَّق"):
+    return client.post(
+        "/practitioner/kitchen/authorizations",
+        headers=_auth(token),
+        json={"patient_id": str(patient_id), "tier": tier, "basis": basis},
+    )
+
+
+def _cite(client, token, proposal_id) -> None:
+    """استشهاد بمصدر مسترجَع — نفس ما يفعله `_create_plan` بعد الإنشاء."""
+    from core.types import Actor
+    from tests.conftest import cite_evidence_as
+
+    cite_evidence_as(
+        Actor(id=_PRACTITIONER_A[0], role="PRACTITIONER", tenant_id=_PRACTITIONER_A[1]),
+        proposal_id,
+    )
+
+
+def _task_tiers(client, patient_token) -> set[int]:
+    response = client.get("/patient/adl/tasks", headers=_auth(patient_token))
+    assert response.status_code == 200, response.text
+    return {task["tier"] for task in response.json() if task["module"] == "KITCHEN"}
+
+
+def test_the_patient_endpoint_returns_no_unauthorized_tier(client, accounts):
+    """معيار القبول 5 عبر HTTP: نقطة النهاية لا تُرجع ما لم يُفوَّض."""
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+
+    tasks = client.get("/patient/adl/tasks", headers=_auth(patient_token)).json()
+    assert tasks, "شاشة فارغة تماماً تجعل الفحص بلا معنى"
+    assert all(task["module"] == "DRESSING" for task in tasks), "مهمة مطبخ بلا تفويض"
+
+
+def test_authorizing_opens_exactly_one_tier_over_http(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+
+    created = _authorize(client, practitioner_token, accounts.patient_a, 2)
+    assert created.status_code == 201, created.text
+    assert created.json()["tier"] == 2
+
+    assert _task_tiers(client, patient_token) == {2}
+
+
+def test_revoking_closes_the_tier_over_http(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+
+    grant = _authorize(client, practitioner_token, accounts.patient_a, 3).json()
+    assert _task_tiers(client, patient_token) == {3}
+
+    revoked = client.delete(
+        f"/practitioner/kitchen/authorizations/{grant['id']}",
+        headers=_auth(practitioner_token),
+    )
+    assert revoked.status_code == 200, revoked.text
+    assert _task_tiers(client, patient_token) == set()
+
+
+def test_a_red_flag_suspends_the_heat_tier_over_http(client, accounts):
+    """
+    المسار الكامل كما يعيشه المريض: يفتح المستوى، يبلّغ، فيختفي.
+
+    ولا كتابة في الطريق: التفويض يبقى في السرد، والاستلام يعيد المهمة.
+    """
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+
+    _authorize(client, practitioner_token, accounts.patient_a, 1)
+    _authorize(client, practitioner_token, accounts.patient_a, 3)
+    assert _task_tiers(client, patient_token) == {1, 3}
+
+    flag = client.post(
+        "/patient/red-flag", headers=_auth(patient_token), json={"body": "دوار عند الوقوف"}
+    ).json()
+    assert _task_tiers(client, patient_token) == {1}, "الحرارة لم تُعلَّق بعد البلاغ"
+
+    listed = client.get(
+        f"/practitioner/patients/{accounts.patient_a}/kitchen/authorizations",
+        headers=_auth(practitioner_token),
+    ).json()
+    assert {grant["tier"] for grant in listed} == {1, 3}, "التعليق سحب تفويضاً"
+
+    client.post(
+        f"/practitioner/red-flags/{flag['id']}/acknowledge", headers=_auth(practitioner_token)
+    )
+    assert _task_tiers(client, patient_token) == {1, 3}, "الاستلام لم يرفع التعليق"
+
+
+def test_an_authorization_without_a_basis_is_refused_by_the_contract(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    response = _authorize(client, practitioner_token, accounts.patient_a, 1, basis="   ")
+    assert response.status_code == 422, response.text
+
+
+def test_no_bulk_authorization_endpoint(client):
+    """مستوىً واحد لكل طلب، كقرارات المراجعة: لا مصفوفة مستويات."""
+    paths = create_app().openapi()["paths"]
+    assert "/practitioner/kitchen/authorizations" in paths
+    assert not [path for path in paths if path.endswith("/authorizations:bulk")]
+
+
+def test_a_dressing_program_is_verified_then_delivered_over_http(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+
+    created = client.post(
+        "/practitioner/proposals",
+        headers=_auth(practitioner_token),
+        json={
+            "patient_id": str(accounts.patient_a),
+            "kind": "PLAN",
+            "payload": {
+                "module": "DRESSING",
+                "steps": [
+                    {"action": "DON", "side": "AFFECTED", "garment": "قميص"},
+                    {"action": "DON", "side": "SOUND", "garment": "قميص"},
+                ],
+            },
+        },
+    )
+    assert created.status_code == 201, created.text
+    proposal_id = created.json()["id"]
+    _cite(client, practitioner_token, proposal_id)
+
+    # بلا فحص: لا يدخل الطابور
+    blocked = client.post(
+        f"/practitioner/proposals/{proposal_id}/submit", headers=_auth(practitioner_token)
+    )
+    assert blocked.status_code == 409, blocked.text
+
+    verified = client.post(
+        f"/practitioner/proposals/{proposal_id}/verify-dressing",
+        headers=_auth(practitioner_token),
+    )
+    assert verified.status_code == 200, verified.text
+    assert [step["side"] for step in verified.json()] == ["AFFECTED", "SOUND"]
+
+    client.post(f"/practitioner/proposals/{proposal_id}/submit", headers=_auth(practitioner_token))
+    client.post(f"/practitioner/proposals/{proposal_id}/approve", headers=_auth(practitioner_token))
+
+    delivered = client.get("/patient/plan", headers=_auth(patient_token)).json()
+    assert delivered["content"]["module"] == "DRESSING"
+
+
+def test_a_wrong_order_program_is_refused_over_http(client, accounts):
+    practitioner_token = _login(client, "practitioner", PRACTITIONER_EMAIL)
+    patient_token = _login(client, "patient", PATIENT_EMAIL)
+
+    created = client.post(
+        "/practitioner/proposals",
+        headers=_auth(practitioner_token),
+        json={
+            "patient_id": str(accounts.patient_a),
+            "kind": "PLAN",
+            "payload": {
+                "module": "DRESSING",
+                "steps": [
+                    {"action": "DON", "side": "SOUND", "garment": "قميص"},
+                    {"action": "DON", "side": "AFFECTED", "garment": "قميص"},
+                ],
+            },
+        },
+    )
+    proposal_id = created.json()["id"]
+    _cite(client, practitioner_token, proposal_id)
+
+    verdict = client.post(
+        f"/practitioner/proposals/{proposal_id}/verify-dressing",
+        headers=_auth(practitioner_token),
+    )
+    assert verdict.status_code == 409, verdict.text
+    assert "المصاب" in verdict.json()["detail"]
+
+    assert client.post(
+        f"/practitioner/proposals/{proposal_id}/submit", headers=_auth(practitioner_token)
+    ).status_code == 409
+    assert client.get("/patient/plan", headers=_auth(patient_token)).json() is None

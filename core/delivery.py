@@ -22,9 +22,10 @@ from typing import Sequence
 from uuid import UUID
 
 from core import db
+from core.adl.types import AdlTask
 from core.types import Deliverable, ProposalKind
 
-__all__ = ["get_deliverable", "list_deliverables"]
+__all__ = ["get_deliverable", "list_adl_tasks", "list_deliverables"]
 
 _COLUMNS = "proposal_id, patient_id, kind, payload, affected_side, approved_at"
 
@@ -35,6 +36,13 @@ _LATEST_OF_KIND = (
     " WHERE kind = %s ORDER BY approved_at DESC LIMIT 1"
 )
 _ALL_FOR_PATIENT = f"SELECT {_COLUMNS} FROM patient_deliverable_v ORDER BY approved_at DESC"
+
+# مهام النشاط اليومي تمرّ من هنا للسبب نفسه: عرضٌ واحد يقرّر ما يُفتح، ودورُ
+# المريض بلا صلاحية على كتالوج المهام ولا على جدول التفويض.
+_ADL_TASKS = (
+    "SELECT code, module, tier, label_ar, hazard, tier_label_ar"
+    " FROM patient_adl_task_v ORDER BY module, tier NULLS FIRST, code"
+)
 
 
 def _row_to_deliverable(row: dict) -> Deliverable:
@@ -68,3 +76,29 @@ def list_deliverables(patient_id: UUID) -> Sequence[Deliverable]:
         cursor.execute(_ALL_FOR_PATIENT)
         rows = cursor.fetchall()
     return [_row_to_deliverable(row) for row in rows]
+
+
+def list_adl_tasks(patient_id: UUID) -> Sequence[AdlTask]:
+    """
+    مهام النشاط اليومي التي يجوز لهذا المريض فتحها الآن.
+
+    ما لا يجوز فتحه غائب لا معطَّل: مهمة تظهر ثم تُرفض تقول للمريض إن هناك
+    ما يُمنع عنه، وهي معلومة ليست له ولا تنفعه. والغياب هنا ليس إخفاءً في
+    الواجهة — العرض لا يُرجع الصفّ أصلاً، ولا صلاحية تسمح بقراءته من مكان آخر.
+
+    القائمة تتغيّر بين طلبين بلا أن يكتب أحدٌ شيئاً: بلاغ علامة حمراء غير
+    مُستلَم يُسقط المستويات الحرارية، واستلامه يعيدها.
+    """
+    with db.session("patient", patient_id=patient_id) as cursor:
+        cursor.execute(_ADL_TASKS)
+        rows = cursor.fetchall()
+    return [
+        AdlTask(
+            code=row["code"],
+            module=row["module"],
+            label_ar=row["label_ar"],
+            tier=row["tier"],
+            hazard=row["hazard"],
+        )
+        for row in rows
+    ]

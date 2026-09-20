@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from core import caregivers, identity, proposals
+from core.adl import gate as adl_gate
 from core.types import Actor
 from tests.conftest import cite_evidence_as, requires_db
 
@@ -95,17 +96,32 @@ def patient_token(owner, seed, portal_server):
         )
 
     practitioner = Actor(id=seed.practitioner_a, role="PRACTITIONER", tenant_id=seed.tenant_a)
+    # برنامج لبس حقيقي: الخطوة تحمل الحقول البنيوية التي تفحصها البوابة
+    # (`action`/`side`/`garment`) والنصّ الذي يقرؤه المريض معاً. هكذا يُكتب
+    # البرنامج فعلاً، وهكذا تُدقَّق شاشة المهام على محتوى لا على فراغ.
     plan = proposals.create(
         practitioner, patient_id=seed.patient_a, kind="PLAN",
-        payload={"steps": [
-            {"title": "تمرين الجلوس إلى الوقوف",
-             "text": "اجلس على طرف الكرسي، ضع قدميك بعرض الكتفين، وانهض ببطء."},
-            {"title": "المشي في الممر",
-             "text": "امشِ عشر خطوات ذهاباً وإياباً مع الاستناد عند الحاجة."},
-        ]},
+        payload={
+            "module": "DRESSING",
+            "steps": [
+                {"action": "DON", "side": "AFFECTED", "garment": "القميص",
+                 "title": "أدخِل الذراع المصابة في الكمّ",
+                 "text": "اجلس على طرف الكرسي، وأدخِل الذراع المصابة أولاً والكمّ واسع."},
+                {"action": "DON", "side": "SOUND", "garment": "القميص",
+                 "title": "ثم الذراع السليمة",
+                 "text": "مرّر القميص خلف ظهرك، ثم أدخِل الذراع السليمة."},
+                {"action": "DOFF", "side": "SOUND", "garment": "القميص",
+                 "title": "عند الخلع: السليمة أولاً",
+                 "text": "أخرِج الذراع السليمة أولاً ليبقى الكمّ واسعاً للأخرى."},
+                {"action": "DOFF", "side": "AFFECTED", "garment": "القميص",
+                 "title": "ثم الذراع المصابة",
+                 "text": "أخرِج الذراع المصابة أخيراً بلا شدّ على الكتف."},
+            ],
+        },
         affected_side="RIGHT",
     )
     cite_evidence_as(practitioner, plan.id)
+    adl_gate.verify_proposal(practitioner, plan.id)
     proposals.submit(plan.id, practitioner)
     proposals.approve(plan.id, practitioner)
 
@@ -146,7 +162,12 @@ def anonymous_page(portal_server, patient_token):
 
 
 #: الشاشات التي تُدقَّق كلها، لا شاشة الخطة وحدها.
-SCREENS = ["login", "plan", "progress", "offline"]
+#: أول خطوة في الخطة المبذورة وعددُ خطواتها — الحارس ضد تدقيقٍ على صفحة
+#: فارغة. مكتوبان مرة واحدة: النصّ نفسه في ثلاثة مواضع يتعفّن في اثنين منها.
+FIRST_STEP_TITLE = "أدخِل الذراع المصابة في الكمّ"
+PLAN_STEP_COUNT = 4
+
+SCREENS = ["login", "plan", "tasks", "progress", "offline"]
 
 
 @pytest.fixture
@@ -164,6 +185,8 @@ def audited_page(request):
 def _open_screen(page, screen):
     if screen == "progress":
         page.get_by_role("button", name="تقدّمي").click()
+    elif screen == "tasks":
+        page.get_by_role("button", name="مهامي").click()
     elif screen == "offline":
         # انقطاع حقيقي من المتصفح: شريط التنبيه يظهر بحدث `offline` لا بحقن
         page.context.set_offline(True)
@@ -175,6 +198,7 @@ def _open_screen(page, screen):
     marker = {
         "login": "#login-form",
         "plan": "#step-card",
+        "tasks": "#dressing-steps li",
         "progress": "#progress-rows tr",
         "offline": "#offline",
     }[screen]
@@ -369,8 +393,8 @@ TOUCH_TARGET_SCRIPT = """
 def test_the_portal_renders_the_approved_plan(page):
     """حارس: بقية الفحوص بلا معنى على صفحة فارغة."""
     body = page.inner_text("body")
-    assert "الخطوة 1 من 2" in body
-    assert "تمرين الجلوس إلى الوقوف" in body
+    assert f"الخطوة 1 من {PLAN_STEP_COUNT}" in body
+    assert FIRST_STEP_TITLE in body
     assert "أحتاج مساعدة الآن" in body
 
 
@@ -540,7 +564,7 @@ def test_the_portal_tells_a_caregiver_they_are_a_caregiver(owner, seed, portal_s
         opened.wait_for_selector("#acting-as", state="visible", timeout=20000)
 
         assert "بصفة مرافق" in opened.inner_text("#acting-as")
-        assert "تمرين الجلوس إلى الوقوف" in opened.inner_text("body")
+        assert FIRST_STEP_TITLE in opened.inner_text("body")
         assert not opened.evaluate(OVERLAP_SCRIPT)
         assert not opened.evaluate(CONTRAST_SCRIPT)
         browser.close()
@@ -608,7 +632,7 @@ def test_login_shows_the_plan_and_logout_clears_it(anonymous_page):
     page.click("#login-submit")
     page.wait_for_selector("#step-card:not([hidden])", timeout=20000)
 
-    assert "تمرين الجلوس إلى الوقوف" in page.inner_text("body")
+    assert FIRST_STEP_TITLE in page.inner_text("body")
     assert page.evaluate(f"() => localStorage.getItem({TOKEN_KEY!r})")
     assert page.evaluate(f"() => localStorage.getItem({PLAN_KEY!r})")
 

@@ -100,9 +100,13 @@ def test_patient_gate_reads_only_through_the_delivery_gateway():
     )
 
 
+#: العروض التي يقرأ منها دورُ المريض. كلها تمرّ من نقطة العبور وحدها.
+PATIENT_VIEWS = ("patient_deliverable_v", "patient_adl_task_v")
+
+
 def test_deliverable_view_is_read_only_by_the_gateway():
     """
-    العرض `patient_deliverable_v` لا يُستعلَم إلا من `core.delivery`.
+    عروض المريض لا تُستعلَم إلا من `core.delivery`.
 
     الصياغة الأولى لهذا الاختبار كانت «لا وحدة تفتح جلسة بدور المريض خارج
     البوابة» — وهي أوسع من الضمانة: المريض يكتب جلساته وبلاغاته بدوره، وذلك
@@ -113,9 +117,18 @@ def test_deliverable_view_is_read_only_by_the_gateway():
     for path in _python_files("core", "api"):
         if _relative(path) == "core/delivery.py":
             continue
-        if "patient_deliverable_v" in path.read_text(encoding="utf-8"):
-            offenders.append(_relative(path))
-    assert not offenders, f"وحدات تقرأ العرض خارج نقطة العبور: {sorted(offenders)}"
+        source = path.read_text(encoding="utf-8")
+        for view in PATIENT_VIEWS:
+            if view in source:
+                offenders.append(f"{_relative(path)}: {view}")
+    assert not offenders, f"وحدات تقرأ عرض المريض خارج نقطة العبور: {sorted(offenders)}"
+
+
+def test_every_patient_view_is_actually_read_by_the_gateway():
+    """حارس: اسمٌ في القائمة لا يقرؤه أحد يجعل الاختبار أعلاه فارغاً ويمر."""
+    gateway = (ROOT / "core" / "delivery.py").read_text(encoding="utf-8")
+    missing = [view for view in PATIENT_VIEWS if view not in gateway]
+    assert not missing, f"عروض في القائمة لا تقرؤها نقطة العبور: {missing}"
 
 
 def test_patient_role_writes_are_confined_to_patient_authored_data():
@@ -428,6 +441,27 @@ def test_only_the_gate_records_an_illustration_verification():
         if "INSERT INTO illustration_verification" in path.read_text(encoding="utf-8")
     }
     assert writers == {VERIFICATION_WRITER}, f"كاتبون غير متوقَّعين: {sorted(writers)}"
+
+
+# ── ترتيب اللبس: مسار تحقق واحد ────────────────────────────────────────
+DRESSING_VERIFICATION_WRITER = "core/adl/gate.py"
+
+
+def test_only_the_gate_records_a_dressing_verification():
+    """
+    الكتابة في `dressing_verification` من موضع واحد، للسبب نفسه.
+
+    صفّ فحصٍ يكتبه غيرُ البوابة يفتح المسار الذي أُغلق: برنامجٌ لم يُفحص
+    يحمل ختماً صحيحاً، فيمرّ من المحفّز بلا أن يمرّ من القاعدة.
+    """
+    writers = {
+        _relative(path)
+        for path in _all_project_files()
+        if "INSERT INTO dressing_verification" in path.read_text(encoding="utf-8")
+    }
+    assert writers == {DRESSING_VERIFICATION_WRITER}, (
+        f"كاتبون غير متوقَّعين: {sorted(writers)}"
+    )
 
 
 def test_the_side_classification_covers_every_generator():

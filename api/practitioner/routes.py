@@ -18,6 +18,9 @@ from pydantic import BaseModel, Field, field_validator
 
 from api.deps import enforce_auth_rate_limit, enforce_evidence_rate_limit, practitioner
 from core import caregivers, citations, escalation, illustration_gate, proposals
+from core.adl import gate as adl_gate
+from core.adl import kitchen
+from core.adl.types import KITCHEN_TIERS, DressingRejected
 from core.identity import AuthenticationFailed, Principal, authenticate, revoke_session
 from core.caregivers import CaregiverLink, ConsentSource
 from core.evidence import EvidenceQuery, NoEvidence, UnknownTerm, retrieval, vocabulary
@@ -168,7 +171,11 @@ def submit_proposal(
     """
     try:
         return ProposalView.of(_or_404(proposals.submit, proposal_id, principal))
-    except (proposals.EvidenceRequired, proposals.IllustrationNotVerified) as exc:
+    except (
+        proposals.EvidenceRequired,
+        proposals.IllustrationNotVerified,
+        proposals.DressingNotVerified,
+    ) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
@@ -196,7 +203,7 @@ def edit_and_approve_proposal(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="المقترح غير موجود") from exc
     except InvalidTransition as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="حالة المقترح لا تسمح بذلك") from exc
-    except IllustrationRejected as exc:
+    except (IllustrationRejected, DressingRejected) as exc:
         # الحمولة المعدَّلة تُفحص قبل كتابتها؛ فشلُها يُبلَّغ بسببه لا بـ«حالة
         # لا تسمح»، فالممارس يحتاج أن يعرف ما الذي رُفض ولماذا.
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -586,3 +593,153 @@ def verify_illustration(
         )
         for verdict in verdicts
     ]
+
+
+# ── بوابة ترتيب اللبس ───────────────────────────────────────────────────
+class DressingStepView(BaseModel):
+    action: str
+    side: str
+    garment: str
+
+
+@router.post(
+    "/proposals/{proposal_id}/verify-dressing",
+    response_model=list[DressingStepView],
+)
+def verify_dressing(
+    principal: Annotated[Principal, practitioner], proposal_id: UUID
+) -> list[DressingStepView]:
+    """
+    يفحص ترتيب برنامج اللبس ويسجّل الحكم.
+
+    الجانب رمزي (`AFFECTED`/`SOUND`) لا اتجاهي: البرنامج يُكتب مرة فيصلح لكل
+    مريض، والواجهة تحلّه إلى الذراع المعنية عند العرض. الفشل 409 بسببه،
+    والحجب مسجَّل سواء نجح أو فشل — ولا نقطة نهاية تتجاوز الفحص، لأن
+    المحفّز يرفض أي انتقال بدونه.
+    """
+    try:
+        steps = adl_gate.verify_proposal(principal.actor, proposal_id)
+    except DressingRejected as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    return [
+        DressingStepView(action=step.action, side=step.side, garment=step.garment)
+        for step in steps
+    ]
+
+
+# ── تفويض مستويات المطبخ ────────────────────────────────────────────────
+class TierView(BaseModel):
+    """التدرّج كما هو، ليختار الممارس مستوىً بخطره لا برقمه وحده."""
+
+    tier: int
+    label_ar: str
+    hazard: str
+    suspends_on_red_flag: bool
+
+
+class AuthorizeRequest(BaseModel):
+    patient_id: UUID
+    tier: int = Field(ge=1, le=4)
+    basis: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("basis")
+    @classmethod
+    def basis_is_not_blank(cls, value: str) -> str:
+        """تفويضٌ بلا أساس قرارٌ بلا سبب — ومسافات فقط ليست أساساً."""
+        if not value.strip():
+            raise ValueError("التفويض يتطلب أساساً سريرياً مكتوباً")
+        return value.strip()
+
+
+class AuthorizationView(BaseModel):
+    id: UUID
+    patient_id: UUID
+    tier: int
+    basis: str
+    granted_by: UUID
+    granted_at: Any
+    revoked_at: Any = None
+    revoked_by: UUID | None = None
+
+    @classmethod
+    def of(cls, grant: kitchen.KitchenAuthorization) -> "AuthorizationView":
+        return cls(
+            id=grant.id, patient_id=grant.patient_id, tier=grant.tier,
+            basis=grant.basis, granted_by=grant.granted_by,
+            granted_at=grant.granted_at, revoked_at=grant.revoked_at,
+            revoked_by=grant.revoked_by,
+        )
+
+
+@router.get("/kitchen/tiers", response_model=list[TierView])
+def kitchen_tiers(principal: Annotated[Principal, practitioner]) -> list[TierView]:
+    return [
+        TierView(
+            tier=tier.tier, label_ar=tier.label_ar, hazard=tier.hazard,
+            suspends_on_red_flag=tier.suspends_on_red_flag,
+        )
+        for tier in KITCHEN_TIERS
+    ]
+
+
+@router.post(
+    "/kitchen/authorizations",
+    response_model=AuthorizationView,
+    status_code=status.HTTP_201_CREATED,
+)
+def authorize_tier(
+    principal: Annotated[Principal, practitioner], body: AuthorizeRequest
+) -> AuthorizationView:
+    """
+    يفوّض مستوىً واحداً لمريض واحد.
+
+    مستوىً واحد لكل طلب، كقرارات المراجعة: لا مصفوفة مستويات ولا «فوّض حتى
+    المستوى 3». كل مستوى خطرٌ مستقل ويستحق أساسه المكتوب.
+    """
+    try:
+        grant = kitchen.authorize(
+            principal.actor,
+            patient_id=body.patient_id,
+            tier=body.tier,
+            basis=body.basis,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except kitchen.AuthorizationRefused as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="تعذّر التفويض: المريض خارج نطاقك، أو للمستوى تفويض فاعل بالفعل.",
+        ) from exc
+    return AuthorizationView.of(grant)
+
+
+@router.delete(
+    "/kitchen/authorizations/{authorization_id}", response_model=AuthorizationView
+)
+def revoke_tier(
+    principal: Annotated[Principal, practitioner], authorization_id: UUID
+) -> AuthorizationView:
+    """يسحب تفويضاً. الأثر في الطلب التالي للمريض بلا خطوة أخرى."""
+    try:
+        grant = kitchen.revoke(principal.actor, authorization_id)
+    except kitchen.AuthorizationNotFound as exc:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="لا تفويض فاعل بهذا المعرّف في نطاقك"
+        ) from exc
+    return AuthorizationView.of(grant)
+
+
+@router.get(
+    "/patients/{patient_id}/kitchen/authorizations",
+    response_model=list[AuthorizationView],
+)
+def list_authorizations(
+    principal: Annotated[Principal, practitioner],
+    patient_id: UUID,
+    include_revoked: bool = False,
+) -> list[AuthorizationView]:
+    grants = kitchen.for_patient(
+        principal.actor, patient_id, include_revoked=include_revoked
+    )
+    return [AuthorizationView.of(grant) for grant in grants]

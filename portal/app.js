@@ -355,6 +355,94 @@ async function loadProgress() {
     }
 }
 
+/* ── مهامي ──────────────────────────────────────────────────────────── */
+
+/**
+ * يحلّ الجانب الرمزي إلى الطرف المعني.
+ *
+ * لا يُخترع اتجاه: إن كان الجانب المصاب غير معروف أو كان الجانبين معاً، يبقى
+ * الوصف رمزياً كما جاء. قولُ «الأيمن» لمريض لا نعرف جانبه أسوأ من قول
+ * «المصاب»، لأنه يبدو دقيقاً وهو تخمين.
+ */
+function limbLabel(side, affected) {
+    if (side === 'BOTH') return 'بالطرفين معاً';
+    const known = affected === 'LEFT' || affected === 'RIGHT';
+    if (!known) return side === 'AFFECTED' ? 'بالطرف المصاب' : 'بالطرف السليم';
+
+    const opposite = affected === 'LEFT' ? 'RIGHT' : 'LEFT';
+    const direction = side === 'AFFECTED' ? affected : opposite;
+    return direction === 'LEFT' ? 'بالطرف الأيسر' : 'بالطرف الأيمن';
+}
+
+const ACTION_LABEL = { DON: 'ارتدِ', DOFF: 'اخلع' };
+
+/** خطوات اللبس من الخطة المعتمدة، أو قائمة فارغة إن لم تكن برنامج لبس. */
+function dressingSteps(plan) {
+    if (!plan || !plan.content || plan.content.module !== 'DRESSING') return [];
+    const steps = plan.content.steps;
+    return Array.isArray(steps) ? steps : [];
+}
+
+async function loadTasks() {
+    const list = $('tasks-list');
+    let tasks = [];
+    try {
+        tasks = await api('/adl/tasks');
+    } catch (error) {
+        // قائمة قديمة أسوأ من لا قائمة: التعليق يرتفع ويقع بين طلبين، فقائمةٌ
+        // محفوظة قد تعرض مهمة حرارة بعد بلاغٍ علّقها. نُفرغ ونقول السبب.
+        list.innerHTML = '';
+        $('tasks-empty').hidden = true;
+        $('dressing').hidden = true;
+        say(error.message === 'unauthenticated'
+            ? 'سجّل الدخول لعرض مهامك.'
+            : 'تعذّر تحميل مهامك الآن. أعد المحاولة عند عودة الاتصال.');
+        return;
+    }
+
+    list.innerHTML = '';
+    for (const task of tasks) {
+        const item = document.createElement('li');
+        item.className = 'task';
+
+        const label = document.createElement('p');
+        label.className = 'task__label';
+        label.textContent = task.label_ar;
+        item.appendChild(label);
+
+        if (task.hazard) {
+            const hazard = document.createElement('p');
+            hazard.className = 'task__hazard';
+            // «انتبه لـ» لا «ممنوع»: المهمة مفتوحة، وهذا تنبيه لا منع
+            hazard.textContent = `انتبه لـ: ${task.hazard}`;
+            item.appendChild(hazard);
+        }
+        list.appendChild(item);
+    }
+
+    $('tasks-empty').hidden = tasks.length > 0;
+    renderDressing();
+}
+
+/** يعرض خطوات اللبس مرقَّمة بترتيبها المعتمد — لا يعيد ترتيبها ولا يصحّحها. */
+function renderDressing() {
+    const steps = dressingSteps(state.plan);
+    const container = $('dressing');
+    const list = $('dressing-steps');
+
+    container.hidden = steps.length === 0;
+    list.innerHTML = '';
+
+    for (const step of steps) {
+        const item = document.createElement('li');
+        item.className = 'dressing__step';
+        const action = ACTION_LABEL[step.action] || step.action;
+        const affected = state.plan ? state.plan.affected_side : null;
+        item.textContent = `${action} ${step.garment} ${limbLabel(step.side, affected)}`;
+        list.appendChild(item);
+    }
+}
+
 /* ── البلاغ ─────────────────────────────────────────────────────────── */
 
 async function sendAlarm() {
@@ -420,8 +508,9 @@ function showSignedIn(signedIn) {
     if (signedIn) {
         showView('plan');
     } else {
-        $('view-plan').hidden = true;
-        $('view-progress').hidden = true;
+        for (const view of document.querySelectorAll('.view')) {
+            if (view.id !== 'view-login') view.hidden = true;
+        }
         say('');
     }
 }
@@ -495,15 +584,24 @@ async function doLogout() {
 
 /* ── التبويبات ──────────────────────────────────────────────────────── */
 
+/**
+ * يُظهر شاشة واحدة ويخفي البقية.
+ *
+ * يمرّ على كل `.view` بدل قائمة مكتوبة يدوياً: تبويب يُضاف ولا يُضاف إلى
+ * القائمة كان سيبقى ظاهراً فوق غيره — وهو تراكبٌ لا يراه إلا من يجرّب.
+ */
 function showView(name) {
     for (const tab of document.querySelectorAll('.tab')) {
         const active = tab.dataset.view === name;
         if (active) tab.setAttribute('aria-current', 'page');
         else tab.removeAttribute('aria-current');
     }
-    $('view-plan').hidden = name !== 'plan';
-    $('view-progress').hidden = name !== 'progress';
+    for (const view of document.querySelectorAll('.view')) {
+        if (view.id === 'view-login') continue;   // تحكمه الجلسة لا التبويبات
+        view.hidden = view.id !== `view-${name}`;
+    }
     if (name === 'progress') loadProgress();
+    if (name === 'tasks') loadTasks();
 }
 
 /* ── الإقلاع ────────────────────────────────────────────────────────── */

@@ -48,6 +48,7 @@
 
 <nav class="tabs" aria-label="أقسام البوابة">
   <button class="tab" type="button" data-view="plan" aria-current="page">خطة اليوم</button>
+  <button class="tab" type="button" data-view="tasks">مهامي</button>
   <button class="tab" type="button" data-view="progress">تقدّمي</button>
 </nav>
 
@@ -161,6 +162,40 @@
       </details>
 
       <p class="record__done" id="record-done" role="status" hidden></p>
+    </section>
+  </section>
+
+  <!-- ── مهامي ─────────────────────────────────────────────────────── -->
+  <!--
+    ما يجوز فتحه الآن، لا أكثر. لا بطاقة «مقفلة» ولا زرّ معطَّل: المهمة غير
+    المصرَّح بها غائبة عن الاستجابة أصلاً، فلا شيء هنا يخبر المريض أن هناك
+    ما يُمنع عنه — وهي معلومة ليست له ولا تنفعه.
+
+    والقائمة تتغيّر بين زيارتين بلا أن يكتب أحد شيئاً: بلاغ عاجل غير مُستلَم
+    يُسقط مهام الحرارة، واستلام الممارس له يعيدها.
+  -->
+  <section class="view" id="view-tasks" hidden aria-labelledby="tasks-heading">
+    <h2 class="tasks__heading" id="tasks-heading">مهامي</h2>
+
+    <div class="empty" id="tasks-empty" hidden>
+      <p class="empty__text">لا توجد مهام متاحة الآن.</p>
+      <p class="empty__hint">تُفتح المهام بقرار من ممارسك.</p>
+    </div>
+
+    <ul class="tasks" id="tasks-list"></ul>
+
+    <!--
+      خطوات اللبس من خطتك المعتمدة. الخادم يرسلها بجانب رمزي
+      (`AFFECTED`/`SOUND`) لا بيمين ويسار، وهنا وحده يُحلّ الرمز إلى الطرف
+      المعني من جانبك المصاب. فالبرنامج يُكتب مرة ويصلح لكل مريض، ولا يُخترع
+      اتجاه حين لا يكون معروفاً.
+    -->
+    <section class="dressing" id="dressing" hidden aria-labelledby="dressing-heading">
+      <h3 class="dressing__heading" id="dressing-heading">ترتيب اللبس والخلع</h3>
+      <p class="dressing__rule">
+        القاعدة: يبدأ اللبس بالطرف المصاب، وينتهي الخلع به.
+      </p>
+      <ol class="dressing__steps" id="dressing-steps"></ol>
     </section>
   </section>
 
