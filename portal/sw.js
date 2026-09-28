@@ -14,10 +14,14 @@
  * شبكي واحد.
  */
 
-const SHELL = 'symbol-shell-v3';
+const SHELL = 'symbol-shell-v4';
 const ASSETS = [
     './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
     'logo.svg', 'icon-192.png', 'apple-touch-icon.png',
+    // الخطّ ضمن القشرة: بدونه يسقط النصّ دون اتصال إلى خطّ النظام،
+    // فيتغيّر المقاس على شاشة التعليمات نفسها.
+    'fonts/amiri-arabic-400.woff2', 'fonts/amiri-arabic-700.woff2',
+    'fonts/amiri-latin-400.woff2', 'fonts/amiri-latin-700.woff2',
 ];
 
 self.addEventListener('install', (event) => {

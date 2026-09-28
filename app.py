@@ -388,7 +388,11 @@ init_session()
 
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700;800&display=swap');
+/*
+ * الخطّ تعلنه سمة Streamlit في `.streamlit/config.toml` عبر
+ * `[[theme.fontFaces]]` لا كتلةٌ هنا: إعلانه في موضعين يعني أن أحدهما
+ * سيتخلّف يوماً. والسمة هي الأسبق على عناصر Streamlit على كل حال.
+ */
 /*
  * لوحة Symbol AI — مشتقّة من العلامة لا مختارة بالذوق:
  * لازوردها #061840، وأزرقها #306BF5، ولمستها السماوية #63D7EE.
@@ -415,8 +419,8 @@ CUSTOM_CSS = """
     --radius-sm: 6px; --radius: 10px; --radius-lg: 14px; --radius-xl: 18px;
 }
 *, *::before, *::after { box-sizing: border-box; }
-html, body, .stApp, [class*="css"] {
-    font-family: 'Cairo', 'Tajawal', -apple-system, sans-serif !important; direction: rtl;
+html, body, .stApp, [class*="st-emotion-cache"] {
+    font-family: 'Amiri', 'Segoe UI', Georgia, serif !important; direction: rtl;
     font-size: 14px;
 }
 /* الأساس 14px، والنصّ الطويل 14 أيضاً — كثافة مكتب لا كثافة هاتف */
@@ -558,7 +562,7 @@ html, body, .stApp, [class*="css"] {
 [data-testid="stSidebar"] [data-testid="stAlert"] { padding-inline: 14px !important; }
 
 [data-testid="stSidebar"] .stButton > button {
-    font-family: 'Cairo', sans-serif !important; background: rgba(220,38,38,0.12) !important;
+    font-family: 'Amiri', Georgia, serif !important; background: rgba(220,38,38,0.12) !important;
     color: #FFC9C9 !important; border: 1px solid rgba(220,38,38,0.45) !important;
     border-radius: var(--radius-sm) !important; font-size: 12px !important; font-weight: 600 !important;
     width: 100% !important; padding: 8px 16px !important; transition: all 0.2s !important;
@@ -670,18 +674,18 @@ html, body, .stApp, [class*="css"] {
 .input-card:focus-within { border-color: var(--secondary); box-shadow: 0 0 0 4px rgba(48,107,245,0.1), var(--shadow-md); }
 [data-testid="stTextArea"] { margin: 0 !important; }
 [data-testid="stTextArea"] > div { border: none !important; box-shadow: none !important; background: transparent !important; }
-[data-testid="stTextArea"] textarea { font-family: 'Cairo', sans-serif !important; font-size: 14px !important;
+[data-testid="stTextArea"] textarea { font-family: 'Amiri', Georgia, serif !important; font-size: 14px !important;
     direction: rtl !important; border: none !important; box-shadow: none !important;
     background: transparent !important; resize: none !important; color: var(--text) !important;
     padding: 4px 0 !important; min-height: 46px !important; }
 [data-testid="stTextArea"] textarea::placeholder { color: var(--text-muted) !important; }
-.send-col .stButton > button { font-family: 'Cairo', sans-serif !important;
+.send-col .stButton > button { font-family: 'Amiri', Georgia, serif !important;
     background: linear-gradient(135deg, #061840, #1B3E82) !important; color: white !important;
     border: none !important; border-radius: var(--radius) !important; font-size: 13px !important;
     font-weight: 700 !important; padding: 8px 20px !important; width: 100% !important;
     box-shadow: 0 3px 10px rgba(6,24,64,0.35) !important; }
 .send-col .stButton > button:hover { background: linear-gradient(135deg, #1B3E82, #306BF5) !important; }
-.clear-col .stButton > button { font-family: 'Cairo', sans-serif !important;
+.clear-col .stButton > button { font-family: 'Amiri', Georgia, serif !important;
     background: transparent !important; color: var(--text-muted) !important;
     border: 1px solid var(--border) !important; border-radius: var(--radius) !important;
     font-size: 12px !important; font-weight: 600 !important; padding: 8px 14px !important; width: 100% !important; }
@@ -832,7 +836,7 @@ html, body, .stApp, [class*="css"] {
     border: 1px solid var(--border) !important;
 }
 .stTabs [data-baseweb="tab"] {
-    border-radius: var(--radius-sm) !important; font-family: 'Cairo', sans-serif !important;
+    border-radius: var(--radius-sm) !important; font-family: 'Amiri', Georgia, serif !important;
     font-size: 13px !important; font-weight: 600 !important; padding: 8px 12px !important;
     color: var(--text-muted) !important; transition: all 0.25s !important;
 }
@@ -851,7 +855,7 @@ html, body, .stApp, [class*="css"] {
 
 /* ── Enhanced Buttons ── */
 .stButton > button[kind="primary"], .stButton > button[data-testid*="primary"] {
-    font-family: 'Cairo', sans-serif !important;
+    font-family: 'Amiri', Georgia, serif !important;
     background: linear-gradient(135deg, #061840 0%, #1B3E82 100%) !important;
     color: white !important; border: none !important;
     border-radius: var(--radius) !important; font-weight: 700 !important;
@@ -864,7 +868,7 @@ html, body, .stApp, [class*="css"] {
     box-shadow: 0 6px 20px rgba(6,24,64,0.4) !important;
 }
 .stButton > button:not([kind="primary"]) {
-    font-family: 'Cairo', sans-serif !important; border-radius: var(--radius-sm) !important;
+    font-family: 'Amiri', Georgia, serif !important; border-radius: var(--radius-sm) !important;
     transition: all 0.25s !important; font-weight: 600 !important;
 }
 .stButton > button:not([kind="primary"]):hover { transform: translateY(-1px) !important; }
@@ -874,7 +878,7 @@ html, body, .stApp, [class*="css"] {
     border-radius: var(--radius-sm) !important;
     border-color: var(--border) !important;
     transition: all 0.25s !important;
-    font-family: 'Cairo', sans-serif !important;
+    font-family: 'Amiri', Georgia, serif !important;
 }
 .stTextInput > div > div:focus-within, .stNumberInput > div > div:focus-within,
 .stSelectbox > div > div:focus-within {
@@ -895,7 +899,7 @@ html, body, .stApp, [class*="css"] {
     box-shadow: var(--shadow) !important; border-color: rgba(48,107,245,0.15) !important;
 }
 [data-testid="stExpander"] summary {
-    font-family: 'Cairo', sans-serif !important; font-weight: 700 !important;
+    font-family: 'Amiri', Georgia, serif !important; font-weight: 700 !important;
 }
 
 /* ── Enhanced Note Cards ── */
