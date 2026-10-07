@@ -119,7 +119,7 @@ def server(owner_url):
         if time.monotonic() > deadline:
             raise RuntimeError("الخادم لم يبدأ")
         time.sleep(0.05)
-    yield {"base": f"http://localhost:{port}", "writer": writer}
+    yield {"base": f"http://localhost:{port}", "writer": writer, "app": app}
     instance.should_exit = True
     thread.join(timeout=10)
     database.close()
@@ -137,6 +137,11 @@ def signed_in(owner, server):
         )
     server["writer"].outcomes.clear()
     server["writer"].requests.clear()
+    # الحدود في الذاكرة تُصفَّر كما تُصفَّر القاعدة: كل اختبارٍ يدخل باسم الدخول
+    # نفسه، وخمسة دخولٍ في الدقيقة حدُّ الإنتاج لا حدُّ المجموعة.
+    from eyework.web.deps import Limiters
+
+    server["app"].state.limiters = Limiters.default()
 
 
 @pytest.fixture

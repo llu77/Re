@@ -246,6 +246,21 @@ p { margin: 0; }
     border-radius: var(--radius);
 }
 .alert[hidden] { display: none; }
+/*
+ * «حسناً» فوق وسط الشريط العلوي، لا وسط المحتوى. بعد الإقرار تُرسم الشاشة من
+ * جديد، وما تحت النظر حينها نصّ الخطوة في كل شاشة — لا خيار قيمةٍ ولا زرّ
+ * اعتماد. وأزرار الشريطين معطّلةٌ ما دام التنبيه ظاهراً (`UI.showAlert`).
+ */
+.alert [data-ack] {
+    position: fixed;
+    top: max(var(--edge), env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--target);
+    height: var(--target);
+    padding: 0;
+    z-index: 2;
+}
 .alert__text { color: var(--alert); font-weight: 700; }
 
 .visually-hidden {

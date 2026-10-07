@@ -41,7 +41,7 @@ const state = {
     campaign: null,
     page: 1,
     // طلب التعديل قيد الإعداد، مربوطٌ بالنسخة التي يُبنى عليها.
-    edit: { versionId: null, presets: new Set(), note: null, draft: '' },
+    edit: { versionId: null, presets: new Set(), note: null, draft: '', armed: false },
     activation: null,
     busy: false,
     waitingFor: null,
@@ -398,27 +398,44 @@ async function runGeneration(path, json) {
     if (result.status === 401) {
         return;
     }
+    const stillHere = state.campaign && state.campaign.id === campaign.id
+        && !UI.screen('proposal').hidden;
     if (result.status !== 200 && !(result.data && result.data.code)) {
         // انقطع الطلب في الطريق (شبكة أو وكيل) لا عند الخادم: قد يكون النصّ
-        // كُتب. تُقرأ الحملة كما هي، ولا يُفترض شيء.
+        // كُتب. تُقرأ الحملة كما هي، ولا يُفترض شيء — ويُقال ما حدث.
+        if (!stillHere) {
+            return;
+        }
         state.campaign = null;
         const fresh = await loadCampaign(campaign.id);
         if (fresh && fresh.generating) {
             renderWaiting({ reloaded: true });
-        } else if (fresh) {
-            history.replaceState(null, '', campaignRoute(fresh));
-            await route();
-        }
-        return;
-    }
-    const stillHere = state.campaign && state.campaign.id === campaign.id
-        && !UI.screen('proposal').hidden;
-    if (result.status === 200) {
-        state.campaign = result.data.campaign;
-        state.edit = { versionId: null, presets: new Set(), note: null, draft: '' };
-        if (!stillHere) {
             return;
         }
+        if (fresh) {
+            history.replaceState(null, '', campaignRoute(fresh));
+            await route();
+        } else {
+            // الحملة لم تُقرأ أيضاً: تبقى شاشة الانتظار و«تحقّق الآن» فيها.
+            state.campaign = campaign;
+            renderWaiting({ reloaded: true });
+        }
+        UI.showAlert(document.querySelector('.screen:not([hidden])'), fresh
+            ? 'انقطع الاتصال قبل أن يصل الردّ. هذا ما حُفظ في الحملة الآن.'
+            : 'تعذّر الاتصال، ولم يُعرف إن كُتب النص. تحقّق من الاتصال ثم اضغط «تحقّق الآن».');
+        return;
+    }
+    if (result.status === 200) {
+        // من غادر الشاشة لا تُغيَّر شاشته ولا تعديله من تحته؛ تُحدَّث الحملة
+        // المحفوظة فقط إن كانت هي نفسها.
+        if (!stillHere) {
+            if (state.campaign && state.campaign.id === campaign.id) {
+                state.campaign = result.data.campaign;
+            }
+            return;
+        }
+        state.campaign = result.data.campaign;
+        state.edit = { versionId: null, presets: new Set(), note: null, draft: '', armed: false };
         // العنوان يتبع الحالة: إعادة التحميل بعدها تعرض ما يُعرض الآن.
         history.replaceState(null, '', campaignRoute(state.campaign));
         await route();
@@ -473,7 +490,12 @@ function renderProposal() {
     } else {
         $('proposal-status').textContent =
             `نصٌّ مقترحٌ آلياً — لم توافق عليه بعد · النسخة ${copy.version} من ${state.choices.limits.versions_max}`;
-        UI.setButton($('proposal-start'), { label: 'اطلب تعديلاً', enabled: campaign.versions_left > 0 });
+        // بلا نسخٍ متبقية يبقى الرجوع إلى نسخةٍ سابقة ممكناً من شاشة التعديل.
+        const canEdit = campaign.versions_left > 0;
+        UI.setButton($('proposal-start'), {
+            label: canEdit ? 'اطلب تعديلاً' : 'نسخةٌ سابقة',
+            enabled: canEdit || copy.can_restore_previous || copy.can_restore_newest,
+        });
         UI.setButton($('proposal-end'), { label: 'أوافق على النص', commit: true });
     }
 }
@@ -512,6 +534,9 @@ async function onProposalStart() {
             renderProposal();
         }
     } else {
+        // الوصول إلى شاشة التعديل لا يُرسل شيئاً: «اطلب نسخة جديدة» تبقى معطّلةً
+        // حتى يختار المستخدم فيها، فلا يرسل الطلبَ نظرٌ مرّ بها في الطريق.
+        editState().armed = false;
         go(`#/c/${campaign.id}/edit`);
     }
 }
@@ -534,7 +559,7 @@ async function onProposalEnd() {
 function editState() {
     const versionId = state.campaign.copy.version_id;
     if (state.edit.versionId !== versionId) {
-        state.edit = { versionId, presets: new Set(), note: null, draft: '' };
+        state.edit = { versionId, presets: new Set(), note: null, draft: '', armed: false };
     }
     return state.edit;
 }
@@ -548,11 +573,12 @@ function renderEdit() {
     const campaign = state.campaign;
     const edit = editState();
     UI.show('edit');
+    const exhausted = campaign.versions_left <= 0;
     const full = edit.presets.size >= state.choices.limits.presets_max;
     const options = state.choices.edit_presets.map((preset) => ({
         value: preset,
         label: PRESET_LABELS[preset],
-        disabled: !edit.presets.has(preset) && (full || edit.presets.has(conflictOf(preset))),
+        disabled: exhausted || (!edit.presets.has(preset) && (full || edit.presets.has(conflictOf(preset)))),
     }));
     // مجموعة متعدّدة الاختيار: كل خيارٍ يُبدَّل وحده.
     const chips = $('edit-chips');
@@ -571,11 +597,15 @@ function renderEdit() {
             } else {
                 edit.presets.add(option.value);
             }
+            edit.armed = true;
             renderEdit();
         });
         chips.append(button);
     });
-    UI.setButton($('edit-note'), { label: edit.note ? 'ملاحظة نصية (مكتوبة)' : 'ملاحظة نصية' });
+    UI.setButton($('edit-note'), {
+        label: edit.note ? 'ملاحظة نصية (مكتوبة)' : 'ملاحظة نصية',
+        enabled: !exhausted,
+    });
     // «النسخة الأحدث» تُلغي «النسخة السابقة»: ضغطةٌ خاطئة لا تُفقد نسخة.
     const newest = campaign.copy.can_restore_newest;
     UI.setButton($('edit-restore'), {
@@ -586,18 +616,22 @@ function renderEdit() {
     $('edit-restore').dataset.target = newest ? 'newest' : 'previous';
     UI.setButton($('edit-submit'), {
         label: 'اطلب نسخة جديدة',
-        enabled: edit.presets.size > 0 || Boolean(edit.note),
+        enabled: !exhausted && edit.armed && (edit.presets.size > 0 || Boolean(edit.note)),
         commit: true,
     });
-    $('edit-left').textContent = full
-        ? 'ثلاثة تعديلاتٍ على الأكثر'
-        : `النسخ المتبقية: ${campaign.versions_left}`;
+    if (exhausted) {
+        $('edit-left').textContent = 'بلغت الحملة حدّ النسخ؛ يمكن الرجوع إلى نسخةٍ سابقة.';
+    } else {
+        $('edit-left').textContent = full
+            ? 'ثلاثة تعديلاتٍ على الأكثر'
+            : `النسخ المتبقية: ${campaign.versions_left}`;
+    }
 }
 
 function onEditSubmit() {
     const campaign = state.campaign;
     const edit = editState();
-    if (state.busy || state.waitingFor || (!edit.presets.size && !edit.note)) {
+    if (state.busy || state.waitingFor || !edit.armed || (!edit.presets.size && !edit.note)) {
         return;
     }
     runGeneration(`/api/campaigns/${campaign.id}/copy/edit`, {
@@ -635,9 +669,11 @@ function updateNoteCount() {
 
 function onNoteSave() {
     const edit = editState();
-    const text = $('note-text').value.trim();
+    // ما يُرسل هو ما يُحسب: المسافات المتكرّرة وفواصل الأسطر مسافةٌ واحدة.
+    const text = $('note-text').value.replace(/\s+/g, ' ').trim();
     edit.note = text ? text : null;
     edit.draft = '';
+    edit.armed = true;
     go(`#/c/${state.campaign.id}/edit`);
 }
 
@@ -919,6 +955,11 @@ function wire() {
         button.addEventListener('click', () => {
             const section = button.closest('.screen');
             UI.clearAlert(section);
+            if (retryBoot && section.dataset.screen === 'login') {
+                retryBoot = false;
+                boot();
+                return;
+            }
             // بعد الإقرار تُعرض الحملة كما هي الآن، لا كما كانت.
             if (['proposal', 'confirm', 'budget', 'days', 'edit'].includes(section.dataset.screen)) {
                 route();
@@ -935,13 +976,13 @@ function wire() {
     });
 }
 
+// فشل الإقلاع لا يترك شاشةً بلا مخرج: «حسناً» تعيد المحاولة.
+let retryBoot = false;
+
 async function boot() {
-    captureActivation();
-    wire();
     const choices = await api('GET', '/api/choices');
     if (choices.status !== 200) {
-        UI.show('login');
-        UI.showAlert(UI.screen('login'), detail(choices));
+        startupFailed(detail(choices));
         return;
     }
     state.choices = choices.data;
@@ -953,7 +994,18 @@ async function boot() {
     if (me.status === 200) {
         state.displayName = me.data.display_name || null;
         route();
+    } else if (me.status !== 401) {
+        // 401 يعرض شاشة الدخول من `api`؛ ما سواه عطلٌ لا «لست مسجّلاً».
+        startupFailed(detail(me));
     }
 }
 
+function startupFailed(message) {
+    retryBoot = true;
+    const section = UI.show('login');
+    UI.showAlert(section, `${message} «حسناً» تعيد المحاولة.`);
+}
+
+captureActivation();
+wire();
 boot();

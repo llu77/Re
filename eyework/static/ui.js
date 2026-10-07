@@ -66,9 +66,14 @@ const UI = (() => {
      */
     function showAlert(section, message) {
         const alert = section.querySelector('.alert');
+        if (!alert) {
+            // شاشةٌ بلا تنبيه تُسكت الخطأ؛ فشلٌ صريح يُكتشف في الاختبار.
+            throw new Error(`الشاشة ${section.dataset.screen} بلا عنصر تنبيه`);
+        }
         alert.querySelector('.alert__text').textContent = message;
         alert.hidden = false;
-        section.querySelectorAll('.bar--bottom .btn').forEach((button) => {
+        // «حسناً» وحدها مفعّلة: فوق وسط الشريط العلوي، حيث لا زرّ في أيّ شاشة.
+        section.querySelectorAll('.bar .btn').forEach((button) => {
             if (!button.disabled) {
                 button.dataset.lockedByAlert = '';
                 button.disabled = true;
