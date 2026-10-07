@@ -279,3 +279,21 @@ def test_fields_are_large_enough_not_to_trigger_ios_zoom():
     field = re.search(r"\.field\s*\{([^}]*)\}", css).group(1)
     assert "font-size: var(--fs-body)" in field
     assert re.search(r"--fs-body:\s*1\.125rem", css)
+
+
+def test_the_users_name_never_reaches_the_model():
+    """
+    الاسم يُعرض في الواجهة من قاعدة التطبيق، ولا تعرفه الوحدات التي تبني طلب
+    النموذج أو ترسله أو تنفّذ أداته: ما لا تذكره لا تستطيع إرساله.
+    """
+    import inspect
+
+    from eyework import copywriter, prompt, self_check
+
+    for module in (prompt, copywriter, self_check):
+        source = inspect.getsource(module)
+        assert "display_name" not in source, module.__name__
+        assert "ew_my_display_name" not in source, module.__name__
+    assert set(inspect.signature(prompt.CopyRequest).parameters) == {
+        "jpeg", "seller_note", "previous", "presets", "edit_note",
+    }

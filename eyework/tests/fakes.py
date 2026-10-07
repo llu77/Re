@@ -17,12 +17,14 @@ from eyework.prompt import CopyRequest
 
 TITLE = "حقيبة جلدية بنية أنيقة"
 DESCRIPTION = "حقيبة يد من الجلد البني بتصميمٍ بسيط وأنيق، تتّسع للأغراض اليومية ولها حزام كتف."
+#: كلمة المساعد بأطول ما تُقبل تقريباً: الواجهة تُختبر على أسوأ حالاتها.
+NOTE = "أبرزتُ خامة الجلد ولونه البني وحزام الكتف، ولم أذكر المقاس ولا بلد الصنع لأنهما لا يظهران في الصورة؛ أضفهما بملاحظة."
 
 
-def ok(title: str = TITLE, description: str = DESCRIPTION) -> CopyOutcome:
+def ok(title: str = TITLE, description: str = DESCRIPTION, note: str | None = NOTE) -> CopyOutcome:
     check = check_copy(title, description)
     assert check.ok, check.errors
-    return CopyOutcome("OK", title=title, description=description, warnings=check.warnings,
+    return CopyOutcome("OK", title=title, description=description, warnings=check.warnings, note=note,
                        served_model="claude-opus-5-5", request_id="req_fake",
                        input_tokens=1000, output_tokens=200)
 

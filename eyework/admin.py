@@ -4,7 +4,8 @@
 تعمل بدور المالك (`EYEWORK_OWNER_DATABASE_URL`) من سطر الأوامر، لا من الويب:
 خادم الويب لا يملك هذه الصلاحيات أصلاً.
 
-    python -m eyework.admin create-user --login ali@example.sa
+    python -m eyework.admin create-user --login ali@example.sa [--name "علي"]
+    python -m eyework.admin set-name --login ali@example.sa --name "علي" | --clear
     python -m eyework.admin reissue-activation --login ali@example.sa
     python -m eyework.admin deactivate --login ali@example.sa
     python -m eyework.admin delete-user --login ali@example.sa --confirm-delete-all-data
@@ -20,6 +21,10 @@
 **الاحتفاظ.** `purge` يُشغَّل يومياً من مجدول النظام: الحملة المعتمدة أو
 الملغاة تُحذف بعد تسعين يوماً، وغير المنتهية بعد ثلاثين يوماً من آخر تعديل،
 والجلسات والرموز المنتهية بعد ثلاثين يوماً.
+
+**الاسم اختياري.** يناديه به المساعد في الواجهة («أنا سيمبول، مساعدك الشخصي يا
+علي»). يُخزَّن في قاعدة التطبيق وحدها ولا يصل مزوّد النموذج. الاسم الأول أو
+الكنية تكفي: كل حرفٍ زائد بيانٌ عن صاحبه لا تحتاجه الواجهة.
 """
 
 from __future__ import annotations
@@ -37,6 +42,9 @@ __all__ = ["main"]
 
 ACTIVATION_HOURS = 72
 _LOGIN = re.compile(r"^[a-z0-9._@+-]{3,254}$")
+#: نظير القيد display_name_shape في الترحيل 0003.
+_NAME = re.compile(r"^[ء-غف-يa-zA-Z]+( [ء-غف-يa-zA-Z]+)*$")
+_NAME_MAX = 30
 
 _CREATE_USER = "INSERT INTO users (login_hmac) VALUES (%s) RETURNING id"
 _USER_BY_LOGIN = "SELECT id, is_active FROM users WHERE login_hmac = %s"
@@ -46,6 +54,7 @@ INSERT INTO activation_tokens (token_hash, user_id, expires_at)
 VALUES (%s, %s, now() + make_interval(hours => %s))
 """
 _DEACTIVATE = "UPDATE users SET is_active = false WHERE id = %s"
+_SET_NAME = "UPDATE users SET display_name = %s WHERE id = %s"
 _REVOKE_ALL = "UPDATE sessions SET revoked_at = now() WHERE user_id = %s AND revoked_at IS NULL"
 _DELETE_USER = "DELETE FROM users WHERE id = %s"
 
@@ -95,6 +104,15 @@ def _login(raw: str) -> str:
     return login
 
 
+def _name(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    name = " ".join(raw.split())
+    if not name or len(name) > _NAME_MAX or not _NAME.match(name):
+        raise AdminError("الاسم: حتى 30 حرفاً عربياً أو لاتينياً، بمسافاتٍ مفردة، بلا أرقامٍ ولا تشكيل")
+    return name
+
+
 def _fragment_value(text: str) -> str:
     """ترميز ما يحتاج ترميزاً من الحروف المسموحة في اسم الدخول وحدها."""
     return text.replace("%", "%25").replace("@", "%40").replace("+", "%2B")
@@ -115,16 +133,28 @@ def _find(cursor, key: bytes, login: str):
     return row
 
 
-def create_user(raw_login: str) -> str:
+def create_user(raw_login: str, raw_name: str | None = None) -> str:
     key, origin = _settings()
     login = _login(raw_login)
+    name = _name(raw_name)
     with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
         try:
             cursor.execute(_CREATE_USER, (auth.login_hmac(key, login),))
         except psycopg.errors.UniqueViolation as exc:
             raise AdminError("الاسم مستعملٌ لحسابٍ قائم. استعمل reissue-activation") from exc
         user_id = cursor.fetchone()[0]
+        if name is not None:
+            cursor.execute(_SET_NAME, (name, user_id))
         return _issue(cursor, user_id, origin, login)
+
+
+def set_name(raw_login: str, raw_name: str | None) -> None:
+    """يضع الاسم الذي يناديه به المساعد، أو يمحوه (`None`)."""
+    key, _ = _settings()
+    name = _name(raw_name)
+    with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
+        user_id, _ = _find(cursor, key, _login(raw_login))
+        cursor.execute(_SET_NAME, (name, user_id))
 
 
 def reissue_activation(raw_login: str) -> str:
@@ -168,17 +198,26 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m eyework.admin", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("create-user", "reissue-activation", "deactivate", "delete-user"):
+    for name in ("create-user", "reissue-activation", "deactivate", "delete-user", "set-name"):
         command = commands.add_parser(name)
         command.add_argument("--login", required=True)
         if name == "delete-user":
             command.add_argument("--confirm-delete-all-data", action="store_true", required=True)
+        if name == "create-user":
+            command.add_argument("--name")
+        if name == "set-name":
+            choice = command.add_mutually_exclusive_group(required=True)
+            choice.add_argument("--name")
+            choice.add_argument("--clear", action="store_true")
     commands.add_parser("purge")
     args = parser.parse_args(argv)
 
     try:
         if args.command == "create-user":
-            print(create_user(args.login))
+            print(create_user(args.login, args.name))
+        elif args.command == "set-name":
+            set_name(args.login, None if args.clear else args.name)
+            print("مُحي الاسم" if args.clear else "وُضع الاسم")
         elif args.command == "reissue-activation":
             print(reissue_activation(args.login))
         elif args.command == "deactivate":

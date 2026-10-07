@@ -139,7 +139,7 @@ def begin_first_copy(app, campaign: UUID) -> UUID:
 def write_first_copy(app, user: UUID, campaign: UUID, attempt: UUID) -> None:
     with app.transaction(), app.cursor() as cursor:
         cursor.execute(campaigns._INSERT_VERSION, (
-            campaign, user, attempt, TITLE, DESCRIPTION, [], None, [], "claude-opus-5-5", "test", None,
+            campaign, user, attempt, TITLE, DESCRIPTION, [], None, [], "claude-opus-5-5", "test", None, None,
         ))
         cursor.execute(campaigns._FINISH, (attempt, "OK", 0, 0))
 

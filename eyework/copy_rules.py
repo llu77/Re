@@ -31,6 +31,7 @@ __all__ = [
     "DESCRIPTION_MAX",
     "DESCRIPTION_MIN",
     "EDIT_NOTE_MAX",
+    "NOTE_TO_USER_MAX",
     "MAX_PRESETS",
     "PRESET_CONFLICTS",
     "PRESET_INSTRUCTIONS",
@@ -41,9 +42,12 @@ __all__ = [
     "EditPreset",
     "check_copy",
     "check_edit_request",
+    "check_note_to_user",
 ]
 
 TITLE_MIN, TITLE_MAX = 8, 60
+#: كلمة «سيمبول» للمستخدم بجانب النصّ المقترح. قصيرة لتبقى الشاشة بلا تمرير.
+NOTE_TO_USER_MAX = 120
 DESCRIPTION_MIN, DESCRIPTION_MAX = 40, 240
 #: نسبة الحروف العربية بين كل الحروف. أسماء العلامات اللاتينية مقبولة؛ نصٌّ
 #: إنجليزيٌّ كامل ليس ما طُلب.
@@ -247,3 +251,25 @@ def check_edit_request(presets: list[EditPreset], note: str | None) -> str | Non
     if not presets and note is None:
         return "EDIT_EMPTY"
     return None
+
+
+def check_note_to_user(note: str) -> tuple[str | None, tuple[str, ...]]:
+    """
+    كلمة المساعد للمستخدم: تُعرض ولا تُنشر، فلا تُفشل الكتابة إن خالفت.
+    يُرجع (النصّ بعد التطبيع أو None، ورموز المخالفة). فارغةٌ مقبولة: لا كلمة.
+    """
+    note = _normalize_copy(note)
+    if not note:
+        return None, ()
+    errors: list[str] = []
+    if len(note) > NOTE_TO_USER_MAX or note != note.strip():
+        errors.append("NOTE_LENGTH")
+    if _control_characters(note, allow_newline=False) or _BIDI_CONTROLS.search(note):
+        errors.append("NOTE_CONTROL")
+    if _URL.search(note) or _EMAIL.search(note) or _HANDLE.search(note) or _PHONE.search(note):
+        errors.append("NOTE_CONTACT")
+    if _MARKUP.search(note) or _symbols(note):
+        errors.append("NOTE_SYMBOLS")
+    if _arabic_ratio(note) < ARABIC_RATIO_MIN:
+        errors.append("NOTE_NOT_ARABIC")
+    return (None if errors else note), tuple(errors)

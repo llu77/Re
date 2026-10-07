@@ -288,3 +288,28 @@ def test_the_model_sees_the_stored_image_and_nothing_about_the_user(owner, selle
     sent_text = repr([(r.previous, r.presets, r.edit_note, r.seller_note) for r in writer.requests])
     for identity in (user_id, view["id"], SELLER):
         assert identity not in sent_text
+
+
+# ── كلمة «سيمبول» ───────────────────────────────────────────────────────
+
+
+def test_the_assistant_note_travels_with_its_version_and_survives_a_reload(seller, writer):
+    from eyework.tests.fakes import NOTE
+
+    view = generate(seller, upload(seller))
+    assert view["copy"]["assistant_note"] == NOTE
+    reloaded = expect(seller.get(path(view)))
+    assert reloaded["copy"]["assistant_note"] == NOTE
+
+
+def test_a_version_without_a_note_shows_none(seller, writer):
+    writer.queue(ok(note=None))
+    assert generate(seller, upload(seller))["copy"]["assistant_note"] is None
+
+
+def test_an_unusable_photo_comes_with_the_assistants_advice(seller, writer):
+    writer.queue(CopyOutcome("UNUSABLE_PHOTO", reason="MULTIPLE_PRODUCTS", note="صوّر المنتج وحده على خلفيةٍ سادة."))
+    view = upload(seller)
+    body = expect(seller.post(path(view, "/copy"), json={"expected_row_version": view["row_version"]}))
+    assert body["result"] == "UNUSABLE_PHOTO"
+    assert body["assistant_note"] == "صوّر المنتج وحده على خلفيةٍ سادة."

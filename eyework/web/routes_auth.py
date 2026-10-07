@@ -80,7 +80,11 @@ def logout(request: Request) -> Response:
 @router.get("/me")
 def me(request: Request, user_id: UUID = Depends(require_user)) -> dict:
     """لا معرّف ولا اسم: الواجهة لا تحتاج إلا ما تبقّى من طلبات اليوم."""
-    return {"generations_left": campaigns.remaining_generations(request.app.state.db, user_id)}
+    db = request.app.state.db
+    return {
+        "generations_left": campaigns.remaining_generations(db, user_id),
+        "display_name": campaigns.display_name(db, user_id),
+    }
 
 
 @router.get("/choices")

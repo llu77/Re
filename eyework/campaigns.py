@@ -106,6 +106,8 @@ class Unusable:
 
     reason: str
     view: dict
+    #: ما يقترحه المساعد لصورةٍ أصلح، إن كتب شيئاً.
+    note: str | None = None
 
 
 # ── العبارات ────────────────────────────────────────────────────────────
@@ -113,7 +115,7 @@ _VIEW = """
 SELECT c.id, c.status, c.row_version, c.budget_sar, c.days,
        c.current_version_id, c.approved_version_id,
        c.created_at, c.updated_at, c.ready_at,
-       v.version, v.title, v.description, v.warnings, v.based_on_version_id,
+       v.version, v.title, v.description, v.warnings, v.based_on_version_id, v.assistant_note,
        (SELECT cv.id FROM copy_versions cv WHERE cv.campaign_id = c.id
          ORDER BY cv.version DESC LIMIT 1) AS newest_version_id,
        EXISTS (SELECT 1 FROM generation_attempts a
@@ -165,8 +167,9 @@ SELECT i.jpeg, v.title, v.description
 """
 _INSERT_VERSION = """
 INSERT INTO copy_versions (campaign_id, user_id, attempt_id, title, description, edit_presets,
-                           edit_note, warnings, served_model, prompt_version, api_request_id)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                           edit_note, warnings, served_model, prompt_version, api_request_id,
+                           assistant_note)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 _APPROVE = """
@@ -237,6 +240,8 @@ def _view(cursor, campaign_id: UUID) -> dict:
             "title": row["title"],
             "description": row["description"],
             "warnings": list(row["warnings"]),
+            #: كلمة «سيمبول» للمستخدم عن هذه النسخة، أو None.
+            "assistant_note": row["assistant_note"],
             "can_restore_previous": row["based_on_version_id"] is not None,
             "can_restore_newest": row["newest_version_id"] != row["current_version_id"],
         }
@@ -279,6 +284,13 @@ def list_page(db: Database, user_id: UUID, page: int) -> dict:
         ],
         "has_more": len(rows) > PAGE_SIZE,
     }
+
+
+def display_name(db: Database, user_id: UUID) -> str | None:
+    """اسم صاحب الجلسة كما وضعه المشغّل، أو None. لا يُرسَل إلى النموذج أبداً."""
+    with db.session(user_id) as cursor:
+        cursor.execute("SELECT ew_my_display_name() AS name")
+        return cursor.fetchone()["name"]
 
 
 def remaining_generations(db: Database, user_id: UUID) -> int:
@@ -348,7 +360,7 @@ def _finish(db: Database, user_id: UUID, campaign_id: UUID, attempt: UUID, outco
                 cursor.execute(_INSERT_VERSION, (
                     campaign_id, user_id, attempt, outcome.title, outcome.description,
                     [p.value for p in presets], note, [w.value for w in outcome.warnings],
-                    outcome.served_model, PROMPT_VERSION, outcome.request_id,
+                    outcome.served_model, PROMPT_VERSION, outcome.request_id, outcome.note,
                 ))
                 cursor.execute(_FINISH, (attempt, "OK", *tokens))
                 return _view(cursor, campaign_id)
@@ -366,7 +378,8 @@ def _finish(db: Database, user_id: UUID, campaign_id: UUID, attempt: UUID, outco
     with db.session(user_id) as cursor:
         cursor.execute(_FINISH, (attempt, outcome.outcome, *tokens))
         if outcome.outcome == "UNUSABLE_PHOTO":
-            return Unusable(reason=outcome.reason or "NO_PRODUCT", view=_view(cursor, campaign_id))
+            return Unusable(reason=outcome.reason or "NO_PRODUCT", view=_view(cursor, campaign_id),
+                            note=outcome.note)
     raise AiFailure(outcome.outcome, outcome.retry_after_seconds)
 
 

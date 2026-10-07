@@ -42,7 +42,11 @@ def test_request_shape_for_this_model():
     """
     request = build_request(CopyRequest(jpeg=JPEG))
     assert "thinking" not in request
-    assert "tools" not in request and "tool_choice" not in request
+    # أداةٌ واحدة صارمة، بلا إجبار: Opus 5.5 يرفض tool_choice من نوع any/tool.
+    (tool,) = request["tools"]
+    assert tool["name"] == "check_copy" and tool["strict"] is True
+    assert tool["input_schema"]["additionalProperties"] is False
+    assert "tool_choice" not in request
     assert request["messages"][-1]["role"] == "user"  # لا تعبئة مسبقة
     assert request["output_config"]["effort"] == "medium"
     assert request["output_config"]["format"] == {"type": "json_schema", "schema": OUTPUT_SCHEMA}
@@ -88,3 +92,31 @@ def test_presets_are_sent_as_fixed_server_sentences():
     text = request["messages"][0]["content"][1]["text"]
     assert "أكثر رسميةً" in text
     assert "MORE_FORMAL" not in text
+
+
+def test_the_cache_breakpoint_is_on_the_last_block_of_the_user_turn():
+    """الجولة الثانية تعيد الأدوات والتعليمات والصورة كما هي، فتُقرأ مخزّنة."""
+    (turn,) = build_request(CopyRequest(jpeg=JPEG))["messages"]
+    assert turn["content"][-1]["cache_control"] == {"type": "ephemeral"}
+    assert all("cache_control" not in block for block in turn["content"][:-1])
+
+
+def test_what_the_prompt_asks_for_fits_inside_what_the_validator_accepts():
+    """طلبٌ أوسع من القبول يعني جواباً مدفوعاً يُرفض؛ الهامش في الاتجاه الآخر."""
+    from eyework import copy_rules, prompt
+
+    assert copy_rules.TITLE_MIN <= prompt._ASK_TITLE[0] and prompt._ASK_TITLE[1] <= copy_rules.TITLE_MAX
+    assert (copy_rules.DESCRIPTION_MIN <= prompt._ASK_DESCRIPTION[0]
+            and prompt._ASK_DESCRIPTION[1] <= copy_rules.DESCRIPTION_MAX)
+    assert prompt._ASK_NOTE_MAX <= copy_rules.NOTE_TO_USER_MAX
+    for number in (*prompt._ASK_TITLE, *prompt._ASK_DESCRIPTION, prompt._ASK_NOTE_MAX):
+        assert str(number) in prompt.SYSTEM_PROMPT
+
+
+def test_the_persona_speaks_without_knowing_the_user():
+    """«سيمبول» اسم المساعد؛ اسم المستخدم لا مكان له في التعليمات ولا في الطلب."""
+    from eyework import prompt
+
+    assert f"«{prompt.PERSONA}»" in prompt.SYSTEM_PROMPT
+    assert "{" not in prompt.SYSTEM_PROMPT and "display_name" not in prompt.SYSTEM_PROMPT
+    assert "message_to_user" in OUTPUT_SCHEMA["required"]

@@ -263,11 +263,18 @@ def test_signing_in_again_revokes_the_previous_session(owner, seller, browser):
 
 
 # ── ما يعرضه التطبيق عن نفسه ───────────────────────────────────────────
-def test_me_returns_nothing_but_the_generations_left(seller):
-    """معرّف المستخدم أو اسمه في الاستجابة يصل كل سجلٍّ وكل إضافةٍ في المتصفّح."""
-    response = seller.get("/api/me")
-    assert response.status_code == 200
-    assert response.json() == {"generations_left": 40}
+def test_me_returns_the_generations_left_and_only_the_users_own_name(owner, seller, intruder):
+    """
+    لا معرّف ولا اسم دخول: يصلان كل سجلٍّ وكل إضافةٍ في المتصفّح. الاسم الذي
+    يناديه به المساعد وحده، واسم صاحب الجلسة لا غيره.
+    """
+    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": None}
+
+    with owner.cursor() as cursor:
+        cursor.execute("UPDATE users SET display_name = 'عمر' WHERE login_hmac = %s",
+                       (auth.login_hmac(LOGIN_KEY, SELLER),))
+    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": "عمر"}
+    assert intruder.get("/api/me").json()["display_name"] is None
 
 
 def test_me_without_a_session_is_refused(browser):

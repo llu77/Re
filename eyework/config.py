@@ -70,7 +70,23 @@ def _login_key(value: str) -> bytes:
     return key
 
 
+#: متغيّراتٌ تقرؤها مكتبة Anthropic من البيئة بصمت: الأول يغيّر وجهة الصورة،
+#: والثاني يضيف ترويساتٍ إلى كل طلب، والثالث يسجّل الطلبات بما فيها الصورة
+#: والملاحظات، والرابع يحمّل إعداداً من ملفّ. لا مكان لأيٍّ منها هنا.
+SDK_ENVIRONMENT = ("ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS", "ANTHROPIC_LOG", "ANTHROPIC_PROFILE")
+
+
+def _no_sdk_overrides() -> None:
+    present = [name for name in SDK_ENVIRONMENT if os.environ.get(name)]
+    if present:
+        raise ConfigError(
+            "متغيّرات بيئة تغيّر وجهة طلبات النموذج أو تسجّلها: " + "، ".join(present)
+            + ". أزلها قبل تشغيل التطبيق."
+        )
+
+
 def load() -> Settings:
+    _no_sdk_overrides()
     return Settings(
         app_database_url=_required("EYEWORK_APP_DATABASE_URL"),
         login_key=_login_key(_required("EYEWORK_LOGIN_KEY")),

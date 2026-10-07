@@ -45,6 +45,8 @@ COLUMN_WRITES = {
     ("copy_versions", "INSERT"): {
         "campaign_id", "user_id", "attempt_id", "title", "description", "edit_presets",
         "edit_note", "warnings", "served_model", "prompt_version", "api_request_id",
+        # 0003: كلمة المساعد للمستخدم مع النسخة.
+        "assistant_note",
     },
     ("campaign_images", "INSERT"): {"campaign_id", "user_id", "jpeg", "width", "height", "sha256"},
     ("campaign_images", "UPDATE"): {"jpeg", "width", "height", "sha256"},
@@ -52,6 +54,8 @@ COLUMN_WRITES = {
 APP_FUNCTIONS = frozenset({
     "ew_login_lookup", "ew_open_session", "ew_resolve_session", "ew_revoke_session",
     "ew_activate", "ew_begin_generation", "ew_finish_generation",
+    # 0003: اسم صاحب الجلسة وحده، لا قائمة المستخدمين.
+    "ew_my_display_name",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
     "ew_current_user", "ew_budget_allowed", "ew_is_billable", "ew_jpeg_has_no_metadata",
 })

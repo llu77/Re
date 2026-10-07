@@ -46,6 +46,8 @@ const state = {
     busy: false,
     waitingFor: null,
     readyBlob: null,
+    // الاسم الذي يناديه به المساعد، من /api/me. لا يُرسل إلى النموذج.
+    displayName: null,
 };
 
 /* ── الشبكة: موضعٌ واحد ─────────────────────────────────────────────── */
@@ -261,9 +263,19 @@ async function onActivate(event) {
 
 /* ── الرئيسية ───────────────────────────────────────────────────────── */
 
+/* «سيمبول» يتكلّم بلسانه، واسم المستخدم من قاعدة التطبيق: النموذج لا يعرفه. */
+const PERSONA = 'سيمبول';
+
+function greeting() {
+    return state.displayName
+        ? `أنا ${PERSONA}، مساعدك الشخصي يا ${state.displayName}.`
+        : `أنا ${PERSONA}، مساعدك الشخصي.`;
+}
+
 async function renderHome() {
     state.campaign = null;
     const section = UI.show('home');
+    $('home-greeting').textContent = greeting();
     const result = await api('GET', `/api/campaigns?page=${state.page}`);
     if (result.status !== 200) {
         if (result.status !== 401) {
@@ -411,7 +423,8 @@ async function runGeneration(path, json) {
         history.replaceState(null, '', campaignRoute(state.campaign));
         await route();
         if (result.data.result === 'UNUSABLE_PHOTO') {
-            UI.showAlert(UI.screen('photo'), result.data.message);
+            const advice = result.data.assistant_note ? ` ${PERSONA}: ${result.data.assistant_note}` : '';
+            UI.showAlert(UI.screen('photo'), result.data.message + advice);
         }
         return;
     }
@@ -445,6 +458,9 @@ function renderProposal() {
     $('proposal-waiting').hidden = true;
     $('proposal-copy').hidden = false;
     fillCopy('proposal', campaign, copy);
+    const note = $('proposal-note');
+    note.textContent = copy.assistant_note ? `${PERSONA}: ${copy.assistant_note}` : '';
+    note.hidden = !copy.assistant_note;
     $('proposal-warnings').textContent = copy.warnings.length
         ? `تحقّق من هذه العبارة قبل الموافقة: ${copy.warnings.map((w) => WARNING_LABELS[w]).join('، ')}`
         : '';
@@ -935,6 +951,7 @@ async function boot() {
     }
     const me = await api('GET', '/api/me');
     if (me.status === 200) {
+        state.displayName = me.data.display_name || null;
         route();
     }
 }

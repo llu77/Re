@@ -62,7 +62,8 @@ async def _read_image(request: Request) -> images.ProcessedImage:
 def _generation_result(result) -> dict:
     if isinstance(result, campaigns.Unusable):
         return {"result": "UNUSABLE_PHOTO", "reason": result.reason,
-                "message": UNUSABLE.get(result.reason, UNUSABLE["NO_PRODUCT"]), "campaign": result.view}
+                "message": UNUSABLE.get(result.reason, UNUSABLE["NO_PRODUCT"]),
+                "assistant_note": result.note, "campaign": result.view}
     return {"result": "OK", "message": None, "campaign": result}
 
 
