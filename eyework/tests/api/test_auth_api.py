@@ -39,6 +39,7 @@ ACTIVATION_FAILED = {
     "detail": "رابط التفعيل غير صالح أو منتهٍ. اطلب رابطاً جديداً ممن دعاك.",
 }
 THIRTY_DAYS = 30 * 24 * 3600
+RECOVERED = "Recovered-Password-2026-y"
 
 
 def _session_cookie(response) -> tuple[str, dict[str, str]]:
@@ -55,21 +56,35 @@ def _session_cookie(response) -> tuple[str, dict[str, str]]:
     return value, parsed
 
 
-def _invite(owner, username: str, *, hours: int = 24) -> str:
-    """دعوةٌ كما يُنشئها المشغّل: حسابٌ بلا كلمة مرور، ورمزٌ مجزّأ له مهلة."""
+def _issue(owner, user_id, *, age_hours: int = 0) -> str:
+    """
+    رمز تفعيلٍ كما يُصدره المشغّل: مجزّأٌ في القاعدة، صالحٌ يوماً من إصداره.
+    `age_hours` يُرجع لحظة الإصدار إلى الوراء — 25 ⇒ رابطٌ انتهى قبل ساعة.
+    """
     token = auth.new_token()
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO activation_tokens (token_hash, user_id, created_at, expires_at)"
+            " VALUES (%s, %s, now() - make_interval(hours => %s),"
+            "         now() - make_interval(hours => %s) + interval '24 hours')",
+            (hashlib.sha256(token.encode()).digest(), user_id, age_hours, age_hours),
+        )
+    return token
+
+
+def _invite(owner, username: str, *, age_hours: int = 0) -> str:
+    """دعوةٌ كما يُنشئها المشغّل: حسابٌ بلا كلمة مرور، ورمزٌ مجزّأ له مهلة."""
     with owner.cursor() as cursor:
         cursor.execute(
             "INSERT INTO users (login_hmac) VALUES (%s) RETURNING id",
             (auth.login_hmac(LOGIN_KEY, username),),
         )
         user_id = cursor.fetchone()[0]
-        cursor.execute(
-            "INSERT INTO activation_tokens (token_hash, user_id, expires_at)"
-            " VALUES (%s, %s, now() + make_interval(hours => %s))",
-            (hashlib.sha256(token.encode()).digest(), user_id, hours),
-        )
-    return token
+    return _issue(owner, user_id, age_hours=age_hours)
+
+
+def _activate(client, token: str, username: str = SELLER, password: str = PASSWORD):
+    return client.post("/api/auth/activate", json={"token": token, "username": username, "password": password})
 
 
 # ── الدخول ─────────────────────────────────────────────────────────────
@@ -115,16 +130,24 @@ def test_every_login_failure_looks_the_same(owner, browser):
 
 
 def test_sixth_login_for_one_name_within_a_minute_is_refused(owner, browser):
-    """بلا حدٍّ لكل اسم يُخمَّن كلمة مرورٍ بلا نهاية."""
+    """
+    بلا حدٍّ لكل اسم يُخمَّن كلمة مرورٍ بلا نهاية. والاسم بأشكاله التي يوحّدها
+    الدخول (حالة الأحرف، والمسافات حوله) اسمٌ واحد: حدٌّ على النصّ الخام
+    يُتجاوز بتبديل الحالة.
+    """
     add_user(owner, SELLER)
     client = browser()
-    for _ in range(5):
-        assert log_in(client, SELLER, "wrong-password-123").status_code == 401
+    for variant in (SELLER, SELLER.upper(), f" {SELLER} ", SELLER.title(), SELLER):
+        assert log_in(client, variant, "wrong-password-123").status_code == 401
 
     refused = log_in(client, SELLER, PASSWORD)
     assert refused.status_code == 429
+    assert refused.json()["code"] == "RATE"
     assert 1 <= int(refused.headers["retry-after"]) <= 61
     assert "set-cookie" not in refused.headers
+
+    # الحدّ لكل اسم لا لكل جهاز: اسمٌ آخر من الجهاز نفسه يُجاب كالمعتاد.
+    assert log_in(client, INTRUDER, PASSWORD).json() == LOGIN_FAILED
 
 
 def test_a_successful_login_resets_the_counter_for_that_name(owner, browser):
@@ -145,15 +168,16 @@ def test_activation_sets_the_password_and_signs_in_once(owner, browser):
     """رابط دعوةٍ يعمل مرتين يسلّم الحساب لكل من رأى الرابط بعد صاحبه."""
     token = _invite(owner, SELLER)
     client = browser()
-    body = {"token": token, "username": SELLER, "password": PASSWORD}
 
-    activated = client.post("/api/auth/activate", json=body)
+    activated = _activate(client, token)
     assert activated.status_code == 204
     session, attributes = _session_cookie(activated)
-    assert attributes["max-age"] == str(THIRTY_DAYS)
+    assert (attributes["max-age"], attributes["path"], attributes["samesite"].lower()) == (
+        str(THIRTY_DAYS), "/", "strict")
+    assert {"httponly", "secure"} <= attributes.keys() and "domain" not in attributes
     assert client.get("/api/me").status_code == 200
 
-    again = browser().post("/api/auth/activate", json={**body, "password": "Another-Password-2026"})
+    again = _activate(browser(), token, password="Another-Password-2026")
     assert again.status_code == 422
     assert again.json() == ACTIVATION_FAILED
     assert "set-cookie" not in again.headers
@@ -167,22 +191,58 @@ def test_activation_with_another_username_is_refused(owner, browser):
     """رابطٌ عُبث باسمه يجعل المتصفّح يحفظ كلمة المرور تحت اسمٍ غير اسم الحساب."""
     token = _invite(owner, SELLER)
     client = browser()
-    response = client.post("/api/auth/activate",
-                           json={"token": token, "username": INTRUDER, "password": PASSWORD})
+    response = _activate(client, token, INTRUDER)
     assert response.status_code == 422
     assert response.json() == ACTIVATION_FAILED
     assert "set-cookie" not in response.headers
     assert client.get("/api/me").status_code == 401
+
+    # لم يضع كلمةً لأيّ اسم، ولم يستهلك الرابط: صاحبه يفعّل به بعدها.
+    assert log_in(browser(), SELLER).status_code == 401
+    assert log_in(browser(), INTRUDER).status_code == 401
+    assert _activate(browser(), token).status_code == 204
+
+
+def test_an_expired_activation_link_is_refused(owner, browser):
+    """رابطٌ منتهٍ يعمل يسلّم الحساب لكل من وجد رسالة دعوةٍ قديمة."""
+    token = _invite(owner, SELLER, age_hours=25)
+    response = _activate(browser(), token)
+    assert response.status_code == 422
+    assert response.json() == ACTIVATION_FAILED
+    assert "set-cookie" not in response.headers
+    assert log_in(browser()).status_code == 401
+
+
+def test_a_recovery_link_signs_out_every_other_session(owner, seller, browser):
+    """رابط استردادٍ بعد فقد جهازٍ يترك الجهاز المفقود داخل الحساب إن لم يُبطل جلساته."""
+    lost = seller.cookies.get(COOKIE)
+    bare = browser(write_headers=False)
+    assert bare.get("/api/me", headers=with_cookie(lost)).status_code == 200
+
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT id FROM users WHERE login_hmac = %s", (auth.login_hmac(LOGIN_KEY, SELLER),))
+        (user_id,) = cursor.fetchone()
+    recovered = browser()
+    assert _activate(recovered, _issue(owner, user_id), password=RECOVERED).status_code == 204
+
+    assert recovered.get("/api/me").status_code == 200
+    assert bare.get("/api/me", headers=with_cookie(lost)).status_code == 401
+    assert log_in(browser(), SELLER, PASSWORD).status_code == 401
+    assert log_in(browser(), SELLER, RECOVERED).status_code == 204
 
 
 # ── الخروج وتبديل الجلسة ───────────────────────────────────────────────
 def test_logout_revokes_the_session_in_the_database(seller, browser):
     """خروجٌ يمحو الملفّ من المتصفّح وحده يترك نسخةً منسوخةً منه جلسةً عاملة."""
     token = seller.cookies.get(COOKIE)
+    bare = browser(write_headers=False)
+    # الرمز المنسوخ يعمل قبل الخروج — فرفضه بعده من القاعدة لا من شكله.
+    assert bare.get("/api/me", headers=with_cookie(token)).status_code == 200
+
     assert seller.post("/api/auth/logout").status_code == 204
     assert seller.get("/api/me").status_code == 401
 
-    replay = browser(write_headers=False).get("/api/me", headers=with_cookie(token))
+    replay = bare.get("/api/me", headers=with_cookie(token))
     assert replay.status_code == 401
     assert replay.json()["code"] == "SESSION"
 

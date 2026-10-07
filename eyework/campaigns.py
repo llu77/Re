@@ -354,7 +354,7 @@ def _finish(db: Database, user_id: UUID, campaign_id: UUID, attempt: UUID, outco
                 return _view(cursor, campaign_id)
         except Exception as exc:
             # النصّ لم يُكتب، والمحاولة تُغلق محسوبةً في كل حال — محاولةٌ تبقى
-            # مفتوحة تمنع صاحبها من غيرها أربع دقائق.
+            # مفتوحة تمنع صاحبها من غيرها خمس دقائق.
             _close(db, user_id, attempt, "DISCARDED", tokens)
             if isinstance(exc, pg_errors.CheckViolation) and exc.diag.constraint_name in (
                 "version_sequence", "version_needs_open_attempt",

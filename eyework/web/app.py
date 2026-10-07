@@ -122,27 +122,33 @@ def create_app(
     app.state.copywriter = copywriter or AnthropicCopywriter(settings.anthropic_api_key)
     app.state.limiters = Limiters.default()
 
+    def refusal(request: Request) -> JSONResponse | None:
+        """ما يُرفض قبل أن يصل الطلب إلى مسار، أو None."""
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return None
+        # CSRF: ترويسةٌ لا تُرسلها صفحةٌ أجنبية دون CORS، وأصلٌ لا يُزوَّر.
+        if (request.headers.get("x-eyework") != "1"
+                or request.headers.get("origin") != settings.public_origin):
+            return JSONResponse(status_code=403, content=_FORBIDDEN)
+        if request.headers.get("content-type", "").startswith("application/json"):
+            length = request.headers.get("content-length")
+            if length is None or not length.isdigit():
+                return JSONResponse(status_code=411, content={"code": "LENGTH", "detail": "حجم الطلب مطلوب."})
+            if int(length) > JSON_BODY_LIMIT:
+                return JSONResponse(status_code=413, content={"code": "BODY", "detail": "الطلب أكبر من المسموح."})
+        return None
+
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        if request.method not in ("GET", "HEAD", "OPTIONS"):
-            # CSRF: ترويسةٌ لا تُرسلها صفحةٌ أجنبية دون CORS، وأصلٌ لا يُزوَّر.
-            if (request.headers.get("x-eyework") != "1"
-                    or request.headers.get("origin") != settings.public_origin):
-                return JSONResponse(status_code=403, content=_FORBIDDEN)
-            content_type = request.headers.get("content-type", "")
-            if content_type.startswith("application/json"):
-                length = request.headers.get("content-length")
-                if length is None or not length.isdigit():
-                    return JSONResponse(status_code=411, content={"code": "LENGTH", "detail": "حجم الطلب مطلوب."})
-                if int(length) > JSON_BODY_LIMIT:
-                    return JSONResponse(status_code=413, content={"code": "BODY", "detail": "الطلب أكبر من المسموح."})
-
-        try:
-            response = await call_next(request)
-        except Exception as exc:
-            # معالج Exception في Starlette يعمل خارج هذا الغلاف، فلا تلحق
-            # ردَّه الترويسات أدناه. يُبنى هنا ليمرّ بها كغيره.
-            response = _internal(request, exc)
+        # كل ردٍّ يمرّ بالترويسات أدناه، ومنه رفضُ هذا الغلاف نفسه.
+        response = refusal(request)
+        if response is None:
+            try:
+                response = await call_next(request)
+            except Exception as exc:
+                # معالج Exception في Starlette يعمل خارج هذا الغلاف، فلا تلحق
+                # ردَّه الترويسات أدناه. يُبنى هنا ليمرّ بها كغيره.
+                response = _internal(request, exc)
 
         path = request.url.path
         response.headers["Content-Security-Policy"] = PROBE_CSP if path.startswith("/probe") else APP_CSP

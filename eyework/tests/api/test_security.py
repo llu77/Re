@@ -52,6 +52,11 @@ from eyework.web.app import create_app
 FORBIDDEN = {"code": "ORIGIN", "detail": "طلبٌ من خارج التطبيق."}
 INTERNAL = {"code": "INTERNAL", "detail": "حدث خطأ. حاول مرة أخرى."}
 ONE_YEAR = 365 * 24 * 3600
+REQUIRED_HEADERS = (
+    "content-security-policy", "x-frame-options", "referrer-policy", "x-content-type-options",
+    "permissions-policy", "cross-origin-opener-policy", "cross-origin-resource-policy",
+    "strict-transport-security", "cache-control",
+)
 
 #: (المسار، الحالة المتوقّعة، النوع) لكل سطحٍ يخدمه التطبيق.
 SURFACES = [
@@ -72,6 +77,37 @@ def _csp(response) -> dict[str, list[str]]:
         name, *sources = directive.split()
         directives[name] = sources
     return directives
+
+
+def _assert_security_headers(response, kind: str) -> None:
+    """ما يُطبَّق على كل استجابة، كما يعلنه `eyework/web/app.py`. `kind`: api أو static أو probe."""
+    headers = response.headers
+    missing = sorted(set(REQUIRED_HEADERS) - set(headers.keys()))
+    assert not missing, f"{response.status_code} {response.request.url.path} بلا: {missing}"
+    csp = _csp(response)
+    assert csp["default-src"] == ["'self'"]
+    assert csp["script-src"] == ["'self'"]
+    assert csp["style-src"] == ["'self'"]
+    assert csp["object-src"] == ["'none'"]
+    assert csp["base-uri"] == ["'none'"]
+    assert csp["frame-ancestors"] == ["'none'"]
+    if kind == "probe":
+        assert csp["connect-src"] == ["'none'"]
+        assert csp["form-action"] == ["'none'"]
+    else:
+        assert csp["connect-src"] == ["'self'"]
+        assert csp["form-action"] == ["'self'"]
+
+    assert headers["x-frame-options"] == "DENY"
+    assert headers["referrer-policy"] == "same-origin"
+    assert headers["x-content-type-options"] == "nosniff"
+    assert "camera=()" in [policy.strip() for policy in headers["permissions-policy"].split(",")]
+    assert headers["cross-origin-opener-policy"] == "same-origin"
+    assert headers["cross-origin-resource-policy"] == "same-origin"
+
+    hsts = dict(part.strip().partition("=")[::2] for part in headers["strict-transport-security"].split(";"))
+    assert int(hsts["max-age"]) >= ONE_YEAR
+    assert headers["cache-control"] == ("no-store" if kind == "api" else "no-cache")
 
 
 def _forged(client, method: str, url: str, *, drop: tuple[str, ...] = (), headers: dict | None = None, **kwargs):
@@ -138,35 +174,10 @@ def test_every_surface_carries_the_security_headers(browser, route, status, kind
     """استجابةٌ واحدة بلا هذه الترويسات تُؤطَّر، أو تُشمّ نوعاً آخر، أو تُخبّأ."""
     response = browser().get(route)
     assert response.status_code == status
-    headers = response.headers
-
-    csp = _csp(response)
-    assert csp["default-src"] == ["'self'"]
-    assert csp["script-src"] == ["'self'"]
-    assert csp["style-src"] == ["'self'"]
-    assert csp["object-src"] == ["'none'"]
-    assert csp["base-uri"] == ["'none'"]
-    assert csp["frame-ancestors"] == ["'none'"]
-    if kind == "probe":
-        assert csp["connect-src"] == ["'none'"]
-        assert csp["form-action"] == ["'none'"]
-    else:
-        assert csp["connect-src"] == ["'self'"]
-        assert csp["form-action"] == ["'self'"]
-
-    assert headers["x-frame-options"] == "DENY"
-    assert headers["referrer-policy"] == "same-origin"
-    assert headers["x-content-type-options"] == "nosniff"
-    assert "camera=()" in [policy.strip() for policy in headers["permissions-policy"].split(",")]
-    assert headers["cross-origin-opener-policy"] == "same-origin"
-    assert headers["cross-origin-resource-policy"] == "same-origin"
-
-    hsts = dict(part.strip().partition("=")[::2] for part in headers["strict-transport-security"].split(";"))
-    assert int(hsts["max-age"]) >= ONE_YEAR
-    assert headers["cache-control"] == ("no-store" if kind == "api" else "no-cache")
+    _assert_security_headers(response, kind)
 
 
-def test_an_unexpected_error_still_carries_the_security_headers(browser, owner, monkeypatch):
+def test_an_unexpected_error_still_carries_the_security_headers(browser, owner, monkeypatch, caplog):
     """
     «ما يُطبَّق على كل استجابة» يشمل استجابة الخطأ غير المتوقَّع: بلا
     `no-store` ولا `nosniff` ولا CSP تُخبّأ وتُشمّ كما تشاء الوسائط.
@@ -175,14 +186,31 @@ def test_an_unexpected_error_still_carries_the_security_headers(browser, owner, 
         raise RuntimeError("row (00000000-..., secret copy) failed")
 
     monkeypatch.setattr(campaigns, "remaining_generations", broken)
+    caplog.set_level(logging.DEBUG)
     client = signed_in(owner, browser, SELLER, raise_server_exceptions=False)
     response = client.get("/api/me")
     assert response.status_code == 500
     assert response.json() == INTERNAL
     assert "secret copy" not in response.text
-    assert response.headers.get("cache-control") == "no-store"
-    assert response.headers.get("x-content-type-options") == "nosniff"
-    assert "content-security-policy" in response.headers
+    _assert_security_headers(response, "api")
+    # السجلّ يسمّي الصنف والمسار، لا نصّ الاستثناء.
+    assert all("secret copy" not in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.parametrize("refusal", ["foreign-origin", "json-over-16-kib"])
+def test_the_guards_own_refusals_carry_the_security_headers(browser, refusal):
+    """
+    رفض الحارس نفسه استجابةٌ كغيرها: 403 أو 413 بلا `no-store` ولا `nosniff`
+    ولا CSP ولا HSTS يخالف «ما يُطبَّق على كل استجابة».
+    """
+    client = browser()
+    if refusal == "foreign-origin":
+        response = _forged(client, "POST", "/api/auth/logout", headers={"Origin": "https://evil.example"})
+        assert response.status_code == 403
+    else:
+        response = client.post("/api/auth/login", json={"username": SELLER, "password": "x" * (16 * 1024)})
+        assert response.status_code == 413
+    _assert_security_headers(response, "api")
 
 
 # ── الحجم والنوع ───────────────────────────────────────────────────────
@@ -231,7 +259,10 @@ def test_a_named_constraint_answers_with_its_fixed_message(seller, monkeypatch, 
     assert response.json() == {"code": "BUDGET_RANGE", "detail": "اختر مبلغاً من القيم المعروضة."}
     for leak in ("budget_in_domain", "violates", "Failing row", "campaigns", view["id"]):
         assert leak not in response.text
-    # السجلّ يسمّي القيد والمسار وحدهما، لا نصّ القاعدة ولا الصفّ المخالف.
+    # الردّ نفسه يأتي من فحص بايثون أيضاً؛ سطر القيد في السجلّ يثبت أن القاعدة
+    # هي التي رفضت هنا. والسجلّ يسمّي القيد والمسار وحدهما، لا نصّ القاعدة.
+    named = [record.getMessage() for record in caplog.records if record.name == "eyework.web"]
+    assert any("budget_in_domain" in message for message in named), named
     for record in caplog.records:
         assert "violates" not in record.getMessage()
         assert "Failing row" not in record.getMessage()
@@ -287,6 +318,9 @@ def test_the_app_refuses_to_start_from_an_owner_url_alone(owner_url, monkeypatch
     try:
         with pytest.raises(UnsafeRole):
             create_app(settings, copywriter=FakeCopywriter())
+        # التجمّع الذي بناه المصنع يُغلق معه: إقلاعٌ فاشل لا يترك اتصالات المالك مفتوحة.
+        assert len(opened) == 1
+        assert opened[0]._pool.closed
     finally:
         for database in opened:
             database.close()

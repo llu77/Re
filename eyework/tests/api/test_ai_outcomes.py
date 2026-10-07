@@ -185,11 +185,14 @@ def test_the_seventh_generation_within_ten_minutes_is_refused_before_the_model(s
 
 # ── الرصيد اليومي ──────────────────────────────────────────────────────
 @pytest.mark.parametrize(("outcome", "counted"), [
-    ("UPSTREAM_BUSY", False),
-    ("UPSTREAM_UNREACHABLE", False),
-    ("UPSTREAM_ERROR", False),
-    ("REFUSED", True),
-    ("OUTPUT_INVALID", True),
+    pytest.param(CopyOutcome("UPSTREAM_BUSY"), False, id="UPSTREAM_BUSY"),
+    pytest.param(CopyOutcome("UPSTREAM_UNREACHABLE"), False, id="UPSTREAM_UNREACHABLE"),
+    pytest.param(CopyOutcome("UPSTREAM_ERROR"), False, id="UPSTREAM_ERROR"),
+    pytest.param(CopyOutcome("REFUSED"), True, id="REFUSED"),
+    pytest.param(CopyOutcome("OUTPUT_INVALID"), True, id="OUTPUT_INVALID"),
+    pytest.param(CopyOutcome("UPSTREAM_TIMEOUT"), True, id="UPSTREAM_TIMEOUT"),
+    pytest.param(CopyOutcome("UNUSABLE_PHOTO", reason="NO_PRODUCT"), True, id="UNUSABLE_PHOTO"),
+    pytest.param(ok(), True, id="OK"),
 ])
 def test_generations_left_counts_only_what_may_have_been_billed(seller, writer, owner, outcome, counted):
     """
@@ -198,13 +201,60 @@ def test_generations_left_counts_only_what_may_have_been_billed(seller, writer, 
     """
     view = upload(seller)
     assert _left(seller) == DAILY
-    writer.queue(CopyOutcome(outcome))
+    writer.queue(outcome)
     _copy(seller, view)
 
     assert _left(seller) == DAILY - int(counted)
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FILTER (WHERE ew_is_billable(outcome)) FROM generation_attempts")
         assert _left(seller) == DAILY - cursor.fetchone()[0]
+
+
+def test_generations_left_counts_only_the_users_own_attempts(seller, intruder):
+    """رصيدٌ يعدّ محاولات غيرك يُنفد رصيدك بعمل غيرك، ويكشف لك أن غيرك يعمل."""
+    generate(intruder, upload(intruder))
+    assert _left(intruder) == DAILY - 1
+    assert _left(seller) == DAILY
+
+
+def _earlier_today(owner, view: dict, outcomes: list[str]) -> None:
+    """
+    محاولاتٌ منتهية بدأت قبل ساعة — داخل اليوم وخارج نافذة المعدّل. بالمالك
+    لا بالطلبات: سقف المعدّل نفسه يمنع بناء يومٍ كامل في اختبار.
+    """
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT user_id FROM campaigns WHERE id = %s", (view["id"],))
+        (user_id,) = cursor.fetchone()
+        for outcome in outcomes:
+            cursor.execute(
+                "INSERT INTO generation_attempts"
+                " (campaign_id, user_id, kind, image_sha256, started_at, finished_at, outcome)"
+                " VALUES (%s, %s, 'INITIAL', %s, now() - interval '1 hour', now() - interval '1 hour', %s)",
+                (view["id"], user_id, bytes(32), outcome),
+            )
+
+
+def test_the_last_generation_shown_is_the_last_one_allowed(owner, seller, writer):
+    """
+    «بقي واحد» يجب أن يعني أن واحداً يمرّ، و«صفر» أن التالي يُرفض: رصيدٌ
+    يخالف السقف المفروض يمنع صاحبه وهو لم ينفد، أو يعده بما سيُرفض.
+    """
+    view = upload(seller)
+    _earlier_today(owner, view, ["OUTPUT_INVALID"] * (DAILY - 1) + ["UPSTREAM_BUSY"] * 5)
+    assert _left(seller) == 1
+
+    view = generate(seller, view)
+    assert _left(seller) == 0
+
+    calls = len(writer.requests)
+    refused = seller.post(path(view, "/copy/edit"), json={
+        "expected_row_version": view["row_version"], "expected_version_id": view["copy"]["version_id"],
+        "presets": ["SHORTER"]})
+    assert refused.status_code == 429
+    assert refused.json() == {"code": "AI_DAILY", "detail": "بلغتَ حدّ اليوم من طلبات الكتابة. حاول غداً."}
+    assert refused.headers["retry-after"] == "3600"
+    assert len(writer.requests) == calls
+    assert open_attempts(owner) == 0
 
 
 # ── ما يراه النموذج ────────────────────────────────────────────────────

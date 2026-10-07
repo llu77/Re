@@ -43,6 +43,7 @@ from eyework.tests.api.conftest import (
 from eyework.tests.fakes import DESCRIPTION, ok
 
 NOT_FOUND = {"code": "NOT_FOUND", "detail": "الحملة غير موجودة."}
+STALE = {"code": "STALE", "detail": "تغيّرت الحملة منذ عرضها. راجعها مرة أخرى."}
 
 SHORTER_TITLE = "حقيبة جلدية بنية"
 SHORTER_DESCRIPTION = "حقيبة يد من الجلد البني بتصميمٍ بسيط، تتّسع للأغراض اليومية ولها حزام كتف."
@@ -238,13 +239,16 @@ def test_every_mutation_refuses_a_row_version_other_than_the_current(seller, wri
     """
     view = _prepare(seller, name)
     before = current(seller, view)
-    calls = len(writer.requests)
+    calls, tried = len(writer.requests), len(attempts(owner))
     stale = view["row_version"] - 1 if view["row_version"] > 1 else view["row_version"] + 1
 
     refused = _send(seller, name, view, stale)
     assert refused.status_code == 409, refused.text
+    assert refused.json() == STALE
     assert current(seller, view) == before
+    # ولا محاولةٌ محسوبة: ضغطةٌ قديمة لا تستهلك من رصيد صاحبها.
     assert len(writer.requests) == calls
+    assert len(attempts(owner)) == tried
     assert open_attempts(owner) == 0
 
     # الطلب نفسه برقم الصفّ الحالي ينجح: لم يُرفض لسببٍ آخر.
@@ -271,12 +275,12 @@ def test_confirm_refuses_anything_but_what_was_shown(seller, change):
 
 # ── حملة غيرك ──────────────────────────────────────────────────────────
 @pytest.mark.parametrize("name", ["read", "read_image", *MUTATIONS])
-def test_another_users_campaign_does_not_exist_on_any_route(seller, intruder, writer, name):
+def test_another_users_campaign_does_not_exist_on_any_route(seller, intruder, writer, owner, name):
     """403 يقول «موجودةٌ وليست لك»؛ ومسارٌ واحد ينسى العزل يكشف حملات غيرك."""
     view = _prepare(seller, name if name in MUTATIONS else "copy")
     before = current(seller, view)
     image = seller.get(path(view, "/image")).content
-    calls = len(writer.requests)
+    calls, tried = len(writer.requests), len(attempts(owner))
 
     if name == "read":
         response = intruder.get(path(view))
@@ -291,6 +295,7 @@ def test_another_users_campaign_does_not_exist_on_any_route(seller, intruder, wr
     assert current(seller, view) == before
     assert seller.get(path(view, "/image")).content == image
     assert len(writer.requests) == calls
+    assert len(attempts(owner)) == tried
     assert intruder.get("/api/campaigns").json()["items"] == []
 
 
