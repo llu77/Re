@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <!--
+        لا شيء يغادر الجهاز: CSP هنا تمنع أي اتصال، والخادم يرسل مثلها في
+        الترويسة. تشغيل هذا الاختبار نفسُه معلومةٌ عن صاحبه، فلا يُرسَل.
+    -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; connect-src 'none'; form-action 'none'; img-src 'self' blob:; script-src 'self'; style-src 'self'; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'">
+    <meta name="referrer" content="no-referrer">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="فحص الإدخال">
+    <meta name="theme-color" content="#061840">
+    <title>فحص الإدخال</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="../icon-192.png">
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+    <link rel="stylesheet" href="../fonts.css">
+    <link rel="stylesheet" href="probe.css">
+    <script src="probe.js" defer></script>
+</head>
+<body>
+<main class="frame">
+    <header class="head">
+        <h1 id="heading" tabindex="-1">فحص الإدخال</h1>
+        <p class="step" id="step-label">١ من ٩</p>
+    </header>
+
+    <!-- ١: البيئة -->
+    <section class="sec" data-section="env">
+        <p>هل يصل الضغط بالنظر إلى صفحات الويب؟ لا يُرسَل شيء ولا يُحفظ. شغّله في Safari، ثم من الشاشة الرئيسية.</p>
+        <p class="label" id="mode-label">طريقة الاختبار</p>
+        <div class="row" role="group" aria-labelledby="mode-label">
+            <button type="button" class="btn" data-mode="gaze" aria-pressed="true">بالنظر</button>
+            <button type="button" class="btn" data-mode="touch" aria-pressed="false">باللمس</button>
+        </div>
+        <dl class="facts" id="env"></dl>
+    </section>
+
+    <!-- ٢: الضغط -->
+    <section class="sec" data-section="activation" hidden>
+        <p>انظر إلى كل مربّع حتى يُضغط، مرة واحدة لكلٍّ منها.</p>
+        <div class="stage">
+            <button type="button" class="target t44" data-probe="t44">٤٤</button>
+            <button type="button" class="target t56" data-probe="t56">٥٦</button>
+            <button type="button" class="target t72" data-probe="t72">٧٢</button>
+            <button type="button" class="target t96" data-probe="t96">٩٦</button>
+        </div>
+        <ol class="log" id="log-activation" aria-live="polite"></ol>
+    </section>
+
+    <!-- ٣: إعادة الضغط -->
+    <section class="sec" data-section="rearm" hidden>
+        <p>انظر إلى الزر حتى يُضغط، ثم أبقِ نظرك عليه. سيحلّ مكانه زرٌّ آخر.</p>
+        <div class="swap">
+            <button type="button" class="btn big" id="rearm-a" data-probe="rearm-a">الزر الأول</button>
+            <button type="button" class="btn big" id="rearm-b" data-probe="rearm-b" hidden>الزر الثاني</button>
+        </div>
+        <p class="result" id="rearm-result" role="status">لم يُختبر بعد.</p>
+        <button type="button" class="btn" id="rearm-reset">أعد هذا الاختبار</button>
+    </section>
+
+    <!-- ٤: الضغط المتكرر -->
+    <section class="sec" data-section="stepper" hidden>
+        <p>اضغط «زِد» ثلاث مرات بالضبط، ثم «تمّ».</p>
+        <p class="value" id="stepper-value" aria-live="polite">٠</p>
+        <div class="row">
+            <button type="button" class="btn" id="stepper-plus" data-probe="stepper">زِد</button>
+            <button type="button" class="btn" id="stepper-done" data-probe="stepper-done">تمّ</button>
+        </div>
+        <p class="result" id="stepper-result" role="status">لم يُختبر بعد.</p>
+        <button type="button" class="btn" id="stepper-reset">صفّر</button>
+    </section>
+
+    <!-- ٥: التمرير -->
+    <section class="sec" data-section="scroll" hidden>
+        <p>مرّر القائمة (من قائمة AssistiveTouch) ثم اضغط «العنصر ٨».</p>
+        <div class="scroller" id="scroller" tabindex="0" aria-label="قائمة للتمرير"></div>
+        <p class="result" id="scroll-result" role="status">لم يُختبر بعد.</p>
+    </section>
+
+    <!-- ٦: الصورة والاختيار -->
+    <section class="sec" data-section="inputs" hidden>
+        <label class="btn big file" for="probe-file" data-probe="file">اختر صورة</label>
+        <input type="file" id="probe-file" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+        <p class="result" id="file-result" role="status">لم تُختر صورة. يظهر النوع والحجم فقط، ولا تُقرأ الصورة.</p>
+        <label class="check" data-probe="check">
+            <input type="checkbox" id="probe-check">
+            <span>علّم هذا المربّع</span>
+        </label>
+        <button type="button" class="btn" id="dialog-open" data-probe="dialog-open">افتح نافذة</button>
+        <dialog id="probe-dialog" aria-labelledby="dialog-title">
+            <p id="dialog-title">نافذة للاختبار. أغلقها بالزر.</p>
+            <button type="button" class="btn" id="dialog-close" data-probe="dialog-close">أغلق النافذة</button>
+        </dialog>
+    </section>
+
+    <!-- ٧: الكتابة -->
+    <section class="sec" data-section="typing" hidden>
+        <label class="label" for="probe-text">اكتب كلمة «نعم» ثم اضغط «تمّ»</label>
+        <input type="text" id="probe-text" class="field" autocomplete="off" autocapitalize="none" spellcheck="false" data-probe="text">
+        <button type="button" class="btn" id="text-done" data-probe="text-done">تمّ</button>
+        <p class="result" id="text-result" role="status">لم يُختبر بعد. لا يُحفظ ما تكتبه.</p>
+    </section>
+
+    <!-- ٨: النتيجة -->
+    <section class="sec" data-section="verdict" hidden>
+        <p class="verdict" id="verdict" role="status"></p>
+        <div class="row">
+            <button type="button" class="btn" id="share" data-probe="share">جرّب المشاركة</button>
+            <button type="button" class="btn" id="copy" data-probe="copy">انسخ النتيجة</button>
+        </div>
+        <table class="checks">
+            <thead><tr><th scope="col">الفحص</th><th scope="col">النتيجة</th></tr></thead>
+            <tbody id="checks-core"></tbody>
+        </table>
+    </section>
+
+    <!-- ٩: التفاصيل -->
+    <section class="sec" data-section="details" hidden>
+        <table class="checks">
+            <thead><tr><th scope="col">الملاحظة</th><th scope="col">القيمة</th></tr></thead>
+            <tbody id="checks-detail"></tbody>
+        </table>
+    </section>
+
+    <nav class="nav" aria-label="أقسام الاختبار">
+        <button type="button" class="btn" id="next">التالي</button>
+        <button type="button" class="btn" id="prev">السابق</button>
+    </nav>
+</main>
+</body>
+</html>

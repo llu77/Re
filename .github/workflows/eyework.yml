@@ -1,0 +1,84 @@
+name: eyework
+
+# تطبيقٌ مستقلّ بفحصٍ مستقلّ. بلا تصفية مسارات عمداً: اختبار «المنصّة لا
+# تعرف التطبيق» يجب أن يعمل أيضاً على طلبات الدمج التي لا تلمس إلا المنصّة.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      EYEWORK_TEST_DATABASE_URL: postgresql://eyework_owner:eyework_ci_owner@localhost:5432/eyework_test
+      EYEWORK_OWNER_DATABASE_URL: postgresql://eyework_owner:eyework_ci_owner@localhost:5432/eyework_test
+      EYEWORK_APP_PASSWORD: eyework_ci_app
+      # غياب القاعدة أو المتصفّح فشلٌ هنا لا تجاوز: فحصٌ يُتجاوز بصمت يبدو
+      # أخضر وهو لم يفحص شيئاً.
+      EYEWORK_REQUIRE_DB: '1'
+      EYEWORK_REQUIRE_BROWSER: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: التبعيات
+        run: pip install -r eyework/requirements-dev.txt
+
+      - name: المتصفّح
+        run: python -m playwright install --with-deps chromium
+
+      - name: عميل PostgreSQL للمقارنة بين لقطات المخطّط
+        run: sudo apt-get install -y --no-install-recommends postgresql-client-16
+
+      # الأدوار تُنشأ هنا لا في الترحيل، ولا يحمل أيٌّ منها صلاحيةً تتجاوز العزل.
+      - name: الأدوار والقاعدة
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE eyework_owner LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB
+              PASSWORD 'eyework_ci_owner';
+          CREATE ROLE eyework_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB
+              PASSWORD 'eyework_ci_app';
+          CREATE DATABASE eyework_test OWNER eyework_owner;
+          SQL
+
+      - name: الترحيلات صعوداً ونزولاً وصعوداً
+        run: |
+          python -m eyework.migrations.run up
+          python -m eyework.migrations.run down --all
+          python -m eyework.migrations.run up
+
+      - name: الاختبارات
+        run: python -m pytest eyework/tests -q
+
+      - name: لا عملٌ لم يكتمل في مسار الإنتاج
+        run: |
+          ! grep -rniE '\b(TODO|FIXME|XXX|HACK)\b' \
+              --include='*.py' --include='*.sql' --include='*.js' --include='*.html' --include='*.css' \
+              --exclude-dir=tests eyework/

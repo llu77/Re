@@ -1,0 +1,200 @@
+"""
+أداة المشغّل
+============
+تعمل بدور المالك (`EYEWORK_OWNER_DATABASE_URL`) من سطر الأوامر، لا من الويب:
+خادم الويب لا يملك هذه الصلاحيات أصلاً.
+
+    python -m eyework.admin create-user --login ali@example.sa
+    python -m eyework.admin reissue-activation --login ali@example.sa
+    python -m eyework.admin deactivate --login ali@example.sa
+    python -m eyework.admin delete-user --login ali@example.sa --confirm-delete-all-data
+    python -m eyework.admin purge
+
+**الدعوة رابطٌ يُطبع، لا يُرسل.** لا بريد يخرج من التطبيق ولا يُخزَّن: المشغّل
+يسلّم الرابط بنفسه، ويحفظ صلة الاسم بصاحبه خارج النظام. والرمز في جزء
+الرابط بعد `#`، فلا يصل خادماً ولا سجلّاً ولا إحالة.
+
+**اسم الدخول بحروفٍ لاتينية بسيطة.** التوحيد (NFKC) لا يجمع «أ» و«ا» ولا «ى»
+و«ي»؛ اسمٌ عربي قد يُكتب عند الدخول بغير ما كُتب عند الدعوة فلا يطابق.
+
+**الاحتفاظ.** `purge` يُشغَّل يومياً من مجدول النظام: الحملة المعتمدة أو
+الملغاة تُحذف بعد تسعين يوماً، وغير المنتهية بعد ثلاثين يوماً من آخر تعديل،
+والجلسات والرموز المنتهية بعد ثلاثين يوماً.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import sys
+
+import psycopg
+
+from eyework import auth, config
+
+__all__ = ["main"]
+
+ACTIVATION_HOURS = 72
+_LOGIN = re.compile(r"^[a-z0-9._@+-]{3,254}$")
+
+_CREATE_USER = "INSERT INTO users (login_hmac) VALUES (%s) RETURNING id"
+_USER_BY_LOGIN = "SELECT id, is_active FROM users WHERE login_hmac = %s"
+_CLOSE_TOKENS = "UPDATE activation_tokens SET used_at = now() WHERE user_id = %s AND used_at IS NULL"
+_NEW_TOKEN = """
+INSERT INTO activation_tokens (token_hash, user_id, expires_at)
+VALUES (%s, %s, now() + make_interval(hours => %s))
+"""
+_DEACTIVATE = "UPDATE users SET is_active = false WHERE id = %s"
+_REVOKE_ALL = "UPDATE sessions SET revoked_at = now() WHERE user_id = %s AND revoked_at IS NULL"
+_DELETE_USER = "DELETE FROM users WHERE id = %s"
+
+_PURGE_FINAL = """
+DELETE FROM campaigns
+ WHERE (status = 'READY' AND ready_at < now() - interval '90 days')
+    OR (status = 'CANCELLED' AND cancelled_at < now() - interval '90 days')
+"""
+_PURGE_IDLE = """
+DELETE FROM campaigns
+ WHERE status IN ('DRAFT', 'COPY_PROPOSED', 'COPY_APPROVED') AND updated_at < now() - interval '30 days'
+"""
+_PURGE_SESSIONS = """
+DELETE FROM sessions
+ WHERE expires_at < now() - interval '30 days' OR revoked_at < now() - interval '30 days'
+"""
+_PURGE_TOKENS = """
+DELETE FROM activation_tokens
+ WHERE expires_at < now() - interval '30 days' OR used_at < now() - interval '30 days'
+"""
+
+
+class AdminError(Exception):
+    """خطأٌ يُطبع للمشغّل ويُنهي الأمر بحالة 1."""
+
+
+def _owner_url() -> str:
+    value = os.environ.get("EYEWORK_OWNER_DATABASE_URL", "").strip()
+    if not value:
+        raise AdminError("EYEWORK_OWNER_DATABASE_URL غير مضبوط")
+    return value
+
+
+def _settings() -> tuple[bytes, str]:
+    try:
+        key = config.login_key()
+        origin = config.public_origin()
+    except config.ConfigError as exc:
+        raise AdminError(str(exc)) from exc
+    return key, origin
+
+
+def _login(raw: str) -> str:
+    login = auth.normalize_login(raw)
+    if not _LOGIN.match(login):
+        raise AdminError("اسم الدخول: من 3 إلى 254 حرفاً من a-z و0-9 و. _ @ + -")
+    return login
+
+
+def _fragment_value(text: str) -> str:
+    """ترميز ما يحتاج ترميزاً من الحروف المسموحة في اسم الدخول وحدها."""
+    return text.replace("%", "%25").replace("@", "%40").replace("+", "%2B")
+
+
+def _issue(cursor, user_id, origin: str, login: str) -> str:
+    cursor.execute(_CLOSE_TOKENS, (user_id,))
+    token = auth.new_token()
+    cursor.execute(_NEW_TOKEN, (auth.hash_token(token), user_id, ACTIVATION_HOURS))
+    return f"{origin}/#activate={token}&u={_fragment_value(login)}"
+
+
+def _find(cursor, key: bytes, login: str):
+    cursor.execute(_USER_BY_LOGIN, (auth.login_hmac(key, login),))
+    row = cursor.fetchone()
+    if row is None:
+        raise AdminError("لا حساب بهذا الاسم")
+    return row
+
+
+def create_user(raw_login: str) -> str:
+    key, origin = _settings()
+    login = _login(raw_login)
+    with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
+        try:
+            cursor.execute(_CREATE_USER, (auth.login_hmac(key, login),))
+        except psycopg.errors.UniqueViolation as exc:
+            raise AdminError("الاسم مستعملٌ لحسابٍ قائم. استعمل reissue-activation") from exc
+        user_id = cursor.fetchone()[0]
+        return _issue(cursor, user_id, origin, login)
+
+
+def reissue_activation(raw_login: str) -> str:
+    """رابطٌ جديد، والقديم يُغلق. هذا طريق الاسترداد الوحيد."""
+    key, origin = _settings()
+    login = _login(raw_login)
+    with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
+        user_id, is_active = _find(cursor, key, login)
+        if not is_active:
+            raise AdminError("الحساب معطّل")
+        return _issue(cursor, user_id, origin, login)
+
+
+def deactivate(raw_login: str) -> None:
+    key, _ = _settings()
+    with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
+        user_id, _ = _find(cursor, key, _login(raw_login))
+        cursor.execute(_DEACTIVATE, (user_id,))
+        cursor.execute(_REVOKE_ALL, (user_id,))
+
+
+def delete_user(raw_login: str) -> None:
+    """يحذف الحساب وكل ما يتبعه: الجلسات، والرموز، والحملات، والنسخ، والصور."""
+    key, _ = _settings()
+    with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
+        user_id, _ = _find(cursor, key, _login(raw_login))
+        cursor.execute(_DELETE_USER, (user_id,))
+
+
+def purge() -> dict[str, int]:
+    counts = {}
+    with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
+        for name, statement in (("final_campaigns", _PURGE_FINAL), ("idle_campaigns", _PURGE_IDLE),
+                                ("sessions", _PURGE_SESSIONS), ("activation_tokens", _PURGE_TOKENS)):
+            cursor.execute(statement)
+            counts[name] = cursor.rowcount
+    return counts
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m eyework.admin", description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("create-user", "reissue-activation", "deactivate", "delete-user"):
+        command = commands.add_parser(name)
+        command.add_argument("--login", required=True)
+        if name == "delete-user":
+            command.add_argument("--confirm-delete-all-data", action="store_true", required=True)
+    commands.add_parser("purge")
+    args = parser.parse_args(argv)
+
+    try:
+        if args.command == "create-user":
+            print(create_user(args.login))
+        elif args.command == "reissue-activation":
+            print(reissue_activation(args.login))
+        elif args.command == "deactivate":
+            deactivate(args.login)
+            print("عُطّل الحساب وأُلغيت جلساته")
+        elif args.command == "delete-user":
+            delete_user(args.login)
+            print("حُذف الحساب وكل بياناته")
+        else:
+            for name, count in purge().items():
+                print(f"{name}: {count}")
+    except AdminError as exc:
+        print(f"خطأ: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,281 @@
+"""
+قواعد الشيفرة
+=============
+كل قاعدةٍ هنا تجعل سؤالاً واحداً يُجاب بقراءة ملفٍّ واحد:
+
+  • ما الذي يغادر النظام؟ — `copywriter.py` وحده يستورد `anthropic`، ولا
+    مكتبة شبكةٍ أخرى في شيفرة الإنتاج.
+  • من أين يأتي الوقت؟ — لا ساعة حائطٍ في بايثون إطلاقاً؛ `clock.py` وحده
+    يقرأ الساعة الرتيبة.
+  • من أين يأتي SQL؟ — نصٌّ ثابت يُمرَّر حرفياً، لا يُركَّب بدمج.
+  • ماذا تعرف الواجهة؟ — موضعٌ واحد يتصل بالشبكة، ولا مؤقّت ولا تخزين ولا
+    مرور مؤشر.
+  • ماذا يعرف النموذج؟ — `CopyRequest` بحقوله الخمسة، ولا حقل هوية.
+"""
+
+from __future__ import annotations
+
+import ast
+import dataclasses
+import re
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[3]
+APP = ROOT / "eyework"
+STATIC = APP / "static"
+
+
+def _production_python():
+    for path in sorted(APP.rglob("*.py")):
+        relative = path.relative_to(APP)
+        if "tests" in relative.parts or "__pycache__" in relative.parts:
+            continue
+        yield path
+
+
+def _rel(path: Path) -> str:
+    return path.relative_to(APP).as_posix()
+
+
+def _imports(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    modules = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules |= {alias.name for alias in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            modules.add(node.module)
+    return modules
+
+
+def _tops(path: Path) -> set[str]:
+    return {module.split(".")[0] for module in _imports(path)}
+
+
+# ── الحدود الخارجية ─────────────────────────────────────────────────────
+NETWORK = {"requests", "urllib", "urllib3", "httpx", "aiohttp", "socket", "http", "ftplib", "smtplib"}
+
+
+def test_only_the_copywriter_speaks_to_the_model():
+    importers = sorted(_rel(p) for p in _production_python() if "anthropic" in _tops(p))
+    assert importers == ["copywriter.py"]
+
+
+def test_no_other_network_library_in_production_code():
+    offenders = {_rel(p): sorted(_tops(p) & NETWORK) for p in _production_python() if _tops(p) & NETWORK}
+    assert not offenders, f"اتصالٌ خارجي خارج كاتب النصّ: {offenders}"
+
+
+def test_only_the_image_module_decodes_images():
+    """`scripts/make_icons.py` يرسم الأيقونات وقت البناء ولا يفكّ صورة مستخدم."""
+    importers = sorted(_rel(p) for p in _production_python() if "PIL" in _tops(p))
+    assert importers == ["images.py", "scripts/make_icons.py"]
+
+
+#: من يحقّ له لمس القاعدة. طبقة الويب تصلها عبر `auth` و`campaigns` وحدهما؛
+#: و`web/app.py` يُنشئ التجمّع ويترجم أخطاءه.
+DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py"}
+
+
+def test_database_access_is_confined():
+    importers = {_rel(p) for p in _production_python() if "psycopg" in _tops(p) or "psycopg_pool" in _tops(p)}
+    assert importers <= DATABASE_ALLOWED, f"وصولٌ إلى القاعدة خارج حدوده: {importers - DATABASE_ALLOWED}"
+    assert "db.py" in importers
+
+
+def test_web_routes_never_touch_the_database_directly():
+    for path in (APP / "web").glob("*.py"):
+        if path.name == "app.py":
+            continue
+        modules = _imports(path)
+        assert "eyework.db" not in modules and not any(m.startswith("psycopg") for m in modules), path.name
+
+
+PURE = ("states.py", "money.py", "arabic_numbers.py", "copy_rules.py", "prompt.py", "passwords.py",
+        "clock.py", "rate_limit.py")
+IMPURE = {"fastapi", "starlette", "psycopg", "psycopg_pool", "anthropic", "PIL"}
+
+
+@pytest.mark.parametrize("name", PURE)
+def test_pure_modules_stay_pure(name):
+    path = APP / name
+    assert not (_tops(path) & IMPURE), f"{name}: {_tops(path) & IMPURE}"
+    assert not {m for m in _imports(path) if m.startswith(("eyework.db", "eyework.web"))}
+
+
+# ── الوقت ───────────────────────────────────────────────────────────────
+_WALL_CLOCK = {("datetime", "now"), ("datetime", "utcnow"), ("datetime", "today"), ("date", "today"),
+               ("time", "time"), ("time", "time_ns"), ("time", "localtime"), ("time", "gmtime")}
+
+
+def _clock_calls(tree: ast.AST) -> list[str]:
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            owner = node.func.value
+            name = owner.id if isinstance(owner, ast.Name) else getattr(owner, "attr", None)
+            if (name, node.func.attr) in _WALL_CLOCK or (name, node.func.attr) == ("time", "monotonic"):
+                found.append(f"{name}.{node.func.attr} [{node.lineno}]")
+    return found
+
+
+def test_python_never_reads_the_wall_clock():
+    """كل وقتٍ يُحفظ تكتبه القاعدة؛ والساعة الرتيبة في clock.py وحده."""
+    offenders = {}
+    for path in _production_python():
+        calls = _clock_calls(ast.parse(path.read_text(encoding="utf-8")))
+        if _rel(path) == "clock.py":
+            calls = [c for c in calls if not c.startswith("time.monotonic")]
+        if calls:
+            offenders[_rel(path)] = calls
+    assert not offenders, f"قراءةٌ للساعة: {offenders}"
+
+
+# ── SQL ─────────────────────────────────────────────────────────────────
+def _built_sql(tree: ast.AST) -> list[str]:
+    offenders = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
+                and node.func.attr in {"execute", "executemany"} and node.args:
+            query = node.args[0]
+            if not isinstance(query, (ast.Constant, ast.Name, ast.Attribute)):
+                offenders.append(f"{type(query).__name__} في السطر {node.lineno}")
+            elif isinstance(query, ast.Constant) and not isinstance(query.value, str):
+                offenders.append(f"ثابتٌ غير نصّي في السطر {node.lineno}")
+    return offenders
+
+
+def test_sql_is_never_built_by_string_concatenation():
+    offenders = {}
+    for path in _production_python():
+        found = _built_sql(ast.parse(path.read_text(encoding="utf-8")))
+        if found:
+            offenders[_rel(path)] = found
+    assert not offenders, f"SQL مُركَّب: {offenders}"
+
+
+def test_sql_constants_are_never_formatted():
+    """الثوابت نفسها لا تُبنى بـf-string ولا بـformat ولا بدمج."""
+    offenders = []
+    for path in _production_python():
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id.startswith("_") and t.id.isupper() for t in node.targets
+            ):
+                if isinstance(node.value, (ast.JoinedStr, ast.BinOp)) or (
+                    isinstance(node.value, ast.Call) and getattr(node.value.func, "attr", "") == "format"
+                ):
+                    text = ast.unparse(node.value)
+                    if re.search(r"\b(SELECT|INSERT|UPDATE|DELETE)\b", text):
+                        offenders.append(f"{_rel(path)}:{node.lineno}")
+    assert not offenders, f"ثابت SQL مُركَّب: {offenders}"
+
+
+# ── ما يعرفه النموذج ───────────────────────────────────────────────────
+def test_the_model_request_has_no_identity_fields():
+    from eyework.prompt import CopyRequest
+
+    fields = {field.name for field in dataclasses.fields(CopyRequest)}
+    assert fields == {"jpeg", "seller_note", "previous", "presets", "edit_note"}
+
+
+# ── ما لم يكتمل ─────────────────────────────────────────────────────────
+_UNFINISHED = re.compile(r"\b(TODO|FIXME|XXX|HACK|lorem)\b|\bplaceholder\s*=", re.IGNORECASE)
+
+
+def test_nothing_unfinished_in_the_production_path():
+    offenders = []
+    for path in [*_production_python(), *STATIC.rglob("*.js"), *STATIC.rglob("*.html"),
+                 *STATIC.rglob("*.css"), *(APP / "migrations").glob("*.sql")]:
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if _UNFINISHED.search(line):
+                offenders.append(f"{_rel(path)}:{number}")
+    assert not offenders, f"علاماتُ عملٍ لم يكتمل: {offenders}"
+
+
+def test_fakes_are_only_imported_by_tests():
+    importers = [_rel(p) for p in _production_python() if any("fakes" in m for m in _imports(p))]
+    assert not importers, f"الكاتب المصطنع في مسار الإنتاج: {importers}"
+
+
+# ── الواجهة ─────────────────────────────────────────────────────────────
+def _js(name: str) -> str:
+    return (STATIC / name).read_text(encoding="utf-8")
+
+
+def _code(js: str) -> str:
+    """الشيفرة بلا تعليقات: التعليق يشرح ما يُمنع ولا يفعله."""
+    js = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+    return re.sub(r"(?m)^\s*//.*$", "", js)
+
+
+def test_the_app_has_a_single_network_call_site():
+    code = _code(_js("app.js"))
+    assert len(re.findall(r"\bfetch\(", code)) == 1
+    assert len(re.findall(r"\bfetch\(", _code(_js("ui.js")))) == 0
+    for banned in ("XMLHttpRequest", "sendBeacon", "WebSocket", "EventSource", "import("):
+        assert banned not in code, banned
+
+
+def test_the_probe_cannot_transmit_or_store_anything():
+    code = _code(_js("probe/probe.js"))
+    for banned in ("fetch(", "XMLHttpRequest", "sendBeacon", "WebSocket", "EventSource",
+                   "localStorage", "sessionStorage", "indexedDB", "document.cookie"):
+        assert banned not in code, banned
+
+
+@pytest.mark.parametrize("name", ["app.js", "ui.js", "probe/probe.js"])
+def test_no_timers(name):
+    """النظام يملك زمن المكوث. لا تقدّم تلقائي ولا إغلاق تلقائي ولا عدّ تنازلي."""
+    code = _code(_js(name))
+    for banned in ("setTimeout", "setInterval", "requestAnimationFrame", "requestIdleCallback",
+                   "AbortSignal.timeout", "scheduler.postTask"):
+        assert banned not in code, f"{name}: {banned}"
+
+
+@pytest.mark.parametrize("name", ["app.js", "ui.js"])
+def test_no_storage_in_the_app(name):
+    code = _code(_js(name))
+    for banned in ("localStorage", "sessionStorage", "indexedDB", "document.cookie"):
+        assert banned not in code, f"{name}: {banned}"
+
+
+@pytest.mark.parametrize("name", ["app.js", "ui.js"])
+def test_activation_is_by_click_alone(name):
+    """
+    لا pointerdown ولا ضغطٌ مطوّل ولا سحب ولا مرور: النظر لا يضغط ويسحب،
+    ومؤشره يمرّ على كل شيء. صفحة الاختبار وحدها تستمع للمرور، لأنها تقيسه.
+    """
+    events = re.findall(r"addEventListener\(\s*['\"]([a-z]+)['\"]", _code(_js(name)))
+    banned = {e for e in events if re.match(r"(pointer|mouse|touch|drag|wheel|contextmenu)", e)}
+    assert not banned, f"{name}: {sorted(banned)}"
+
+
+def test_no_hover_or_motion_in_css():
+    for path in STATIC.rglob("*.css"):
+        css = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        assert ":hover" not in css, path.name
+        assert not re.search(r"@keyframes|animation\s*:(?!\s*none)|transition\s*:(?!\s*none)", css), path.name
+
+
+@pytest.mark.parametrize("page", ["index.html", "probe/index.html"])
+def test_html_carries_no_inline_code_or_gaze_hazards(page):
+    html = (STATIC / page).read_text(encoding="utf-8")
+    markup = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", markup), "سكربتٌ مضمَّن (CSP)"
+    assert not re.search(r"\sstyle=", markup), "تنسيقٌ مضمَّن (CSP)"
+    assert not re.search(r"\son[a-z]+=", markup), "معالجُ حدثٍ مضمَّن"
+    assert not re.search(r"\stitle=", markup), "تلميحٌ لا يظهر إلا بالمرور"
+    assert not re.search(r"\splaceholder=", markup), "نصٌّ نائب بدل عنوانٍ ظاهر"
+    assert 'type="range"' not in markup and "draggable" not in markup
+    assert not re.search(r"(?:src|href)=\"https?://", markup), "موردٌ من طرفٍ ثالث"
+
+
+def test_fields_are_large_enough_not_to_trigger_ios_zoom():
+    """iOS يكبّر الصفحة عند التركيز على حقلٍ خطّه دون 16px، والمستخدم بالنظر لا يستطيع إرجاعها."""
+    css = (STATIC / "styles.css").read_text(encoding="utf-8")
+    field = re.search(r"\.field\s*\{([^}]*)\}", css).group(1)
+    assert "font-size: var(--fs-body)" in field
+    assert re.search(r"--fs-body:\s*1\.125rem", css)

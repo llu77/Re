@@ -1,0 +1,942 @@
+/*
+ * صياغة — منطق الواجهة
+ * ====================
+ * لا إطار ولا خطوة بناء: الملف يُقرأ كما هو.
+ *
+ * ثلاث قواعد تحكم هذا الملف:
+ *   1. الخادم مصدر كل قيمة: الحدود والخيارات والكلمات تأتي من /api/choices
+ *      ومن الحملة نفسها. لا يُحسب هنا مبلغٌ ولا كلمة.
+ *   2. كل كتابةٍ تحمل `expected_row_version` وقيمةً مطلقة: الضغطة المكرّرة
+ *      بالنظر إمّا تضع القيمة نفسها أو تُرفض بـ409 — لا تُطبَّق مرتين.
+ *   3. موضعٌ واحد يتصل بالشبكة: `api()`.
+ */
+
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+
+const STATUS_LABELS = {
+    DRAFT: 'مسودة',
+    COPY_PROPOSED: 'نصٌّ بانتظار موافقتك',
+    COPY_APPROVED: 'نصٌّ موافَقٌ عليه',
+    READY: 'جاهزة للتسليم',
+};
+
+const PRESET_LABELS = {
+    SHORTER: 'أقصر',
+    SIMPLER: 'لغة أبسط',
+    MORE_FORMAL: 'أكثر رسمية',
+    MORE_LIVELY: 'أكثر حيوية',
+    NEW_TITLE: 'عنوانٌ آخر فقط',
+    NEW_DESCRIPTION: 'وصفٌ آخر فقط',
+};
+
+const WARNING_LABELS = { PRICE: 'سعر', HEALTH_CLAIM: 'ادّعاءٌ صحي', SUPERLATIVE: 'مبالغة' };
+
+const OFFLINE = 'تعذّر الاتصال. تحقّق من الشبكة وحاول مرة أخرى.';
+const GENERIC = 'حدث خطأ. حاول مرة أخرى.';
+
+const state = {
+    choices: null,
+    campaign: null,
+    page: 1,
+    // طلب التعديل قيد الإعداد، مربوطٌ بالنسخة التي يُبنى عليها.
+    edit: { versionId: null, presets: new Set(), note: null, draft: '' },
+    activation: null,
+    busy: false,
+    waitingFor: null,
+    readyBlob: null,
+};
+
+/* ── الشبكة: موضعٌ واحد ─────────────────────────────────────────────── */
+
+async function api(method, path, { json, raw, type, as = 'json' } = {}) {
+    const headers = { 'X-Eyework': '1' };
+    let body;
+    if (json !== undefined) {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(json);
+    } else if (raw !== undefined) {
+        headers['Content-Type'] = type;
+        body = raw;
+    }
+    let response;
+    try {
+        response = await fetch(path, { method, headers, body, credentials: 'same-origin', cache: 'no-store' });
+    } catch (error) {
+        return { status: 0, data: { detail: OFFLINE } };
+    }
+    if (response.status === 401 && !path.startsWith('/api/auth/')) {
+        state.campaign = null;
+        go('#/login');
+        return { status: 401, data: null };
+    }
+    let data = null;
+    if (response.status !== 204) {
+        try {
+            data = as === 'blob' && response.ok ? await response.blob() : await response.json();
+        } catch (error) {
+            data = null;
+        }
+    }
+    return { status: response.status, data };
+}
+
+function detail(result) {
+    return (result.data && result.data.detail) || GENERIC;
+}
+
+/* ── التنقّل ────────────────────────────────────────────────────────── */
+
+function go(hash, { replace = false } = {}) {
+    if (replace) {
+        history.replaceState(null, '', hash);
+        route();
+    } else if (location.hash === hash) {
+        route();
+    } else {
+        location.hash = hash;
+    }
+}
+
+function campaignRoute(campaign) {
+    return `#/c/${campaign.id}`;
+}
+
+// الأب المنطقي لكل شاشة: «رجوع» يذهب إليه دائماً، لا إلى تاريخ المتصفّح.
+function parentOf(name) {
+    const id = state.campaign && state.campaign.id;
+    return {
+        photo: '#/',
+        proposal: '#/',
+        ready: '#/',
+        edit: id ? `#/c/${id}` : '#/',
+        note: id ? `#/c/${id}/edit` : '#/',
+        budget: id ? `#/c/${id}` : '#/',
+        days: id ? `#/c/${id}/budget` : '#/',
+        review: id ? `#/c/${id}/days` : '#/',
+    }[name] || '#/';
+}
+
+async function loadCampaign(id) {
+    if (state.campaign && state.campaign.id === id) {
+        return state.campaign;
+    }
+    const result = await api('GET', `/api/campaigns/${id}`);
+    if (result.status !== 200) {
+        return null;
+    }
+    state.campaign = result.data;
+    return state.campaign;
+}
+
+async function route() {
+    const hash = location.hash || '#/';
+    if (hash.startsWith('#/login')) {
+        renderLogin();
+        return;
+    }
+    if (hash.startsWith('#/activate')) {
+        renderActivate();
+        return;
+    }
+    if (hash === '#/' || hash === '#') {
+        await renderHome();
+        return;
+    }
+    if (hash === '#/new') {
+        state.campaign = null;
+        renderPhoto();
+        return;
+    }
+    const match = hash.match(/^#\/c\/([0-9a-f-]{36})(?:\/(edit|note|budget|days|review))?$/);
+    if (!match) {
+        go('#/', { replace: true });
+        return;
+    }
+    const campaign = await loadCampaign(match[1]);
+    if (!campaign) {
+        go('#/', { replace: true });
+        return;
+    }
+    const sub = match[2];
+    const status = campaign.status;
+    if (status === 'CANCELLED') {
+        go('#/', { replace: true });
+    } else if (status === 'READY') {
+        renderReady();
+    } else if (campaign.generating && state.waitingFor !== campaign.id) {
+        renderWaiting({ reloaded: true });
+    } else if (state.waitingFor === campaign.id) {
+        renderWaiting({ reloaded: false });
+    } else if (status === 'DRAFT') {
+        renderPhoto();
+    } else if (sub === 'edit' && status === 'COPY_PROPOSED') {
+        renderEdit();
+    } else if (sub === 'note' && status === 'COPY_PROPOSED') {
+        renderNote();
+    } else if (sub === 'budget' && status === 'COPY_APPROVED') {
+        renderBudget();
+    } else if (sub === 'days' && status === 'COPY_APPROVED' && campaign.budget) {
+        renderDays();
+    } else if (sub === 'review' && status === 'COPY_APPROVED' && campaign.budget && campaign.days) {
+        renderReview();
+    } else if (sub) {
+        go(campaignRoute(campaign), { replace: true });
+    } else {
+        renderProposal();
+    }
+}
+
+/* ── الدخول والتفعيل ────────────────────────────────────────────────── */
+
+function renderLogin() {
+    UI.show('login');
+}
+
+async function onLogin(event) {
+    event.preventDefault();
+    const section = UI.screen('login');
+    if (state.busy) {
+        return;
+    }
+    state.busy = true;
+    const result = await api('POST', '/api/auth/login', {
+        json: { username: $('login-username').value, password: $('login-password').value },
+    });
+    state.busy = false;
+    if (result.status === 204) {
+        $('login-password').value = '';
+        go('#/');
+    } else {
+        UI.showAlert(section, detail(result));
+    }
+}
+
+// رابط الدعوة يُقرأ إلى الذاكرة ويُمحى من شريط العنوان فوراً: لا يبقى في
+// التاريخ ولا يُرسَل في إحالة.
+function captureActivation() {
+    if (!location.hash.startsWith('#activate=')) {
+        return;
+    }
+    const params = new URLSearchParams(location.hash.slice(1));
+    state.activation = { token: params.get('activate') || '', username: params.get('u') || '' };
+    history.replaceState(null, '', `${location.pathname}#/activate`);
+}
+
+function renderActivate() {
+    if (!state.activation) {
+        // إعادة تحميلٍ بعد محو الرابط: الرمز لم يعد في الذاكرة.
+        UI.show('login');
+        UI.showAlert(UI.screen('login'), 'افتح رابط التفعيل من جديد.');
+        return;
+    }
+    $('activate-username').value = state.activation.username;
+    UI.show('activate');
+}
+
+async function onActivate(event) {
+    event.preventDefault();
+    const section = UI.screen('activate');
+    if (state.busy || !state.activation) {
+        return;
+    }
+    state.busy = true;
+    const result = await api('POST', '/api/auth/activate', {
+        json: {
+            token: state.activation.token,
+            username: state.activation.username,
+            password: $('activate-password').value,
+        },
+    });
+    state.busy = false;
+    if (result.status === 204) {
+        state.activation = null;
+        // انتقالٌ كامل لا تغيير وسم: هكذا يعرض Safari حفظ كلمة المرور.
+        location.replace('/');
+    } else {
+        UI.showAlert(section, detail(result));
+    }
+}
+
+/* ── الرئيسية ───────────────────────────────────────────────────────── */
+
+async function renderHome() {
+    state.campaign = null;
+    const section = UI.show('home');
+    const result = await api('GET', `/api/campaigns?page=${state.page}`);
+    if (result.status !== 200) {
+        if (result.status !== 401) {
+            UI.showAlert(section, detail(result));
+        }
+        return;
+    }
+    const list = $('home-list');
+    list.replaceChildren();
+    result.data.items.forEach((item) => {
+        const row = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn';
+        button.dataset.safe = '';
+        const title = document.createElement('span');
+        title.textContent = item.title || 'مسودة';
+        const status = document.createElement('span');
+        status.className = 'row-status';
+        status.textContent = STATUS_LABELS[item.status] || '';
+        button.append(title, status);
+        button.addEventListener('click', () => go(`#/c/${item.id}`));
+        row.append(button);
+        list.append(row);
+    });
+    $('home-empty').hidden = result.data.items.length > 0 || state.page > 1;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    // التلميح يظهر حين يتّسع له المكان: ثلاثة صفوفٍ تملأ الشاشة بلا تمرير.
+    $('home-install').hidden = standalone || result.data.items.length > 1;
+    UI.setButton($('home-older'), { reserved: !result.data.has_more });
+    UI.setButton($('home-newer'), { reserved: state.page <= 1 });
+}
+
+async function onLogout() {
+    await api('POST', '/api/auth/logout');
+    state.campaign = null;
+    go('#/login');
+}
+
+/* ── الصورة ─────────────────────────────────────────────────────────── */
+
+function imageUrl(campaign) {
+    return `/api/campaigns/${campaign.id}/image?v=${campaign.image ? campaign.image.tag : ''}`;
+}
+
+function renderPhoto() {
+    const campaign = state.campaign;
+    UI.show('photo');
+    const hasImage = Boolean(campaign && campaign.image);
+    $('photo-pick').textContent = hasImage ? 'اختر صورةً أخرى' : 'اختر صورة المنتج';
+    const preview = $('photo-preview');
+    preview.hidden = !hasImage;
+    if (hasImage) {
+        preview.src = imageUrl(campaign);
+    }
+    $('photo-status').textContent = '';
+    UI.setButton($('photo-generate'), { label: 'اكتب لي العنوان والوصف', enabled: hasImage, commit: true });
+    UI.setButton(UI.screen('photo').querySelector('[data-cancel]'), { reserved: !campaign });
+}
+
+async function onPhotoChosen(event) {
+    const input = event.currentTarget;
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file || state.busy) {
+        return;
+    }
+    const section = UI.screen('photo');
+    state.busy = true;
+    $('photo-status').textContent = 'تُرفع الصورة…';
+    const campaign = state.campaign;
+    const type = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ? file.type : 'image/jpeg';
+    const result = campaign
+        ? await api('PUT', `/api/campaigns/${campaign.id}/image?expected_row_version=${campaign.row_version}`,
+            { raw: file, type })
+        : await api('POST', '/api/campaigns', { raw: file, type });
+    state.busy = false;
+    $('photo-status').textContent = '';
+    if (result.status === 200 || result.status === 201) {
+        state.campaign = result.data;
+        go(campaignRoute(result.data), { replace: true });
+    } else if (result.status !== 401) {
+        UI.showAlert(section, detail(result));
+    }
+}
+
+/* ── النصّ ───────────────────────────────────────────────────────────── */
+
+function renderWaiting({ reloaded }) {
+    const section = UI.show('proposal');
+    $('proposal-waiting').hidden = false;
+    $('proposal-copy').hidden = true;
+    $('proposal-check').hidden = !reloaded;
+    // الشريط السفلي محجوزٌ معطّل: نتيجةٌ تصل بعد دقيقةٍ لا تجد زرّاً تحت النظر.
+    UI.setButton($('proposal-start'), { reserved: true });
+    UI.setButton($('proposal-end'), { reserved: true });
+    UI.setButton(section.querySelector('[data-cancel]'), { reserved: true });
+    section.querySelector('#proposal-waiting h2').focus({ preventScroll: true });
+}
+
+async function keepAwake() {
+    // الكتابة قد تستغرق دقيقة؛ قفل الشاشة يقطع الطلب في Safari. لا مؤقّت هنا.
+    try {
+        return navigator.wakeLock ? await navigator.wakeLock.request('screen') : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function runGeneration(path, json) {
+    const campaign = state.campaign;
+    state.waitingFor = campaign.id;
+    renderWaiting({ reloaded: false });
+    const lock = await keepAwake();
+    const result = await api('POST', path, { json });
+    if (lock) {
+        lock.release().catch(() => {});
+    }
+    state.waitingFor = null;
+    if (result.status === 401) {
+        return;
+    }
+    if (result.status !== 200 && !(result.data && result.data.code)) {
+        // انقطع الطلب في الطريق (شبكة أو وكيل) لا عند الخادم: قد يكون النصّ
+        // كُتب. تُقرأ الحملة كما هي، ولا يُفترض شيء.
+        state.campaign = null;
+        const fresh = await loadCampaign(campaign.id);
+        if (fresh && fresh.generating) {
+            renderWaiting({ reloaded: true });
+        } else if (fresh) {
+            history.replaceState(null, '', campaignRoute(fresh));
+            await route();
+        }
+        return;
+    }
+    const stillHere = state.campaign && state.campaign.id === campaign.id
+        && !UI.screen('proposal').hidden;
+    if (result.status === 200) {
+        state.campaign = result.data.campaign;
+        state.edit = { versionId: null, presets: new Set(), note: null, draft: '' };
+        if (!stillHere) {
+            return;
+        }
+        // العنوان يتبع الحالة: إعادة التحميل بعدها تعرض ما يُعرض الآن.
+        history.replaceState(null, '', campaignRoute(state.campaign));
+        await route();
+        if (result.data.result === 'UNUSABLE_PHOTO') {
+            UI.showAlert(UI.screen('photo'), result.data.message);
+        }
+        return;
+    }
+    if (stillHere) {
+        // الفشل يُقرّ قبل أيّ شيء: «حسناً» تعيد الشاشة التي بدأ منها.
+        state.campaign = null;
+        await loadCampaign(campaign.id);
+        UI.showAlert(UI.screen('proposal'), detail(result));
+    }
+}
+
+function onGenerate() {
+    const campaign = state.campaign;
+    if (!campaign || state.busy || state.waitingFor) {
+        return;
+    }
+    runGeneration(`/api/campaigns/${campaign.id}/copy`, { expected_row_version: campaign.row_version });
+}
+
+function fillCopy(prefix, campaign, copy) {
+    const thumb = $(`${prefix}-thumb`);
+    thumb.src = imageUrl(campaign);
+    $(`${prefix}-title`).textContent = copy.title;
+    $(`${prefix}-description`).textContent = copy.description;
+}
+
+function renderProposal() {
+    const campaign = state.campaign;
+    const copy = campaign.copy;
+    const section = UI.show('proposal');
+    $('proposal-waiting').hidden = true;
+    $('proposal-copy').hidden = false;
+    fillCopy('proposal', campaign, copy);
+    $('proposal-warnings').textContent = copy.warnings.length
+        ? `تحقّق من هذه العبارة قبل الموافقة: ${copy.warnings.map((w) => WARNING_LABELS[w]).join('، ')}`
+        : '';
+    UI.setButton(section.querySelector('[data-cancel]'), { reserved: false });
+    const approved = campaign.status === 'COPY_APPROVED';
+    if (approved) {
+        $('proposal-status').textContent = 'تمّت الموافقة على هذا النص.';
+        UI.setButton($('proposal-start'), { label: 'تراجع عن الموافقة', commit: true });
+        UI.setButton($('proposal-end'), { label: 'تابع إلى الميزانية' });
+    } else {
+        $('proposal-status').textContent =
+            `نصٌّ مقترحٌ آلياً — لم توافق عليه بعد · النسخة ${copy.version} من ${state.choices.limits.versions_max}`;
+        UI.setButton($('proposal-start'), { label: 'اطلب تعديلاً', enabled: campaign.versions_left > 0 });
+        UI.setButton($('proposal-end'), { label: 'أوافق على النص', commit: true });
+    }
+}
+
+async function mutate(section, method, path, json) {
+    if (state.busy || UI.alertOpen(section)) {
+        return null;
+    }
+    state.busy = true;
+    const result = await api(method, path, { json });
+    state.busy = false;
+    if (result.status === 200) {
+        state.campaign = result.data;
+        return result.data;
+    }
+    if (result.status !== 401) {
+        if (result.status === 409) {
+            // تغيّرت الحملة: تُقرأ من جديد قبل أيّ قرارٍ آخر.
+            const id = state.campaign && state.campaign.id;
+            state.campaign = null;
+            if (id) {
+                await loadCampaign(id);
+            }
+        }
+        UI.showAlert(section, detail(result));
+    }
+    return null;
+}
+
+async function onProposalStart() {
+    const campaign = state.campaign;
+    if (campaign.status === 'COPY_APPROVED') {
+        const view = await mutate(UI.screen('proposal'), 'POST', `/api/campaigns/${campaign.id}/copy/unapprove`,
+            { expected_row_version: campaign.row_version });
+        if (view) {
+            renderProposal();
+        }
+    } else {
+        go(`#/c/${campaign.id}/edit`);
+    }
+}
+
+async function onProposalEnd() {
+    const campaign = state.campaign;
+    if (campaign.status === 'COPY_APPROVED') {
+        go(`#/c/${campaign.id}/budget`);
+        return;
+    }
+    const view = await mutate(UI.screen('proposal'), 'POST', `/api/campaigns/${campaign.id}/copy/approve`,
+        { expected_row_version: campaign.row_version, version_id: campaign.copy.version_id });
+    if (view) {
+        renderProposal();
+    }
+}
+
+/* ── طلب التعديل ────────────────────────────────────────────────────── */
+
+function editState() {
+    const versionId = state.campaign.copy.version_id;
+    if (state.edit.versionId !== versionId) {
+        state.edit = { versionId, presets: new Set(), note: null, draft: '' };
+    }
+    return state.edit;
+}
+
+function conflictOf(preset) {
+    const pair = state.choices.preset_conflicts.find((p) => p.includes(preset));
+    return pair ? pair.find((p) => p !== preset) : null;
+}
+
+function renderEdit() {
+    const campaign = state.campaign;
+    const edit = editState();
+    UI.show('edit');
+    const full = edit.presets.size >= state.choices.limits.presets_max;
+    const options = state.choices.edit_presets.map((preset) => ({
+        value: preset,
+        label: PRESET_LABELS[preset],
+        disabled: !edit.presets.has(preset) && (full || edit.presets.has(conflictOf(preset))),
+    }));
+    // مجموعة متعدّدة الاختيار: كل خيارٍ يُبدَّل وحده.
+    const chips = $('edit-chips');
+    chips.replaceChildren();
+    options.forEach((option) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn chip';
+        button.textContent = option.label;
+        button.dataset.key = option.value;
+        button.setAttribute('aria-pressed', String(edit.presets.has(option.value)));
+        button.disabled = option.disabled;
+        button.addEventListener('click', () => {
+            if (edit.presets.has(option.value)) {
+                edit.presets.delete(option.value);
+            } else {
+                edit.presets.add(option.value);
+            }
+            renderEdit();
+        });
+        chips.append(button);
+    });
+    UI.setButton($('edit-note'), { label: edit.note ? 'ملاحظة نصية (مكتوبة)' : 'ملاحظة نصية' });
+    // «النسخة الأحدث» تُلغي «النسخة السابقة»: ضغطةٌ خاطئة لا تُفقد نسخة.
+    const newest = campaign.copy.can_restore_newest;
+    UI.setButton($('edit-restore'), {
+        label: newest ? 'النسخة الأحدث' : 'النسخة السابقة',
+        enabled: newest || campaign.copy.can_restore_previous,
+        commit: true,
+    });
+    $('edit-restore').dataset.target = newest ? 'newest' : 'previous';
+    UI.setButton($('edit-submit'), {
+        label: 'اطلب نسخة جديدة',
+        enabled: edit.presets.size > 0 || Boolean(edit.note),
+        commit: true,
+    });
+    $('edit-left').textContent = full
+        ? 'ثلاثة تعديلاتٍ على الأكثر'
+        : `النسخ المتبقية: ${campaign.versions_left}`;
+}
+
+function onEditSubmit() {
+    const campaign = state.campaign;
+    const edit = editState();
+    if (state.busy || state.waitingFor || (!edit.presets.size && !edit.note)) {
+        return;
+    }
+    runGeneration(`/api/campaigns/${campaign.id}/copy/edit`, {
+        expected_row_version: campaign.row_version,
+        expected_version_id: campaign.copy.version_id,
+        presets: Array.from(edit.presets),
+        note: edit.note,
+    });
+}
+
+async function onRestore() {
+    const campaign = state.campaign;
+    const view = await mutate(UI.screen('edit'), 'POST', `/api/campaigns/${campaign.id}/copy/restore`, {
+        expected_row_version: campaign.row_version,
+        expected_version_id: campaign.copy.version_id,
+        target: $('edit-restore').dataset.target,
+    });
+    if (view) {
+        go(campaignRoute(view));
+    }
+}
+
+function renderNote() {
+    const edit = editState();
+    UI.show('note');
+    const area = $('note-text');
+    area.value = edit.draft || edit.note || '';
+    updateNoteCount();
+}
+
+function updateNoteCount() {
+    const left = state.choices.limits.note_max - $('note-text').value.length;
+    $('note-count').textContent = `الأحرف المتبقية: ${left}`;
+}
+
+function onNoteSave() {
+    const edit = editState();
+    const text = $('note-text').value.trim();
+    edit.note = text ? text : null;
+    edit.draft = '';
+    go(`#/c/${state.campaign.id}/edit`);
+}
+
+// «رجوع» من الملاحظة لا يمحو ما كُتب بالنظر حرفاً حرفاً: يبقى مسودةً تعود
+// إليها، ولا يُرسل حتى تُحفظ.
+function onNoteBack() {
+    editState().draft = $('note-text').value;
+    go(`#/c/${state.campaign.id}/edit`);
+}
+
+/* ── الميزانية والمدّة ───────────────────────────────────────────────── */
+
+function neighbour(values, current, delta) {
+    if (current === null) {
+        return delta > 0 ? values[0] : null;
+    }
+    const index = values.indexOf(current) + delta;
+    return index >= 0 && index < values.length ? values[index] : null;
+}
+
+function renderValue(container, digits, words, extra) {
+    container.replaceChildren();
+    if (digits === null) {
+        const empty = document.createElement('p');
+        empty.className = 'value__words';
+        empty.textContent = words;
+        container.append(empty);
+        return;
+    }
+    const top = document.createElement('p');
+    top.className = 'value__digits';
+    top.append(UI.bdi(digits));
+    const bottom = document.createElement('p');
+    bottom.className = 'value__words';
+    bottom.textContent = words;
+    container.append(top, bottom);
+    if (extra) {
+        const line = document.createElement('p');
+        line.className = 'value__daily';
+        line.textContent = extra;
+        container.append(line);
+    }
+}
+
+function dailyText(campaign) {
+    if (!campaign.daily) {
+        return '';
+    }
+    const amount = `${campaign.daily.amount} ر.س`;
+    return campaign.daily.exact ? `في اليوم: ${amount}` : `في اليوم نحو: ${amount}`;
+}
+
+function renderBudget() {
+    const campaign = state.campaign;
+    UI.show('budget');
+    const table = state.choices.budget;
+    const values = table.values.map((v) => v.sar);
+    const current = campaign.budget ? campaign.budget.sar : null;
+    renderValue($('budget-value'),
+        campaign.budget ? campaign.budget.short : null,
+        campaign.budget ? `الميزانية الإجمالية: ${campaign.budget.words}` : 'لم تُحدَّد الميزانية بعد.');
+    UI.choiceGroup($('budget-presets'),
+        table.presets.map((sar) => ({ value: sar, label: sar.toLocaleString('en-US') })),
+        current, (sar) => setBudget(sar));
+    const down = neighbour(values, current, -1);
+    const up = neighbour(values, current, +1);
+    const label = (sar) => table.values.find((v) => v.sar === sar).short;
+    UI.setButton($('budget-down'), { label: down === null ? 'أقل' : `أقل: ${label(down)}`, enabled: down !== null });
+    UI.setButton($('budget-up'), { label: up === null ? 'أكثر' : `أكثر: ${label(up)}`, enabled: up !== null });
+    $('budget-down').dataset.value = down === null ? '' : String(down);
+    $('budget-up').dataset.value = up === null ? '' : String(up);
+    UI.setButton($('budget-next'), { label: 'التالي: عدد الأيام', enabled: current !== null });
+}
+
+async function setBudget(sar) {
+    const campaign = state.campaign;
+    const view = await mutate(UI.screen('budget'), 'PUT', `/api/campaigns/${campaign.id}/budget`,
+        { expected_row_version: campaign.row_version, budget_sar: sar });
+    if (view) {
+        renderBudget();
+    }
+}
+
+function renderDays() {
+    const campaign = state.campaign;
+    UI.show('days');
+    const table = state.choices.days;
+    const values = table.values.map((v) => v.n);
+    const current = campaign.days ? campaign.days.n : null;
+    renderValue($('days-value'),
+        campaign.days ? campaign.days.short : null,
+        campaign.days ? `المدة: ${campaign.days.words}` : 'لم تُحدَّد المدة بعد.',
+        dailyText(campaign));
+    UI.choiceGroup($('days-presets'),
+        table.presets.map((n) => ({ value: n, label: table.values.find((v) => v.n === n).short })),
+        current, (n) => setDays(n));
+    const down = neighbour(values, current, -1);
+    const up = neighbour(values, current, +1);
+    const label = (n) => table.values.find((v) => v.n === n).short;
+    UI.setButton($('days-down'), { label: down === null ? 'أقل' : `أقل: ${label(down)}`, enabled: down !== null });
+    UI.setButton($('days-up'), { label: up === null ? 'أكثر' : `أكثر: ${label(up)}`, enabled: up !== null });
+    $('days-down').dataset.value = down === null ? '' : String(down);
+    $('days-up').dataset.value = up === null ? '' : String(up);
+    UI.setButton($('days-next'), { label: 'التالي: المراجعة', enabled: current !== null });
+}
+
+async function setDays(n) {
+    const campaign = state.campaign;
+    const view = await mutate(UI.screen('days'), 'PUT', `/api/campaigns/${campaign.id}/days`,
+        { expected_row_version: campaign.row_version, days: n });
+    if (view) {
+        renderDays();
+    }
+}
+
+/* ── المراجعة والتأكيد ───────────────────────────────────────────────── */
+
+function lineWith(element, label, words, digits) {
+    // الكلمات بعد العنوان والنقطتين مباشرةً — موضع الرفع — والأرقام بعدها.
+    element.replaceChildren(`${label}: ${words} (`, UI.bdi(digits), ')');
+}
+
+function renderReview() {
+    const campaign = state.campaign;
+    UI.show('review');
+    fillCopy('review', campaign, campaign.copy);
+    lineWith($('review-budget'), 'الميزانية الإجمالية', campaign.budget.words, campaign.budget.short);
+    lineWith($('review-days'), 'المدة', campaign.days.words, campaign.days.short);
+    $('review-daily').textContent = dailyText(campaign);
+}
+
+function renderConfirm() {
+    const campaign = state.campaign;
+    UI.show('confirm');
+    $('confirm-restate').textContent =
+        `الميزانية الإجمالية: ${campaign.budget.words}. المدة: ${campaign.days.words}. `
+        + 'لن يُنشر شيءٌ ولن يُدفع أيّ مبلغٍ تلقائياً، ولا يمكن تعديل الحملة بعد اعتمادها.';
+}
+
+async function onConfirm() {
+    const campaign = state.campaign;
+    const view = await mutate(UI.screen('confirm'), 'POST', `/api/campaigns/${campaign.id}/confirm`, {
+        expected_row_version: campaign.row_version,
+        version_id: campaign.approved_version_id,
+        budget_sar: campaign.budget.sar,
+        days: campaign.days.n,
+    });
+    if (view) {
+        go(campaignRoute(view));
+    }
+}
+
+/* ── الإلغاء والسحب ──────────────────────────────────────────────────── */
+
+function renderCancel() {
+    const withdraw = state.campaign && state.campaign.status === 'READY';
+    UI.show('cancel');
+    $('cancel-heading').textContent = withdraw ? 'سحب الحملة' : 'إلغاء الحملة';
+    UI.setButton($('cancel-yes'), { label: withdraw ? 'نعم، اسحب الحملة' : 'نعم، ألغِ الحملة', commit: true });
+}
+
+async function onCancelYes() {
+    const campaign = state.campaign;
+    const view = await mutate(UI.screen('cancel'), 'POST', `/api/campaigns/${campaign.id}/cancel`,
+        { expected_row_version: campaign.row_version });
+    if (view) {
+        state.campaign = null;
+        go('#/');
+    }
+}
+
+/* ── جاهزة للتسليم ───────────────────────────────────────────────────── */
+
+function brief(campaign) {
+    return [
+        campaign.copy.title,
+        '',
+        campaign.copy.description,
+        '',
+        `الميزانية الإجمالية: ${campaign.budget.words} (${campaign.budget.short})`,
+        `المدة: ${campaign.days.words} (${campaign.days.short})`,
+        dailyText(campaign),
+    ].join('\n');
+}
+
+async function renderReady() {
+    const campaign = state.campaign;
+    UI.show('ready');
+    fillCopy('ready', campaign, campaign.copy);
+    $('ready-summary').replaceChildren(UI.bdi(`${campaign.budget.short} · ${campaign.days.short}`));
+    $('ready-status').textContent = '';
+    $('ready-download').href = imageUrl(campaign);
+    // الصورة تُجلب الآن لا عند الضغط: المشاركة يجب أن تبدأ داخل الضغطة نفسها.
+    state.readyBlob = null;
+    const result = await api('GET', imageUrl(campaign), { as: 'blob' });
+    if (result.status === 200 && state.campaign && state.campaign.id === campaign.id) {
+        state.readyBlob = result.data;
+    }
+}
+
+async function copyText(text, done) {
+    try {
+        await navigator.clipboard.writeText(text);
+        $('ready-status').textContent = done;
+    } catch (error) {
+        UI.showAlert(UI.screen('ready'), 'تعذّر النسخ. استخدم «شارك الحملة».');
+    }
+}
+
+async function onShare() {
+    const campaign = state.campaign;
+    const data = { title: campaign.copy.title, text: brief(campaign) };
+    if (state.readyBlob) {
+        const file = new File([state.readyBlob], 'campaign.jpg', { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            data.files = [file];
+        }
+    }
+    if (!navigator.share) {
+        await copyText(data.text, 'نُسخ ملخّص الحملة.');
+        return;
+    }
+    try {
+        await navigator.share(data);
+    } catch (error) {
+        if (!error || error.name !== 'AbortError') {
+            UI.showAlert(UI.screen('ready'), 'تعذّرت المشاركة. استخدم «نزّل الصورة» و«انسخ الوصف».');
+        }
+    }
+}
+
+/* ── الإقلاع ────────────────────────────────────────────────────────── */
+
+function wire() {
+    $('login-form').addEventListener('submit', onLogin);
+    $('activate-form').addEventListener('submit', onActivate);
+    $('home-new').addEventListener('click', () => go('#/new'));
+    $('home-logout').addEventListener('click', onLogout);
+    $('home-older').addEventListener('click', () => { state.page += 1; renderHome(); });
+    $('home-newer').addEventListener('click', () => { state.page = Math.max(1, state.page - 1); renderHome(); });
+    $('photo-input').addEventListener('change', onPhotoChosen);
+    $('photo-generate').addEventListener('click', onGenerate);
+    $('proposal-start').addEventListener('click', onProposalStart);
+    $('proposal-end').addEventListener('click', onProposalEnd);
+    $('proposal-check').addEventListener('click', async () => {
+        const id = state.campaign.id;
+        state.campaign = null;
+        await loadCampaign(id);
+        route();
+    });
+    $('edit-note').addEventListener('click', () => go(`#/c/${state.campaign.id}/note`));
+    $('edit-restore').addEventListener('click', onRestore);
+    $('edit-submit').addEventListener('click', onEditSubmit);
+    $('note-text').addEventListener('input', updateNoteCount);
+    $('note-save').addEventListener('click', onNoteSave);
+    $('budget-down').addEventListener('click', (e) => setBudget(Number(e.currentTarget.dataset.value)));
+    $('budget-up').addEventListener('click', (e) => setBudget(Number(e.currentTarget.dataset.value)));
+    $('budget-next').addEventListener('click', () => go(`#/c/${state.campaign.id}/days`));
+    $('days-down').addEventListener('click', (e) => setDays(Number(e.currentTarget.dataset.value)));
+    $('days-up').addEventListener('click', (e) => setDays(Number(e.currentTarget.dataset.value)));
+    $('days-next').addEventListener('click', () => go(`#/c/${state.campaign.id}/review`));
+    $('review-continue').addEventListener('click', renderConfirm);
+    $('confirm-yes').addEventListener('click', onConfirm);
+    $('confirm-back').addEventListener('click', renderReview);
+    $('cancel-yes').addEventListener('click', onCancelYes);
+    $('cancel-back').addEventListener('click', route);
+    $('ready-copy-title').addEventListener('click', () => copyText(state.campaign.copy.title, 'نُسخ العنوان.'));
+    $('ready-copy-description').addEventListener('click',
+        () => copyText(state.campaign.copy.description, 'نُسخ الوصف.'));
+    $('ready-share').addEventListener('click', onShare);
+
+    document.querySelectorAll('[data-back]').forEach((button) => {
+        const name = button.closest('.screen').dataset.screen;
+        button.addEventListener('click', name === 'note' ? onNoteBack : () => go(parentOf(name)));
+    });
+    document.querySelectorAll('[data-home]').forEach((button) => button.addEventListener('click', () => go('#/')));
+    document.querySelectorAll('[data-cancel]').forEach((button) => button.addEventListener('click', renderCancel));
+    document.querySelectorAll('[data-ack]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const section = button.closest('.screen');
+            UI.clearAlert(section);
+            // بعد الإقرار تُعرض الحملة كما هي الآن، لا كما كانت.
+            if (['proposal', 'confirm', 'budget', 'days', 'edit'].includes(section.dataset.screen)) {
+                route();
+            }
+        });
+    });
+    window.addEventListener('hashchange', route);
+    // صفحةٌ تعود من ذاكرة الرجوع في Safari قد تعرض تأكيداً قديماً: تُقرأ من جديد.
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            state.campaign = null;
+            route();
+        }
+    });
+}
+
+async function boot() {
+    captureActivation();
+    wire();
+    const choices = await api('GET', '/api/choices');
+    if (choices.status !== 200) {
+        UI.show('login');
+        UI.showAlert(UI.screen('login'), detail(choices));
+        return;
+    }
+    state.choices = choices.data;
+    if (location.hash.startsWith('#/activate')) {
+        renderActivate();
+        return;
+    }
+    const me = await api('GET', '/api/me');
+    if (me.status === 200) {
+        route();
+    }
+}
+
+boot();
