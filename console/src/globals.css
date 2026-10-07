@@ -1,0 +1,125 @@
+/*
+ * لوحة الممارس — الطبقة البصرية
+ * ===============================
+ * رموز shadcn الأساسية مأخوذة من لوحة Symbol AI نفسها (البوابة:
+ * portal/styles.css) بصيغة HSL التي يتوقّعها المكوّن، ورموز الشريط الجانبي
+ * كما وردت مع المكوّن بلا تعديل.
+ *
+ * الخطّ Amiri من ملفّات البوابة نفسها: Vite ينسخها إلى البناء، فلا نسخة
+ * ثالثة في المستودع ولا طلب إلى شبكة خارجية.
+ */
+
+@font-face {
+    font-family: 'Amiri';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../../portal/fonts/amiri-arabic-400.woff2') format('woff2');
+    unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+
+@font-face {
+    font-family: 'Amiri';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../../portal/fonts/amiri-arabic-700.woff2') format('woff2');
+    unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+
+@font-face {
+    font-family: 'Amiri';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../../portal/fonts/amiri-latin-400.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Amiri';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../../portal/fonts/amiri-latin-700.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 221.1 52.2% 13.1%;        /* ink #101B33 */
+    --card: 0 0% 100%;
+    --card-foreground: 221.1 52.2% 13.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 221.1 52.2% 13.1%;
+    --primary: 222.5 70% 47.1%;             /* brand-strong #2455CC */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214.3 53.8% 97.5%;         /* surface-sunk #F5F8FC */
+    --secondary-foreground: 221.1 52.2% 13.1%;
+    --muted: 214.3 53.8% 97.5%;
+    --muted-foreground: 208.9 14.1% 37.5%;  /* ink-soft #52606D */
+    --accent: 220 88.2% 96.7%;              /* brand-tint #EFF4FE */
+    --accent-foreground: 221.1 52.2% 13.1%;
+    --destructive: 2.8 87.4% 34.1%;         /* unable #A3120B */
+    --destructive-foreground: 0 0% 100%;
+    --border: 213.8 29.6% 89.4%;            /* line #DCE3EC */
+    --input: 212.5 25% 81.2%;               /* line-strong #C3CEDB */
+    --ring: 222 90.8% 57.5%;                /* brand #306BF5 */
+    --radius: 0.625rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    line-height: 1.75;
+  }
+
+  /* `hidden` يُهزم بأي display صريح؛ الإخفاء يجب أن يبقى إخفاءً. */
+  [hidden] {
+    display: none !important;
+  }
+
+  /* أيقونة زرّ الشريط ترسم اللوحة يساراً؛ في الواجهة العربية الشريط يميناً. */
+  [dir="rtl"] [data-sidebar="trigger"] > svg {
+    transform: scaleX(-1);
+  }
+
+  /* حركة الشريط والنوافذ خدمةٌ لا ضرورة: من طلب تقليل الحركة لا يراها. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

@@ -44,6 +44,22 @@ jobs:
       - name: تثبيت التبعيات
         run: pip install -r requirements.txt -r requirements-dev.txt
 
+      # لوحة الممارس تُبنى قبل الاختبارات: التطبيق يخدم console/dist، واختبارات
+      # المتصفّح تقيس البناء لا المصدر.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+
+      - name: لوحة الممارس — التبعيات والأنواع والاختبارات والبناء
+        working-directory: console
+        run: |
+          npm ci --no-fund --no-audit
+          npm run typecheck
+          npm test
+          npm run build
+
       - name: عميل PostgreSQL لاختبار انعكاس الترحيلات
         run: sudo apt-get install -y --no-install-recommends postgresql-client-16
 
@@ -76,4 +92,5 @@ jobs:
       - name: لا TODO ولا placeholder ولا mock في مسار الإنتاج
         run: |
           ! grep -rniE '\b(TODO|FIXME|XXX|HACK)\b' \
-              --include='*.py' --include='*.sql' core/ api/ migrations/
+              --include='*.py' --include='*.sql' --include='*.ts' --include='*.tsx' \
+              core/ api/ migrations/ console/src/

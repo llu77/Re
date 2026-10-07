@@ -72,11 +72,67 @@ def create_app() -> FastAPI:
     portal = Path(__file__).resolve().parent.parent / "portal"
     app.mount("/app", StaticFiles(directory=portal, html=True), name="portal")
 
+    _mount_console(app)
+
     @app.get("/health", tags=["ops"])
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
     return app
+
+
+#: لوحة الممارس تعرض بيانات مرضى: لا شيفرة إلا من الأصل، ولا إطار يحتويها،
+#: ولا إحالة تحمل مسارها إلى موقعٍ خارجي (روابط الأدلّة تفتح PubMed).
+#: `style-src 'unsafe-inline'` لأن مكتبة Radix تحقن عنصر <style> لقفل
+#: التمرير خلف النوافذ؛ الأنماط لا تنفّذ شيفرة، والسكربتات تبقى من الأصل وحده.
+CONSOLE_CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; "
+    "form-action 'none'; frame-ancestors 'none'"
+)
+_CONSOLE_HEADERS = {
+    "Content-Security-Policy": CONSOLE_CSP,
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "same-origin",
+    "X-Frame-Options": "DENY",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+}
+
+
+def _mount_console(app: FastAPI) -> None:
+    """
+    لوحة الممارس تحت `/console`: واجهة مبنيّة من `console/` تستهلك
+    `/practitioner/*` من الأصل نفسه.
+
+    البناء ناتجٌ لا مصدر فلا يُحفظ في المستودع. بلا بناءٍ يردّ المسار 503
+    برسالة صريحة: لا تعمل المنصّة كأن اللوحة موجودة، ولا يتوقّف إقلاع بوابة
+    المريض بسبب واجهةٍ أخرى.
+    """
+    dist = Path(__file__).resolve().parent.parent / "console" / "dist"
+    if (dist / "index.html").is_file():
+        app.mount("/console", StaticFiles(directory=dist, html=True), name="console")
+    else:
+        @app.get("/console/{path:path}", include_in_schema=False)
+        def console_not_built(path: str) -> JSONResponse:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "لوحة الممارس لم تُبنَ: npm ci && npm run build في console/"},
+            )
+
+    @app.middleware("http")
+    async def console_headers(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/console" or path.startswith("/console/"):
+            for name, value in _CONSOLE_HEADERS.items():
+                response.headers.setdefault(name, value)
+            # الملفّات المجزّأة لا تتغيّر أبداً؛ الصفحة نفسها تُراجَع عند كل فتح.
+            immutable = path.startswith("/console/assets/")
+            response.headers.setdefault(
+                "Cache-Control", "public, max-age=31536000, immutable" if immutable else "no-cache"
+            )
+        return response
 
 
 app = create_app()

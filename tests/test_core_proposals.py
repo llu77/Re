@@ -179,6 +179,19 @@ def test_queue_puts_red_flags_first(practitioner, seed):
     assert [p.id for p in queue] == [red_flag.id, routine.id]
 
 
+def test_queue_items_carry_their_priority_and_red_flag(practitioner, seed):
+    """الطابور يُرتَّب بهما، والممارس يحتاج أن يراهما: عنصرٌ عاجل يبدو عادياً يُراجَع متأخراً."""
+    red_flag = _plan(practitioner, seed, priority=9, is_red_flag=True)
+    routine = _plan(practitioner, seed, priority=2)
+    for proposal in (red_flag, routine):
+        proposals.submit(proposal.id, practitioner)
+
+    shown = {p.id: (p.priority, p.is_red_flag) for p in proposals.review_queue(practitioner)}
+    assert shown == {red_flag.id: (9, True), routine.id: (2, False)}
+    assert (proposals.get(red_flag.id, practitioner).priority,
+            proposals.get(red_flag.id, practitioner).is_red_flag) == (9, True)
+
+
 def test_queue_orders_by_priority_then_wait(practitioner, seed):
     low = _plan(practitioner, seed, priority=7)
     high = _plan(practitioner, seed, priority=2)
