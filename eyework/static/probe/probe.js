@@ -26,6 +26,10 @@ const LOGGED = [
     'touchend', 'contextmenu',
 ];
 const TARGETS = ['t44', 't56', 't72', 't96'];
+// الأحجام التي يستعملها التطبيق فعلاً (72 فأكبر): عليها وحدها يقوم القرار،
+// والأصغر منها قياسٌ للدقّة لا شرط.
+const APP_TARGETS = ['t72', 't96'];
+const MODES = ['gaze', 'touch'];
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 const DIGITS = '٠١٢٣٤٥٦٧٨٩';
 
@@ -34,8 +38,9 @@ const state = {
     section: 0,
     log: [],
     moves: {},
-    // probe ← أول مرور، وأول ضغط، وعدد النقرات الموثوقة، ونوع المؤشر
-    targets: {},
+    // الطريقة ← probe ← أول مرور، وأول ضغط، وعدد النقرات الموثوقة، ونوع المؤشر.
+    // كل طريقةٍ تُعدّ وحدها: نقرات اللمس أساسٌ للمقارنة ولا تُحسب نظراً أبداً.
+    targets: { gaze: {}, touch: {} },
     rearm: { clickedA: null, outSinceA: false, result: null },
     stepper: { count: 0, times: [], result: null },
     scroll: { result: null, scrolled: false },
@@ -87,7 +92,7 @@ function record(event) {
         t: Math.round(event.timeStamp),
     });
 
-    const target = state.targets[probe];
+    const target = state.targets[state.mode][probe];
     if (target && event.type === 'pointerover' && target.firstOver === null) {
         target.firstOver = event.timeStamp;
     }
@@ -171,7 +176,7 @@ function navigate(event, delta) {
 
 function onTargetClick(event) {
     const probe = event.currentTarget.dataset.probe;
-    const target = state.targets[probe];
+    const target = state.targets[state.mode][probe];
     if (event.isTrusted) {
         target.trustedClicks += 1;
     } else {
@@ -295,17 +300,21 @@ function median(values) {
 }
 
 function checks() {
-    const hit = TARGETS.filter((probe) => state.targets[probe].trustedClicks > 0);
-    const synthetic = TARGETS.some((probe) => state.targets[probe].syntheticClicks > 0);
+    const gaze = state.targets.gaze;
+    const hit = TARGETS.filter((probe) => gaze[probe].trustedClicks > 0);
+    const appHit = APP_TARGETS.filter((probe) => gaze[probe].trustedClicks > 0);
+    const synthetic = TARGETS.some((probe) => gaze[probe].syntheticClicks > 0);
+    const touched = TARGETS.filter((probe) => state.targets.touch[probe].trustedClicks > 0);
     const dwell = median(TARGETS
-        .map((probe) => state.targets[probe])
+        .map((probe) => gaze[probe])
         .filter((t) => t.firstOver !== null && t.firstClick !== null)
         .map((t) => t.firstClick - t.firstOver));
-    const hovered = TARGETS.some((probe) => state.targets[probe].firstOver !== null);
-    const types = [...new Set(TARGETS.map((probe) => state.targets[probe].pointerType).filter(Boolean))];
+    const hovered = TARGETS.some((probe) => gaze[probe].firstOver !== null);
+    const types = [...new Set(TARGETS.map((probe) => gaze[probe].pointerType).filter(Boolean))];
 
+    // القرار من نقرات «بالنظر» على أحجام التطبيق وحدها.
     let activation = 'NOT_RUN';
-    if (hit.length === TARGETS.length) {
+    if (appHit.length === APP_TARGETS.length) {
         activation = 'PASS';
     } else if (hit.length > 0 || synthetic) {
         activation = 'FAIL';
@@ -327,9 +336,11 @@ function checks() {
 
     return [
         ['activation', 'الضغط بالنظر يصل الصفحة', activation,
-            `${toArabic(hit.length)} من ${toArabic(TARGETS.length)} أهداف`],
-        ['sizes', 'الأحجام التي أُصيبت', hit.length ? 'INFO' : 'NOT_RUN',
+            `${toArabic(appHit.length)} من ${toArabic(APP_TARGETS.length)} بحجم التطبيق`],
+        ['sizes', 'الأحجام التي أُصيبت بالنظر', hit.length ? 'INFO' : 'NOT_RUN',
             hit.map((p) => toArabic(p.slice(1))).join('، ') || '—'],
+        ['touch', 'أهدافٌ أُصيبت باللمس (للمقارنة)', touched.length ? 'INFO' : 'NOT_RUN',
+            touched.length ? toArabic(touched.length) : '—'],
         ['accuracy', 'حجم الهدف الموصى به', recommended === null ? 'NOT_RUN' : 'INFO',
             recommended === null ? '—' : `${toArabic(recommended)} بكسل (البُعد عن المركز ${toArabic(Math.round(p95))})`],
         ['pointer', 'نوع المؤشر', types.length ? 'INFO' : 'NOT_RUN', types.join('، ') || '—'],
@@ -389,19 +400,19 @@ function renderVerdict() {
     const verdict = $('verdict');
     if (activation === 'PASS') {
         verdict.dataset.state = 'pass';
-        verdict.textContent = 'يصل الضغط بالنظر إلى الصفحة في هذا الوضع.';
+        verdict.textContent = 'يصل الضغط بالنظر إلى أهداف التطبيق في هذا الوضع.';
     } else if (activation === 'FAIL') {
         verdict.dataset.state = 'fail';
-        verdict.textContent = 'لم يصل الضغط بالنظر إلى كل الأهداف. لا يُبنى التطبيق على الويب قبل حلّ هذا.';
+        verdict.textContent = 'لم يصل الضغط بالنظر إلى أهداف التطبيق (٧٢ فأكبر). لا يُبنى على الويب قبل حلّ هذا.';
     } else {
         verdict.dataset.state = '';
-        verdict.textContent = 'لم يُختبر الضغط بعد (القسم الثاني).';
+        verdict.textContent = 'لم يُختبر الضغط بالنظر بعد (القسم الثاني، بطريقة «بالنظر»).';
     }
 }
 
 function summary() {
     const rows = checks();
-    const lines = ['فحص الإدخال — النتيجة', `الطريقة: ${state.mode === 'gaze' ? 'بالنظر' : 'باللمس'}`];
+    const lines = ['فحص الإدخال — النتيجة', 'الحكم من نقرات «بالنظر» وحدها؛ نقرات «باللمس» للمقارنة.'];
     environment().forEach(([name, value]) => lines.push(`${name}: ${value}`));
     lines.push(`نقاط اللمس: ${navigator.maxTouchPoints}`, `المتصفّح: ${navigator.userAgent}`);
     lines.push('');
@@ -426,11 +437,11 @@ async function onCopy() {
 /* ── الإقلاع ────────────────────────────────────────────────────────── */
 
 function init() {
-    TARGETS.forEach((probe) => {
-        state.targets[probe] = {
+    MODES.forEach((mode) => TARGETS.forEach((probe) => {
+        state.targets[mode][probe] = {
             firstOver: null, firstClick: null, trustedClicks: 0, syntheticClicks: 0, pointerType: '',
         };
-    });
+    }));
 
     LOGGED.forEach((type) => document.addEventListener(type, record, { capture: true, passive: true }));
     document.addEventListener('pointermove', countMove, { capture: true, passive: true });

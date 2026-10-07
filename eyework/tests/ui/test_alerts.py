@@ -121,6 +121,36 @@ def test_a_failed_start_offers_a_retry(page_factory, server):
     assert not page.errors, page.errors
 
 
+def test_signing_in_after_a_failed_start_loads_the_choices_first(page_factory, server):
+    # التنبيه يغطّي زرّ الدخول، لكن «اذهب» في لوحة المفاتيح ترسل النموذج: الدخول
+    # يمرّ، والخيارات تُقرأ قبل أوّل شاشة.
+    from eyework.tests.ui.conftest import LOGIN, PASSWORD
+
+    page = page_factory(session=False)
+    flow = Flow(page, server["base"])
+    page.route("**/api/choices", lambda route: route.fulfill(
+        status=503, content_type="application/json", body=json.dumps({"detail": "الخدمة متوقّفة مؤقّتاً."})))
+    page.goto(server["base"] + "/#/")
+    flow.screen("login")
+    _alert_shown(flow)
+
+    page.unroute("**/api/choices")
+    page.fill("#login-username", LOGIN)
+    page.fill("#login-password", PASSWORD)
+    page.press("#login-password", "Enter")
+    flow.screen("home")
+    # أوّل شاشةٍ تحتاج الخيارات: سطر الحالة في الاقتراح يذكر حدّ النسخ منها.
+    page.click("#home-new")
+    flow.screen("photo")
+    page.set_input_files("#photo-input", files=[{"name": "p.jpg", "mimeType": "image/jpeg",
+                                                 "buffer": sample_photo()}])
+    flow.until("!document.querySelector('#photo-generate').disabled")
+    page.click("#photo-generate")
+    flow.until("!document.querySelector('#proposal-copy').hidden")
+    assert "النسخة 1 من 10" in page.inner_text("#proposal-status")
+    assert not page.errors, page.errors
+
+
 def test_a_dropped_request_says_what_happened(page_factory, server):
     page = page_factory()
     flow = Flow(page, server["base"])

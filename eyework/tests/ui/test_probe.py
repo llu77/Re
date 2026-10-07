@@ -51,22 +51,44 @@ def test_nothing_is_stored_and_no_timer_runs(probe):
     assert probe.evaluate("() => window.__eyework.timers") == []
 
 
-def test_trusted_clicks_on_every_target_pass_the_gate(probe):
-    _section(probe, "activation")
-    for target in ("t44", "t56", "t72", "t96"):
-        probe.locator(f"[data-probe='{target}']").click()
-    _section(probe, "verdict")
-    assert probe.locator("#verdict").get_attribute("data-state") == "pass"
-    rows = probe.locator("#checks-core tr").all_inner_texts()
-    assert any("نجح" in row and "٤ من ٤" in row for row in rows), rows
+def _rows(page, table):
+    return page.locator(f"#{table} tr").all_inner_texts()
 
 
-def test_a_missed_target_fails_the_gate(probe):
+def test_gaze_clicks_on_the_app_sizes_pass_the_gate(probe):
+    """القرار على الأحجام التي يستعملها التطبيق (72 فأكبر)؛ 44 و56 قياسٌ للدقّة لا شرط."""
     _section(probe, "activation")
     for target in ("t72", "t96"):
         probe.locator(f"[data-probe='{target}']").click()
     _section(probe, "verdict")
+    assert probe.locator("#verdict").get_attribute("data-state") == "pass"
+    assert any("نجح" in row and "٢ من ٢" in row for row in _rows(probe, "checks-core")), _rows(probe, "checks-core")
+    _section(probe, "details")
+    assert any("٧٢، ٩٦" in row for row in _rows(probe, "checks-detail")), _rows(probe, "checks-detail")
+
+
+def test_a_missed_app_size_fails_the_gate(probe):
+    _section(probe, "activation")
+    for target in ("t44", "t56", "t72"):
+        probe.locator(f"[data-probe='{target}']").click()
+    _section(probe, "verdict")
     assert probe.locator("#verdict").get_attribute("data-state") == "fail"
+
+
+def test_touch_taps_never_pass_the_gaze_gate(probe):
+    """أساس المقارنة باللمس ثم العودة إلى «بالنظر»: لا نقرة لمسٍ تُحسب نظراً."""
+    probe.locator("[data-mode='touch']").click()
+    _section(probe, "activation")
+    for target in ("t44", "t56", "t72", "t96"):
+        probe.locator(f"[data-probe='{target}']").click()
+    # الطريقة تُختار في القسم الأول: يعود إليه المشغّل ليبدّلها.
+    while not probe.locator(".sec[data-section='env']").is_visible():
+        probe.locator("#prev").click()
+    probe.locator("[data-mode='gaze']").click()
+    _section(probe, "verdict")
+    assert probe.locator("#verdict").get_attribute("data-state") == ""
+    _section(probe, "details")
+    assert any("للمقارنة" in row and "٤" in row for row in _rows(probe, "checks-detail"))
 
 
 def test_untested_is_not_a_pass(probe):

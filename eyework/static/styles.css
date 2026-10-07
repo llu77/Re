@@ -263,6 +263,30 @@ p { margin: 0; }
 }
 .alert__text { color: var(--alert); font-weight: 700; }
 
+/*
+ * الوضع الأفقي على الهاتف: الإطار (72 + 24 + المحتوى + 24 + 72) لا يتّسع في
+ * ارتفاعٍ دون 500px، والمحتوى مقصوصٌ بلا تمرير — فتختفي أزرار القيم. لا تخطيطَ
+ * أفقيّ يحفظ عقد النظر هنا، فتُخفى الشاشات (visibility: لا تُضغط ولا تُركَّز)
+ * ويظهر طلب التدوير. الحاسوب والجهاز اللوحي أطول من ذلك فلا يمسّهما.
+ */
+.rotate { display: none; }
+@media (orientation: landscape) and (max-height: 500px) {
+    .app { visibility: hidden; }
+    .rotate {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        padding: var(--edge);
+        background: var(--surface);
+        text-align: center;
+    }
+}
+.rotate__title { font-size: var(--fs-title); font-weight: 700; color: var(--navy); }
+
 .visually-hidden {
     position: absolute !important;
     width: 1px; height: 1px; margin: -1px; padding: 0;

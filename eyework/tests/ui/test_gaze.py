@@ -122,3 +122,24 @@ def test_hidden_means_hidden(page_factory, server, path):
         "() => [...document.querySelectorAll('[hidden]')]"
         ".filter(e => getComputedStyle(e).display !== 'none').map(e => e.id || e.className)")
     assert shown == []
+
+
+def test_a_phone_in_landscape_is_asked_to_rotate(page_factory, server):
+    """في الوضع الأفقي لا يُضغط شيء: الشاشات مخفيّة وطلب التدوير ظاهر."""
+    page = page_factory(844, 390)
+    page.goto(server["base"] + "/#/")
+    page.wait_for_selector(".screen[data-screen='home']:not([hidden])", state="attached")
+    assert page.is_visible(".rotate")
+    reachable = page.evaluate("""
+        () => [...document.querySelectorAll('.screen:not([hidden]) button, .screen:not([hidden]) a[href]')]
+            .filter((e) => {
+                const r = e.getBoundingClientRect();
+                const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                return hit && e.contains(hit);
+            }).map((e) => e.id || e.textContent.trim())
+    """)
+    assert reachable == []
+
+    page.set_viewport_size({"width": 390, "height": 664})
+    assert not page.is_visible(".rotate")
+    assert page.is_visible("#home-new")

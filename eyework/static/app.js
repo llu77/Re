@@ -133,6 +133,10 @@ async function loadCampaign(id) {
 }
 
 async function route() {
+    // لا شاشة بلا خياراتها: إقلاعٌ فشل ثم دخولٌ ناجح يقرأها هنا قبل أيّ رسم.
+    if (!state.choices && !(await loadChoices())) {
+        return;
+    }
     const hash = location.hash || '#/';
     if (hash.startsWith('#/login')) {
         renderLogin();
@@ -979,13 +983,21 @@ function wire() {
 // فشل الإقلاع لا يترك شاشةً بلا مخرج: «حسناً» تعيد المحاولة.
 let retryBoot = false;
 
-async function boot() {
+async function loadChoices() {
     const choices = await api('GET', '/api/choices');
     if (choices.status !== 200) {
         startupFailed(detail(choices));
-        return;
+        return false;
     }
     state.choices = choices.data;
+    retryBoot = false;
+    return true;
+}
+
+async function boot() {
+    if (!(await loadChoices())) {
+        return;
+    }
     if (location.hash.startsWith('#/activate')) {
         renderActivate();
         return;
