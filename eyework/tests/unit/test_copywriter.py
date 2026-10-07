@@ -198,15 +198,41 @@ def test_the_model_fixes_what_the_check_reports_then_answers():
     assert result["type"] == "tool_result" and result["tool_use_id"] == "toolu_1"
     report = json.loads(result["content"])
     assert report["ok"] is False and report["title_chars"] == len(too_long)
-    assert any("العنوان" in problem and "60" in problem for problem in report["problems"])
+    assert any("طول العنوان" in problem and "60" in problem for problem in report["problems"])
 
 
-def test_a_model_that_keeps_checking_is_stopped():
+def test_a_model_that_keeps_checking_is_asked_to_answer_without_tools():
+    """بعد ثلاث جولات يُطلب الجواب بلا أدوات، فلا يُرمى استدعاءٌ مدفوع."""
     loop = ([_tool_use(GOOD["title"], GOOD["description"])], "tool_use")
-    handler = _sequence(loop, loop, loop, loop, _final())
+    handler = _sequence(loop, loop, loop, _final())
     outcome = _writer(handler).write(CopyRequest(jpeg=JPEG))
-    assert outcome.outcome == "OUTPUT_INVALID"
+    assert outcome.outcome == "OK"
+    assert [request.get("tool_choice") for request in handler.seen] == [None, None, None, {"type": "none"}]
+    assert all(request["tools"] == handler.seen[0]["tools"] for request in handler.seen)
+
+
+def test_a_tool_call_after_tools_were_refused_is_invalid():
+    loop = ([_tool_use(GOOD["title"], GOOD["description"])], "tool_use")
+    handler = _sequence(loop, loop, loop, loop)
+    assert _writer(handler).write(CopyRequest(jpeg=JPEG)).outcome == "OUTPUT_INVALID"
     assert len(handler.seen) == 4
+
+
+def test_after_a_fallback_the_turn_is_echoed_by_the_documented_rule():
+    """قبل آخر كتلة fallback: يُسقط التفكير واستدعاء الأداة؛ وبعدها يبقى كل شيء."""
+    content = [
+        {"type": "thinking", "thinking": "", "signature": "a"},
+        _tool_use(GOOD["title"], GOOD["description"], block_id="toolu_old"),
+        {"type": "fallback", "from": {"model": "claude-opus-5-5"}, "to": {"model": "claude-opus-4-8"}},
+        {"type": "thinking", "thinking": "", "signature": "b"},
+        _tool_use(GOOD["title"], GOOD["description"], block_id="toolu_new"),
+    ]
+    handler = _sequence((content, "tool_use"), _final())
+    assert _writer(handler).write(CopyRequest(jpeg=JPEG)).outcome == "OK"
+    echoed = handler.seen[1]["messages"][1]["content"]
+    assert [(block["type"], block.get("id") or block.get("signature")) for block in echoed] == [
+        ("fallback", None), ("thinking", "b"), ("tool_use", "toolu_new"),
+    ]
 
 
 def test_an_unknown_tool_is_answered_with_an_error_not_run():

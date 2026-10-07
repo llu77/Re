@@ -135,6 +135,20 @@ def _parse(request: CopyRequest, message, meta: dict) -> CopyOutcome:
                        note=note, **meta)
 
 
+#: ما يُسقط قبل آخر كتلة `fallback` حين يُعاد دور المساعد (وثائق Anthropic،
+#: «Refusals and fallback»، Continuing the conversation). في الطلبات غير
+#: المتدفّقة تأتي الكتلة أولاً فلا يسقط شيء؛ والقاعدة مكتوبةٌ كاملةً لتبقى صحيحة.
+_DROP_BEFORE_FALLBACK = frozenset({"thinking", "redacted_thinking", "connector_text", "tool_use"})
+
+
+def _echo(content) -> list:
+    """محتوى دور المساعد كما يُعاد في الطلب التالي."""
+    blocks = list(content)
+    last = max((index for index, block in enumerate(blocks) if block.type == "fallback"), default=-1)
+    return [block for index, block in enumerate(blocks)
+            if index > last or block.type not in _DROP_BEFORE_FALLBACK]
+
+
 def _failure(error: Exception) -> CopyOutcome:
     """خطأ المكتبة نتيجةً واحدة. ما لم يصل أو رُفض قبل المعالجة لا يُحسب."""
     if isinstance(error, anthropic.APITimeoutError):
@@ -178,13 +192,19 @@ class AnthropicCopywriter:
         meta = {"served_model": None, "request_id": None, "input_tokens": 0, "output_tokens": 0}
         processed = False
 
+        # جولات الأداة، ثم جولةٌ أخيرة بلا أدوات (tool_choice: none) إن بقي
+        # النموذج يفحص: جوابٌ يُفحص في الشيفرة خيرٌ من استدعاءٍ مدفوع يُرمى.
         for round_number in range(self_check.MAX_ROUNDS + 1):
             remaining = _DEADLINE_SECONDS - (clock.monotonic() - started)
             if remaining < 10:
                 return CopyOutcome("UPSTREAM_TIMEOUT", **meta)
+            final = round_number == self_check.MAX_ROUNDS
+            request_params = {**params, "messages": messages}
+            if final:
+                request_params["tool_choice"] = {"type": "none"}
             try:
                 message = self._client.beta.messages.create(
-                    **{**params, "messages": messages},
+                    **request_params,
                     timeout=anthropic.Timeout(min(90.0, remaining), connect=5.0),
                 )
             except anthropic.APIError as error:
@@ -204,8 +224,8 @@ class AnthropicCopywriter:
 
             if message.stop_reason != "tool_use":
                 return _parse(request, message, meta)
-            if round_number == self_check.MAX_ROUNDS:
-                logger.info("جولات الفحص تجاوزت الحدّ (طلب %s)", meta["request_id"])
+            if final:
+                logger.info("أداةٌ بعد منعها (طلب %s)", meta["request_id"])
                 return CopyOutcome("OUTPUT_INVALID", **meta)
 
             results = []
@@ -218,6 +238,6 @@ class AnthropicCopywriter:
                     content, is_error = f"لا أداة باسم {block.name}.", True
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": content, "is_error": is_error})
-            messages = [*messages, {"role": "assistant", "content": message.content},
+            messages = [*messages, {"role": "assistant", "content": _echo(message.content)},
                         {"role": "user", "content": results}]
         return CopyOutcome("OUTPUT_INVALID", **meta)

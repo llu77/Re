@@ -35,7 +35,7 @@ def test_each_problem_says_what_to_change():
     report, _ = _run(title="قصير", description=DESCRIPTION + " اتصل 0551234567 أو زر shop.com")
     assert report["ok"] is False
     joined = " ".join(report["problems"])
-    assert "العنوان 4 حرفاً" in joined and "أرقام الهواتف" in joined and "الروابط" in joined
+    assert "طول العنوان 4 حرفاً" in joined and "رقم هاتف" in joined and "رابطٌ" in joined
 
 
 def test_soft_warnings_come_back_as_cautions_not_problems():
