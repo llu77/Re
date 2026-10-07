@@ -313,3 +313,28 @@ def test_an_unusable_photo_comes_with_the_assistants_advice(seller, writer):
     body = expect(seller.post(path(view, "/copy"), json={"expected_row_version": view["row_version"]}))
     assert body["result"] == "UNUSABLE_PHOTO"
     assert body["assistant_note"] == "صوّر المنتج وحده على خلفيةٍ سادة."
+
+
+@pytest.mark.parametrize("outcome", [
+    CopyOutcome("UNUSABLE_PHOTO", reason="NOT_ALLOWED"),
+    CopyOutcome("REFUSED"),
+], ids=["unusable", "refused"])
+def test_an_edit_the_assistant_will_not_write_says_so_without_asking_for_another_photo(seller, writer, owner, outcome):
+    """بعد اقتراح النصّ لا تُستبدل الصورة؛ «اختر صورةً أخرى» طلبٌ لا يمكن تنفيذه."""
+    view = generate(seller, upload(seller))
+    writer.queue(outcome)
+    response = seller.post(path(view, "/copy/edit"), json={
+        "expected_row_version": view["row_version"], "expected_version_id": view["copy"]["version_id"],
+        "presets": ["SHORTER"]})
+    assert response.status_code == 422
+    assert response.json()["code"] == "AI_EDIT_REFUSED"
+    assert "صورة" not in response.json()["detail"]
+    assert current(seller, view)["copy"]["version"] == 1
+
+
+def test_a_refusal_whose_fallback_was_busy_asks_to_retry_later(seller, writer):
+    writer.queue(CopyOutcome("REFUSED", retry_after_seconds=30))
+    view = upload(seller)
+    response = seller.post(path(view, "/copy"), json={"expected_row_version": view["row_version"]})
+    assert response.status_code == 503
+    assert response.json()["code"] == "AI_BUSY" and response.headers["retry-after"] == "30"

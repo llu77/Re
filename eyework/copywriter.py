@@ -100,7 +100,9 @@ def _parse(request: CopyRequest, message, meta: dict) -> CopyOutcome:
         details = getattr(message, "stop_details", None)
         # الفئة وحدها: لا نصّ ولا صورة في السجلّ.
         logger.info("رفضٌ من فئة %s (طلب %s)", getattr(details, "category", None), meta["request_id"])
-        return CopyOutcome("REFUSED", **meta)
+        # نموذج البديل كان مشغولاً فعاد الرفض كما هو: المحاولة لاحقاً قد تنجح.
+        retry = 30 if getattr(details, "recommended_model", None) else None
+        return CopyOutcome("REFUSED", retry_after_seconds=retry, **meta)
     if message.stop_reason == "max_tokens":
         return CopyOutcome("OUTPUT_INVALID", **meta)
 
@@ -147,6 +149,26 @@ def _echo(content) -> list:
     last = max((index for index, block in enumerate(blocks) if block.type == "fallback"), default=-1)
     return [block for index, block in enumerate(blocks)
             if index > last or block.type not in _DROP_BEFORE_FALLBACK]
+
+
+def _tokens(usage) -> tuple[int, int]:
+    """
+    رموز الجولة كلها. بعد رفضٍ وبديل تحمل `usage.iterations` كل محاولة — ومنها
+    محاولة النموذج الذي رفض، وتُدفع — والأرقام العليا للبديل وحده.
+    """
+    def count(item) -> tuple[int, int]:
+        def get(name):
+            return getattr(item, name, None) or 0
+        return (get("input_tokens") + get("cache_read_input_tokens") + get("cache_creation_input_tokens"),
+                get("output_tokens"))
+
+    if usage is None:
+        return 0, 0
+    iterations = getattr(usage, "iterations", None) or []
+    if iterations:
+        totals = [count(item) for item in iterations]
+        return sum(t[0] for t in totals), sum(t[1] for t in totals)
+    return count(usage)
 
 
 def _failure(error: Exception) -> CopyOutcome:
@@ -216,11 +238,9 @@ class AnthropicCopywriter:
             processed = True
             meta["served_model"] = getattr(message, "model", None)
             meta["request_id"] = getattr(message, "_request_id", None)
-            usage = getattr(message, "usage", None)
-            meta["input_tokens"] += (getattr(usage, "input_tokens", 0) or 0) + (
-                getattr(usage, "cache_read_input_tokens", 0) or 0) + (
-                getattr(usage, "cache_creation_input_tokens", 0) or 0)
-            meta["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
+            tokens_in, tokens_out = _tokens(getattr(message, "usage", None))
+            meta["input_tokens"] += tokens_in
+            meta["output_tokens"] += tokens_out
 
             if message.stop_reason != "tool_use":
                 return _parse(request, message, meta)

@@ -68,7 +68,7 @@ def _generation_result(result) -> dict:
 
 
 @router.get("")
-def list_campaigns(request: Request, page: int = Query(1, ge=1, le=100),
+def list_campaigns(request: Request, page: int = Query(1, ge=1, le=campaigns.MAX_PAGE),
                    user_id: UUID = Depends(require_user)) -> dict:
     return campaigns.list_page(request.app.state.db, user_id, page)
 

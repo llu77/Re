@@ -223,6 +223,25 @@ def test_a_json_body_over_16_kib_is_refused_before_it_is_read(browser, owner):
     assert "set-cookie" not in response.headers
 
 
+@pytest.mark.parametrize("content_type", [None, "text/plain", "application/x-www-form-urlencoded", "APPLICATION/JSON"])
+def test_any_large_write_is_refused_before_it_is_read_whatever_its_type(browser, content_type):
+    """حدّ الحجم على نوع المحتوى وحده يُفلت جسماً بلا نوعٍ معلن يقرؤه FastAPI كاملاً قبل أيّ جلسة."""
+    headers = {} if content_type is None else {"Content-Type": content_type}
+    response = browser().post("/api/auth/login", content=b"x" * (64 * 1024), headers=headers)
+    assert response.status_code == 413
+    assert response.json()["code"] == "BODY"
+
+
+def test_a_write_without_a_declared_length_is_refused(browser):
+    """جسمٌ مجزّأ بلا Content-Length لا يُعرف حجمه إلا بقراءته."""
+    def chunks():
+        yield b"x" * 1024
+
+    response = browser().post("/api/auth/login", content=chunks())
+    assert response.status_code == 411
+    assert response.json()["code"] == "LENGTH"
+
+
 def test_an_image_over_12_mib_is_refused(seller):
     """ملفٌّ بلا حدٍّ يملأ ذاكرة الخادم قبل أن يُفكّ."""
     response = seller.post("/api/campaigns", content=bytes(13 * 1024 * 1024), headers=JPEG)

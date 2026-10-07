@@ -58,14 +58,27 @@ _SET_NAME = "UPDATE users SET display_name = %s WHERE id = %s"
 _REVOKE_ALL = "UPDATE sessions SET revoked_at = now() WHERE user_id = %s AND revoked_at IS NULL"
 _DELETE_USER = "DELETE FROM users WHERE id = %s"
 
+# محاولات اليوم تعدّها السقوف (اليومي والعام). حذف حملتها يمحوها فيستردّ
+# صاحبها حصّةً دُفعت؛ فلا تُحذف حملةٌ فيها محاولةٌ عمرها دون يوم (الشرط الأخير
+# في العبارتين).
 _PURGE_FINAL = """
-DELETE FROM campaigns
- WHERE (status = 'READY' AND ready_at < now() - interval '90 days')
-    OR (status = 'CANCELLED' AND cancelled_at < now() - interval '90 days')
+DELETE FROM campaigns c
+ WHERE ((c.status = 'READY' AND c.ready_at < now() - interval '90 days')
+     OR (c.status = 'CANCELLED' AND c.cancelled_at < now() - interval '90 days'))
+   AND NOT EXISTS (SELECT 1 FROM generation_attempts a
+                    WHERE a.campaign_id = c.id AND a.started_at > now() - interval '24 hours')
 """
+#: الخمول من آخر نشاطٍ أيّاً كان: تعديل الحملة، أو تغيير الصورة، أو محاولة كتابة.
 _PURGE_IDLE = """
-DELETE FROM campaigns
- WHERE status IN ('DRAFT', 'COPY_PROPOSED', 'COPY_APPROVED') AND updated_at < now() - interval '30 days'
+DELETE FROM campaigns c
+ WHERE c.status IN ('DRAFT', 'COPY_PROPOSED', 'COPY_APPROVED')
+   AND GREATEST(
+           c.updated_at,
+           coalesce((SELECT i.updated_at FROM campaign_images i WHERE i.campaign_id = c.id), c.updated_at),
+           coalesce((SELECT max(a.started_at) FROM generation_attempts a WHERE a.campaign_id = c.id), c.updated_at)
+       ) < now() - interval '30 days'
+   AND NOT EXISTS (SELECT 1 FROM generation_attempts a
+                    WHERE a.campaign_id = c.id AND a.started_at > now() - interval '24 hours')
 """
 _PURGE_SESSIONS = """
 DELETE FROM sessions
@@ -200,7 +213,9 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("create-user", "reissue-activation", "deactivate", "delete-user", "set-name"):
         command = commands.add_parser(name)
-        command.add_argument("--login", required=True)
+        # بلا --login يُسأل عنه: سطر الأوامر يُحفظ في سجلّ الصدفة، فتتجمّع فيه
+        # قائمة المستخدمين التي لا تحفظها القاعدة إلا HMAC.
+        command.add_argument("--login")
         if name == "delete-user":
             command.add_argument("--confirm-delete-all-data", action="store_true", required=True)
         if name == "create-user":
@@ -211,6 +226,8 @@ def main(argv: list[str] | None = None) -> int:
             choice.add_argument("--clear", action="store_true")
     commands.add_parser("purge")
     args = parser.parse_args(argv)
+    if getattr(args, "login", "absent") is None:
+        args.login = input("اسم الدخول: ").strip()
 
     try:
         if args.command == "create-user":

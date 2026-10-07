@@ -112,3 +112,11 @@ def test_preset_codes_match_the_database_check():
     assert match, "قيد الخيارات غير موجود"
     in_sql = set(re.findall(r"'([A-Z_]+)'", match.group(1)))
     assert in_sql == {preset.value for preset in EditPreset}
+
+
+def test_degree_and_trademark_signs_are_accepted_but_emoji_are_not():
+    """«360°» و«®» من لغة وصف المنتجات؛ رفضها يُفشل جواباً مدفوعاً بلا سبب."""
+    description = "كاميرا مراقبة منزلية بزاوية رؤية 360° وعدسة واسعة، تُثبَّت على الجدار بسهولة."
+    assert check_copy("كاميرا مراقبة بزاوية 360°", description).ok
+    assert check_copy("ساعة يد من Brand®", description).ok
+    assert "SYMBOLS" in check_copy("كاميرا مراقبة منزلية 📷", description).errors

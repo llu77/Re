@@ -273,3 +273,35 @@ def test_the_destination_and_retries_are_fixed_in_code(monkeypatch):
     writer = AnthropicCopywriter("eyework-key")
     assert str(writer._client.base_url).rstrip("/") == "https://api.anthropic.com"
     assert writer._client.max_retries == 0
+
+
+def test_a_refusal_that_could_not_fall_back_is_marked_retryable():
+    handler = _sequence(([], "refusal"))
+    original = handler
+
+    def with_details(request):
+        response = original(request)
+        body = response.json()
+        body["stop_details"] = {"type": "refusal", "category": "cyber", "recommended_model": "claude-opus-4-8"}
+        return httpx.Response(200, headers=response.headers, json=body)
+
+    with_details.seen = original.seen
+    outcome = _writer(with_details).write(CopyRequest(jpeg=JPEG))
+    assert (outcome.outcome, outcome.retry_after_seconds) == ("REFUSED", 30)
+
+
+def test_tokens_include_the_model_that_declined_before_the_fallback():
+    def handler(request):
+        return httpx.Response(200, headers={"request-id": "req_fb"}, json={
+            "id": "msg", "type": "message", "role": "assistant", "model": "claude-opus-4-8",
+            "content": [{"type": "fallback", "from": {"model": "claude-opus-5-5"}, "to": {"model": "claude-opus-4-8"}},
+                        {"type": "text", "text": json.dumps(GOOD, ensure_ascii=False)}],
+            "stop_reason": "end_turn", "stop_sequence": None,
+            "usage": {"input_tokens": 1500, "output_tokens": 400, "iterations": [
+                {"type": "message", "model": "claude-opus-5-5", "input_tokens": 1500, "output_tokens": 900},
+                {"type": "fallback_message", "model": "claude-opus-4-8", "input_tokens": 1500, "output_tokens": 400},
+            ]},
+        })
+    outcome = _writer(handler).write(CopyRequest(jpeg=JPEG))
+    assert outcome.outcome == "OK" and outcome.served_model == "claude-opus-4-8"
+    assert (outcome.input_tokens, outcome.output_tokens) == (3000, 1300)

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -48,6 +49,8 @@ logger = logging.getLogger("eyework.web")
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 JSON_BODY_LIMIT = 16 * 1024
+#: المساران الوحيدان اللذان يحملان صورة: حدّهما في المسار نفسه لا هنا.
+_IMAGE_UPLOAD = re.compile(r"^(POST /api/campaigns|PUT /api/campaigns/[0-9a-f-]{36}/image)$")
 
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 mimetypes.add_type("font/woff2", ".woff2")
@@ -130,7 +133,10 @@ def create_app(
         if (request.headers.get("x-eyework") != "1"
                 or request.headers.get("origin") != settings.public_origin):
             return JSONResponse(status_code=403, content=_FORBIDDEN)
-        if request.headers.get("content-type", "").startswith("application/json"):
+        # كل كتابةٍ غير رفع الصورة تُحدّ بحجمٍ معلَن صغير، أيّاً كان نوع محتواها:
+        # FastAPI يقرأ الجسم كلّه ليحلّله، قبل الجلسة وقبل أيّ مسار. ورفع الصورة
+        # يفرض حدّه بنفسه وهو يقرأ (`routes_campaigns`).
+        if not _IMAGE_UPLOAD.match(f"{request.method} {request.url.path}"):
             length = request.headers.get("content-length")
             if length is None or not length.isdigit():
                 return JSONResponse(status_code=411, content={"code": "LENGTH", "detail": "حجم الطلب مطلوب."})
@@ -188,7 +194,10 @@ def create_app(
 
     @app.exception_handler(campaigns.AiFailure)
     def ai_failure(request: Request, exc: campaigns.AiFailure) -> JSONResponse:
-        spec = AI_OUTCOMES.get(exc.outcome, AI_OUTCOMES["UPSTREAM_ERROR"])
+        outcome = exc.outcome
+        if outcome == "REFUSED" and exc.retry_after_seconds:
+            outcome = "REFUSED_RETRY"
+        spec = AI_OUTCOMES.get(outcome, AI_OUTCOMES["UPSTREAM_ERROR"])
         if exc.retry_after_seconds:
             spec = ErrorSpec(spec.status, spec.code, spec.detail, exc.retry_after_seconds)
         return _error(spec)

@@ -69,7 +69,7 @@ class EditPreset(str, Enum):
 
 #: ما يُرسَل إلى النموذج لكل خيار — جملٌ ثابتة يكتبها الخادم، لا نصٌّ من العميل.
 PRESET_INSTRUCTIONS: dict[EditPreset, str] = {
-    EditPreset.SHORTER: "اجعل العنوان والوصف أقصر مما سبق، دون حذف معلومةٍ صحيحة مهمة.",
+    EditPreset.SHORTER: "اجعل العنوان والوصف أقصر مما سبق، دون حذف معلومةٍ صحيحة مهمة، ودون أن يقلّ العنوان عن ثلاث كلمات ولا الوصف عن جملتين قصيرتين.",
     EditPreset.SIMPLER: "استعمل كلماتٍ أبسط وجملاً أقصر يفهمها كل قارئ.",
     EditPreset.MORE_FORMAL: "اجعل الأسلوب أكثر رسميةً ووقاراً.",
     EditPreset.MORE_LIVELY: "اجعل الأسلوب أكثر حيويةً وجاذبية، دون مبالغةٍ ولا ادّعاء.",
@@ -118,9 +118,14 @@ _MARKUP = re.compile(r"[#<>]")
 _SPACES = re.compile(r"[ \t ]{2,}")
 
 
+#: رموزٌ من فئة So شائعةٌ في وصف المنتجات وليست تعبيرية: «360°» و«®».
+_ALLOWED_SYMBOLS = frozenset("°®™©")
+
+
 def _symbols(text: str) -> bool:
     """رموز تعبيرية ورموزٌ أخرى، ومحارف خاصة أو بدائل منفردة."""
-    return any(unicodedata.category(char) in ("So", "Co", "Cs") for char in text)
+    return any(unicodedata.category(char) in ("So", "Co", "Cs") and char not in _ALLOWED_SYMBOLS
+               for char in text)
 
 
 def _arabic_ratio(text: str) -> float:

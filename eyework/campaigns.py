@@ -38,6 +38,7 @@ from eyework.money import (
 from eyework.prompt import PROMPT_VERSION, CopyRequest, PreviousCopy
 
 __all__ = [
+    "MAX_PAGE",
     "PAGE_SIZE",
     "AiFailure",
     "Conflict",
@@ -63,6 +64,8 @@ __all__ = [
 
 #: ثلاث حملاتٍ في الصفحة: قائمةٌ تُقرأ بالعين بلا تمرير.
 PAGE_SIZE = 3
+#: آخر صفحةٍ يقبلها المسار؛ «الأقدم» لا يُعرض بعدها.
+MAX_PAGE = 100
 DAILY_GENERATIONS = 40
 VERSIONS_PER_CAMPAIGN = 10
 
@@ -282,7 +285,7 @@ def list_page(db: Database, user_id: UUID, page: int) -> dict:
              "updated_at": r["updated_at"].isoformat()}
             for r in rows[:PAGE_SIZE]
         ],
-        "has_more": len(rows) > PAGE_SIZE,
+        "has_more": len(rows) > PAGE_SIZE and page < MAX_PAGE,
     }
 
 
@@ -423,7 +426,18 @@ def edit(db: Database, writer: Copywriter, user_id: UUID, campaign_id: UUID, exp
             db, user_id, campaign_id, "EDIT", expected_row_version, expected_version_id)
         request = CopyRequest(jpeg=jpeg, previous=previous, presets=tuple(presets), edit_note=note)
         outcome = _write(db, writer, user_id, attempt, request)
-        return _finish(db, user_id, campaign_id, attempt, outcome, tuple(presets), note)
+        try:
+            result = _finish(db, user_id, campaign_id, attempt, outcome, tuple(presets), note)
+        except AiFailure as failure:
+            # رفض التعديل حكمٌ على الطلب لا على الصورة؛ والرفض لانشغال البديل يبقى كما هو.
+            if failure.outcome == "REFUSED" and not failure.retry_after_seconds:
+                raise AiFailure("EDIT_REFUSED", None) from failure
+            raise
+        if isinstance(result, Unusable):
+            # الصورة قُبلت من قبل ولا تُستبدل بعد اقتراح النصّ: «اختر صورةً أخرى»
+            # لا يمكن تنفيذه. المحاولة سُجّلت محسوبةً كما دُفعت.
+            raise AiFailure("EDIT_REFUSED", None)
+        return result
 
 
 # ── القرار والمال ───────────────────────────────────────────────────────
