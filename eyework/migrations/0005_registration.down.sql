@@ -2,6 +2,21 @@
 -- 0005_registration — تراجع
 -- ════════════════════════════════════════════════════════════════════════
 
+-- مخطّط 0004 لا يصف حساباً مسجَّلاً ذاتياً ولا مهنةً غير التسويق: بعد التراجع
+-- يصير كلٌّ منها حساب دعوةٍ عادياً يفتح أداة الحملات وينفق حصّة النموذج، ويضيع
+-- أن بريده لم يُتحقَّق منه. فلا تراجع وفي القاعدة واحدٌ منها.
+DO $$
+DECLARE
+    n integer;
+BEGIN
+    SELECT count(*) INTO n FROM users WHERE self_registered OR profession <> 'MARKETING';
+    IF n > 0 THEN
+        RAISE EXCEPTION 'في القاعدة % حساباً لا يصفه مخطّط 0004 (مسجَّلٌ ذاتياً أو من غير التسويق)', n
+            USING HINT = 'احذفها بـ python -m eyework.admin delete-user قبل التراجع';
+    END IF;
+END
+$$;
+
 -- الدالّتان كما كانتا في 0002، حرفاً بحرف.
 CREATE OR REPLACE FUNCTION ew_campaign_insert_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
