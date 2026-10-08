@@ -298,12 +298,14 @@
         <header class="bar bar--top">
             <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
             <p class="step">حسابي</p>
-            <div class="slot"><button class="btn" type="button" id="account-sources" data-safe>المصادر</button></div>
+            <div class="slot"></div>
         </header>
         <div class="content">
             <h2 tabindex="-1">حسابي</h2>
             <p class="line" id="account-name"></p>
             <p class="line" id="account-profession">&nbsp;</p>
+            <!-- في بداية السطر لا في الشريط: موضع «حسابي» في الرئيسية يبقى هنا فارغاً، فأقرب ما إليه «رجوع». -->
+            <button class="btn btn--start spaced" type="button" id="account-sources" data-safe>المصادر</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <!-- «حسابي» في الطرف الأعلى الأيسر من الرئيسية؛ فأقرب ما إليه هنا «رجوع»، والخروج
@@ -314,8 +316,7 @@
         </footer>
     </section>
 
-    <!-- نسبة المحتوى كاملةً كما يطلبها ترخيص O*NET. «المصادر» في الطرف الأعلى الأيسر
-         من «حسابي»، والموضع نفسه هنا فارغ: أقرب ما إليه «رجوع». -->
+    <!-- نسبة المحتوى كاملةً كما يطلبها ترخيص O*NET، من «المصادر» في «حسابي». -->
     <section class="screen" data-screen="account-sources" hidden>
         <header class="bar bar--top">
             <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>

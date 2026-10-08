@@ -431,7 +431,11 @@ def test_an_alert_on_the_delete_screen_keeps_its_distance(page_factory, server, 
     page.click("#account-delete-yes")
     page.wait_for_selector(".screen[data-screen='account-delete'] .alert:not([hidden])")
     flow.audit("account-delete alert")
+    # بعد «حسناً» لا يبقى «نعم، احذف حسابي» أقرب ما إلى نظرٍ باقٍ: العودة إلى «حسابي».
+    flow.press(".screen[data-screen='account-delete'] [data-ack]", lambda: flow.screen("account"), "حسناً")
     assert not _failures(flow), "\n".join(_failures(flow))
+    if (width, height) != VIEWPORTS[-1]:
+        assert not flow.landings, "\n".join(flow.landings)
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM users")
         assert cursor.fetchone()[0] == 1

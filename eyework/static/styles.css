@@ -150,6 +150,8 @@ p { margin: 0; }
 }
 .btn--commit { background: var(--brand-strong); color: #FFFFFF; }
 .btn--wide { width: 100%; flex: none; }
+/* زرٌّ في المحتوى بعرض نصّه، في بداية السطر (اليمين). */
+.btn--start { align-self: flex-start; }
 .btn:disabled, .btn[aria-disabled="true"] {
     border-color: var(--line-strong);
     background: var(--surface-sunk);
