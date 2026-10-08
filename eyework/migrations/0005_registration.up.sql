@@ -37,9 +37,8 @@ ALTER TABLE users ALTER COLUMN profession DROP DEFAULT;
 ALTER TABLE users ADD COLUMN birth_date date
     CONSTRAINT birth_date_range CHECK (birth_date IS NULL OR birth_date >= DATE '1900-01-01');
 
--- أنشأه صاحبه أم المشغّل: الاسترداد والسقف اليومي يختلفان بينهما.
+-- أنشأه صاحبه أم المشغّل: الاسترداد يختلف بينهما.
 ALTER TABLE users ADD COLUMN self_registered boolean NOT NULL DEFAULT false;
-CREATE INDEX users_self_registered_recent ON users (created_at) WHERE self_registered;
 
 -- ما وافق عليه صاحب الحساب عند التسجيل، ومتى. حساب التسجيل لا يوجد بدونه.
 ALTER TABLE users ADD COLUMN terms_version text
@@ -73,6 +72,34 @@ ALTER TABLE signup_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE signup_codes FORCE  ROW LEVEL SECURITY;
 CREATE POLICY professions_owner_access  ON professions  FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
 CREATE POLICY signup_codes_owner_access ON signup_codes FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
+
+-- ── ما يبقى من محاولةٍ حُذفت ─────────────────────────────────────────────
+-- حذف الحساب يحذف حملاته ومحاولاتها، والسقف العام للذكاء الاصطناعي يعدّ
+-- المحاولات: حذفٌ بعد استهلاكٍ كان يُفرغ السقف. فالمحاولة المحذوفة في يومها تترك
+-- أثراً بلا هوية — وقتها ونتيجتها فقط، بلا مستخدمٍ ولا حملة — يعدّه السقف، ويُحذف
+-- بعد يومٍ (`purge`). لا يصل دورَ الويب إلا عبر ew_begin_generation.
+CREATE TABLE attempt_tombstones (
+    started_at timestamptz NOT NULL,
+    outcome    text
+);
+CREATE INDEX attempt_tombstones_time ON attempt_tombstones (started_at);
+ALTER TABLE attempt_tombstones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attempt_tombstones FORCE  ROW LEVEL SECURITY;
+CREATE POLICY attempt_tombstones_owner_access ON attempt_tombstones FOR ALL TO CURRENT_USER
+    USING (true) WITH CHECK (true);
+
+CREATE FUNCTION ew_attempt_tombstone() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF OLD.started_at > now() - interval '24 hours' AND ew_is_billable(OLD.outcome) THEN
+        INSERT INTO attempt_tombstones (started_at, outcome) VALUES (OLD.started_at, OLD.outcome);
+    END IF;
+    RETURN OLD;
+END
+$$;
+REVOKE ALL ON FUNCTION ew_attempt_tombstone() FROM PUBLIC;
+CREATE TRIGGER trg_attempt_tombstone BEFORE DELETE ON generation_attempts
+    FOR EACH ROW EXECUTE FUNCTION ew_attempt_tombstone();
 
 -- ── التسجيل ─────────────────────────────────────────────────────────────
 -- «اليوم» بتوقيت الرياض لا بتوقيت الخادم: مولود اليوم في الرياض بعد منتصف
@@ -117,9 +144,10 @@ BEGIN
         RAISE EXCEPTION 'terms' USING ERRCODE = 'check_violation', CONSTRAINT = 'registration_needs_consent';
     END IF;
     -- قفلٌ واحد للجميع: بلا هذا يرى تسجيلان متزامنان العدَّ نفسه ويمرّان معاً.
+    -- والعدّ من الرموز المستعملة لا من الحسابات: الحساب يُحذف بيد صاحبه، والرمز
+    -- يبقى مستعملاً (user_id يصير NULL)، فلا يُفرغ الحذفُ السقفَ.
     PERFORM pg_advisory_xact_lock(hashtextextended('eyework.registration_daily_cap', 0));
-    IF (SELECT count(*) FROM users
-         WHERE self_registered AND created_at > now() - interval '24 hours') >= 200 THEN
+    IF (SELECT count(*) FROM signup_codes WHERE used_at > now() - interval '24 hours') >= 200 THEN
         RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'registration_daily_cap';
     END IF;
     INSERT INTO users (login_hmac, password_hash, activated_at, display_name, birth_date, profession,
@@ -174,7 +202,10 @@ BEGIN
        OR NEW.approved_at IS NOT NULL OR NEW.ready_at IS NOT NULL OR NEW.cancelled_at IS NOT NULL THEN
         RAISE EXCEPTION 'draft' USING ERRCODE = 'check_violation', CONSTRAINT = 'campaign_starts_as_draft';
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM users WHERE id = NEW.user_id AND profession = 'MARKETING') THEN
+    -- FOR SHARE يقف أمام تغيير المهنة (admin set-profession يقفل الصفّ للتعديل):
+    -- إمّا تنتظره الحملة فتُرفض بالمهنة الجديدة، وإمّا ينتظرها فيلغيها.
+    PERFORM 1 FROM users WHERE id = NEW.user_id AND profession = 'MARKETING' FOR SHARE;
+    IF NOT FOUND THEN
         RAISE EXCEPTION 'profession' USING ERRCODE = 'insufficient_privilege',
                                            CONSTRAINT = 'campaign_needs_marketing';
     END IF;
@@ -243,7 +274,9 @@ BEGIN
     -- واحدٍ للجميع يرى طلبان متزامنان لمستخدمَين العدَّ نفسه ويمرّان معاً.
     PERFORM pg_advisory_xact_lock(hashtextextended('eyework.generation_global_cap', 0));
     IF (SELECT count(*) FROM generation_attempts
-         WHERE ew_is_billable(outcome) AND started_at > now() - interval '24 hours') >= 2000 THEN
+         WHERE ew_is_billable(outcome) AND started_at > now() - interval '24 hours')
+       + (SELECT count(*) FROM attempt_tombstones
+           WHERE ew_is_billable(outcome) AND started_at > now() - interval '24 hours') >= 2000 THEN
         RAISE EXCEPTION 'global' USING ERRCODE = 'check_violation', CONSTRAINT = 'generation_global_cap';
     END IF;
     IF (SELECT count(*) FROM copy_versions WHERE campaign_id = p_campaign) >= 10 THEN

@@ -84,12 +84,12 @@ def _registration_error(key: str) -> JSONResponse:
 async def signup_code(body: SignupCodeBody, request: Request) -> Response:
     """
     هل يصلح رمز الرابط؟ تسأله الواجهة قبل الخطوة الأولى، فلا يملأ أحدٌ تسع شاشاتٍ
-    برمزٍ منتهٍ. لا يكشف شيئاً عن الحسابات، ويُعدّ على حدّ العنوان.
+    برمزٍ منتهٍ. لا يكشف شيئاً عن الحسابات، وله حدٌّ لكل عنوان غير حدّ إنشاء الحساب.
     """
     state = request.app.state
     if not state.settings.registration_open:
         return _registration_error("CLOSED")
-    enforce(state.limiters.register_ip, client_ip(request))
+    enforce(state.limiters.signup_code_ip, client_ip(request))
     if not await run_in_threadpool(auth.signup_code_usable, state.db, body.code):
         return _registration_error("CODE")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

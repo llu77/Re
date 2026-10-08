@@ -580,6 +580,65 @@ def test_two_thousand_attempts_a_day_stop_everyone(app, owner, two_users):
     assert attempt_count(owner, user) == 1
 
 
+def test_deleting_accounts_does_not_make_room_under_the_global_cap(app, owner, two_users):
+    """
+    حذف الحساب يحذف محاولاته، والسقف العام يعدّها: يبقى منها أثرٌ بلا هوية يعدّه
+    السقف يومها، فلا يُفرغه حذفٌ بعد استهلاك.
+    """
+    user, other = two_users
+    third = make_user(owner, login=b"user-c")
+    campaign = new_campaign(app, user)
+    seed_attempts(owner, other, new_campaign(app, other, with_image=False), 1000,
+                  newest=PAST_RATE_WINDOW, spacing=timedelta(seconds=84))
+    seed_attempts(owner, third, new_campaign(app, third, with_image=False), 999,
+                  newest=PAST_RATE_WINDOW, spacing=timedelta(seconds=84))
+    with owner.cursor() as cursor:
+        cursor.execute("DELETE FROM users WHERE id IN (%s, %s)", (other, third))
+        cursor.execute("SELECT count(*) FROM attempt_tombstones")
+        assert cursor.fetchone()[0] == 1999
+    last = begin(app, user, campaign)
+    finish(app, user, last, "UPSTREAM_TIMEOUT")
+    with rejected(errors.CheckViolation, "generation_global_cap"):
+        begin(app, user, campaign)
+
+
+def test_traces_older_than_a_day_do_not_count_under_the_global_cap(app, owner, two_users):
+    """
+    `purge` يحذف الأثر بعد يومه مرةً في اليوم، فقد يبقى أثرٌ عمره بين يومٍ ويومين حتى
+    يمرّ. السقف يعدّ آخر 24 ساعة وحدها، فأثرٌ أقدم لا يغلقه على أحد.
+    """
+    user, _ = two_users
+    campaign = new_campaign(app, user)
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO attempt_tombstones (started_at, outcome)"
+                       " SELECT now() - interval '25 hours', 'OK' FROM generate_series(1, 2000)")
+    begin(app, user, campaign)
+
+
+def test_the_trace_of_a_deleted_attempt_has_no_identity_and_only_counts_its_day(app, owner, two_users):
+    user, _ = two_users
+    campaign = new_campaign(app, user)
+    recent = begin(app, user, campaign)
+    finish(app, user, recent, "OUTPUT_INVALID")
+    unbilled = begin(app, user, new_campaign(app, user))
+    finish(app, user, unbilled, "UPSTREAM_BUSY")
+    old = begin(app, user, new_campaign(app, user))
+    finish(app, user, old, "OUTPUT_INVALID")
+    with owner.cursor() as cursor:
+        cursor.execute("ALTER TABLE generation_attempts DISABLE TRIGGER trg_attempt_settle")
+        try:
+            cursor.execute("UPDATE generation_attempts SET started_at = now() - interval '25 hours',"
+                           " finished_at = now() - interval '25 hours' WHERE id = %s", (old,))
+        finally:
+            cursor.execute("ALTER TABLE generation_attempts ENABLE TRIGGER trg_attempt_settle")
+        cursor.execute("DELETE FROM users WHERE id = %s", (user,))
+        cursor.execute("SELECT column_name FROM information_schema.columns"
+                       " WHERE table_name = 'attempt_tombstones' ORDER BY column_name")
+        assert [row[0] for row in cursor.fetchall()] == ["outcome", "started_at"]
+        cursor.execute("SELECT outcome FROM attempt_tombstones")
+        assert [row[0] for row in cursor.fetchall()] == ["OUTPUT_INVALID"]
+
+
 def test_concurrent_begins_by_one_user_are_serialized(app, owner, app_url, two_users):
     """طلبان في اللحظة نفسها لا يرى أيٌّ منهما محاولة الآخر، فيمرّان معاً ويتخطّيان سقف «الجارية»."""
     user, _ = two_users

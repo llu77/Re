@@ -77,7 +77,9 @@ _CANCEL_OPEN_CAMPAIGNS = """
 UPDATE campaigns SET status = 'CANCELLED'
  WHERE user_id = %s AND status IN ('DRAFT', 'COPY_PROPOSED', 'COPY_APPROVED')
 """
-_PROFESSION_OF = "SELECT profession FROM users WHERE id = %s"
+# FOR UPDATE: حملةٌ تُنشأ في اللحظة نفسها تقرأ المهنة FOR SHARE (محفّز الإدراج)،
+# فإمّا تنتظر هذا الأمر وتُرفض، وإمّا ينتظرها فتظهر لإلغاء الحملات المفتوحة.
+_PROFESSION_OF = "SELECT profession FROM users WHERE id = %s FOR UPDATE"
 _SET_NAME = "UPDATE users SET display_name = %s WHERE id = %s"
 _SET_PROFESSION = "UPDATE users SET profession = %s WHERE id = %s"
 _REVOKE_ALL = "UPDATE sessions SET revoked_at = now() WHERE user_id = %s AND revoked_at IS NULL"
@@ -112,6 +114,10 @@ DELETE FROM sessions
 _PURGE_TOKENS = """
 DELETE FROM activation_tokens
  WHERE expires_at < now() - interval '30 days' OR used_at < now() - interval '30 days'
+"""
+#: أثر المحاولات المحذوفة لا يعدّه السقف بعد يومه.
+_PURGE_TOMBSTONES = """
+DELETE FROM attempt_tombstones WHERE started_at < now() - interval '24 hours'
 """
 _PURGE_SIGNUP_CODES = """
 DELETE FROM signup_codes
@@ -297,7 +303,7 @@ def purge() -> dict[str, int]:
     with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
         for name, statement in (("final_campaigns", _PURGE_FINAL), ("idle_campaigns", _PURGE_IDLE),
                                 ("sessions", _PURGE_SESSIONS), ("activation_tokens", _PURGE_TOKENS),
-                                ("signup_codes", _PURGE_SIGNUP_CODES)):
+                                ("signup_codes", _PURGE_SIGNUP_CODES), ("attempt_tombstones", _PURGE_TOMBSTONES)):
             cursor.execute(statement)
             counts[name] = cursor.rowcount
     return counts

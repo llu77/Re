@@ -33,8 +33,9 @@ from eyework.tests.conftest import (
 ALL_TABLES = frozenset({
     "schema_migrations", "users", "activation_tokens", "sessions", "campaign_transition",
     "campaigns", "generation_attempts", "copy_versions", "campaign_images",
-    # 0005: المهن ورموز التسجيل — للمالك وحده؛ الويب يصلهما عبر دوالّ.
-    "professions", "signup_codes",
+    # 0005: المهن ورموز التسجيل وأثر المحاولات المحذوفة — للمالك وحده؛ الويب
+    # يصلها عبر دوالّ.
+    "professions", "signup_codes", "attempt_tombstones",
 })
 READABLE = frozenset({
     "campaign_transition", "campaigns", "generation_attempts", "copy_versions", "campaign_images",

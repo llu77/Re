@@ -39,6 +39,7 @@ class Limiters:
     login_name: RateLimiter
     login_ip: RateLimiter
     activate_ip: RateLimiter
+    signup_code_ip: RateLimiter
     register_ip: RateLimiter
     upload: RateLimiter
     mutation: RateLimiter
@@ -51,9 +52,10 @@ class Limiters:
             login_name=RateLimiter(RateLimit(300, 3600.0)),
             login_ip=RateLimiter(RateLimit(20, 60.0)),
             activate_ip=RateLimiter(RateLimit(5, 60.0)),
-            # التسجيل برمزٍ يصدره المشغّل، وطلبات فحص الرمز وإنشاء الحساب معاً:
-            # عشرون في الساعة من عنوانٍ واحد تكفي دفعةً تتسجّل من شبكة مركزٍ واحد.
-            # والقاعدة تسقف المجموع اليومي للجميع (ew_register).
+            # التسجيل برمزٍ يصدره المشغّل: عشرون في الساعة من عنوانٍ واحد تكفي دفعةً
+            # تتسجّل من شبكة مركزٍ واحد. والواجهة تفحص الرمز ثم تُنشئ الحساب، فلكلٍّ
+            # منهما حدّه، وإلا صار العشرون عشرة. والقاعدة تسقف المجموع اليومي (ew_register).
+            signup_code_ip=RateLimiter(RateLimit(20, 3600.0)),
             register_ip=RateLimiter(RateLimit(20, 3600.0)),
             upload=RateLimiter(RateLimit(10, 3600.0)),
             mutation=RateLimiter(RateLimit(120, 60.0)),

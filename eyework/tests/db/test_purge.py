@@ -159,3 +159,13 @@ def test_signup_codes_go_thirty_days_after_they_expire_or_are_used(owner, purge,
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM signup_codes")
         assert cursor.fetchone()[0] == (0 if deleted else 1)
+
+
+def test_traces_of_deleted_attempts_go_after_their_day(owner, purge):
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO attempt_tombstones (started_at, outcome) VALUES"
+                       " (now() - interval '25 hours', 'OK'), (now() - interval '1 hour', 'OK')")
+    assert purge()["attempt_tombstones"] == 1
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM attempt_tombstones")
+        assert cursor.fetchone()[0] == 1

@@ -19,11 +19,14 @@ const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي�
     'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
 const MODE_LABELS = {
-    IN_APP: 'في هذه البوابة: يؤدّيه التطبيق بالنظر',
+    IN_APP: 'جزءٌ منها في هذه البوابة، تسمّيه الملاحظة',
     EMPLOYER_SYSTEM: 'عملٌ مكتبي يحتاج أنظمة صاحب العمل',
     ON_SITE: 'عملٌ ميداني لا يُؤدّى بالنظر',
     VOICE: 'بالهاتف أو الصوت',
 };
+
+/* رمزٌ مشوّه (حرفٌ زائد من تطبيق محادثة مثلاً) يرفضه فحص الشكل بـ422: نصّ الرابط لا نصّ الطلب. */
+const SIGNUP_LINK_INVALID = 'رابط التسجيل غير صالح أو انتهى. اطلب رابطاً جديداً ممّن أعطاك إياه.';
 
 const SIGNUP_STEPS = ['name', 'year', 'month', 'day', 'profession', 'email', 'review', 'password'];
 
@@ -96,7 +99,7 @@ function firstMissingStep() {
     if (!nameIsValid(s.name)) return 'name';
     if (s.year === null) return 'year';
     if (s.month === null) return 'month';
-    if (s.day === null) return 'day';
+    if (s.day === null || birthInFuture()) return 'day';
     if (s.profession === null) return 'profession';
     if (!emailIsValid(s.email)) return 'email';
     return null;
@@ -128,9 +131,15 @@ async function renderSignup(step, nav) {
             return;
         }
         if (result.status !== 204) {
-            state.signup = null;
             UI.show('login');
-            UI.showAlert(UI.screen('login'), detail(result));
+            if ([403, 410, 422].includes(result.status)) {
+                // رمزٌ لا يصلح أو تسجيلٌ مغلق: لا فائدة من المحاولة به ثانيةً.
+                state.signup = null;
+                UI.showAlert(UI.screen('login'), result.status === 422 ? SIGNUP_LINK_INVALID : detail(result));
+            } else {
+                // انقطاعٌ أو حدٌّ أو عطلٌ عابر: الرمز باقٍ في الذاكرة، و«حسناً» تعيد الفحص.
+                UI.showAlert(UI.screen('login'), `${detail(result)} «حسناً» تعيد المحاولة.`);
+            }
             return;
         }
         state.signup.checked = true;
@@ -194,13 +203,19 @@ function renderStepper(name, { value, presets, min, max, label, digits, words, e
     UI.setButton($(`${name}-next`), { label: 'التالي', enabled: nextEnabled });
 }
 
+/* اليوم المختار قد لا يوجد بعد تغيير السنة أو الشهر (29 فبراير)، أو يصير في
+   المستقبل: يُختار من جديد، فلا تصل المراجعةَ تاريخٌ يرفضه الخادم. */
+function dropImpossibleDay() {
+    const s = state.signup;
+    if (s.day !== null && s.month !== null && s.year !== null
+        && (s.day > daysIn(s.year, s.month) || birthInFuture())) {
+        s.day = null;
+    }
+}
+
 function setYear(year) {
     state.signup.year = year;
-    // اليوم المختار قد لا يوجد في السنة الجديدة (29 فبراير): يُختار من جديد.
-    if (state.signup.day !== null && state.signup.month !== null
-        && state.signup.day > daysIn(year, state.signup.month)) {
-        state.signup.day = null;
-    }
+    dropImpossibleDay();
     renderSignupYear();
 }
 
@@ -222,9 +237,7 @@ function renderSignupYear() {
 
 function setMonth(month) {
     state.signup.month = month;
-    if (state.signup.day !== null && state.signup.day > daysIn(state.signup.year, month)) {
-        state.signup.day = null;
-    }
+    dropImpossibleDay();
     renderSignupMonth();
 }
 
@@ -382,10 +395,38 @@ async function onSignupCreate(event) {
 
 /* ── الحساب ─────────────────────────────────────────────────────────── */
 
-function renderAccount() {
+/* سطر المهنة يحجز مكانه قبل قراءة البوابة: لا يتحرّك تحته زرٌّ حين تصل. */
+async function renderAccount(nav) {
     UI.show('account');
     $('account-name').textContent = state.displayName ? `الاسم: ${state.displayName}` : 'بلا اسم';
-    $('account-profession').textContent = state.portal ? `المهنة: ${state.portal.name}` : '';
+    const profession = (portal) => (portal ? `المهنة: ${portal.name}` : '\u00a0');
+    $('account-profession').textContent = profession(state.portal);
+    const portal = await loadPortal({ fresh: true });
+    if (nav !== state.nav) {
+        return;
+    }
+    $('account-profession').textContent = profession(portal);
+}
+
+/* نسبة O*NET كاملةً كما يطلبها ترخيصه، ومصادر هذه البوابة بأسطرها. */
+async function renderAccountSources(nav) {
+    const section = UI.show('account-sources');
+    const portal = await loadPortal();
+    if (nav !== state.nav) {
+        return;
+    }
+    if (!portal) {
+        UI.showAlert(section, GENERIC);
+        return;
+    }
+    $('account-attribution').textContent = portal.attribution;
+    const lines = [...new Set([portal.sources.tasks, portal.sources.skills])].map((text) => {
+        const line = document.createElement('p');
+        line.className = 'help';
+        line.textContent = text;
+        return line;
+    });
+    $('account-source-lines').replaceChildren(...lines);
 }
 
 function renderAccountDelete() {
@@ -412,13 +453,17 @@ async function onAccountDelete() {
 
 /* ── البوابة ────────────────────────────────────────────────────────── */
 
-async function loadPortal() {
-    if (state.portal) {
+/*
+ * بوابة صاحب الحساب. `fresh` يقرؤها من جديد (الرئيسية والحساب): المشغّل قد
+ * ينقل الحساب إلى مهنةٍ أخرى والتطبيق مفتوح. وإن تعذّرت القراءة بقي ما عُرف.
+ */
+async function loadPortal({ fresh = false } = {}) {
+    if (state.portal && !fresh) {
         return state.portal;
     }
     const result = await api('GET', '/api/portal');
     if (result.status !== 200) {
-        return null;
+        return state.portal;
     }
     state.portal = result.data;
     return state.portal;
@@ -469,10 +514,11 @@ async function routePortal(hash, nav) {
         return true;
     }
     if (hash === '#/account') {
-        await loadPortal();
-        if (nav === state.nav) {
-            renderAccount();
-        }
+        await renderAccount(nav);
+        return true;
+    }
+    if (hash === '#/account/sources') {
+        await renderAccountSources(nav);
         return true;
     }
     if (hash === '#/account/delete') {
@@ -512,6 +558,7 @@ function wirePortal() {
     $('home-skills').addEventListener('click', () => go('#/skills/1'));
     $('account-logout').addEventListener('click', onLogout);
     $('account-delete').addEventListener('click', () => go('#/account/delete'));
+    $('account-sources').addEventListener('click', () => go('#/account/sources'));
     $('account-delete-back').addEventListener('click', () => go('#/account'));
     $('account-delete-yes').addEventListener('click', onAccountDelete);
     $('portal-item-previous').addEventListener('click', (e) => go(e.currentTarget.dataset.target));

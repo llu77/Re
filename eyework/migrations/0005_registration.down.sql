@@ -2,6 +2,25 @@
 -- 0005_registration — تراجع
 -- ════════════════════════════════════════════════════════════════════════
 
+-- مخطّط 0004 لا يصف حساباً مسجَّلاً ذاتياً ولا مهنةً غير التسويق: بعد التراجع
+-- يصير كلٌّ منها حساب دعوةٍ عادياً يفتح أداة الحملات وينفق حصّة النموذج، ويضيع
+-- أن بريده لم يُتحقَّق منه. فلا تراجع وفي القاعدة واحدٌ منها. والقفل أولاً: تسجيلٌ
+-- أو نقلُ مهنةٍ لم يُثبَّت بعد لا يراه العدّ، فينتظره التراجع ثم يعدّه، ولا يبدأ
+-- غيره حتى ينتهي.
+LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE;
+DO $$
+DECLARE
+    n integer;
+BEGIN
+    SELECT count(*) INTO n FROM users WHERE self_registered OR profession <> 'MARKETING';
+    IF n > 0 THEN
+        RAISE EXCEPTION 'في القاعدة % حساباً لا يصفه مخطّط 0004 (مسجَّلٌ ذاتياً أو من غير التسويق)', n
+            USING HINT = 'البريد لا يُخزَّن فلا يجدها delete-user؛ تُحذف بدور المالك: '
+                         'DELETE FROM users WHERE self_registered OR profession <> ''MARKETING''';
+    END IF;
+END
+$$;
+
 -- الدالّتان كما كانتا في 0002، حرفاً بحرف.
 CREATE OR REPLACE FUNCTION ew_campaign_insert_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -92,12 +111,14 @@ DROP FUNCTION IF EXISTS ew_signup_code_usable(bytea);
 DROP FUNCTION IF EXISTS ew_riyadh_today();
 
 DROP TABLE IF EXISTS signup_codes;
+DROP TRIGGER IF EXISTS trg_attempt_tombstone ON generation_attempts;
+DROP FUNCTION IF EXISTS ew_attempt_tombstone();
+DROP TABLE IF EXISTS attempt_tombstones;
 
 ALTER TABLE users DROP CONSTRAINT IF EXISTS self_registered_accepted_terms;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS terms_complete;
 ALTER TABLE users DROP COLUMN IF EXISTS terms_accepted_at;
 ALTER TABLE users DROP COLUMN IF EXISTS terms_version;
-DROP INDEX IF EXISTS users_self_registered_recent;
 ALTER TABLE users DROP COLUMN IF EXISTS self_registered;
 ALTER TABLE users DROP COLUMN IF EXISTS birth_date;
 ALTER TABLE users DROP COLUMN IF EXISTS profession;

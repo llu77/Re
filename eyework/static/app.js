@@ -91,6 +91,10 @@ async function api(method, path, { json, raw, type, as = 'json' } = {}) {
             data = null;
         }
     }
+    // المهنة تغيّرت عند الخادم: البوابة المحفوظة لم تعد صحيحة.
+    if (response.status === 403 && data && data.code === 'PROFESSION') {
+        state.portal = null;
+    }
     return { status: response.status, data };
 }
 
@@ -123,6 +127,7 @@ function parentOf(name) {
     const id = state.campaign && state.campaign.id;
     return {
         account: '#/',
+        'account-sources': '#/account',
         'portal-item': '#/',
         photo: '#/',
         proposal: '#/',
@@ -153,6 +158,9 @@ async function loadCampaign(id) {
 }
 
 async function route() {
+    // رابط تسجيلٍ أو تفعيلٍ فُتح في تبويبٍ فيه التطبيق: لا تحميل، بل hashchange وحده.
+    captureActivation();
+    captureSignup();
     const nav = ++state.nav;
     // لا شاشة بلا خياراتها: إقلاعٌ فشل ثم دخولٌ ناجح يقرأها هنا قبل أيّ رسم.
     if (!state.choices && !(await loadChoices())) {
@@ -326,20 +334,32 @@ async function renderHome() {
     state.campaign = null;
     const section = UI.show('home');
     $('home-greeting').textContent = greeting();
-    const portal = await loadPortal();
+    // لا أزرار في موضعٍ مؤقّت تحت النظر: قبل أول بوابةٍ تُخفى، وبعدها يبقى رسمها
+    // الأخير حتى تُقرأ من جديد (المهنة قد تتغيّر والتطبيق مفتوح).
+    $('home-actions').hidden = !state.portal;
+    if (!state.portal) {
+        UI.setButton($('home-older'), { reserved: true });
+        UI.setButton($('home-newer'), { reserved: true });
+    }
+    const portal = await loadPortal({ fresh: true });
     if (nav !== state.nav) {
         return;
     }
     if (!portal) {
-        UI.showAlert(section, GENERIC);
+        // بلا بوابةٍ لا زرّ في الرئيسية إلا «حسابي»: «حسناً» تعيد القراءة.
+        UI.showAlert(section, `${GENERIC} «حسناً» تعيد المحاولة.`);
         return;
     }
+    $('home-actions').hidden = false;
     $('home-portal').textContent = `بوابة ${portal.name}`;
     const campaigns = portal.tools.includes('CAMPAIGN');
     $('home-new').hidden = !campaigns;
     $('home-actions').className = `grid ${campaigns ? 'grid--3' : 'grid--2'}`;
     $('home-about').hidden = campaigns;
     $('home-about').textContent = portal.summary;
+    // التعريف مترجمٌ عن المصدر كالمهامّ: يُذكر مصدره تحته.
+    $('home-about-source').hidden = campaigns;
+    $('home-about-source').textContent = portal.sources.summary;
     if (!campaigns) {
         $('home-list').replaceChildren();
         $('home-empty').hidden = true;
@@ -1189,6 +1209,16 @@ function wire() {
                 boot();
                 return;
             }
+            // فحص رمز التسجيل لم يكتمل (انقطاعٌ أو حدّ): الرمز في الذاكرة، فيُعاد.
+            if (section.dataset.screen === 'login' && state.signup && !state.signup.checked) {
+                route();
+                return;
+            }
+            // الرئيسية بلا بوابة (قراءتها فشلت): تُقرأ من جديد.
+            if (section.dataset.screen === 'home' && !state.portal) {
+                route();
+                return;
+            }
             // انتظارٌ لا يُعرف مآله: يبقى، و«تحقّق الآن» فيه هو المخرج.
             if (section.dataset.screen === 'proposal' && !$('proposal-check').hidden
                 && !$('proposal-waiting').hidden) {
@@ -1216,6 +1246,7 @@ function wire() {
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
             state.campaign = null;
+            state.portal = null;
             route();
         }
     });
