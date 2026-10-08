@@ -1,0 +1,81 @@
+"""
+أجسام الطلبات
+=============
+كل حقلٍ بنوعه الصارم وحدوده، ولا حقل زائد (`extra="forbid"`): «"500"» نصّاً
+ليست ميزانية، وحقلٌ لا نعرفه لا يُتجاهل بصمت.
+
+الرقم صارم (`StrictInt`) والنصّ صارم (`StrictStr`)؛ والمعرّف وخيار التعديل
+يُحوَّلان من نصّ JSON لأن هذا شكلهما الوحيد فيه.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+
+from eyework.auth import LOGIN_MAX, LOGIN_MIN, PASSWORD_MAX, PASSWORD_MIN
+from eyework.copy_rules import EDIT_NOTE_MAX, MAX_PRESETS, EditPreset
+
+__all__ = [
+    "ActivateBody",
+    "ApproveBody",
+    "BudgetBody",
+    "ConfirmBody",
+    "DaysBody",
+    "EditBody",
+    "LoginBody",
+    "RestoreBody",
+    "RowVersionBody",
+]
+
+RowVersion = Annotated[StrictInt, Field(ge=1, le=2_000_000_000)]
+
+
+class _Body(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class LoginBody(_Body):
+    username: Annotated[StrictStr, Field(min_length=LOGIN_MIN, max_length=LOGIN_MAX)]
+    password: Annotated[StrictStr, Field(min_length=1, max_length=PASSWORD_MAX)]
+
+
+class ActivateBody(_Body):
+    token: Annotated[StrictStr, Field(pattern=r"^[A-Za-z0-9_-]{43}$")]
+    username: Annotated[StrictStr, Field(min_length=LOGIN_MIN, max_length=LOGIN_MAX)]
+    password: Annotated[StrictStr, Field(min_length=PASSWORD_MIN, max_length=PASSWORD_MAX)]
+
+
+class RowVersionBody(_Body):
+    expected_row_version: RowVersion
+
+
+class EditBody(RowVersionBody):
+    expected_version_id: UUID
+    presets: Annotated[list[EditPreset], Field(max_length=MAX_PRESETS)] = []
+    note: Annotated[StrictStr, Field(min_length=1, max_length=EDIT_NOTE_MAX)] | None = None
+
+
+class RestoreBody(RowVersionBody):
+    expected_version_id: UUID
+    target: Literal["previous", "newest"]
+
+
+class ApproveBody(RowVersionBody):
+    version_id: UUID
+
+
+class BudgetBody(RowVersionBody):
+    budget_sar: StrictInt
+
+
+class DaysBody(RowVersionBody):
+    days: StrictInt
+
+
+class ConfirmBody(RowVersionBody):
+    version_id: UUID
+    budget_sar: StrictInt
+    days: StrictInt

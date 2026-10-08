@@ -121,6 +121,10 @@ class Proposal:
     rejection_reason: str | None = None
     affected_side: AffectedSide | None = None
     version: int = 1
+    #: الفرز في الطابور: العلامة الحمراء أولاً ثم الأولوية (0 أعلاها). يراهما
+    #: الممارس بجانب كل مقترح، فلا يكفي أن يرتّب الخادم بهما.
+    priority: int = 5
+    is_red_flag: bool = False
 
     @property
     def is_deliverable(self) -> bool:

@@ -1,0 +1,42 @@
+# سمة Streamlit — لوحة Symbol AI.
+#
+# عناصر Streamlit نفسها (المنزلق، المفتاح، حلقة التركيز) تُلوَّن من هنا لا
+# من CSS: لونها الافتراضي أحمر مرجاني لا صلة له بالعلامة، وكانت تظهر به
+# وسط واجهة زرقاء. CSS لا يصل إلى بعضها لأنها تُرسَم داخل Shadow DOM.
+[theme]
+base = "light"
+primaryColor = "#2455CC"          # نظير الأزرق الأغمق: 6.5:1 مع الأبيض
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F8FC"
+textColor = "#101B33"
+
+# الخطّ من السمة لا من CSS وحده.
+#
+# كتبتُ أولاً `font = "sans serif"` وأضفتُ `font-family: Amiri` في كتلة
+# الأنماط، فظلّت العناوين تُرسَم بالسانس: Streamlit يطبّق خطّ سمته على
+# عناصره بأسبقية تغلب ورقتنا. و`[class*="css"]` في تلك الورقة انتقاءٌ
+# ميّت أصلاً — أصنافه اليوم `st-emotion-cache-…` ولا "css" فيها.
+font = "Amiri"
+headingFont = "Amiri"
+codeFont = "monospace"          # الشيفرة وأسماء الأدوات تبقى أحاديّة العرض
+
+[[theme.fontFaces]]
+family = "Amiri"
+url = "app/static/fonts/amiri-arabic-400.woff2"
+weight = 400
+style = "normal"
+
+[[theme.fontFaces]]
+family = "Amiri"
+url = "app/static/fonts/amiri-arabic-700.woff2"
+weight = 700
+style = "normal"
+
+[server]
+headless = true
+# يخدم ملفات `static/` على `app/static/…`. الخطّ يُشار إليه بمسار لا
+# يُضمَّن base64: كتلة 272KB داخل `st.markdown` أفرغت الصفحة تماماً.
+enableStaticServing = true
+
+[browser]
+gatherUsageStats = false

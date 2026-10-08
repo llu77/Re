@@ -106,6 +106,8 @@ def _to_proposal(row: Mapping[str, Any]) -> Proposal:
         rejection_reason=row["rejection_reason"],
         affected_side=row["affected_side"],
         version=row["version"],
+        priority=row["priority"],
+        is_red_flag=row["is_red_flag"],
     )
 
 

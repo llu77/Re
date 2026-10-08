@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="صياغة">
+    <meta name="theme-color" content="#061840">
+    <title>صياغة — حملات المنتجات</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="stylesheet" href="fonts.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="ui.js" defer></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+<!--
+    كل شاشةٍ إطارٌ كامل بأربع خانات ثابتة الموضع: أعلى البداية (يمين)، وأعلى
+    النهاية (يسار)، وأسفل البداية، وأسفل النهاية. الخانة الفارغة منطقةٌ ميتة
+    لا يُضغط فيها شيء — وهذا مقصود: ما يقع تحت النظر بعد تغيّر الشاشة لا
+    يُعتمد ولا يُرسل شيئاً (قواعد الهبوط في ui.js).
+-->
+<main id="app" class="app" aria-live="off">
+
+    <!-- ── الدخول ─────────────────────────────────────────────────── -->
+    <section class="screen" data-screen="login" hidden>
+        <header class="bar bar--top"><div class="slot"></div><p class="step"></p><div class="slot"></div></header>
+        <form class="content" id="login-form" novalidate>
+            <h2 tabindex="-1">تسجيل الدخول</h2>
+            <div class="field-group">
+                <label class="label" for="login-username">اسم الدخول</label>
+                <input class="field" id="login-username" name="username" type="email" autocomplete="username"
+                       inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+            </div>
+            <div class="field-group">
+                <label class="label" for="login-password">كلمة المرور</label>
+                <input class="field" id="login-password" name="password" type="password"
+                       autocomplete="current-password" enterkeyhint="go" required>
+            </div>
+            <button class="btn btn--commit spaced" type="submit" data-commit>ادخل</button>
+            <p class="help">تعذّر الدخول؟ اطلب رابط تفعيلٍ جديداً ممّن دعاك.</p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </form>
+        <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
+    </section>
+
+    <section class="screen" data-screen="activate" hidden>
+        <header class="bar bar--top"><div class="slot"></div><p class="step"></p><div class="slot"></div></header>
+        <form class="content" id="activate-form" novalidate>
+            <h2 tabindex="-1">فعّل حسابك</h2>
+            <div class="field-group">
+                <label class="label" for="activate-username">اسم الدخول</label>
+                <input class="field" id="activate-username" name="username" type="email" autocomplete="username"
+                       readonly>
+            </div>
+            <div class="field-group">
+                <label class="label" for="activate-password">كلمة مرورٍ جديدة</label>
+                <input class="field" id="activate-password" name="password" type="password"
+                       autocomplete="new-password" minlength="12" maxlength="128"
+                       passwordrules="minlength: 20; required: lower; required: upper; required: digit;" required>
+            </div>
+            <button class="btn btn--commit spaced" type="submit" data-commit>فعّل حسابي</button>
+            <p class="help">اختر «كلمة مرور قوية» ليحفظها الجهاز لك.</p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </form>
+        <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
+    </section>
+
+    <!-- ── الرئيسية ───────────────────────────────────────────────── -->
+    <section class="screen" data-screen="home" hidden>
+        <header class="bar bar--top">
+            <div class="slot"></div>
+            <p class="step"></p>
+            <div class="slot"><button class="btn" type="button" id="home-logout" data-safe>خروج</button></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">حملاتي</h2>
+            <p class="help" id="home-greeting"></p>
+            <button class="btn btn--wide" type="button" id="home-new" data-safe>حملة تسويق جديدة</button>
+            <ol class="rows spaced" id="home-list"></ol>
+            <p class="help" id="home-empty" hidden>لا حملات بعد.</p>
+            <p class="help" id="home-install" hidden>للاستعمال بالنظر: أضف التطبيق إلى الشاشة الرئيسية من زرّ المشاركة في Safari.</p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="home-older" data-safe>الأقدم</button></div>
+            <div class="slot"><button class="btn" type="button" id="home-newer" data-safe>الأحدث</button></div>
+        </footer>
+    </section>
+
+    <!-- ── الصورة ─────────────────────────────────────────────────── -->
+    <section class="screen" data-screen="photo" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">الخطوة 1 من 5</p>
+            <div class="slot"><button class="btn" type="button" data-cancel data-safe>ألغِ الحملة</button></div>
+        </header>
+        <div class="content">
+            <label class="btn btn--wide" for="photo-input" id="photo-pick" data-safe>اختر صورة المنتج</label>
+            <input class="visually-hidden" type="file" id="photo-input" accept="image/jpeg,image/png,image/webp">
+            <div class="preview"><img id="photo-preview" alt="صورة المنتج" hidden></div>
+            <p class="status" id="photo-status" role="status"></p>
+            <p class="notice">تُرسل صورة المنتج وحدها إلى خدمة ذكاءٍ اصطناعي لتكتب العنوان والوصف، بلا اسمك ولا أيّ معلومةٍ عنك. صوّر المنتج وحده، دون أشخاصٍ أو أوراق.</p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn btn--commit" type="button" id="photo-generate" data-commit>اكتب لي العنوان والوصف</button></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
+    <!-- ── النصّ المقترح ──────────────────────────────────────────── -->
+    <section class="screen" data-screen="proposal" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">الخطوة 2 من 5</p>
+            <div class="slot"><button class="btn" type="button" data-cancel data-safe>ألغِ الحملة</button></div>
+        </header>
+        <div class="content">
+            <div class="waiting" id="proposal-waiting" hidden>
+                <h2 tabindex="-1">يكتب المساعد</h2>
+                <p class="status" role="status">يكتب المساعد العنوان والوصف. قد يستغرق ذلك دقيقةً أو أكثر قليلاً. لا حاجة لفعل شيء.</p>
+                <button class="btn" type="button" id="proposal-check" data-safe hidden>تحقّق الآن</button>
+            </div>
+            <div class="copy" id="proposal-copy" hidden>
+                <h2 tabindex="-1" class="visually-hidden">النصّ المقترح</h2>
+                <div class="headline"><img class="thumb" id="proposal-thumb" alt=""><p class="title" id="proposal-title"></p></div>
+                <p class="description" id="proposal-description"></p>
+                <!-- الحالة والتنبيه سطرٌ واحد قبل الملاحظة: ما يلزم قبل الموافقة أولاً. -->
+                <p class="status"><span id="proposal-status"></span> <span class="warnings" id="proposal-warnings"></span></p>
+                <p class="notice" id="proposal-note" hidden></p>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="proposal-start" data-safe disabled></button></div>
+            <div class="slot"><button class="btn" type="button" id="proposal-end" disabled></button></div>
+        </footer>
+    </section>
+
+    <!-- ── طلب التعديل ────────────────────────────────────────────── -->
+    <section class="screen" data-screen="edit" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">الخطوة 2 من 5</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">ما التعديل الذي تريده؟</h2>
+            <div class="grid grid--3" id="edit-chips" role="group" aria-label="التعديلات، حتى ثلاثة"></div>
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="edit-note" data-safe>ملاحظة نصية</button>
+                <button class="btn" type="button" id="edit-restore" data-commit>النسخة السابقة</button>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn btn--commit" type="button" id="edit-submit" data-commit>اطلب نسخة جديدة</button></div>
+            <div class="slot"><p class="slot-text" id="edit-left"></p></div>
+        </footer>
+    </section>
+
+    <!-- ── الملاحظة ───────────────────────────────────────────────── -->
+    <section class="screen" data-screen="note" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step"></p>
+            <div class="slot"><button class="btn" type="button" id="note-save" data-safe>احفظ الملاحظة</button></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1" class="visually-hidden">ملاحظة للمساعد</h2>
+            <label class="label" for="note-text">ملاحظة للمساعد (اختيارية، حتى 200 حرف)</label>
+            <p class="help">اكتب ما يخصّ المنتج فقط، بلا بياناتٍ شخصية أو صحية.</p>
+            <textarea class="field field--area" id="note-text" rows="3" maxlength="200" autocomplete="off"></textarea>
+            <p class="status" id="note-count"></p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
+    </section>
+
+    <!-- ── الميزانية ──────────────────────────────────────────────── -->
+    <section class="screen" data-screen="budget" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">الخطوة 3 من 5</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">الميزانية الإجمالية بالريال</h2>
+            <div class="value" id="budget-value" aria-live="polite"></div>
+            <div class="grid grid--3" id="budget-presets" role="group" aria-label="مبالغ جاهزة"></div>
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="budget-down"></button>
+                <button class="btn" type="button" id="budget-up"></button>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="budget-next" data-safe>التالي: عدد الأيام</button></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
+    <!-- ── المدّة ──────────────────────────────────────────────────── -->
+    <section class="screen" data-screen="days" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">الخطوة 4 من 5</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">عدد الأيام</h2>
+            <div class="value" id="days-value" aria-live="polite"></div>
+            <div class="grid grid--3" id="days-presets" role="group" aria-label="مُدَدٌ جاهزة"></div>
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="days-down"></button>
+                <button class="btn" type="button" id="days-up"></button>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="days-next" data-safe>التالي: المراجعة</button></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
+    <!-- ── المراجعة ───────────────────────────────────────────────── -->
+    <section class="screen" data-screen="review" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">الخطوة 5 من 5</p>
+            <div class="slot"><button class="btn" type="button" data-cancel data-safe>ألغِ الحملة</button></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">راجِع قبل الاعتماد</h2>
+            <div class="headline"><img class="thumb" id="review-thumb" alt=""><p class="title" id="review-title"></p></div>
+            <p class="description description--3" id="review-description"></p>
+            <p class="line" id="review-budget"></p>
+            <p class="line" id="review-days"></p>
+            <p class="line" id="review-daily"></p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="review-continue" data-safe>متابعة للتأكيد</button></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
+    <!-- ── التأكيد النهائي ────────────────────────────────────────── -->
+    <!-- الخانة التي ضُغط فيها «متابعة للتأكيد» فارغة هنا: نظرةٌ باقية لا تعتمد شيئاً. -->
+    <section class="screen" data-screen="confirm" hidden>
+        <header class="bar bar--top"><div class="slot"></div><p class="step"></p><div class="slot"></div></header>
+        <div class="content">
+            <h2 tabindex="-1">تأكيدٌ نهائي</h2>
+            <button class="btn btn--wide btn--commit" type="button" id="confirm-yes" data-commit>نعم، اعتمد الحملة</button>
+            <p class="restate" id="confirm-restate"></p>
+            <button class="btn btn--wide spaced" type="button" id="confirm-back" data-safe>رجوع دون اعتماد</button>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><p class="slot-text">لن يُنشر شيءٌ تلقائياً</p></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
+    <!-- ── الإلغاء ─────────────────────────────────────────────────── -->
+    <section class="screen" data-screen="cancel" hidden>
+        <header class="bar bar--top"><div class="slot"></div><p class="step"></p><div class="slot"></div></header>
+        <div class="content">
+            <h2 tabindex="-1" id="cancel-heading">إلغاء الحملة</h2>
+            <p class="restate">ستُحذف صورة الحملة فوراً، ولا يمكن التراجع عن الإلغاء.</p>
+            <button class="btn btn--wide spaced" type="button" id="cancel-back" data-safe>رجوع دون إلغاء</button>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn btn--commit" type="button" id="cancel-yes" data-commit>نعم، ألغِ الحملة</button></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
+    <!-- ── جاهزة للتسليم ──────────────────────────────────────────── -->
+    <section class="screen" data-screen="ready" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-home data-safe>الرئيسية</button></div>
+            <p class="step"></p>
+            <div class="slot"><button class="btn" type="button" data-cancel data-safe>اسحب الحملة</button></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">الحملة جاهزة للتسليم</h2>
+            <p class="notice">لم يُنشر شيءٌ ولم يُدفع أيّ مبلغ. انسخ النصّ أو شاركه مع من سينشر الحملة.</p>
+            <div class="headline"><img class="thumb" id="ready-thumb" alt=""><p class="title" id="ready-title"></p></div>
+            <p class="description description--2" id="ready-description"></p>
+            <p class="line" id="ready-summary"></p>
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="ready-copy-title" data-safe>انسخ العنوان</button>
+                <button class="btn" type="button" id="ready-copy-description" data-safe>انسخ الوصف</button>
+            </div>
+            <p class="status" id="ready-status" role="status"></p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="ready-share" data-safe>شارك الحملة</button></div>
+            <div class="slot"><a class="btn" id="ready-download" download="campaign.jpg" href="#" data-safe>نزّل الصورة</a></div>
+        </footer>
+    </section>
+
+</main>
+<!-- الهاتف في الوضع الأفقي: لا تتّسع الشاشة لأزرارٍ بحجم 72 مع شريطين. يظهر هذا
+     بدل الشاشات (styles.css)، فلا يقع النظر على زرٍّ نصفُه خارج الإطار. -->
+<div class="rotate">
+    <p class="rotate__title">أدِر الجهاز إلى الوضع العمودي.</p>
+    <p>التطبيق مصمَّمٌ للوضع العمودي؛ وفي الوضع الأفقي لا تتّسع الشاشة لأزراره.</p>
+</div>
+</body>
+</html>
