@@ -89,6 +89,8 @@ class Portal:
     tagline: str
     #: التعريف من المصدر، مختصراً.
     summary: str
+    #: تعريف المصدر بالإنجليزية حرفاً بحرف، للمراجعة لا للعرض.
+    summary_source_text: str
     tasks_source: Source
     skills_source: Source
     #: رموز المهنة في التصنيفين الدولي والسعودي حين وُجد مصدرٌ رسمي يسمّيها.
@@ -141,6 +143,10 @@ _STOREKEEPER = Portal(
     tagline="مهامّ أمين المخزون ومهاراته من المصادر الرسمية",
     summary=("تُعنى المهنة بالتحقق من سجلات الشحنات الواردة والصادرة المتعلقة بالمخزون وحفظها، "
              "ومن مهامّها التحقق من البضائع والمواد الواردة وتسجيلها وترتيب نقل المنتجات."),
+    summary_source_text=(
+        "Verify and maintain records on incoming and outgoing shipments involving inventory. Duties include "
+        "verifying and recording incoming merchandise or material and arranging for the transportation of products. "
+        "May prepare items for shipment."),
     tasks_source=_ONET("43-5071.00"),
     skills_source=_ONET("43-5071.00"),
     related=("ISCO-08 4321 موظفو المخزون", "أمين مستودع 313907 (التصنيف السعودي الموحد للمهن)"),
@@ -207,6 +213,10 @@ _MARKETING = Portal(
     tagline="أداة حملة المنتج، ومهامّ التسويق ومهاراته من المصادر الرسمية",
     summary=("تُعنى المهنة بتطوير استراتيجيات الإعلان وحملاته وتنسيقها، وتحديد السوق للسلع والخدمات الجديدة، "
              "وتحديد فرص السوق للسلع والخدمات الجديدة والقائمة وتطويرها."),
+    summary_source_text=(
+        "Advertising and marketing professionals develop and coordinate advertising strategies and campaigns, "
+        "determine the market for new goods and services, and identify and develop market opportunities for new "
+        "and existing goods and services."),
     # ISCO-08 لا يرتّب المهامّ بأهمية ولا يذكر مهارات؛ فالمهارات من O*NET للمهنة التي
     # يسمّيها جدول التقابل الرسمي بين O*NET وESCO للرمز 2431.
     tasks_source=Source("ISCO-08 2431", _ISCO_URL),
@@ -267,6 +277,10 @@ _SUPPORT = Portal(
     tagline="مهامّ الدعم الفني ومهاراته من المصادر الرسمية",
     summary=("تُعنى المهنة بتقديم المساعدة التقنية لمستخدمي الحاسب، والإجابة عن أسئلة العملاء أو حل مشكلاتهم "
              "في الحاسب حضوريًا أو بالهاتف أو إلكترونيًا."),
+    summary_source_text=(
+        "Provide technical assistance to computer users. Answer questions or resolve computer problems for clients "
+        "in person, via telephone, or electronically. May provide assistance concerning the use of computer hardware "
+        "and software, including printing, installation, word processing, electronic mail, and operating systems."),
     tasks_source=_ONET("15-1232.00"),
     skills_source=_ONET("15-1232.00"),
     # لم يُعثر على رمزٍ سعودي من ستة أرقام تحت 3512 في مصدرٍ رسمي متاح، فلا يُذكر.
@@ -338,21 +352,34 @@ TAGLINES: dict[Profession, str] = {p: portal.tagline for p, portal in PORTALS.it
 _MODE_ORDER = (Mode.IN_APP, Mode.EMPLOYER_SYSTEM, Mode.VOICE, Mode.ON_SITE)
 
 
+#: نسبة O*NET كاملةً كما يطلبها ترخيصه (onetonline.org/help/license): الجهة، والعلامة
+#: التجارية، ورابط الترخيص، وأن المحتوى معدّلٌ لم تعتمده الجهة. تُعرض في شاشة الحساب.
+ATTRIBUTION = (
+    "تتضمّن البوابة معلوماتٍ من O*NET® OnLine لإدارة التوظيف والتدريب بوزارة العمل الأمريكية (USDOL/ETA)، "
+    "بترخيص CC BY 4.0 (creativecommons.org/licenses/by/4.0). O*NET® علامةٌ تجارية لـUSDOL/ETA. "
+    "ترجم هذا التطبيق هذه المعلومات وعدّلها، ولم تعتمد USDOL/ETA هذه التعديلات ولم تؤيّدها ولم تختبرها.")
+
+
 def source_line(portal: Portal, kind: str) -> str:
-    """سطر المصدر تحت كل بند: من أين، وأنه مترجمٌ معدّل، وترخيص O*NET حين يكون منه."""
-    source = portal.tasks_source if kind == "tasks" else portal.skills_source
+    """سطر المصدر تحت كل بند وتحت التعريف: من أين، وأنه مترجمٌ معدّل، وترخيص O*NET حين يكون منه."""
+    source = portal.skills_source if kind == "skills" else portal.tasks_source
     if source.label.startswith("O*NET"):
-        return f"المصدر: {source.label}، وزارة العمل الأمريكية — ترجمةٌ معدّلة، بترخيص CC BY 4.0."
+        label = source.label.replace("O*NET", "O*NET®", 1)
+        return f"المصدر: {label}، USDOL/ETA بوزارة العمل الأمريكية — ترجمةٌ معدّلة، بترخيص CC BY 4.0."
     return f"المصدر: {source.label}، منظمة العمل الدولية — ترجمةٌ معدّلة."
 
 
 def view(profession: Profession) -> dict:
     """
-    البوابة كما تعرضها الواجهة: ما يؤدّيه التطبيق أولاً، ثم الأهمّ فالأقلّ في كل
-    نوع. النصّ الإنجليزي لا يُرسل: للمراجعة في الشيفرة، لا للعرض بالنظر.
+    البوابة كما تعرضها الواجهة. في بوابةٍ لها أداة يتقدّم ما تؤدّي الأداة جزءاً منه،
+    ثم كل نوعٍ بترتيب المصدر؛ وفي بوابةٍ بلا أداة ترتيب المصدر نفسه (أهمية O*NET).
+    النصّ الإنجليزي لا يُرسل: للمراجعة في الشيفرة، لا للعرض بالنظر.
     """
     portal = PORTALS[profession]
-    tasks = sorted(portal.tasks, key=lambda t: (_MODE_ORDER.index(t.mode), -(t.importance or 0)))
+    if portal.tools:
+        tasks = sorted(portal.tasks, key=lambda t: (_MODE_ORDER.index(t.mode), -(t.importance or 0)))
+    else:
+        tasks = sorted(portal.tasks, key=lambda t: -(t.importance or 0))
     return {
         "profession": profession.value,
         "name": NAMES[profession],
@@ -360,6 +387,8 @@ def view(profession: Profession) -> dict:
         "tools": list(portal.tools),
         "tasks": [{"text": t.ar, "note": t.note, "mode": t.mode.value} for t in tasks],
         "skills": [{"text": s.name, "note": s.note} for s in portal.skills],
-        "sources": {"tasks": source_line(portal, "tasks"), "skills": source_line(portal, "skills")},
+        "sources": {"tasks": source_line(portal, "tasks"), "skills": source_line(portal, "skills"),
+                    "summary": source_line(portal, "summary")},
+        "attribution": ATTRIBUTION,
         "related": list(portal.related),
     }

@@ -403,6 +403,9 @@ async function renderAccount(nav) {
         return;
     }
     $('account-profession').textContent = portal ? `المهنة: ${portal.name}` : '';
+    // نسبة O*NET كاملةً كما يطلبها ترخيصه، في شاشةٍ يصلها كل حساب.
+    $('account-attribution').textContent = portal ? portal.attribution : '';
+    $('account-attribution').hidden = !portal;
 }
 
 function renderAccountDelete() {

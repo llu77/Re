@@ -349,6 +349,9 @@ async function renderHome() {
     $('home-actions').className = `grid ${campaigns ? 'grid--3' : 'grid--2'}`;
     $('home-about').hidden = campaigns;
     $('home-about').textContent = portal.summary;
+    // التعريف مترجمٌ عن المصدر كالمهامّ: يُذكر مصدره تحته.
+    $('home-about-source').hidden = campaigns;
+    $('home-about-source').textContent = portal.sources.summary;
     if (!campaigns) {
         $('home-list').replaceChildren();
         $('home-empty').hidden = true;

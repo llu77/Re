@@ -18,6 +18,7 @@ from eyework import auth, campaigns, professions
 from eyework.tests.conftest import add_version, create_campaign
 from eyework.tests.ui.conftest import LOGIN, LOGIN_KEY, VIEWPORTS
 from eyework.tests.ui.flow import Flow
+from eyework.tests.ui.test_gaze import HOVER_OR_GESTURE
 
 IDS = [f"{w}x{h}" for w, h in VIEWPORTS]
 
@@ -33,6 +34,17 @@ def _failures(flow: Flow) -> list[str]:
         if audit["vertical"] or audit["horizontal"]:
             failures.append(f"{audit['label']}: تمرير")
     return failures
+
+
+def _gaze_safe(page) -> None:
+    """عقد النظر على ما رُسم في هذا المسار: لا مؤقّت، ولا مستمعَ مرورٍ أو إيماءة."""
+    log = page.evaluate("() => ({ timers: window.__eyework.timers, listeners: window.__eyework.listeners })")
+    assert log["timers"] == [], log["timers"]
+    assert not [t for t in log["listeners"] if HOVER_OR_GESTURE.match(t)], log["listeners"]
+
+
+def _posts(page, base: str) -> list[str]:
+    return [url.removeprefix(base) for method, url in page.requests if method != "GET"]
 
 
 def _user_id(owner):
@@ -103,10 +115,14 @@ def test_signing_up_from_the_link_to_the_portal(page_factory, server, owner, wid
     flow.press("#signup-review-next", lambda: flow.screen("signup-password"), "التالي: كلمة المرور")
     flow.audit("signup-password")
     page.fill("#signup-password-input", "Strong-Password-2026-y")
+    # لا شيء يُرسل قبل الخطوة الأخيرة: فحص الرمز وحده.
+    assert _posts(page, server["base"]) == ["/api/auth/signup-code"]
     flow.press("#signup-create", lambda: flow.until(
         "document.querySelector('#home-portal') && document.querySelector('#home-portal').textContent"
         " === 'بوابة أمين المخزون'"), "أنشئ حسابي")
     flow.audit("home-storekeeper")
+    assert _posts(page, server["base"]) == ["/api/auth/signup-code", "/api/auth/register"]
+    _gaze_safe(page)
 
     assert not _failures(flow), "\n".join(_failures(flow))
     if (width, height) != VIEWPORTS[-1]:
@@ -217,13 +233,26 @@ def test_a_birth_date_in_the_future_never_reaches_the_review(page_factory, serve
 
 
 # ── البوابات ─────────────────────────────────────────────────────────────
-def _walk(flow: Flow, kind: str, count: int, label: str) -> None:
+def _walk(flow: Flow, kind: str, view: dict, label: str) -> None:
+    """كل بندٍ بترتيبه، وعلى الشاشة ما في البيانات نفسها: النصّ والملاحظة والنوع والمصدر."""
     page = flow.page
+    items = view[kind]
+    count = len(items)
     flow.press(f"#home-{kind}", lambda: flow.screen("portal-item"), kind)
     for n in range(1, count + 1):
         flow.until(f"document.querySelector('#portal-item-position').textContent.endsWith('{n} من {count}')")
         flow.audit(f"{label} {kind} {n}")
-        assert page.is_visible("#portal-item-source")
+        item = items[n - 1]
+        assert page.text_content("#portal-item-text") == item["text"]
+        assert page.is_visible("#portal-item-note") == bool(item["note"])
+        if item["note"]:
+            assert page.text_content("#portal-item-note") == item["note"]
+        if kind == "tasks":
+            assert page.get_attribute("#portal-item-mode", "data-mode") == item["mode"]
+            assert page.is_visible("#portal-item-mode")
+        else:
+            assert page.is_hidden("#portal-item-mode")
+        assert page.text_content("#portal-item-source") == view["sources"][kind]
         # «في هذه البوابة» لا يدّعي أن التطبيق يؤدّي المهمّة: جزءٌ منها، والملاحظة تسمّيه.
         if page.get_attribute("#portal-item-mode", "data-mode") == "IN_APP":
             assert "جزءٌ منها" in page.text_content("#portal-item-mode")
@@ -242,15 +271,22 @@ def test_every_portal_and_every_item_fit_one_screen(page_factory, server, owner,
     page.goto(server["base"] + "/#/")
     flow.until(f"document.querySelector('#home-portal').textContent === 'بوابة {professions.NAMES[profession]}'")
     flow.audit(f"home {profession.value}")
-    assert page.is_visible("#home-new") == ("CAMPAIGN" in professions.PORTALS[profession].tools)
-
+    campaigns = "CAMPAIGN" in professions.PORTALS[profession].tools
+    assert page.is_visible("#home-new") == campaigns
     portal = professions.view(profession)
-    _walk(flow, "tasks", len(portal["tasks"]), profession.value)
+    # التعريف مترجمٌ عن المصدر: مصدره تحته حين يُعرض.
+    assert page.is_visible("#home-about-source") == (not campaigns)
+    if not campaigns:
+        assert page.text_content("#home-about") == portal["summary"]
+        assert page.text_content("#home-about-source") == portal["sources"]["summary"]
+
+    _walk(flow, "tasks", portal, profession.value)
     page.goto(server["base"] + "/#/")
     flow.screen("home")
-    _walk(flow, "skills", len(portal["skills"]), profession.value)
+    _walk(flow, "skills", portal, profession.value)
 
     assert not _failures(flow), "\n".join(_failures(flow))
+    _gaze_safe(page)
     assert not page.errors, page.errors
 
 
@@ -298,7 +334,10 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
     page.goto(server["base"] + "/#/")
     flow.until("document.querySelector('#home-portal').textContent !== ''")
     flow.press("#home-account", lambda: flow.screen("account"), "حسابي")
+    flow.until("!document.querySelector('#account-attribution').hidden")
     flow.audit("account")
+    # نسبة O*NET كاملةً كما يطلبها ترخيصه، في شاشةٍ يصلها كل حساب.
+    assert page.text_content("#account-attribution") == professions.ATTRIBUTION
     flow.press("#account-delete", lambda: flow.screen("account-delete"), "احذف حسابي")
     flow.audit("account-delete")
     flow.press("#account-delete-back", lambda: flow.screen("account"), "رجوع دون حذف")
@@ -312,6 +351,7 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
         assert cursor.fetchone()[0] == 0
     assert not _failures(flow), "\n".join(_failures(flow))
     assert not flow.landings, "\n".join(flow.landings)
+    _gaze_safe(page)
     assert not page.errors, page.errors
 
 
