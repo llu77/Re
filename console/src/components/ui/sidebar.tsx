@@ -25,8 +25,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -88,9 +86,10 @@ const SidebarProvider = React.forwardRef<
         } else {
           _setOpen(openState)
         }
-
-        // This sets the cookie to keep the sidebar state.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        // تعديلٌ على المكوّن كما ورد: كان يحفظ الحالة أسبوعاً في ملفّ ارتباطٍ
+        // على الأصل كلّه (`path=/`)، فيُرسَل مع كل طلبٍ لبوابة المريض، ويُبقي
+        // الشريط مطويّاً — وعدد البلاغات العاجلة معه — في كل زيارةٍ تالية.
+        // الحالة هنا للجلسة المفتوحة وحدها.
       },
       [setOpenProp, open]
     )
@@ -105,6 +104,14 @@ const SidebarProvider = React.forwardRef<
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
+        // تعديل: Ctrl+B داخل حقل كتابةٍ يخصّ الحقل (تغميق في محرّرٍ ما)، لا
+        // الشريط؛ طيّه هناك يُخفي العدد العاجل دون أن يُلحظ.
+        const target = event.target as HTMLElement | null
+        if (
+          target?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable=false])")
+        ) {
+          return
+        }
         if (
           event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
           (event.metaKey || event.ctrlKey)
@@ -182,6 +189,8 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    // الرابط حين فُتحت النافذة: إن تغيّر عند إغلاقها فقد انتُقل إلى صفحةٍ أخرى.
+    const hashAtOpen = React.useRef("")
 
     if (collapsible === "none") {
       return (
@@ -204,13 +213,33 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[--sidebar-width] max-w-[85vw] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
             side={side}
+            // تعديل: التركيز الأول على رابط الصفحة الحالية لا على أوّل زرٍّ في
+            // النافذة — وهو «تسجيل الخروج» في التذييل، فتخرج ضغطتا Enter بالممارس.
+            onOpenAutoFocus={(event) => {
+              event.preventDefault()
+              hashAtOpen.current = window.location.hash
+              const content = event.target as HTMLElement
+              const link =
+                content.querySelector<HTMLElement>('[data-sidebar="content"] [aria-current="page"]') ??
+                content.querySelector<HTMLElement>('[data-sidebar="content"] [data-sidebar="menu-button"]')
+              link?.focus()
+            }}
+            // تعديل: الزرّ الذي يفتح النافذة ليس زرّ Radix، فيُسقط Radix التركيز
+            // إلى الصفحة. يعود إلى عنوان الصفحة الجديدة إن انتُقل، وإلا إلى الزرّ.
+            onCloseAutoFocus={(event) => {
+              event.preventDefault()
+              const heading = document.querySelector<HTMLElement>("main h1[tabindex]")
+              const trigger = document.querySelector<HTMLElement>('[data-sidebar="trigger"]')
+              const target = window.location.hash !== hashAtOpen.current ? heading : trigger
+              ;(target ?? trigger)?.focus({ preventScroll: true })
+            }}
           >
             {/* تعديلٌ على المكوّن كما ورد: نافذةٌ بلا عنوان يعلنها قارئ
                 الشاشة «حوار» فقط، وRadix يعدّها خطأً. */}
@@ -275,7 +304,7 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, isMobile, open, openMobile } = useSidebar()
 
   return (
     <Button
@@ -284,6 +313,9 @@ const SidebarTrigger = React.forwardRef<
       variant="ghost"
       size="icon"
       className={cn("h-7 w-7", className)}
+      // تعديل: الزرّ يعلن حالته — مطويٌّ أم ظاهر، وعلى الهاتف أنه يفتح نافذة.
+      aria-expanded={isMobile ? openMobile : open}
+      aria-haspopup={isMobile ? "dialog" : undefined}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
@@ -307,7 +339,9 @@ const SidebarRail = React.forwardRef<
     <button
       ref={ref}
       data-sidebar="rail"
-      aria-label="Toggle Sidebar"
+      // تعديل: الحافة للفأرة وحدها ولا تُبلغ بلوحة المفاتيح؛ زرّ الإظهار يؤدّي
+      // وظيفتها، فلا يُعلَن زرّان بالاسم نفسه.
+      aria-hidden="true"
       tabIndex={-1}
       onClick={toggleSidebar}
       title="Toggle Sidebar"
@@ -567,6 +601,11 @@ const SidebarMenuButton = React.forwardRef<
   ) => {
     const Comp = asChild ? Slot : "button"
     const { isMobile, state } = useSidebar()
+    // تعديل: التلميح يُفتح فقط حيث يُرى — الشريط مطويٌّ على سطح المكتب. التلميح
+    // المخفيّ كان يُفتح مع ذلك: يكرّر الاسم وصفاً لقارئ الشاشة، ويبتلع أوّل
+    // Escape في نافذة الهاتف.
+    const [tooltipOpen, setTooltipOpen] = React.useState(false)
+    const tooltipShown = state === "collapsed" && !isMobile
 
     const button = (
       <Comp
@@ -590,12 +629,12 @@ const SidebarMenuButton = React.forwardRef<
     }
 
     return (
-      <Tooltip>
+      <Tooltip open={tooltipShown && tooltipOpen} onOpenChange={setTooltipOpen}>
         <TooltipTrigger asChild>{button}</TooltipTrigger>
         <TooltipContent
           side="right"
           align="center"
-          hidden={state !== "collapsed" || isMobile}
+          hidden={!tooltipShown}
           {...tooltip}
         />
       </Tooltip>

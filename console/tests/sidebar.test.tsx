@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { Sidebar, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar"
+
 import { setViewportWidth } from "./setup"
 import { SidebarDemo } from "./sidebar-demo"
 
@@ -20,17 +22,49 @@ describe("المكوّن كما ورد، بعرضه التوضيحي", () => {
     expect(screen.getByText("john@example.com")).toBeTruthy()
   })
 
-  it("زرّ الإظهار يطوي الشريط ويفتحه ويحفظ الحالة في ملفّ ارتباط", async () => {
+  it("زرّ الإظهار يطوي الشريط ويفتحه ويعلن حالته، ولا يكتب ملفّ ارتباط", async () => {
     const user = userEvent.setup()
     const { container } = render(<SidebarDemo />)
+    const trigger = screen.getByRole("button", { name: "Toggle Sidebar" })
     expect(desktopState(container)).toBe("expanded")
+    expect(trigger.getAttribute("aria-expanded")).toBe("true")
 
-    await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }))
+    await user.click(trigger)
     expect(desktopState(container)).toBe("collapsed")
-    expect(document.cookie).toContain("sidebar_state=false")
+    expect(trigger.getAttribute("aria-expanded")).toBe("false")
+    // كان يُحفظ أسبوعاً على الأصل كلّه، فيُرسَل مع طلبات بوابة المريض.
+    expect(document.cookie).not.toContain("sidebar_state")
 
-    await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }))
+    await user.click(trigger)
     expect(desktopState(container)).toBe("expanded")
+  })
+
+  it("Ctrl+B داخل حقل كتابةٍ لا يطوي الشريط", () => {
+    const { container } = render(
+      <>
+        <SidebarDemo />
+        <textarea aria-label="سبب" />
+      </>,
+    )
+    const field = screen.getByLabelText("سبب")
+    field.focus()
+    act(() => {
+      fireEvent.keyDown(field, { key: "b", ctrlKey: true })
+    })
+    expect(desktopState(container)).toBe("expanded")
+  })
+
+  it("حافة الشريط للفأرة وحدها: لا تُعلَن زرّاً ثانياً بالاسم نفسه", () => {
+    const { container } = render(
+      <SidebarProvider>
+        <Sidebar>
+          <SidebarRail />
+        </Sidebar>
+        <SidebarTrigger />
+      </SidebarProvider>,
+    )
+    expect(container.querySelector("[data-sidebar=rail]")).toBeTruthy()
+    expect(screen.getAllByRole("button", { name: "Toggle Sidebar" })).toHaveLength(1)
   })
 
   it("Ctrl+B يطوي الشريط من أيّ مكان", () => {

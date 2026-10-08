@@ -1,4 +1,4 @@
-import { ClipboardList, LogOut, Siren, type LucideIcon } from "lucide-react"
+import { ClipboardList, LogOut, Siren, X, type LucideIcon } from "lucide-react"
 
 import {
   Sidebar,
@@ -13,7 +13,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 import { href, type Route } from "./route"
@@ -31,6 +33,8 @@ import { SymbolMark } from "./symbol-mark"
  *     (`--sidebar-width-icon` في `ConsoleShell`).
  *   • **العدد مقروءٌ لا مرئيٌّ فقط.** الشارة زخرفية لقارئ الشاشة، والعدد في
  *     اسم الرابط وفي التلميح حين يُطوى الشريط فتختفي الشارة.
+ *   • **العاجل ظاهرٌ مطويّاً أيضاً.** شارة المكوّن تختفي حين يُطوى الشريط؛ عدد
+ *     البلاغات العاجلة يبقى على الأيقونة نفسها، فلا يحتاج إلى مرورٍ ليُرى.
  */
 
 interface Item {
@@ -79,6 +83,11 @@ export function AppSidebar({
     },
   ]
   const active = route.name === "proposal" ? "queue" : route.name
+  const { isMobile, setOpenMobile } = useSidebar()
+  // رابط الصفحة الحالية لا يغيّر الرابط فلا يُغلق النافذة من تلقاء نفسه.
+  const closeSheet = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   return (
     <Sidebar side="right" collapsible="icon">
@@ -91,13 +100,25 @@ export function AppSidebar({
             </span>
             <span className="text-sm text-sidebar-foreground">لوحة الممارس</span>
           </div>
+          {isMobile ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ms-auto size-12 [&_svg]:size-5"
+              aria-label="إغلاق القائمة"
+              onClick={closeSheet}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          ) : null}
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <nav aria-label="أقسام اللوحة">
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sm">المراجعة</SidebarGroupLabel>
+            {/* بلا شفافية: لون المكوّن بنسبة 70% يقع عند 4.26:1، دون حدّ 4.5. */}
+            <SidebarGroupLabel className="text-sm text-sidebar-foreground">المراجعة</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {items.map((item) => {
@@ -111,15 +132,25 @@ export function AppSidebar({
                         isActive={isActive}
                         // الشارة مرسومةٌ فوق الزرّ لا بجانبه، والمكوّن لا يحجز
                         // لها مكاناً: بلا هذا يمرّ الاسم الطويل تحتها.
-                        className={cn(BUTTON, item.count !== null && "pe-12")}
+                        className={cn(BUTTON, "relative", item.count !== null && "pe-12")}
                         tooltip={{ children: counted, side: "left" }}
                       >
                         <a
                           href={href(item.route)}
                           aria-current={isActive ? "page" : undefined}
                           aria-label={counted}
+                          onClick={closeSheet}
                         >
                           <item.icon aria-hidden="true" />
+                          {item.urgent ? (
+                            <span
+                              aria-hidden="true"
+                              data-urgent-count=""
+                              className="absolute start-0.5 top-0.5 hidden h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold leading-none text-destructive-foreground group-data-[collapsible=icon]:flex"
+                            >
+                              {item.count}
+                            </span>
+                          ) : null}
                           <span>{item.label}</span>
                         </a>
                       </SidebarMenuButton>
@@ -170,7 +201,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarFooter>
 
-      <SidebarRail aria-label="إظهار الشريط الجانبي أو طيّه" title="إظهار الشريط الجانبي أو طيّه" />
+      <SidebarRail title="إظهار الشريط الجانبي أو طيّه" />
     </Sidebar>
   )
 }

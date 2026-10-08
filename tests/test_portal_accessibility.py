@@ -245,8 +245,13 @@ CONTRAST_SCRIPT = """
     const bold = parseInt(style.fontWeight, 10) >= 700;
     const isLarge = size >= 24 || (bold && size >= 18.66);
 
-    const front = luminance(parse(style.color).slice(0, 3));
-    const back = luminance(effectiveBackground(element));
+    // لون النصّ بشفافيته (`text-…/70`) يُمزج بخلفيته قبل القياس: بلا هذا يُقاس
+    // اللون كأنه معتم، فيمرّ نصٌّ باهت دون الحدّ.
+    const color = parse(style.color);
+    const backdrop = effectiveBackground(element);
+    const alpha = color[3] === undefined ? 1 : color[3];
+    const front = luminance(color.slice(0, 3).map((c, i) => c * alpha + backdrop[i] * (1 - alpha)));
+    const back = luminance(backdrop);
     const ratio = (Math.max(front, back) + 0.05) / (Math.min(front, back) + 0.05);
     const required = isLarge ? 3 : 4.5;
 

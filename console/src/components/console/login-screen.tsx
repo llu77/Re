@@ -13,8 +13,15 @@ export interface SignedIn extends Session {
   email: string
 }
 
-export function LoginScreen({ onSignedIn }: { onSignedIn: (session: SignedIn) => void }) {
+export function LoginScreen({
+  onSignedIn,
+  expired = false,
+}: {
+  onSignedIn: (session: SignedIn) => void
+  expired?: boolean
+}) {
   const [email, setEmail] = React.useState("")
+  const passwordRef = React.useRef<HTMLInputElement>(null)
   const [password, setPassword] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -30,6 +37,8 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (session: SignedIn) =>
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "تعذّر تسجيل الدخول. أعد المحاولة.")
       setPassword("")
+      // الزرّ يتعطّل بلا كلمة مرور، فيُسقط التركيز؛ يعود إلى الحقل الذي يُعاد.
+      passwordRef.current?.focus()
     } finally {
       setBusy(false)
     }
@@ -50,6 +59,11 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (session: SignedIn) =>
         <p className="mb-6 text-muted-foreground">
           النظام يقترح، والممارس يقرّر. لا يصل المريضَ محتوى دون اعتمادك.
         </p>
+        {expired ? (
+          <p role="alert" className="mb-6 rounded-md border border-primary/30 bg-accent p-3">
+            انتهت الجلسة. سجّل الدخول من جديد لتكمل من حيث توقّفت.
+          </p>
+        ) : null}
 
         <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
           <div className="flex flex-col gap-2">
@@ -76,6 +90,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (session: SignedIn) =>
               type="password"
               dir="ltr"
               autoComplete="current-password"
+              ref={passwordRef}
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -88,7 +103,8 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (session: SignedIn) =>
           <Button
             type="submit"
             className="h-12 text-base"
-            disabled={busy || !email.trim() || !password}
+            disabled={!email.trim() || !password}
+            aria-disabled={busy}
           >
             {busy ? "جارٍ الدخول…" : "تسجيل الدخول"}
           </Button>

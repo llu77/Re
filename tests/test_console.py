@@ -320,8 +320,15 @@ def test_the_sidebar_sits_on_the_right_and_collapses_to_48px_icons(browser, clin
     assert tooltip.inner_text().strip() == "البلاغات العاجلة، 1"
     assert tooltip.bounding_box()["x"] + tooltip.bounding_box()["width"] <= link.bounding_box()["x"] + 1
 
+    # العاجل ظاهرٌ مطويّاً، بلا مرور: العدد على الأيقونة نفسها.
+    page.mouse.move(10, 10)
+    urgent = _nav(page).locator("[data-urgent-count]")
+    assert urgent.is_visible() and urgent.inner_text() == "1"
+
+    # الحالة للجلسة المفتوحة وحدها: لا ملفّ ارتباط على الأصل، والتحميل يبدأ ظاهراً.
+    assert not [c for c in page.context.cookies() if c["name"] == "sidebar_state"]
     page.reload(wait_until="networkidle")
-    page.locator("[data-state='collapsed'][data-side='right']").wait_for()
+    page.locator("[data-state='expanded'][data-side='right']").wait_for()
     assert not browser.problems, browser.problems
 
 
@@ -340,6 +347,141 @@ def test_on_a_phone_the_sidebar_is_a_named_sheet_that_closes_on_navigation(brows
     sheet.wait_for(state="detached")
     page.get_by_text(RED_FLAG_TEXT).wait_for()
     assert not browser.problems, browser.problems
+
+
+def _focused(page) -> str:
+    return page.evaluate(
+        "() => { const e = document.activeElement;"
+        " return `${e.tagName}:${e.getAttribute('aria-label') || e.textContent.trim().slice(0, 40)}` }")
+
+
+def test_the_phone_sheet_is_reachable_and_leaves_by_keyboard(browser, clinic):
+    page = browser.open(viewport=PHONE, token=_token())
+    page.get_by_role("list", name="المقترحات بانتظار المراجعة").wait_for()
+    # بموقع العنصر لا بدوره: النافذة المفتوحة تُخفي ما خارجها عن شجرة الوصول.
+    trigger = page.locator("[data-sidebar='trigger']")
+    assert trigger.get_attribute("aria-label") == "إظهار الشريط الجانبي أو طيّه"
+    assert trigger.get_attribute("aria-expanded") == "false"
+    trigger.focus()
+    page.keyboard.press("Enter")
+    sheet = page.get_by_role("dialog", name="القائمة الجانبية")
+    sheet.wait_for()
+    assert trigger.get_attribute("aria-expanded") == "true"
+    page.wait_for_timeout(300)
+
+    # يبدأ على رابط الصفحة الحالية، لا على «تسجيل الخروج».
+    assert _focused(page) == "A:طابور المراجعة، 2"
+    page.keyboard.press("Tab")
+    assert _focused(page) == "A:البلاغات العاجلة، 1"
+
+    # Escape واحدة تغلق، ويعود التركيز إلى الزرّ الذي فتح.
+    page.keyboard.press("Escape")
+    sheet.wait_for(state="detached")
+    assert _focused(page) == "BUTTON:إظهار الشريط الجانبي أو طيّه"
+
+    # زرّ إغلاقٍ ظاهر، ورابط الصفحة الحالية يغلقها أيضاً.
+    trigger.click()
+    sheet.wait_for()
+    sheet.get_by_role("button", name="إغلاق القائمة").click()
+    sheet.wait_for(state="detached")
+    trigger.click()
+    sheet.wait_for()
+    sheet.get_by_role("link", name="طابور المراجعة، 2").click()
+    sheet.wait_for(state="detached")
+
+    # الانتقال من النافذة يضع التركيز على عنوان الصفحة الجديدة.
+    trigger.click()
+    sheet.wait_for()
+    sheet.get_by_role("link", name="البلاغات العاجلة، 1").click()
+    sheet.wait_for(state="detached")
+    page.get_by_text(RED_FLAG_TEXT).wait_for()
+    page.wait_for_timeout(300)
+    assert _focused(page) == "H1:البلاغات العاجلة"
+    assert not browser.problems, browser.problems
+
+
+def test_focus_follows_each_decision_step(browser, clinic):
+    page = browser.open(token=_token(), path=f"/console/#/queue/{clinic.note.id}")
+    page.get_by_text(DOCUMENTATION_TEXT).wait_for()
+    assert page.title() == "مراجعة مقترح — لوحة الممارس — Symbol AI"
+
+    page.get_by_role("button", name="رفض", exact=True).click()
+    assert page.evaluate("() => document.activeElement.id") == "reject-reason"
+    page.get_by_role("button", name="تراجع").click()
+    assert _focused(page) == "BUTTON:رفض"
+
+    page.get_by_role("button", name="اعتماد", exact=True).click()
+    # يُقرأ ما سيحدث أولاً؛ Enter هنا لا تعتمد شيئاً.
+    assert _focused(page).startswith("P:بعد الاعتماد")
+    page.keyboard.press("Enter")
+    assert page.get_by_role("button", name="تأكيد الاعتماد").is_visible()
+    page.get_by_role("button", name="تراجع").click()
+    assert _focused(page) == "BUTTON:اعتماد"
+
+
+def test_after_a_decision_the_queue_opens_at_the_top(browser, clinic, owner):
+    page = browser.open(viewport={"width": 390, "height": 600}, token=_token(),
+                        path=f"/console/#/queue/{clinic.plan.id}")
+    page.get_by_text(FIRST_STEP_TITLE).wait_for()
+    page.get_by_role("button", name="اعتماد", exact=True).click()
+    page.get_by_role("button", name="تأكيد الاعتماد").scroll_into_view_if_needed()
+    assert page.evaluate("() => scrollY") > 0
+    page.get_by_role("button", name="تأكيد الاعتماد").click()
+    notice = page.get_by_role("status").get_by_text("اعتُمد المقترح.")
+    notice.wait_for()
+    assert page.evaluate("() => scrollY") == 0
+    assert notice.bounding_box()["y"] >= 0
+    assert page.title() == "طابور المراجعة — لوحة الممارس — Symbol AI"
+
+
+def test_acknowledging_is_announced_and_focus_returns_to_the_heading(browser, clinic):
+    page = browser.open(token=_token(), path="/console/#/red-flags")
+    page.get_by_text(RED_FLAG_TEXT).wait_for()
+    # المنطقة الحيّة موجودةٌ قبل الرسالة، فتُعلَن حين تتغيّر.
+    assert page.get_by_role("status").count() >= 1
+    page.get_by_role("button", name="استلام البلاغ").click()
+    assert page.evaluate("() => document.activeElement.tagName") == "TEXTAREA"
+    page.get_by_role("button", name="تأكيد الاستلام").click()
+    page.get_by_role("status").get_by_text("سُجّل استلام البلاغ.").wait_for()
+    assert _focused(page) == "H1:البلاغات العاجلة"
+
+
+def test_an_expired_session_says_so_and_keeps_the_unsent_reason(browser, clinic, owner):
+    page = browser.open(token=_token(), path=f"/console/#/queue/{clinic.note.id}")
+    page.get_by_text(DOCUMENTATION_TEXT).wait_for()
+    page.get_by_role("button", name="رفض", exact=True).click()
+    reason = "القياس غير موثّق بأداة معيارية، ويُعاد بعد الجلسة القادمة."
+    page.get_by_label("سبب الرفض (إلزامي)").fill(reason)
+
+    identity.revoke_user_sessions(clinic.practitioner.id)
+    page.get_by_role("button", name="تأكيد الرفض").click()
+    assert "انتهت الجلسة" in page.get_by_role("alert").inner_text()
+
+    page.get_by_label("البريد الإلكتروني").fill(PRACTITIONER_EMAIL)
+    page.get_by_label("كلمة المرور").fill(SECRET)
+    page.get_by_role("button", name="تسجيل الدخول").click()
+    page.get_by_text(DOCUMENTATION_TEXT).wait_for()
+    assert page.get_by_label("سبب الرفض (إلزامي)").input_value() == reason
+    assert _status(owner, clinic.note.id) == ("PENDING", None)
+
+
+@pytest.mark.parametrize("viewport", [PHONE, {"width": 768, "height": 1024}], ids=["390", "768"])
+def test_doubled_text_never_scrolls_sideways(browser, clinic, viewport):
+    for path, marker in (("/console/#/queue", "علامة حمراء"),
+                         (f"/console/#/queue/{clinic.plan.id}", FIRST_STEP_TITLE),
+                         ("/console/#/red-flags", RED_FLAG_TEXT)):
+        page = browser.open(viewport=viewport, token=_token(), path=path)
+        page.get_by_text(marker).first.wait_for()
+        page.evaluate("() => { document.documentElement.style.fontSize = '200%' }")
+        page.wait_for_timeout(300)
+        assert page.evaluate("() => document.scrollingElement.scrollWidth - innerWidth") <= 1, path
+    page.get_by_role("button", name="إظهار الشريط الجانبي أو طيّه").click()
+    if viewport is PHONE:
+        sheet = page.get_by_role("dialog", name="القائمة الجانبية")
+        sheet.wait_for()
+        sheet.evaluate("(e) => Promise.all(e.getAnimations().map((a) => a.finished))")
+        box = sheet.bounding_box()
+        assert box["x"] >= -1 and box["x"] + box["width"] <= viewport["width"] + 1
 
 
 # ── المقاييس ─────────────────────────────────────────────────────────────

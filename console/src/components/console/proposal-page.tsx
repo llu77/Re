@@ -16,6 +16,20 @@ const REASON_MAX = 2000
 type Step = "idle" | "approving" | "rejecting"
 
 /**
+ * سبب رفضٍ كُتب ولم يُرسَل، في الذاكرة وحدها: إن انتهت الجلسة قبل الإرسال عاد
+ * بعد الدخول من جديد. لا يُكتب في أيّ تخزين — نصٌّ سريري لا يبقى على الجهاز —
+ * ويُمحى بالخروج المقصود.
+ */
+const drafts = new Map<string, string>()
+
+export function forgetDrafts(): void {
+  drafts.clear()
+}
+
+/** عنوان مصدرٍ بالحروف اللاتينية وحدها: لغته الإنجليزية، كعناوين PubMed. */
+const LATIN_ONLY = /^[^\u0600-\u06FF]*[A-Za-z][^\u0600-\u06FF]*$/
+
+/**
  * صفحة المقترح: المحتوى كاملاً، وأدلّته بجانبه لا في شاشةٍ أخرى، والقرار.
  *
  * القرار خطوتان. «اعتماد» لا يعتمد؛ يعرض ما سيحدث ويطلب تأكيداً. و«رفض»
@@ -34,8 +48,19 @@ export function ProposalPage({
   const [proposal, setProposal] = React.useState<Proposal | null>(null)
   const [citations, setCitations] = React.useState<Citation[] | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
-  const [step, setStep] = React.useState<Step>("idle")
-  const [reason, setReason] = React.useState("")
+  const [step, setStep] = React.useState<Step>(() => (drafts.has(id) ? "rejecting" : "idle"))
+  const [reason, setReasonState] = React.useState(() => drafts.get(id) ?? "")
+  const setReason = (value: string) => {
+    setReasonState(value)
+    if (value) drafts.set(id, value)
+    else drafts.delete(id)
+  }
+  // التركيز يتبع الخطوة: الزرّ الذي ضُغط يزول، فبلا هذا يسقط التركيز إلى الصفحة.
+  const approveIntro = React.useRef<HTMLParagraphElement>(null)
+  const reasonField = React.useRef<HTMLTextAreaElement>(null)
+  const approveButton = React.useRef<HTMLButtonElement>(null)
+  const rejectButton = React.useRef<HTMLButtonElement>(null)
+  const previousStep = React.useRef<Step | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [actionError, setActionError] = React.useState<string | null>(null)
 
@@ -58,12 +83,23 @@ export function ProposalPage({
     }
   }, [api, id])
 
+  React.useEffect(() => {
+    const previous = previousStep.current
+    previousStep.current = step
+    if (previous === null) return
+    if (step === "approving") approveIntro.current?.focus()
+    else if (step === "rejecting") reasonField.current?.focus()
+    else if (previous === "approving") approveButton.current?.focus()
+    else if (previous === "rejecting") rejectButton.current?.focus()
+  }, [step])
+
   async function decide(action: () => Promise<Proposal>, message: string) {
     if (busy) return
     setBusy(true)
     setActionError(null)
     try {
       await action()
+      drafts.delete(id)
       onDecided(message)
     } catch (error) {
       setActionError(error instanceof ApiError ? error.message : "تعذّر تنفيذ القرار.")
@@ -165,7 +201,9 @@ export function ProposalPage({
                     className="inline-flex min-h-12 items-center gap-1 rounded-md text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     dir="auto"
                   >
-                    <span className="break-words">{citation.title}</span>
+                    <span className="break-words" lang={LATIN_ONLY.test(citation.title) ? "en" : undefined}>
+                      {citation.title}
+                    </span>
                     <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
                     <span className="sr-only">(يفتح في نافذة جديدة)</span>
                   </a>
@@ -197,10 +235,11 @@ export function ProposalPage({
           </div>
         ) : step === "idle" ? (
           <div className="flex flex-wrap gap-3">
-            <Button className="h-12 min-w-36 text-base" onClick={() => setStep("approving")}>
+            <Button ref={approveButton} className="h-12 min-w-36 text-base" onClick={() => setStep("approving")}>
               اعتماد
             </Button>
             <Button
+              ref={rejectButton}
               variant="outline"
               className="h-12 min-w-36 border-destructive text-base text-destructive hover:bg-destructive/5 hover:text-destructive"
               onClick={() => setStep("rejecting")}
@@ -210,11 +249,16 @@ export function ProposalPage({
           </div>
         ) : step === "approving" ? (
           <div className="flex flex-col gap-3">
-            <p>بعد الاعتماد يصل هذا المحتوى إلى المريض كما هو معروضٌ أعلاه.</p>
+            {/* التركيز هنا لا على «تأكيد الاعتماد»: يُقرأ ما سيحدث قبل الزرّ،
+                ولا تعتمد ضغطتا Enter متتاليتان شيئاً. */}
+            <p ref={approveIntro} tabIndex={-1} className="outline-none">
+              بعد الاعتماد يصل هذا المحتوى إلى المريض كما هو معروضٌ أعلاه.
+            </p>
             <div className="flex flex-wrap gap-3">
+              {/* aria-disabled لا disabled أثناء الإرسال: يبقى التركيز على الزرّ. */}
               <Button
                 className="h-12 min-w-36 text-base"
-                disabled={busy}
+                aria-disabled={busy}
                 onClick={() => decide(() => api.approve(proposal.id), "اعتُمد المقترح.")}
               >
                 {busy ? "جارٍ الاعتماد…" : "تأكيد الاعتماد"}
@@ -222,8 +266,10 @@ export function ProposalPage({
               <Button
                 variant="outline"
                 className="h-12 min-w-36 text-base"
-                disabled={busy}
-                onClick={() => setStep("idle")}
+                aria-disabled={busy}
+                onClick={() => {
+                  if (!busy) setStep("idle")
+                }}
               >
                 تراجع
               </Button>
@@ -236,6 +282,7 @@ export function ProposalPage({
             </Label>
             <textarea
               id="reject-reason"
+              ref={reasonField}
               value={reason}
               maxLength={REASON_MAX}
               rows={4}
@@ -251,7 +298,8 @@ export function ProposalPage({
               <Button
                 variant="destructive"
                 className="h-12 min-w-36 text-base"
-                disabled={busy || !reasonText}
+                disabled={!reasonText}
+                aria-disabled={busy}
                 onClick={() => decide(() => api.reject(proposal.id, reasonText), "رُفض المقترح وحُفظ السبب.")}
               >
                 {busy ? "جارٍ الرفض…" : "تأكيد الرفض"}
@@ -259,8 +307,9 @@ export function ProposalPage({
               <Button
                 variant="outline"
                 className="h-12 min-w-36 text-base"
-                disabled={busy}
+                aria-disabled={busy}
                 onClick={() => {
+                  if (busy) return
                   setStep("idle")
                   setReason("")
                 }}
@@ -279,9 +328,11 @@ export function ProposalPage({
 
 function Fact({ term, children }: { term: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-2">
+    // يلتفّ السطر حين يضيق (نصٌّ مكبَّر، شاشةٌ ضيقة): التاريخ بلا مسافاتٍ لا ينكسر
+    // وحده، فكان يفيض خارج الصفحة.
+    <div className="flex flex-wrap gap-x-2">
       <dt className="shrink-0 text-muted-foreground">{term}</dt>
-      <dd className="min-w-0">{children}</dd>
+      <dd className="min-w-0 [overflow-wrap:anywhere]">{children}</dd>
     </div>
   )
 }

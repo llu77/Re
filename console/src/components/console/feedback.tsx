@@ -20,10 +20,15 @@ export function ErrorNotice({ message, className }: { message: string; className
   )
 }
 
-/** نتيجة إجراءٍ نجح. منطقةٌ حيّة مهذّبة: تُقرأ دون أن تقاطع. */
+/**
+ * نتيجة إجراءٍ نجح. منطقةٌ حيّة مهذّبة: تُقرأ دون أن تقاطع.
+ *
+ * فارغةً تبقى في شجرة الوصول (`sr-only` لا `hidden`): المنطقة التي تظهر ومعها
+ * نصّها لا يعلنها أغلب قارئات الشاشة؛ تُعلَن حين يتغيّر ما في منطقةٍ موجودة.
+ */
 export function SuccessNotice({ message }: { message: string | null }) {
   return (
-    <div role="status" aria-live="polite" className="empty:hidden">
+    <div role="status" aria-live="polite" className="empty:sr-only">
       {message ? (
         <p className="flex items-center gap-2 rounded-md border border-primary/30 bg-accent p-3 text-foreground">
           <CircleCheck className="size-5 shrink-0 text-primary" aria-hidden="true" />

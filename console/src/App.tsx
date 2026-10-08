@@ -4,6 +4,7 @@ import { forgetSession, loadSession } from "@/lib/api"
 
 import { ConsoleShell } from "@/components/console/console-shell"
 import { LoginScreen, type SignedIn } from "@/components/console/login-screen"
+import { forgetDrafts } from "@/components/console/proposal-page"
 
 const EMAIL_KEY = "symbol.practitioner.email"
 
@@ -21,6 +22,8 @@ function restore(): SignedIn | null {
 
 export function App() {
   const [session, setSession] = React.useState<SignedIn | null>(restore)
+  const [expired, setExpired] = React.useState(false)
+  const lastEmail = React.useRef(session?.email ?? "")
 
   const signedIn = React.useCallback((next: SignedIn) => {
     try {
@@ -28,10 +31,18 @@ export function App() {
     } catch {
       // بلا تخزين: البريد يظهر لهذا التحميل وحده.
     }
+    // ممارسٌ آخر يدخل بعد انتهاء جلسة غيره: لا يرى ما كتبه ذاك ولم يُرسله.
+    if (lastEmail.current && lastEmail.current !== next.email) forgetDrafts()
+    lastEmail.current = next.email
+    setExpired(false)
     setSession(next)
   }, [])
 
-  const signedOut = React.useCallback(() => {
+  const signedOut = React.useCallback((reason: "signed-out" | "expired") => {
+    // انتهاء الجلسة يُقال، وما كُتب يبقى في الذاكرة حتى يعود الممارس نفسه.
+    // والخروج المقصود يمحوه: الجهاز قد يكون مشتركاً في العيادة.
+    if (reason === "signed-out") forgetDrafts()
+    setExpired(reason === "expired")
     forgetSession()
     try {
       window.sessionStorage.removeItem(EMAIL_KEY)
@@ -44,6 +55,6 @@ export function App() {
   return session ? (
     <ConsoleShell session={session} onSignedOut={signedOut} />
   ) : (
-    <LoginScreen onSignedIn={signedIn} />
+    <LoginScreen onSignedIn={signedIn} expired={expired} />
   )
 }

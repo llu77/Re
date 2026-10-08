@@ -39,14 +39,24 @@ function CloseSheetOnNavigate({ routeKey }: { routeKey: string }) {
   return null
 }
 
-/** حالة الشريط المحفوظة في ملفّ الارتباط الذي يكتبه المكوّن نفسه. */
-function savedSidebarState(): boolean {
-  const match = document.cookie.match(/(?:^|;\s*)sidebar_state=(true|false)/)
-  return match ? match[1] === "true" : true
+/** عنوان الصفحة يتبعها، فيُعرف التبويب والسجلّ في المتصفّح وفي قارئ الشاشة. */
+const DOCUMENT_TITLE = "لوحة الممارس — Symbol AI"
+
+function focusHeading() {
+  document.querySelector<HTMLElement>("main h1[tabindex]")?.focus({ preventScroll: true })
 }
 
-export function ConsoleShell({ session, onSignedOut }: { session: SignedIn; onSignedOut: () => void }) {
-  const api = React.useMemo(() => practitionerApi(session, onSignedOut), [session, onSignedOut])
+export function ConsoleShell({
+  session,
+  onSignedOut,
+}: {
+  session: SignedIn
+  onSignedOut: (reason: "signed-out" | "expired") => void
+}) {
+  const api = React.useMemo(
+    () => practitionerApi(session, () => onSignedOut("expired")),
+    [session, onSignedOut],
+  )
   const [route, navigate] = useRoute()
   const [queue, setQueue] = React.useState<Proposal[] | null>(null)
   const [flags, setFlags] = React.useState<RedFlag[] | null>(null)
@@ -85,10 +95,26 @@ export function ConsoleShell({ session, onSignedOut }: { session: SignedIn; onSi
     setNotice((current) => (current && current.on !== route.name ? null : current))
   }, [route])
 
+  const routeKey = route.name === "proposal" ? `proposal:${route.id}` : route.name
+
+  // كل صفحةٍ تبدأ من أعلاها: بعد قرارٍ في أسفل المقترح كان الطابور يُفتح في
+  // منتصفه، ورسالة النجاح فوق ما يُرى.
+  React.useEffect(() => {
+    window.scrollTo({ top: 0 })
+    document.title = `${TITLES[route.name]} — ${DOCUMENT_TITLE}`
+  }, [routeKey, route.name])
+
   const done = React.useCallback(
     (text: string, on: Route["name"]) => {
       setNotice({ text, on })
-      if (on === "queue") navigate({ name: "queue" })
+      if (on === "queue") {
+        navigate({ name: "queue" })
+      } else {
+        // الصفحة نفسها: البطاقة التي كان فيها التركيز زالت. يعود إلى العنوان،
+        // وتظهر الرسالة تحته.
+        window.scrollTo({ top: 0 })
+        focusHeading()
+      }
       void refresh()
     },
     [navigate, refresh],
@@ -101,16 +127,15 @@ export function ConsoleShell({ session, onSignedOut }: { session: SignedIn; onSi
     } catch {
       // الجلسة تُنسى محلياً في كل حال؛ الخادم يُبطلها بانتهاء مدّتها إن تعذّر.
     } finally {
-      onSignedOut()
+      onSignedOut("signed-out")
     }
   }
 
-  const routeKey = route.name === "proposal" ? `proposal:${route.id}` : route.name
-
   return (
+    // العرض بـrem يتضاعف مع تكبير النصّ: 16rem تصير 512px من نافذةٍ عرضها 768،
+    // فلا يبقى للمحتوى إلا ثلثها. السقف نسبةٌ من النافذة؛ بالنصّ العادي لا يتغيّر شيء.
     <SidebarProvider
-      defaultOpen={savedSidebarState()}
-      style={{ "--sidebar-width-icon": "4rem" } as React.CSSProperties}
+      style={{ "--sidebar-width": "min(16rem, 40vw)", "--sidebar-width-icon": "4rem" } as React.CSSProperties}
     >
       <CloseSheetOnNavigate routeKey={routeKey} />
       <AppSidebar
@@ -121,7 +146,8 @@ export function ConsoleShell({ session, onSignedOut }: { session: SignedIn; onSi
         onSignOut={signOut}
         signingOut={signingOut}
       />
-      <SidebarInset>
+      {/* min-w-0: بلا هذا لا ينكمش العمود دون عرض محتواه، فيفيض أفقياً عند تكبير النصّ. */}
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-10 flex min-h-16 items-center gap-3 border-b bg-background/95 px-4 py-2">
           <SidebarTrigger
             className="size-12 [&_svg]:size-5"
@@ -131,11 +157,14 @@ export function ConsoleShell({ session, onSignedOut }: { session: SignedIn; onSi
           <div key={routeKey} className="min-w-0 flex-1">
             <PageHeading>{TITLES[route.name]}</PageHeading>
           </div>
+          {/* aria-disabled لا disabled: الزرّ المعطَّل يُسقط التركيز إلى الصفحة. */}
           <Button
             variant="outline"
             className="h-12 gap-2 text-base"
-            onClick={() => void refresh()}
-            disabled={refreshing}
+            onClick={() => {
+              if (!refreshing) void refresh()
+            }}
+            aria-disabled={refreshing}
           >
             <RefreshCw className="size-5" aria-hidden="true" />
             <span className="max-sm:sr-only">{refreshing ? "جارٍ التحديث…" : "تحديث"}</span>

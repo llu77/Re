@@ -65,6 +65,18 @@ function FlagCard({
   const [error, setError] = React.useState<string | null>(null)
   const noteId = `note-${flag.id}`
   const titleId = `flag-${flag.id}`
+  // التركيز يتبع الخطوة، كما في صفحة المقترح.
+  const noteField = React.useRef<HTMLTextAreaElement>(null)
+  const openButton = React.useRef<HTMLButtonElement>(null)
+  const wasOpen = React.useRef<boolean | null>(null)
+
+  React.useEffect(() => {
+    const previous = wasOpen.current
+    wasOpen.current = open
+    if (previous === null) return
+    if (open) noteField.current?.focus()
+    else openButton.current?.focus()
+  }, [open])
 
   async function acknowledge() {
     if (busy) return
@@ -100,7 +112,7 @@ function FlagCard({
 
       {!open ? (
         <div>
-          <Button className="h-12 min-w-36 text-base" onClick={() => setOpen(true)}>
+          <Button ref={openButton} className="h-12 min-w-36 text-base" onClick={() => setOpen(true)}>
             استلام البلاغ
           </Button>
         </div>
@@ -111,6 +123,7 @@ function FlagCard({
           </Label>
           <textarea
             id={noteId}
+            ref={noteField}
             value={note}
             maxLength={NOTE_MAX}
             rows={3}
@@ -119,14 +132,15 @@ function FlagCard({
             className="w-full rounded-md border border-input bg-background p-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <div className="flex flex-wrap gap-3">
-            <Button className="h-12 min-w-36 text-base" disabled={busy} onClick={acknowledge}>
+            <Button className="h-12 min-w-36 text-base" aria-disabled={busy} onClick={acknowledge}>
               {busy ? "جارٍ التسجيل…" : "تأكيد الاستلام"}
             </Button>
             <Button
               variant="outline"
               className="h-12 min-w-36 text-base"
-              disabled={busy}
+              aria-disabled={busy}
               onClick={() => {
+                if (busy) return
                 setOpen(false)
                 setNote("")
               }}
