@@ -460,7 +460,7 @@ function renderWaiting({ reloaded }) {
     $('proposal-waiting').hidden = false;
     $('proposal-copy').hidden = true;
     $('proposal-check').hidden = !reloaded;
-    // الشريط السفلي محجوزٌ معطّل: نتيجةٌ تصل بعد دقيقةٍ لا تجد زرّاً تحت النظر.
+    // الشريط السفلي محجوزٌ معطّل: نتيجةٌ تصل بعد دقائق لا تجد زرّاً تحت النظر.
     UI.setButton($('proposal-start'), { reserved: true });
     UI.setButton($('proposal-end'), { reserved: true });
     UI.setButton(section.querySelector('[data-cancel]'), { reserved: true });
@@ -468,7 +468,8 @@ function renderWaiting({ reloaded }) {
 }
 
 async function keepAwake() {
-    // الكتابة قد تستغرق دقيقة؛ قفل الشاشة يقطع الطلب في Safari. لا مؤقّت هنا.
+    // الكتابة قد تستغرق حتى 200 ثانية، والشاشة تُبقى مضاءة. أثر قفلها على طلبٍ
+    // جارٍ في Safari لم يُقَس بعد (بوابة الإصدار 0). لا مؤقّت هنا.
     try {
         return navigator.wakeLock ? await navigator.wakeLock.request('screen') : null;
     } catch (error) {
