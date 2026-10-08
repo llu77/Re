@@ -61,6 +61,52 @@ describe("عميل بوابة الممارس", () => {
     expect(loadSession()).toBeNull()
   })
 
+  it("401 لطلبٍ أُرسل بجلسةٍ انتهت لا يُخرج الجلسة التي بعدها", async () => {
+    const old = { token: "old", role: "PRACTITIONER" }
+    window.sessionStorage.setItem("symbol.practitioner.session", JSON.stringify(old))
+    const answers: ((response: Response) => void)[] = []
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => answers.push(resolve))))
+    const expired = vi.fn()
+    const api = practitionerApi(old, expired)
+
+    // طلبان بالجلسة القديمة؛ الأول يعود 401 فتظهر شاشة الدخول.
+    const first = api.queue()
+    const late = api.redFlags()
+    answers[0](new Response(JSON.stringify({ detail: "جلسة غير صالحة" }), { status: 401 }))
+    await expect(first).rejects.toBeInstanceOf(ApiError)
+    expect(expired).toHaveBeenCalledOnce()
+
+    // الممارس يدخل من جديد، ثم يعود الطلب الثاني القديم بـ401.
+    vi.stubGlobal("fetch", reply(200, { token: "new", role: "PRACTITIONER" }))
+    await login("a@b.test", "secret")
+    answers[1](new Response(JSON.stringify({ detail: "جلسة غير صالحة" }), { status: 401 }))
+    await expect(late).rejects.toBeInstanceOf(ApiError)
+
+    expect(expired).toHaveBeenCalledOnce()
+    expect(loadSession()).toEqual({ token: "new", role: "PRACTITIONER" })
+  })
+
+  it("الخروج المقصود لا يُعلَن انتهاءَ جلسة حين يعود طلبٌ سابقٌ بـ401", async () => {
+    let answer: (response: Response) => void = () => undefined
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url.endsWith("/logout")
+          ? Promise.resolve(new Response(null, { status: 204 }))
+          : new Promise<Response>((resolve) => {
+              answer = resolve
+            }),
+      ),
+    )
+    const expired = vi.fn()
+    const api = practitionerApi({ token: "t", role: "PRACTITIONER" }, expired)
+    const refreshing = api.queue()
+    await api.logout()
+    answer(new Response(JSON.stringify({ detail: "جلسة غير صالحة" }), { status: 401 }))
+    await expect(refreshing).rejects.toBeInstanceOf(ApiError)
+    expect(expired).not.toHaveBeenCalled()
+  })
+
   it("انقطاع الشبكة رسالةٌ مفهومة لا استثناءٌ خام", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => {
       throw new TypeError("Failed to fetch")

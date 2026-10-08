@@ -124,15 +124,22 @@ export interface PractitionerApi {
 }
 
 /**
- * عميلٌ مرتبط بجلسة. `onExpired` يُستدعى عند أيّ 401: الجلسة انتهت أو أُلغيت،
+ * عميلٌ مرتبط بجلسة. `onExpired` يُستدعى عند أول 401: الجلسة انتهت أو أُلغيت،
  * فلا معنى لإبقاء الواجهة كأنها داخلة.
+ *
+ * والجلسة تنتهي لهذا العميل مرةً واحدة، بـ401 أو بخروجٍ مقصود. طلبٌ أُرسل قبلها
+ * ويعود بـ401 بعدها لا يمسّ شيئاً: لو مسّ لمحا رمز جلسةٍ دخل بها الممارس بعدها
+ * وأعاده إلى شاشة الدخول، أو حوّل خروجه المقصود إلى «انتهت الجلسة».
  */
 export function practitionerApi(session: Session, onExpired: () => void): PractitionerApi {
+  let ended = false
+
   async function call<T>(path: string, method = "GET", body?: unknown): Promise<T> {
     try {
       return await send<T>(path, { method, body, token: session.token })
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
+      if (error instanceof ApiError && error.status === 401 && !ended) {
+        ended = true
         forgetSession()
         onExpired()
       }
@@ -152,6 +159,7 @@ export function practitionerApi(session: Session, onExpired: () => void): Practi
     acknowledge: (value, note) =>
       call<RedFlag>(`/red-flags/${id(value)}/acknowledge`, "POST", { note }),
     logout: async () => {
+      ended = true
       try {
         await call<void>("/logout", "POST")
       } finally {
