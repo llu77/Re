@@ -16,13 +16,23 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 ROOT = Path(__file__).resolve().parent.parent
 PORTAL = ROOT / "portal"
 STATIC = ROOT / "static"
+
+#: أول إصدار من Streamlit يعرف `theme.headingFont` ويوثّق `[[theme.fontFaces]]`.
+#: المصدر: ملاحظات الإصدار 1.44.0 (25 مارس 2025) — «Introducing advanced
+#: theming options… Change the fonts, colors, and roundness of your app
+#: without CSS». وفي حزمة 1.43.2 نفسها `fontFaces` خيارٌ مخفيّ ولا
+#: `headingFont` أصلاً.
+THEME_FONTS_SINCE = Version("1.44.0")
 
 #: الأوزان التي يحتاجها برنامج الممارس، وهي المنسوخة مرتين.
 SHARED_FONTS = ("amiri-arabic-400.woff2", "amiri-arabic-700.woff2")
@@ -69,6 +79,28 @@ def test_the_two_font_copies_match(name):
     assert portal_copy.exists(), f"مفقود: {portal_copy.relative_to(ROOT)}"
     assert static_copy.exists(), f"مفقود: {static_copy.relative_to(ROOT)}"
     assert _digest(portal_copy) == _digest(static_copy), f"النسختان افترقتا: {name}"
+
+
+# ── خطّ برنامج الممارس يحتاج إصداراً يفهم إعلانه ─────────────────────────
+def test_the_streamlit_floor_understands_the_theme_font():
+    """
+    الخطّ في برنامج الممارس تعلنه السمة وحدها، ولا `@font-face` احتياطية في
+    `CUSTOM_CSS`. إصدارٌ أقدم من 1.44 يتجاهل إعلانها بلا خطأ، فيُرسَم
+    التطبيق بخطّ بديل — ولذلك لا يجوز أن تسمح المتطلبات بتثبيته.
+    """
+    theme = tomllib.loads(
+        (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8"))["theme"]
+    assert "fontFaces" in theme and "headingFont" in theme, "السمة لم تعد تعلن الخطّ"
+
+    lines = (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    requirement = next(Requirement(line) for line in lines
+                       if re.match(r"streamlit\b", line.strip()))
+    floors = [Version(spec.version) for spec in requirement.specifier
+              if spec.operator in (">=", ">", "~=", "==")]
+    assert floors, f"لا حدّ أدنى لـStreamlit: {requirement}"
+    assert max(floors) >= THEME_FONTS_SINCE, (
+        f"{requirement} يسمح بإصدار لا يفهم theme.fontFaces/headingFont")
+    assert requirement.specifier.contains(THEME_FONTS_SINCE), requirement
 
 
 def test_the_font_licence_travels_with_the_files():
