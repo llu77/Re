@@ -47,14 +47,18 @@ def test_increase_contrast_darkens_lines_and_text_and_keeps_every_target(page_fa
         const soft = getComputedStyle(probe).color;
         probe.style.color = 'var(--line)';
         const line = getComputedStyle(probe).color;
+        probe.style.color = 'var(--surface-sunk)';
+        const sunk = getComputedStyle(probe).color;
         probe.remove();
-        return { border: getComputedStyle(button).borderTopWidth, soft, line,
+        return { border: getComputedStyle(button).borderTopWidth, soft, line, sunk,
                  box: [button.getBoundingClientRect().width, button.getBoundingClientRect().height] };
     }""")
     assert style["border"] == "3px"
     assert min(style["box"]) >= 71.5
     assert _contrast(style["soft"]) >= 7
+    # الخطوط تُرسم على الأبيض وعلى السطح الغائر (حقل القيمة، وإطار سطح المكتب).
     assert _contrast(style["line"]) >= 3
+    assert _contrast(style["line"], style["sunk"]) >= 3
 
 
 def test_without_increase_contrast_nothing_changes(page_factory, server):

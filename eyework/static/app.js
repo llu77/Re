@@ -1083,11 +1083,27 @@ async function renderReady() {
         download.setAttribute('aria-hidden', 'true');
         download.tabIndex = -1;
     }
-    // الصورة تُجلب الآن لا عند الضغط: المشاركة يجب أن تبدأ داخل الضغطة نفسها.
+    // الصورة تُجلب الآن لا عند الضغط: المشاركة يجب أن تبدأ داخل الضغطة نفسها. وحتى
+    // تصل لا مشاركة، وإلا أُرسل النصّ وحده دون أن يُقال.
     state.readyBlob = null;
+    const share = $('ready-share');
+    share.disabled = true;
+    delete share.dataset.lockedByAlert;
     const result = await api('GET', imageUrl(campaign), { as: 'blob' });
-    if (result.status === 200 && state.campaign && state.campaign.id === campaign.id) {
+    const section = UI.screen('ready');
+    if (!state.campaign || state.campaign.id !== campaign.id || section.hidden || result.status === 401) {
+        return;
+    }
+    if (result.status === 200) {
         state.readyBlob = result.data;
+    } else {
+        $('ready-status').textContent = 'تعذّر تحميل الصورة: «شارك الحملة» ترسل النصّ وحده.';
+    }
+    // تنبيهٌ مفتوح يُبقي الأزرار مقفلة: «حسناً» تفتحه مع غيره.
+    if (UI.alertOpen(section)) {
+        share.dataset.lockedByAlert = '';
+    } else {
+        share.disabled = false;
     }
 }
 

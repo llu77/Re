@@ -301,13 +301,13 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
  */
 .rotate { display: none; }
 /* «زيادة التباين» في iOS (prefers-contrast: more): النصّ الثانوي أغمق (9.7:1 بدل
-   6.5:1)، والخطوط 3:1 على الأقل، وحدود الأزرار أعرض — والأهداف بحجمها 72×72، فالحدّ
+   6.5:1)، والخطوط 3:1 على الأقل على الأبيض وعلى السطح الغائر (--surface-sunk)، وحدود الأزرار أعرض — والأهداف بحجمها 72×72، فالحدّ
    داخل الصندوق (border-box). iOS لا يُبلغ «less» أبداً، ولا استعلام لتقليل الشفافية:
    الأسطح معتمةٌ أصلاً. */
 @media (prefers-contrast: more) {
     :root {
         --ink-soft: #3A4553;
-        --line: #8796A8;
+        --line: #7E8FA1;
         --line-strong: #5F6E80;
     }
     .btn { border-width: 3px; }
