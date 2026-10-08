@@ -202,7 +202,10 @@ BEGIN
        OR NEW.approved_at IS NOT NULL OR NEW.ready_at IS NOT NULL OR NEW.cancelled_at IS NOT NULL THEN
         RAISE EXCEPTION 'draft' USING ERRCODE = 'check_violation', CONSTRAINT = 'campaign_starts_as_draft';
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM users WHERE id = NEW.user_id AND profession = 'MARKETING') THEN
+    -- FOR SHARE يقف أمام تغيير المهنة (admin set-profession يقفل الصفّ للتعديل):
+    -- إمّا تنتظره الحملة فتُرفض بالمهنة الجديدة، وإمّا ينتظرها فيلغيها.
+    PERFORM 1 FROM users WHERE id = NEW.user_id AND profession = 'MARKETING' FOR SHARE;
+    IF NOT FOUND THEN
         RAISE EXCEPTION 'profession' USING ERRCODE = 'insufficient_privilege',
                                            CONSTRAINT = 'campaign_needs_marketing';
     END IF;

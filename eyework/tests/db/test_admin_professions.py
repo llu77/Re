@@ -8,10 +8,16 @@
 from __future__ import annotations
 
 import base64
+import threading
+import time
 
+import psycopg
 import pytest
+from psycopg import errors
 
-from eyework import admin, auth
+from eyework import admin, auth, campaigns
+from eyework.tests.conftest import as_user, make_user
+from eyework.tests.db.test_state_machine import blocked_on_a_lock
 
 KEY = b"a" * 32
 
@@ -86,6 +92,75 @@ def test_leaving_marketing_cancels_open_campaigns_and_keeps_ready_ones(operator,
         cursor.execute("SELECT id, status FROM campaigns ORDER BY status")
         assert dict(cursor.fetchall()) == {open_one: "CANCELLED", ready_one: "READY"}
         cursor.execute("SELECT count(*) FROM campaign_images WHERE campaign_id = %s", (open_one,))
+        assert cursor.fetchone()[0] == 0
+
+
+def _the_operator_waits_on_a_lock(owner, racer: threading.Thread) -> bool:
+    """أمر المشغّل يتّصل بدور المالك، فحالته تُرى من اتصال المالك."""
+    deadline = time.monotonic() + 5
+    while racer.is_alive() and time.monotonic() < deadline:
+        with owner.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock'"
+                           " AND datname = current_database() AND usename = current_user")
+            if cursor.fetchone()[0]:
+                return True
+        time.sleep(0.01)
+    return False
+
+
+def _seller(operator):
+    return make_user(operator, login=auth.login_hmac(KEY, "seller@example.sa"), profession="MARKETING")
+
+
+def test_a_campaign_created_while_leaving_marketing_is_still_cancelled(operator, app_url):
+    """الحملة تُدرَج ولم تُثبَّت بعد، والمشغّل ينقل الحساب: ينتظرها الأمر ثم يلغيها، فلا تبقى مسودةٌ بصورتها."""
+    seller = _seller(operator)
+    with psycopg.connect(app_url) as web:
+        as_user(web, seller)
+        with web.cursor() as cursor:
+            cursor.execute(campaigns._INSERT_CAMPAIGN, (seller,))
+        mover = threading.Thread(target=admin.set_profession, args=("seller@example.sa", "SUPPORT"))
+        mover.start()
+        waited = _the_operator_waits_on_a_lock(operator, mover)
+        web.commit()
+        mover.join(timeout=10)
+    assert waited
+    with operator.cursor() as cursor:
+        cursor.execute("SELECT u.profession, c.status FROM campaigns c JOIN users u ON u.id = c.user_id")
+        assert cursor.fetchall() == [("SUPPORT", "CANCELLED")]
+
+
+def test_a_campaign_cannot_start_while_the_account_leaves_marketing(operator, app, owner_url, app_url):
+    """المشغّل قفل الصفّ ولم يُثبِّت: الإدراج ينتظره ثم يقرأ المهنة الجديدة فيُرفض."""
+    seller = _seller(operator)
+    outcome = {}
+    with psycopg.connect(owner_url) as mover, psycopg.connect(app_url) as web:
+        as_user(web, seller)
+        web.commit()
+        with mover.cursor() as cursor:
+            cursor.execute(admin._PROFESSION_OF, (seller,))
+            cursor.execute(admin._CANCEL_OPEN_CAMPAIGNS, (seller,))
+            cursor.execute(admin._SET_PROFESSION, ("STOREKEEPER", seller))
+
+        def insert() -> None:
+            try:
+                with web.cursor() as cursor:
+                    cursor.execute(campaigns._INSERT_CAMPAIGN, (seller,))
+                web.commit()
+                outcome["inserted"] = True
+            except errors.InsufficientPrivilege as exc:
+                web.rollback()
+                outcome["constraint"] = exc.diag.constraint_name
+
+        racer = threading.Thread(target=insert)
+        racer.start()
+        waited = blocked_on_a_lock(app, web.info.backend_pid, racer)
+        mover.commit()
+        racer.join(timeout=10)
+    assert waited
+    assert outcome == {"constraint": "campaign_needs_marketing"}
+    with operator.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM campaigns")
         assert cursor.fetchone()[0] == 0
 
 
