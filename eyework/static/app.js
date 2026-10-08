@@ -46,6 +46,8 @@ const state = {
     busy: false,
     waitingFor: null,
     readyBlob: null,
+    // قفل إبقاء الشاشة مضاءة أثناء الكتابة، ما دام قائماً. iOS يُسقطه حين تُخفى الصفحة.
+    wakeLock: null,
     // الاسم الذي يناديه به المساعد، من /api/me. لا يُرسل إلى النموذج.
     displayName: null,
     // التسجيل الجاري (portal.js): الرمز وما اختير خطوةً خطوة، في الذاكرة وحدها.
@@ -378,14 +380,17 @@ async function renderHome() {
     }
     const list = $('home-list');
     list.replaceChildren();
-    result.data.items.forEach((item) => {
+    // لكل صفٍّ اسمٌ لا يشاركه فيه غيره: «التحكم الصوتي» يضغط بالاسم، و«مسودة مسودة»
+    // مرتين في الشاشة اسمٌ لا يُختار به أحدهما. الحملة بلا عنوان تُرقَّم بموضعها.
+    const first = (state.page - 1) * state.choices.limits.page_size;
+    result.data.items.forEach((item, index) => {
         const row = document.createElement('li');
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'btn';
         button.dataset.safe = '';
         const title = document.createElement('span');
-        title.textContent = item.title || 'مسودة';
+        title.textContent = item.title || `حملة بلا عنوان ${first + index + 1}`;
         const status = document.createElement('span');
         status.className = 'row-status';
         status.textContent = STATUS_LABELS[item.status] || '';
@@ -395,7 +400,7 @@ async function renderHome() {
         list.append(row);
     });
     $('home-empty').hidden = result.data.items.length > 0 || state.page > 1;
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    const standalone = installedApp();
     // التلميح يظهر حين يتّسع له المكان: صفّان يملآن الشاشة بلا تمرير.
     $('home-install').hidden = standalone || result.data.items.length > 1;
     UI.setButton($('home-older'), { reserved: !result.data.has_more });
@@ -480,31 +485,69 @@ function renderWaiting({ reloaded }) {
     $('proposal-waiting').hidden = false;
     $('proposal-copy').hidden = true;
     $('proposal-check').hidden = !reloaded;
-    // الشريط السفلي محجوزٌ معطّل: نتيجةٌ تصل بعد دقيقةٍ لا تجد زرّاً تحت النظر.
+    // انتظارٌ لم تبدأه هذه الصفحة لا قفل له: الشاشة قد تُقفل، ويُقال ذلك.
+    showAwake(!reloaded);
+    // الشريط السفلي محجوزٌ معطّل: نتيجةٌ تصل بعد دقائق لا تجد زرّاً تحت النظر.
     UI.setButton($('proposal-start'), { reserved: true });
     UI.setButton($('proposal-end'), { reserved: true });
     UI.setButton(section.querySelector('[data-cancel]'), { reserved: true });
     section.querySelector('#proposal-waiting h2').focus({ preventScroll: true });
 }
 
+/*
+ * الكتابة قد تستغرق حتى 200 ثانية، والشاشة تُبقى مضاءة. الطلب الأول داخل الضغطة
+ * (يحتاج تفعيلاً من المستخدم)، وWebKit يُسقط القفل حين تُخفى الصفحة، فيُطلب من
+ * جديد حين تعود ما دام الانتظار قائماً. أثر قفل الشاشة على طلبٍ جارٍ في Safari
+ * لم يُقَس بعد (بوابة الإصدار 0). لا مؤقّت هنا.
+ */
 async function keepAwake() {
-    // الكتابة قد تستغرق دقيقة؛ قفل الشاشة يقطع الطلب في Safari. لا مؤقّت هنا.
+    if (!navigator.wakeLock) {
+        return null;
+    }
     try {
-        return navigator.wakeLock ? await navigator.wakeLock.request('screen') : null;
+        const lock = await navigator.wakeLock.request('screen');
+        // انتهى الانتظار والطلب في الطريق (WebKit يمنحه بعد سؤال الإذن): يُترك
+        // فوراً، وإلا بقيت الشاشة مضاءة بلا انتظار حتى تُخفى الصفحة.
+        if (!state.waitingFor) {
+            lock.release().catch(() => {});
+            return null;
+        }
+        // عودتان سريعتان تطلبان مرتين: يبقى قفلٌ واحد.
+        if (state.wakeLock) {
+            state.wakeLock.release().catch(() => {});
+        }
+        lock.addEventListener('release', () => {
+            if (state.wakeLock === lock) {
+                state.wakeLock = null;
+            }
+        });
+        state.wakeLock = lock;
+        return lock;
     } catch (error) {
         return null;
     }
+}
+
+function letSleep() {
+    const lock = state.wakeLock;
+    state.wakeLock = null;
+    if (lock) {
+        lock.release().catch(() => {});
+    }
+}
+
+/* سطرٌ يقول إن الشاشة قد تُقفل، حين لم يُمنح القفل. */
+function showAwake(held) {
+    $('proposal-awake').hidden = held;
 }
 
 async function runGeneration(path, json) {
     const campaign = state.campaign;
     state.waitingFor = campaign.id;
     renderWaiting({ reloaded: false });
-    const lock = await keepAwake();
+    showAwake(Boolean(await keepAwake()));
     const result = await api('POST', path, { json });
-    if (lock) {
-        lock.release().catch(() => {});
-    }
+    letSleep();
     state.waitingFor = null;
     if (result.status === 401) {
         return;
@@ -1035,18 +1078,52 @@ function brief(campaign) {
     ].join('\n');
 }
 
+/* التطبيق مفتوحٌ من الشاشة الرئيسية لا من تبويب Safari. */
+function installedApp() {
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
 async function renderReady() {
     const campaign = state.campaign;
     UI.show('ready');
     fillCopy('ready', campaign, campaign.copy);
     $('ready-summary').replaceChildren(UI.bdi(`${campaign.budget.short} · ${campaign.days.short}`));
     $('ready-status').textContent = '';
-    $('ready-download').href = imageUrl(campaign);
-    // الصورة تُجلب الآن لا عند الضغط: المشاركة يجب أن تبدأ داخل الضغطة نفسها.
+    // في التطبيق المضاف إلى الشاشة الرئيسية قد يُفضي التنزيل إلى شاشةٍ لا رجوع منها
+    // إلا بإغلاق التطبيق قسراً (WebKit 290847، مفتوح): لا يُعرض فيه، ويبقى مكانه.
+    const download = $('ready-download');
+    const offered = !installedApp();
+    download.classList.toggle('is-reserved', !offered);
+    if (offered) {
+        download.href = imageUrl(campaign);
+        download.removeAttribute('aria-hidden');
+        download.removeAttribute('tabindex');
+    } else {
+        download.removeAttribute('href');
+        download.setAttribute('aria-hidden', 'true');
+        download.tabIndex = -1;
+    }
+    // الصورة تُجلب الآن لا عند الضغط: المشاركة يجب أن تبدأ داخل الضغطة نفسها. وحتى
+    // تصل لا مشاركة، وإلا أُرسل النصّ وحده دون أن يُقال.
     state.readyBlob = null;
+    const share = $('ready-share');
+    share.disabled = true;
+    delete share.dataset.lockedByAlert;
     const result = await api('GET', imageUrl(campaign), { as: 'blob' });
-    if (result.status === 200 && state.campaign && state.campaign.id === campaign.id) {
+    const section = UI.screen('ready');
+    if (!state.campaign || state.campaign.id !== campaign.id || section.hidden || result.status === 401) {
+        return;
+    }
+    if (result.status === 200) {
         state.readyBlob = result.data;
+    } else {
+        $('ready-status').textContent = 'تعذّر تحميل الصورة: «شارك الحملة» ترسل النصّ وحده.';
+    }
+    // تنبيهٌ مفتوح يُبقي الأزرار مقفلة: «حسناً» تفتحه مع غيره.
+    if (UI.alertOpen(section)) {
+        share.dataset.lockedByAlert = '';
+    } else {
+        share.disabled = false;
     }
 }
 
@@ -1076,7 +1153,9 @@ async function onShare() {
         await navigator.share(data);
     } catch (error) {
         if (!error || error.name !== 'AbortError') {
-            UI.showAlert(UI.screen('ready'), 'تعذّرت المشاركة. استخدم «نزّل الصورة» و«انسخ الوصف».');
+            UI.showAlert(UI.screen('ready'), installedApp()
+                ? 'تعذّرت المشاركة. استخدم «انسخ العنوان» و«انسخ الوصف».'
+                : 'تعذّرت المشاركة. استخدم «نزّل الصورة» و«انسخ الوصف».');
         }
     }
 }
@@ -1153,6 +1232,16 @@ function wire() {
     });
     wirePortal();
     window.addEventListener('hashchange', route);
+    // عادت الصفحة والكتابة جارية: يُطلب القفل من جديد، فقد أسقطه النظام حين أُخفيت.
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState !== 'visible' || !state.waitingFor || state.wakeLock) {
+            return;
+        }
+        const held = Boolean(await keepAwake());
+        if (state.waitingFor) {
+            showAwake(held);
+        }
+    });
     // صفحةٌ تعود من ذاكرة الرجوع في Safari قد تعرض تأكيداً قديماً: تُقرأ من جديد.
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
