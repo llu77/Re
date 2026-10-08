@@ -26,21 +26,34 @@
 <main class="frame">
     <header class="head">
         <h1 id="heading" tabindex="-1">فحص الإدخال</h1>
-        <p class="step" id="step-label">١ من ٩</p>
+        <p class="step" id="step-label">١ من ١٠</p>
     </header>
 
-    <!-- ١: البيئة -->
+    <!-- ١: البيئة — ما يختاره المختبِر بيده قبل القياس -->
     <section class="sec" data-section="env">
         <p>هل يصل الضغط بالنظر إلى صفحات الويب؟ لا يُرسَل شيء ولا يُحفظ. شغّله في Safari، ثم من الشاشة الرئيسية.</p>
         <p class="label" id="mode-label">طريقة الاختبار</p>
         <div class="row" role="group" aria-labelledby="mode-label">
             <button type="button" class="btn" data-mode="gaze" aria-pressed="true">بالنظر</button>
+            <button type="button" class="btn" data-mode="head" aria-pressed="false">بالرأس</button>
             <button type="button" class="btn" data-mode="touch" aria-pressed="false">باللمس</button>
         </div>
+        <p class="label" id="snap-label">الانتقال إلى العنصر (Snap to Item)</p>
+        <div class="row" role="group" aria-labelledby="snap-label">
+            <button type="button" class="btn" data-snap="on" aria-pressed="false">مُفعَّل</button>
+            <button type="button" class="btn" data-snap="off" aria-pressed="false">مُعطَّل</button>
+        </div>
+    </section>
+
+    <!-- ٢: الجهاز -->
+    <section class="sec" data-section="device" hidden>
+        <label class="label" for="probe-ios">إصدار iOS كما يظهر في الإعدادات</label>
+        <input type="text" id="probe-ios" class="field" inputmode="decimal" maxlength="16" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="ios-result">
+        <p class="result" id="ios-result" role="status">لم يُكتب بعد (مثل 27.0.1).</p>
         <dl class="facts" id="env"></dl>
     </section>
 
-    <!-- ٢: الضغط -->
+    <!-- ٣: الضغط -->
     <section class="sec" data-section="activation" hidden>
         <p>انظر إلى كل مربّع حتى يُضغط، مرة واحدة لكلٍّ منها.</p>
         <div class="stage">
@@ -52,7 +65,7 @@
         <ol class="log" id="log-activation" aria-live="polite"></ol>
     </section>
 
-    <!-- ٣: إعادة الضغط -->
+    <!-- ٤: إعادة الضغط -->
     <section class="sec" data-section="rearm" hidden>
         <p>انظر إلى الزر حتى يُضغط، ثم أبقِ نظرك عليه. سيحلّ مكانه زرٌّ آخر.</p>
         <div class="swap">
@@ -63,7 +76,7 @@
         <button type="button" class="btn" id="rearm-reset">أعد هذا الاختبار</button>
     </section>
 
-    <!-- ٤: الضغط المتكرر -->
+    <!-- ٥: الضغط المتكرر -->
     <section class="sec" data-section="stepper" hidden>
         <p>اضغط «زِد» ثلاث مرات بالضبط، ثم «تمّ».</p>
         <p class="value" id="stepper-value" aria-live="polite">٠</p>
@@ -75,14 +88,14 @@
         <button type="button" class="btn" id="stepper-reset">صفّر</button>
     </section>
 
-    <!-- ٥: التمرير -->
+    <!-- ٦: التمرير -->
     <section class="sec" data-section="scroll" hidden>
         <p>مرّر القائمة (من قائمة AssistiveTouch) ثم اضغط «العنصر ٨».</p>
         <div class="scroller" id="scroller" tabindex="0" aria-label="قائمة للتمرير"></div>
         <p class="result" id="scroll-result" role="status">لم يُختبر بعد.</p>
     </section>
 
-    <!-- ٦: الصورة والاختيار -->
+    <!-- ٧: الصورة والاختيار -->
     <section class="sec" data-section="inputs" hidden>
         <label class="btn big file" for="probe-file" data-probe="file">اختر صورة</label>
         <input type="file" id="probe-file" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
@@ -98,7 +111,7 @@
         </dialog>
     </section>
 
-    <!-- ٧: الكتابة -->
+    <!-- ٨: الكتابة -->
     <section class="sec" data-section="typing" hidden>
         <label class="label" for="probe-text">اكتب كلمة «نعم» ثم اضغط «تمّ»</label>
         <input type="text" id="probe-text" class="field" autocomplete="off" autocapitalize="none" spellcheck="false" data-probe="text">
@@ -106,7 +119,7 @@
         <p class="result" id="text-result" role="status">لم يُختبر بعد. لا يُحفظ ما تكتبه.</p>
     </section>
 
-    <!-- ٨: النتيجة -->
+    <!-- ٩: النتيجة -->
     <section class="sec" data-section="verdict" hidden>
         <p class="verdict" id="verdict" role="status"></p>
         <div class="row">
@@ -119,7 +132,7 @@
         </table>
     </section>
 
-    <!-- ٩: التفاصيل -->
+    <!-- ١٠: التفاصيل -->
     <section class="sec" data-section="details" hidden>
         <table class="checks">
             <thead><tr><th scope="col">الملاحظة</th><th scope="col">القيمة</th></tr></thead>

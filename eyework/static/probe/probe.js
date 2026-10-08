@@ -29,19 +29,28 @@ const TARGETS = ['t44', 't56', 't72', 't96'];
 // الأحجام التي يستعملها التطبيق فعلاً (72 فأكبر): عليها وحدها يقوم القرار،
 // والأصغر منها قياسٌ للدقّة لا شرط.
 const APP_TARGETS = ['t72', 't96'];
-const MODES = ['gaze', 'touch'];
+// «بالرأس» لتتبّع الرأس (iOS 26 فأحدث): يمرّ بالمكوث نفسه، لكن نتائجه تُعدّ وحدها
+// ولا تُحسب نظراً.
+const MODES = ['gaze', 'head', 'touch'];
+const SNAP = { on: 'مُفعَّل', off: 'مُعطَّل' };
+// إصدار iOS يكتبه المختبِر: منذ Safari 26 لا يذكر وكيل المستخدم في iOS إصدار النظام
+// الحالي (WebKit)، فلا يفرّق بين 26 و27. يُقبل شكل الإصدار وحده.
+const IOS_VERSION = /^\d{2}(?:\.\d{1,2}){0,2}$/;
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 const DIGITS = '٠١٢٣٤٥٦٧٨٩';
 
 const state = {
     mode: 'gaze',
     section: 0,
+    // حالة «الانتقال إلى العنصر» كما أعلنها المختبِر: null ما لم يُحدّدها.
+    snap: null,
+    ios: null,
     log: [],
-    moves: {},
-    // الطريقة ← probe ← أول مرور، وأول ضغط، وعدد النقرات الموثوقة، ونوع المؤشر.
-    // كل طريقةٍ تُعدّ وحدها: نقرات اللمس أساسٌ للمقارنة ولا تُحسب نظراً أبداً.
-    targets: { gaze: {}, touch: {} },
-    rearm: { clickedA: null, outSinceA: false, result: null },
+    // الطريقة ← probe ← آخر مرورٍ قبل أول pointerdown، وأول pointerdown، وحركات
+    // pointermove قبله، وأول نقرة، وعدد النقرات الموثوقة، ونوع المؤشر.
+    // كل طريقةٍ تُعدّ وحدها: نقرات اللمس والرأس لا تُحسب نظراً أبداً.
+    targets: { gaze: {}, head: {}, touch: {} },
+    rearm: { clickedA: null, outSinceA: false, sawMove: false, result: null },
     stepper: { count: 0, times: [], result: null },
     scroll: { result: null, scrolled: false },
     file: null,
@@ -79,6 +88,7 @@ function record(event) {
     const y = Math.round(event.clientY || 0);
     state.log.push({
         mode: state.mode,
+        snap: state.snap,
         section: sections()[state.section].dataset.section,
         type: event.type,
         pointerType: event.pointerType || '',
@@ -93,10 +103,15 @@ function record(event) {
     });
 
     const target = state.targets[state.mode][probe];
-    if (target && event.type === 'pointerover' && target.firstOver === null) {
-        target.firstOver = event.timeStamp;
+    if (target && event.type === 'pointerover' && target.firstDown === null) {
+        target.lastOver = event.timeStamp;
     }
     if (target && event.type === 'pointerdown') {
+        if (target.firstDown === null) {
+            target.firstDown = event.timeStamp;
+        }
+        // النوع من pointerdown لا من click: في iOS قد يحمل click الناتج عن لمسٍ
+        // النوع mouse (علّة WebKit 282988).
         target.pointerType = event.pointerType || target.pointerType;
     }
     if ((probe === 'rearm-a' || probe === 'rearm-b') && event.type === 'pointerout'
@@ -112,9 +127,15 @@ function record(event) {
 }
 
 function countMove(event) {
+    // pointerover وحده لا يُثبت مروراً: جهازٌ لا يمرّ يُطلقه قبل pointerdown مباشرة
+    // (Pointer Events 3). الدليل على مؤشرٍ يمرّ حركاتُ pointermove قبل الضغط.
     const probe = probeOf(event);
-    if (probe) {
-        state.moves[probe] = (state.moves[probe] || 0) + 1;
+    const target = probe ? state.targets[state.mode][probe] : null;
+    if (target && target.firstDown === null) {
+        target.movesBeforeDown += 1;
+    }
+    if (probe === 'rearm-a' || probe === 'rearm-b') {
+        state.rearm.sawMove = true;
     }
 }
 
@@ -206,14 +227,24 @@ function onRearmA(event) {
 
 function onRearmB(event) {
     const delay = Math.round(event.timeStamp - state.rearm.clickedA);
-    state.rearm.result = { delay, moved: state.rearm.outSinceA };
-    $('rearm-result').textContent = state.rearm.outSinceA
-        ? `ضُغط الثاني بعد ${toArabic(delay)} مللي ثانية، بعد أن تحرّك النظر.`
-        : `ضُغط الثاني بعد ${toArabic(delay)} مللي ثانية دون أن يتحرّك النظر: النظام يعيد الضغط.`;
+    // الحركة تُعرف من خروج المؤشر من الخانة، وهذا لا يصحّ إلا لمؤشرٍ يمرّ. فإن لم
+    // تصل الخانةَ حركةُ pointermove — لا أحداث حدودٍ أصلاً، أو أحداثٌ ترافق الضغطة
+    // نفسها كما في اللمس — فالحركة غير معروفة، لا «لم يتحرّك». وأحداث الحدود
+    // تغيّرت في Safari 26.2 و27.0، فيُجرى على الإصدارين.
+    const moved = state.rearm.sawMove ? state.rearm.outSinceA : null;
+    state.rearm.result = { delay, moved };
+    const after = `ضُغط الثاني بعد ${toArabic(delay)} مللي ثانية`;
+    if (moved === null) {
+        $('rearm-result').textContent = `${after}. الحركة غير معروفة: لم تصل أحداث حركة المؤشر.`;
+    } else {
+        $('rearm-result').textContent = moved
+            ? `${after}، بعد أن تحرّك النظر.`
+            : `${after} دون أن يتحرّك النظر: النظام يعيد الضغط.`;
+    }
 }
 
 function resetRearm() {
-    state.rearm = { clickedA: null, outSinceA: false, result: null };
+    state.rearm = { clickedA: null, outSinceA: false, sawMove: false, result: null };
     $('rearm-a').hidden = false;
     $('rearm-b').hidden = true;
     $('rearm-result').textContent = 'لم يُختبر بعد.';
@@ -269,6 +300,21 @@ function onFile(event) {
     $('file-result').textContent = `النوع: ${state.file.type} · الحجم: ${toArabic(state.file.kb)} ك.ب`;
 }
 
+function onIosVersion(event) {
+    // الأرقام العربية والفاصلة العشرية العربية كما تكتبها لوحة المفاتيح العربية.
+    const text = event.currentTarget.value.trim()
+        .replace(/[٠-٩]/g, (d) => String(DIGITS.indexOf(d)))
+        .replace(/[٫,،]/g, '.');
+    state.ios = IOS_VERSION.test(text) ? text : null;
+    if (state.ios) {
+        $('ios-result').textContent = `سُجّل الإصدار ${state.ios}.`;
+    } else {
+        $('ios-result').textContent = text
+            ? 'لم يُفهم الإصدار. اكتبه كما يظهر في الإعدادات (مثل 27.0.1).'
+            : 'لم يُكتب بعد (مثل 27.0.1).';
+    }
+}
+
 function onTextDone(event) {
     const value = $('probe-text').value.trim();
     const seconds = state.text.focusedAt === null
@@ -305,18 +351,25 @@ function median(values) {
     return Math.round(sorted[Math.floor(sorted.length / 2)]);
 }
 
+function sizesOf(probes) {
+    return probes.map((p) => toArabic(p.slice(1))).join('، ');
+}
+
 function checks() {
     const gaze = state.targets.gaze;
     const hit = TARGETS.filter((probe) => gaze[probe].trustedClicks > 0);
     const appHit = APP_TARGETS.filter((probe) => gaze[probe].trustedClicks > 0);
     const synthetic = TARGETS.some((probe) => gaze[probe].syntheticClicks > 0);
     const touched = TARGETS.filter((probe) => state.targets.touch[probe].trustedClicks > 0);
-    const dwell = median(TARGETS
-        .map((probe) => gaze[probe])
-        .filter((t) => t.firstOver !== null && t.firstClick !== null)
-        .map((t) => t.firstClick - t.firstOver));
-    const hovered = TARGETS.some((probe) => gaze[probe].firstOver !== null);
+    const headHit = TARGETS.filter((probe) => state.targets.head[probe].trustedClicks > 0);
     const types = [...new Set(TARGETS.map((probe) => gaze[probe].pointerType).filter(Boolean))];
+
+    // المرور والمكوث من الأهداف التي بلغها pointerdown بالنظر. الفاصل من آخر
+    // pointerover قبله: قرابة الصفر لضغطةٍ كاللمس، وزمن المكوث لمؤشرٍ يمرّ.
+    const pressed = TARGETS.map((probe) => gaze[probe]).filter((t) => t.firstDown !== null);
+    const moves = pressed.reduce((sum, t) => sum + t.movesBeforeDown, 0);
+    const hovered = pressed.some((t) => t.movesBeforeDown > 0);
+    const gap = median(pressed.filter((t) => t.lastOver !== null).map((t) => t.firstDown - t.lastOver));
 
     // القرار من نقرات «بالنظر» على أحجام التطبيق وحدها.
     let activation = 'NOT_RUN';
@@ -328,9 +381,12 @@ function checks() {
 
     // توصية حجم الهدف من الدقّة المقيسة بالنظر: ضعف المئين 95 من البُعد عن
     // المركز، مقرّباً إلى 8، ولا أقلّ من 72. القياس يرفع الحجم ولا يخفضه.
+    // ومن نقراتٍ أعلن معها المختبِر «الانتقال إلى العنصر» مُعطَّلاً وحدها: أين
+    // يضغط المكوث حين يُفعَّل غير موثّق، فإن ضغط مركز العنصر صار البُعد صفراً
+    // ولم يدلّ على شيء.
     const offsets = state.log
         .filter((row) => row.section === 'activation' && row.type === 'click' && row.mode === 'gaze'
-            && row.trusted && (row.x || row.y))
+            && row.snap === 'off' && row.trusted && (row.x || row.y))
         .map((row) => Math.hypot(row.dx, row.dy))
         .sort((a, b) => a - b);
     const p95 = offsets.length ? offsets[Math.min(offsets.length - 1, Math.floor(offsets.length * 0.95))] : null;
@@ -343,18 +399,21 @@ function checks() {
     return [
         ['activation', 'الضغط بالنظر يصل الصفحة', activation,
             `${toArabic(appHit.length)} من ${toArabic(APP_TARGETS.length)} بحجم التطبيق`],
-        ['sizes', 'الأحجام التي أُصيبت بالنظر', hit.length ? 'INFO' : 'NOT_RUN',
-            hit.map((p) => toArabic(p.slice(1))).join('، ') || '—'],
+        ['sizes', 'الأحجام التي أُصيبت بالنظر', hit.length ? 'INFO' : 'NOT_RUN', sizesOf(hit) || '—'],
+        ['head', 'الأحجام التي أُصيبت بالرأس', headHit.length ? 'INFO' : 'NOT_RUN', sizesOf(headHit) || '—'],
         ['touch', 'أهدافٌ أُصيبت باللمس (للمقارنة)', touched.length ? 'INFO' : 'NOT_RUN',
             touched.length ? toArabic(touched.length) : '—'],
         ['accuracy', 'حجم الهدف الموصى به', recommended === null ? 'NOT_RUN' : 'INFO',
-            recommended === null ? '—' : `${toArabic(recommended)} بكسل (البُعد عن المركز ${toArabic(Math.round(p95))})`],
-        ['pointer', 'نوع المؤشر', types.length ? 'INFO' : 'NOT_RUN', types.join('، ') || '—'],
-        ['hover', 'يظهر المرور قبل الضغط', hovered ? 'INFO' : 'NOT_RUN', hovered ? 'نعم' : '—'],
-        ['dwell', 'زمن المكوث المقيس', dwell === null ? 'NOT_RUN' : 'INFO',
-            dwell === null ? '—' : `${toArabic(dwell)} مللي ثانية`],
+            recommended === null
+                ? 'لا يُحسب إلا مع «الانتقال إلى العنصر» مُعطَّلاً'
+                : `${toArabic(recommended)} بكسل (البُعد عن المركز ${toArabic(Math.round(p95))})`],
+        ['pointer', 'نوع المؤشر عند pointerdown', types.length ? 'INFO' : 'NOT_RUN', types.join('، ') || '—'],
+        ['hover', 'مرورٌ قبل الضغط (pointermove)', pressed.length ? 'INFO' : 'NOT_RUN',
+            pressed.length ? `${hovered ? 'نعم' : 'لا'} (pointermove: ${toArabic(moves)})` : '—'],
+        ['gap', 'من دخول الهدف إلى الضغط', gap === null ? 'NOT_RUN' : 'INFO',
+            gap === null ? '—' : `${toArabic(gap)} مللي ثانية`],
         ['rearm', 'يعيد النظام الضغط دون تحريك النظر', state.rearm.result ? 'INFO' : 'NOT_RUN',
-            state.rearm.result ? (state.rearm.result.moved ? 'لا' : 'نعم') : '—'],
+            state.rearm.result ? rearmAnswer(state.rearm.result.moved) : '—'],
         ['nav', 'قفزةٌ مزدوجة في التنقّل', 'INFO', quickNav ? 'رُصدت' : 'لم تُرصد'],
         ['stepper', 'ثلاث ضغطات بالضبط', state.stepper.result
             ? (state.stepper.result.count === 3 ? 'PASS' : 'FAIL') : 'NOT_RUN',
@@ -376,6 +435,13 @@ function checks() {
             : (state.share === 'shared' ? 'PASS' : 'INFO'), state.share || '—'],
         ['standalone', 'وضع الشاشة الرئيسية', 'INFO', environment()[0][1]],
     ];
+}
+
+function rearmAnswer(moved) {
+    if (moved === null) {
+        return 'الحركة غير معروفة';
+    }
+    return moved ? 'لا' : 'نعم';
 }
 
 const LABELS = { PASS: 'نجح', FAIL: 'لم ينجح', INFO: 'ملاحظة', NOT_RUN: 'لم يُختبر' };
@@ -411,21 +477,26 @@ function renderVerdict() {
         verdict.dataset.state = 'fail';
         verdict.textContent = 'لم يصل الضغط بالنظر إلى أهداف التطبيق (٧٢ فأكبر). لا يُبنى على الويب قبل حلّ هذا.';
     } else {
+        const at = sections().findIndex((section) => section.dataset.section === 'activation') + 1;
         verdict.dataset.state = '';
-        verdict.textContent = 'لم يُختبر الضغط بالنظر بعد (القسم الثاني، بطريقة «بالنظر»).';
+        verdict.textContent = `لم يُختبر الضغط بالنظر بعد (القسم ${toArabic(at)}، بطريقة «بالنظر»).`;
     }
 }
 
 function summary() {
     const rows = checks();
-    const lines = ['فحص الإدخال — النتيجة', 'الحكم من نقرات «بالنظر» وحدها؛ نقرات «باللمس» للمقارنة.'];
+    const lines = ['فحص الإدخال — النتيجة', 'الحكم من نقرات «بالنظر» وحدها؛ نقرات «بالرأس» و«باللمس» تُعدّ وحدها.'];
+    lines.push(
+        `إصدار iOS (كتبه المختبِر): ${state.ios || 'لم يُكتب'}`,
+        `الانتقال إلى العنصر (Snap to Item): ${state.snap ? SNAP[state.snap] : 'لم يُحدَّد'}`,
+    );
     environment().forEach(([name, value]) => lines.push(`${name}: ${value}`));
     lines.push(`نقاط اللمس: ${navigator.maxTouchPoints}`, `المتصفّح: ${navigator.userAgent}`);
     lines.push('');
     rows.forEach(([key, name, status, detail]) => lines.push(`${key} · ${name}: ${status}${detail ? ` (${detail})` : ''}`));
     lines.push('', 'آخر الأحداث:');
     state.log.slice(-50).forEach((row) => lines.push(
-        `${row.mode} ${row.section} ${row.probe} ${row.type} ${row.pointerType} ${row.trusted ? 'T' : 'S'} ${row.x},${row.y} Δ${row.dx},${row.dy} @${row.t}`,
+        `${row.mode}/snap-${row.snap || '?'} ${row.section} ${row.probe} ${row.type} ${row.pointerType} ${row.trusted ? 'T' : 'S'} ${row.x},${row.y} Δ${row.dx},${row.dy} @${row.t}`,
     ));
     return lines.join('\n');
 }
@@ -445,7 +516,8 @@ async function onCopy() {
 function init() {
     MODES.forEach((mode) => TARGETS.forEach((probe) => {
         state.targets[mode][probe] = {
-            firstOver: null, firstClick: null, trustedClicks: 0, syntheticClicks: 0, pointerType: '',
+            lastOver: null, firstDown: null, movesBeforeDown: 0,
+            firstClick: null, trustedClicks: 0, syntheticClicks: 0, pointerType: '',
         };
     }));
 
@@ -460,6 +532,15 @@ function init() {
             });
         });
     });
+    document.querySelectorAll('[data-snap]').forEach((button) => {
+        button.addEventListener('click', () => {
+            state.snap = button.dataset.snap;
+            document.querySelectorAll('[data-snap]').forEach((other) => {
+                other.setAttribute('aria-pressed', String(other === button));
+            });
+        });
+    });
+    $('probe-ios').addEventListener('change', onIosVersion);
 
     document.querySelectorAll('.target').forEach((button) => button.addEventListener('click', onTargetClick));
     $('rearm-a').addEventListener('click', onRearmA);
