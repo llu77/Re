@@ -46,6 +46,8 @@ const state = {
     busy: false,
     waitingFor: null,
     readyBlob: null,
+    // قفل إبقاء الشاشة مضاءة أثناء الكتابة، ما دام قائماً. iOS يُسقطه حين تُخفى الصفحة.
+    wakeLock: null,
     // الاسم الذي يناديه به المساعد، من /api/me. لا يُرسل إلى النموذج.
     displayName: null,
     // التسجيل الجاري (portal.js): الرمز وما اختير خطوةً خطوة، في الذاكرة وحدها.
@@ -463,6 +465,8 @@ function renderWaiting({ reloaded }) {
     $('proposal-waiting').hidden = false;
     $('proposal-copy').hidden = true;
     $('proposal-check').hidden = !reloaded;
+    // انتظارٌ لم تبدأه هذه الصفحة لا قفل له: الشاشة قد تُقفل، ويُقال ذلك.
+    showAwake(!reloaded);
     // الشريط السفلي محجوزٌ معطّل: نتيجةٌ تصل بعد دقائق لا تجد زرّاً تحت النظر.
     UI.setButton($('proposal-start'), { reserved: true });
     UI.setButton($('proposal-end'), { reserved: true });
@@ -470,25 +474,50 @@ function renderWaiting({ reloaded }) {
     section.querySelector('#proposal-waiting h2').focus({ preventScroll: true });
 }
 
+/*
+ * الكتابة قد تستغرق حتى 200 ثانية، والشاشة تُبقى مضاءة. الطلب الأول داخل الضغطة
+ * (يحتاج تفعيلاً من المستخدم)، وWebKit يُسقط القفل حين تُخفى الصفحة، فيُطلب من
+ * جديد حين تعود ما دام الانتظار قائماً. أثر قفل الشاشة على طلبٍ جارٍ في Safari
+ * لم يُقَس بعد (بوابة الإصدار 0). لا مؤقّت هنا.
+ */
 async function keepAwake() {
-    // الكتابة قد تستغرق حتى 200 ثانية، والشاشة تُبقى مضاءة. أثر قفلها على طلبٍ
-    // جارٍ في Safari لم يُقَس بعد (بوابة الإصدار 0). لا مؤقّت هنا.
+    if (!navigator.wakeLock) {
+        return null;
+    }
     try {
-        return navigator.wakeLock ? await navigator.wakeLock.request('screen') : null;
+        const lock = await navigator.wakeLock.request('screen');
+        lock.addEventListener('release', () => {
+            if (state.wakeLock === lock) {
+                state.wakeLock = null;
+            }
+        });
+        state.wakeLock = lock;
+        return lock;
     } catch (error) {
         return null;
     }
+}
+
+function letSleep() {
+    const lock = state.wakeLock;
+    state.wakeLock = null;
+    if (lock) {
+        lock.release().catch(() => {});
+    }
+}
+
+/* سطرٌ يقول إن الشاشة قد تُقفل، حين لم يُمنح القفل. */
+function showAwake(held) {
+    $('proposal-awake').hidden = held;
 }
 
 async function runGeneration(path, json) {
     const campaign = state.campaign;
     state.waitingFor = campaign.id;
     renderWaiting({ reloaded: false });
-    const lock = await keepAwake();
+    showAwake(Boolean(await keepAwake()));
     const result = await api('POST', path, { json });
-    if (lock) {
-        lock.release().catch(() => {});
-    }
+    letSleep();
     state.waitingFor = null;
     if (result.status === 401) {
         return;
@@ -1127,6 +1156,16 @@ function wire() {
     });
     wirePortal();
     window.addEventListener('hashchange', route);
+    // عادت الصفحة والكتابة جارية: يُطلب القفل من جديد، فقد أسقطه النظام حين أُخفيت.
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState !== 'visible' || !state.waitingFor || state.wakeLock) {
+            return;
+        }
+        const held = Boolean(await keepAwake());
+        if (state.waitingFor) {
+            showAwake(held);
+        }
+    });
     // صفحةٌ تعود من ذاكرة الرجوع في Safari قد تعرض تأكيداً قديماً: تُقرأ من جديد.
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
