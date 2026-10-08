@@ -479,6 +479,28 @@ def test_a_second_acknowledgment_is_announced_too(browser, clinic, seed):
     assert not browser.problems, browser.problems
 
 
+def test_counts_say_when_more_are_waiting_than_the_page_shows(browser, clinic, seed):
+    """
+    الخادم يعيد خمسين في الصفحة، والبلاغات الأقدم أولاً: الحادي والخمسون هو
+    الأحدث. العدد «50» كان يقول إن هذا كلّ شيء، ولا شيء يقول إنه ليس كذلك.
+    """
+    for index in range(50):
+        escalation.report(tenant_id=seed.tenant_a, patient_id=seed.patient_a,
+                          body=f"بلاغ إضافي رقم {index}", reported_by=clinic.flag.reported_by)
+    page = browser.open(token=_token(), path="/console/#/red-flags")
+    page.get_by_text(RED_FLAG_TEXT).wait_for()
+
+    _nav(page).get_by_role("link", name="البلاغات العاجلة، أكثر من 50").wait_for()
+    assert _nav(page).locator("[data-sidebar=menu-badge]").nth(1).inner_text() == "50+"
+    flags = page.get_by_role("list", name="البلاغات غير المستلَمة").get_by_role("listitem")
+    assert flags.count() == 50
+    assert page.get_by_text("بلاغ إضافي رقم 49").count() == 0
+    assert page.get_by_text("تُعرض أقدم 50 بلاغاً").is_visible()
+    assert not page.evaluate(CONTRAST_SCRIPT)
+    assert not page.evaluate(OVERLAP_EXCEPT_BADGE)
+    assert not browser.problems, browser.problems
+
+
 def test_an_expired_session_says_so_and_keeps_the_unsent_reason(browser, clinic, owner):
     page = browser.open(token=_token(), path=f"/console/#/queue/{clinic.note.id}")
     page.get_by_text(DOCUMENTATION_TEXT).wait_for()

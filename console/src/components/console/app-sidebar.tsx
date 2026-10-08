@@ -35,13 +35,21 @@ import { SymbolMark } from "./symbol-mark"
  *     اسم الرابط وفي التلميح حين يُطوى الشريط فتختفي الشارة.
  *   • **العاجل ظاهرٌ مطويّاً أيضاً.** شارة المكوّن تختفي حين يُطوى الشريط؛ عدد
  *     البلاغات العاجلة يبقى على الأيقونة نفسها، فلا يحتاج إلى مرورٍ ليُرى.
+ *   • **العدد لا يدّعي أنه الكلّ.** القائمة صفحةٌ من خمسين؛ إن كان بعدها غيرها
+ *     قالت الشارة «50+» والاسم «أكثر من 50»، لا «50».
  */
+
+/** ما عُدّ من قائمة، وهل في الانتظار بعده غيره. */
+export interface Tally {
+  count: number
+  more: boolean
+}
 
 interface Item {
   route: Route
   label: string
   icon: LucideIcon
-  count: number | null
+  tally: Tally | null
   urgent: boolean
 }
 
@@ -60,8 +68,8 @@ export function AppSidebar({
   signingOut,
 }: {
   route: Route
-  queueCount: number | null
-  redFlagCount: number | null
+  queueCount: Tally | null
+  redFlagCount: Tally | null
   email: string
   onSignOut: () => void
   signingOut: boolean
@@ -71,15 +79,15 @@ export function AppSidebar({
       route: { name: "queue" },
       label: "طابور المراجعة",
       icon: ClipboardList,
-      count: queueCount,
+      tally: queueCount,
       urgent: false,
     },
     {
       route: { name: "red-flags" },
       label: "البلاغات العاجلة",
       icon: Siren,
-      count: redFlagCount,
-      urgent: (redFlagCount ?? 0) > 0,
+      tally: redFlagCount,
+      urgent: (redFlagCount?.count ?? 0) > 0,
     },
   ]
   const active = route.name === "proposal" ? "queue" : route.name
@@ -123,7 +131,13 @@ export function AppSidebar({
               <SidebarMenu>
                 {items.map((item) => {
                   const isActive = active === item.route.name
-                  const counted = item.count === null ? item.label : `${item.label}، ${item.count}`
+                  const { tally } = item
+                  const counted =
+                    tally === null
+                      ? item.label
+                      : `${item.label}، ${tally.more ? `أكثر من ${tally.count}` : tally.count}`
+                  // نصٌّ لا عنصرٌ داخل الشارة: يظهر «+50» في سطرٍ عربي، والاسم يقوله كاملاً.
+                  const shown = tally === null ? null : tally.more ? `${tally.count}+` : tally.count
                   return (
                     <SidebarMenuItem key={item.route.name}>
                       <SidebarMenuButton
@@ -132,7 +146,7 @@ export function AppSidebar({
                         isActive={isActive}
                         // الشارة مرسومةٌ فوق الزرّ لا بجانبه، والمكوّن لا يحجز
                         // لها مكاناً: بلا هذا يمرّ الاسم الطويل تحتها.
-                        className={cn(BUTTON, "relative", item.count !== null && "pe-12")}
+                        className={cn(BUTTON, "relative", tally !== null && "pe-12")}
                         tooltip={{ children: counted, side: "left" }}
                       >
                         <a
@@ -148,13 +162,13 @@ export function AppSidebar({
                               data-urgent-count=""
                               className="absolute start-0.5 top-0.5 hidden h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold leading-none text-destructive-foreground group-data-[collapsible=icon]:flex"
                             >
-                              {item.count}
+                              {shown}
                             </span>
                           ) : null}
                           <span>{item.label}</span>
                         </a>
                       </SidebarMenuButton>
-                      {item.count !== null ? (
+                      {tally !== null ? (
                         <SidebarMenuBadge
                           aria-hidden="true"
                           className={cn(
@@ -165,7 +179,7 @@ export function AppSidebar({
                               : "bg-sidebar-accent",
                           )}
                         >
-                          {item.count}
+                          {shown}
                         </SidebarMenuBadge>
                       ) : null}
                     </SidebarMenuItem>

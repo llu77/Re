@@ -112,13 +112,25 @@ export function forgetSession(): void {
 
 // ── الإجراءات ──────────────────────────────────────────────────────────
 
+/** ما تعرضه اللوحة من الطابور ومن البلاغات في المرّة الواحدة. */
+export const PAGE_SIZE = 50
+
+/**
+ * صفحةٌ من قائمة، وهل في الانتظار بعدها غيرها. الخادم لا يعيد العدد الكلّي،
+ * فيُطلب واحدٌ فوق الصفحة: وصولُه يعني أن ما يُعرض ليس كلّ شيء.
+ */
+export interface Page<T> {
+  items: T[]
+  more: boolean
+}
+
 export interface PractitionerApi {
-  queue(): Promise<Proposal[]>
+  queue(): Promise<Page<Proposal>>
   proposal(id: string): Promise<Proposal>
   citations(id: string): Promise<Citation[]>
   approve(id: string): Promise<Proposal>
   reject(id: string, reason: string): Promise<Proposal>
-  redFlags(): Promise<RedFlag[]>
+  redFlags(): Promise<Page<RedFlag>>
   acknowledge(id: string, note: string | null): Promise<RedFlag>
   logout(): Promise<void>
 }
@@ -149,13 +161,18 @@ export function practitionerApi(session: Session, onExpired: () => void): Practi
 
   const id = (value: string) => encodeURIComponent(value)
 
+  async function page<T>(path: string): Promise<Page<T>> {
+    const items = await call<T[]>(`${path}?limit=${PAGE_SIZE + 1}`)
+    return { items: items.slice(0, PAGE_SIZE), more: items.length > PAGE_SIZE }
+  }
+
   return {
-    queue: () => call<Proposal[]>("/queue"),
+    queue: () => page<Proposal>("/queue"),
     proposal: (value) => call<Proposal>(`/proposals/${id(value)}`),
     citations: (value) => call<Citation[]>(`/proposals/${id(value)}/citations`),
     approve: (value) => call<Proposal>(`/proposals/${id(value)}/approve`, "POST"),
     reject: (value, reason) => call<Proposal>(`/proposals/${id(value)}/reject`, "POST", { reason }),
-    redFlags: () => call<RedFlag[]>("/red-flags"),
+    redFlags: () => page<RedFlag>("/red-flags"),
     acknowledge: (value, note) =>
       call<RedFlag>(`/red-flags/${id(value)}/acknowledge`, "POST", { note }),
     logout: async () => {

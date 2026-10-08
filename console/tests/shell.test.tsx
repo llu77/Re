@@ -78,6 +78,41 @@ function shell() {
   return render(<ConsoleShell session={SESSION} onSignedOut={() => undefined} />)
 }
 
+describe("اللوحة على خادمٍ يحدّ الصفحة بخمسين", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("العدد في الشريط يقول إن في الانتظار أكثر مما تعرضه الصفحة", async () => {
+    serve({ proposals: 120, flags: 70 })
+    shell()
+    const nav = screen.getByRole("navigation", { name: "أقسام اللوحة" })
+    await within(nav).findByRole("link", { name: "طابور المراجعة، أكثر من 50" })
+    expect(within(nav).getByRole("link", { name: "البلاغات العاجلة، أكثر من 50" })).toBeTruthy()
+
+    const queue = screen.getByRole("list", { name: "المقترحات بانتظار المراجعة" })
+    expect(within(queue).getAllByRole("listitem")).toHaveLength(50)
+    expect(screen.getByText(/يُعرض أول 50 مقترحاً/)).toBeTruthy()
+  })
+
+  it("البلاغات: تُعرض أقدم خمسين ويُقال إن بعدها أحدث منها", async () => {
+    window.location.hash = "#/red-flags"
+    serve({ flags: 70 })
+    shell()
+    const list = await screen.findByRole("list", { name: "البلاغات غير المستلَمة" })
+    expect(within(list).getAllByRole("listitem")).toHaveLength(50)
+    expect(within(list).queryByText("بلاغ رقم 50")).toBeNull()
+    expect(screen.getByText(/تُعرض أقدم 50 بلاغاً/)).toBeTruthy()
+  })
+
+  it("صفحةٌ كاملة بلا مزيد تعرض عددها كما هو", async () => {
+    serve({ proposals: 50, flags: 2 })
+    shell()
+    const nav = screen.getByRole("navigation", { name: "أقسام اللوحة" })
+    await within(nav).findByRole("link", { name: "طابور المراجعة، 50" })
+    expect(within(nav).getByRole("link", { name: "البلاغات العاجلة، 2" })).toBeTruthy()
+    expect(screen.queryByText(/يُعرض أول 50/)).toBeNull()
+  })
+})
+
 describe("الإعلان عن نجاح الإجراء", () => {
   afterEach(() => vi.unstubAllGlobals())
 

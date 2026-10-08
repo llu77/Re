@@ -34,7 +34,7 @@ function proposal(overrides: Partial<Proposal> = {}): Proposal {
 
 function fakeApi(overrides: Partial<PractitionerApi> = {}): PractitionerApi {
   return {
-    queue: vi.fn(async () => []),
+    queue: vi.fn(async () => ({ items: [], more: false })),
     proposal: vi.fn(async () => proposal()),
     citations: vi.fn(async () => [
       {
@@ -50,7 +50,7 @@ function fakeApi(overrides: Partial<PractitionerApi> = {}): PractitionerApi {
     ]),
     approve: vi.fn(async () => proposal({ status: "APPROVED" })),
     reject: vi.fn(async () => proposal({ status: "REJECTED" })),
-    redFlags: vi.fn(async () => []),
+    redFlags: vi.fn(async () => ({ items: [], more: false })),
     acknowledge: vi.fn(),
     logout: vi.fn(async () => undefined),
     ...overrides,

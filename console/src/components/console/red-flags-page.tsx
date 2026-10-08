@@ -3,7 +3,7 @@ import { Siren } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { ApiError, type PractitionerApi } from "@/lib/api"
+import { ApiError, PAGE_SIZE, type PractitionerApi } from "@/lib/api"
 import { formatDateTime, formatRelative, shortId } from "@/lib/labels"
 import type { RedFlag } from "@/lib/types"
 
@@ -14,15 +14,20 @@ const NOTE_MAX = 2000
 /**
  * البلاغات العاجلة: ما كتبه المرضى ولم يستلمه ممارسٌ بعد، الأقدم أولاً.
  * الاستلام يُسجَّل مرةً واحدة ومنه يُحسب زمن التصعيد، فهو خطوتان أيضاً.
+ *
+ * القائمة صفحةٌ من `PAGE_SIZE`، والأقدم أولاً: ما لا يُعرض هو الأحدث. يُقال
+ * ذلك فوقها بلونها، لا يُترك العدد يوحي بأنه الكلّ.
  */
 export function RedFlagsPage({
   api,
   items,
+  more,
   error,
   onAcknowledged,
 }: {
   api: PractitionerApi
   items: RedFlag[] | null
+  more: boolean
   error: string | null
   onAcknowledged: (message: string) => void
 }) {
@@ -38,13 +43,21 @@ export function RedFlagsPage({
 
   const now = new Date()
   return (
-    <ol className="flex flex-col gap-4" aria-label="البلاغات غير المستلَمة">
-      {items.map((flag) => (
-        <li key={flag.id}>
-          <FlagCard api={api} flag={flag} now={now} onAcknowledged={onAcknowledged} />
-        </li>
-      ))}
-    </ol>
+    <>
+      {more ? (
+        <p className="rounded-md border-2 border-destructive/40 bg-destructive/5 p-3 text-destructive">
+          تُعرض أقدم {PAGE_SIZE} بلاغاً، وبعدها بلاغاتٌ أحدث لم تُستلَم بعد. تظهر هنا كلما استُلم
+          بلاغٌ مما يُعرض.
+        </p>
+      ) : null}
+      <ol className="flex flex-col gap-4" aria-label="البلاغات غير المستلَمة">
+        {items.map((flag) => (
+          <li key={flag.id}>
+            <FlagCard api={api} flag={flag} now={now} onAcknowledged={onAcknowledged} />
+          </li>
+        ))}
+      </ol>
+    </>
   )
 }
 

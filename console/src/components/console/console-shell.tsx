@@ -4,7 +4,7 @@ import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
-import { ApiError, practitionerApi } from "@/lib/api"
+import { ApiError, type Page, practitionerApi } from "@/lib/api"
 import type { Proposal, RedFlag } from "@/lib/types"
 
 import { AppSidebar } from "./app-sidebar"
@@ -58,8 +58,8 @@ export function ConsoleShell({
     [session, onSignedOut],
   )
   const [route, navigate] = useRoute()
-  const [queue, setQueue] = React.useState<Proposal[] | null>(null)
-  const [flags, setFlags] = React.useState<RedFlag[] | null>(null)
+  const [queue, setQueue] = React.useState<Page<Proposal> | null>(null)
+  const [flags, setFlags] = React.useState<Page<RedFlag> | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   // رسالة النجاح تخصّ صفحةً بعينها: تُضبط قبل الانتقال إليها، فتُربط بها لا
@@ -142,8 +142,8 @@ export function ConsoleShell({
       <CloseSheetOnNavigate routeKey={routeKey} />
       <AppSidebar
         route={route}
-        queueCount={queue?.length ?? null}
-        redFlagCount={flags?.length ?? null}
+        queueCount={queue && { count: queue.items.length, more: queue.more }}
+        redFlagCount={flags && { count: flags.items.length, more: flags.more }}
         email={session.email}
         onSignOut={signOut}
         signingOut={signingOut}
@@ -183,7 +183,7 @@ export function ConsoleShell({
           ) : null}
 
           {route.name === "queue" ? (
-            <QueuePage items={queue} error={error} />
+            <QueuePage items={queue?.items ?? null} more={queue?.more ?? false} error={error} />
           ) : route.name === "proposal" ? (
             <ProposalPage
               key={route.id}
@@ -194,7 +194,8 @@ export function ConsoleShell({
           ) : (
             <RedFlagsPage
               api={api}
-              items={flags}
+              items={flags?.items ?? null}
+              more={flags?.more ?? false}
               error={error}
               onAcknowledged={(message) => done(message, "red-flags")}
             />

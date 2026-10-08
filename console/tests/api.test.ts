@@ -19,9 +19,23 @@ describe("عميل بوابة الممارس", () => {
     vi.stubGlobal("fetch", fetchMock)
     await practitionerApi({ token: "t-1", role: "PRACTITIONER" }, () => undefined).queue()
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe("/practitioner/queue")
+    expect(url).toBe("/practitioner/queue?limit=51")
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer t-1")
     expect(init.credentials).toBe("omit")
+  })
+
+  it("القائمة صفحةٌ من خمسين، ووصول الحادي والخمسين يعني أن بعدها غيرها", async () => {
+    const api = practitionerApi({ token: "t", role: "PRACTITIONER" }, () => undefined)
+    const rows = (count: number) => Array.from({ length: count }, (_, index) => ({ id: String(index) }))
+
+    vi.stubGlobal("fetch", reply(200, rows(51)))
+    const full = await api.redFlags()
+    expect(full.items).toHaveLength(50)
+    expect(full.items.at(-1)).toEqual({ id: "49" })
+    expect(full.more).toBe(true)
+
+    vi.stubGlobal("fetch", reply(200, rows(50)))
+    expect((await api.queue()).more).toBe(false)
   })
 
   it("الرفض يرسل السبب في الجسم إلى مسار المقترح وحده", async () => {
