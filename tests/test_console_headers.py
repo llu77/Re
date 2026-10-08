@@ -47,6 +47,23 @@ def test_the_console_is_served_with_its_security_headers(client):
     assert response.status_code == 200
     assert "immutable" in response.headers["Cache-Control"]
     assert "script-src 'self'" in response.headers["Content-Security-Policy"]
+    # إعادة التحقّق (304) تُبقي الملفّ المحفوظ ثابتاً لا تُسقط عنه «immutable».
+    revalidated = client.get(asset, headers={"If-None-Match": response.headers["ETag"]})
+    assert revalidated.status_code == 304
+    assert "immutable" in revalidated.headers["Cache-Control"]
+
+
+@pytest.mark.parametrize("path", ["/console/assets/index-DOESNOTEXIST.js", "/console/assets/"])
+def test_a_missing_asset_is_never_cached(client, path):
+    """
+    نشرٌ متدرّج: الصفحة الجديدة تطلب ملفّاً مجزّأً من نسخةٍ لم يصلها بعد.
+    خطؤها (404، أو 503 بلا بناء) كان يُرسَل «immutable» لسنة، فيبقى في
+    المتصفّح وأيّ ذاكرةٍ وسيطة بعد أن يصل الملفّ.
+    """
+    response = client.get(path)
+    assert response.status_code in (404, 503)
+    assert response.headers["Cache-Control"] == "no-store"
+    assert "script-src 'self'" in response.headers["Content-Security-Policy"]
 
 
 def test_the_patient_portal_keeps_its_own_headers(client):

@@ -128,10 +128,16 @@ def _mount_console(app: FastAPI) -> None:
             for name, value in _CONSOLE_HEADERS.items():
                 response.headers.setdefault(name, value)
             # الملفّات المجزّأة لا تتغيّر أبداً؛ الصفحة نفسها تُراجَع عند كل فتح.
-            immutable = path.startswith("/console/assets/")
-            response.headers.setdefault(
-                "Cache-Control", "public, max-age=31536000, immutable" if immutable else "no-cache"
-            )
+            # والخطأ لا يُحفظ: في نشرٍ متدرّج قد تطلب الصفحة الجديدة ملفّاً من
+            # نسخةٍ لم يصلها بعد، و404 «immutable» يبقى سنةً بعد أن يصل.
+            code = response.status_code
+            if code >= 400:
+                cache = "no-store"
+            elif path.startswith("/console/assets/") and (200 <= code < 300 or code == 304):
+                cache = "public, max-age=31536000, immutable"
+            else:
+                cache = "no-cache"
+            response.headers.setdefault("Cache-Control", cache)
         return response
 
 
