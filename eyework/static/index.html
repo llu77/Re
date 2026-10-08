@@ -258,9 +258,11 @@
             <button class="btn btn--commit spaced" type="submit" id="signup-create" data-commit>أنشئ حسابي</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </form>
+        <!-- «التالي: كلمة المرور» في الطرف الأيسر من الشاشة السابقة؛ فهنا تحت النظر
+             «أظهر كلمة المرور»، فلا يكون «أنشئ حسابي» أقرب عنصرٍ إلى نظرٍ باقٍ. -->
         <footer class="bar bar--bottom">
-            <div class="slot"><button class="btn" type="button" id="signup-reveal" data-safe aria-pressed="false">أظهر كلمة المرور</button></div>
             <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-reveal" data-safe aria-pressed="false">أظهر كلمة المرور</button></div>
         </footer>
     </section>
 
@@ -301,11 +303,12 @@
             <h2 tabindex="-1">حسابي</h2>
             <p class="line" id="account-name"></p>
             <p class="line" id="account-profession"></p>
-            <button class="btn btn--wide spaced" type="button" id="account-logout" data-safe>تسجيل الخروج</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
+        <!-- «حسابي» في الطرف الأعلى الأيسر من الرئيسية؛ فأقرب ما إليه هنا «رجوع»، والخروج
+             (والدخول من جديد بالنظر أغلى خطوةٍ في التطبيق) بعيدٌ في الطرف الأسفل الآخر. -->
         <footer class="bar bar--bottom">
-            <div class="slot"></div>
+            <div class="slot"><button class="btn btn--commit" type="button" id="account-logout" data-commit>تسجيل الخروج</button></div>
             <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
         </footer>
     </section>

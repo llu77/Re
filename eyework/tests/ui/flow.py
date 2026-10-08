@@ -87,26 +87,32 @@ LANDING = """
 """ % list(STEPPERS)
 
 
-#: أقرب عنصرٍ مفعّلٍ إلى نقطة الضغط في الحالة التالية: إليه ينقل «الانتقال إلى
-#: العنصر» (Snap to Item) مؤشرَ نظرٍ باقٍ. Apple لا تنشر مسافة الانتقال، فلا عتبة:
-#: الأقرب أيّاً كان بُعده لا يعتمد شيئاً.
+#: أقرب عنصرٍ مفعّلٍ إلى كل نقطةٍ من نقاط الضغط في الحالة التالية: إليه ينقل
+#: «الانتقال إلى العنصر» (Snap to Item) مؤشرَ نظرٍ باقٍ. Apple لا تنشر مسافة
+#: الانتقال، فلا عتبة: الأقرب أيّاً كان بُعده لا يعتمد شيئاً. والنظر الباقي يقع
+#: على نحو درجةٍ من موضع الضغط (قرابة 48px على 45 سم)، فتُفحص النقاط الخمس كلّها.
 NEAREST = """
-([x, y]) => {
+(points) => {
     const screen = document.querySelector('.screen:not([hidden])');
     const usable = (e) => {
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && !e.closest('[hidden]') && !e.disabled
             && e.getAttribute('aria-disabled') !== 'true' && getComputedStyle(e).visibility !== 'hidden';
     };
-    const distance = (r) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
     const controls = [...screen.querySelectorAll('button, a[href], label.btn, input, textarea')].filter(usable);
-    if (!controls.length) return null;
-    const nearest = controls.reduce((a, b) => distance(a.getBoundingClientRect()) <= distance(b.getBoundingClientRect()) ? a : b);
+    if (!controls.length) return [];
     const key = (e) => e.id || (e.dataset && e.dataset.key) || '';
-    if (nearest === window.__activated || (key(nearest) && key(nearest) === window.__activatedKey)) return null;
-    return nearest.hasAttribute('data-commit')
-        ? `${nearest.id || nearest.textContent.trim()} على بعد ${Math.round(distance(nearest.getBoundingClientRect()))}px`
-        : null;
+    const name = (e) => e.id || e.textContent.trim();
+    return points.map(([x, y]) => {
+        const distance = (e) => {
+            const r = e.getBoundingClientRect();
+            return Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+        };
+        const nearest = controls.reduce((a, b) => distance(a) <= distance(b) ? a : b);
+        const same = nearest === window.__activated || (key(nearest) && key(nearest) === window.__activatedKey);
+        return { name: name(nearest), distance: Math.round(distance(nearest)),
+                 commit: !same && nearest.hasAttribute('data-commit') };
+    });
 }
 """
 
@@ -123,6 +129,8 @@ class Flow:
         self.base = base
         self.audits: list[dict] = []
         self.landings: list[str] = []
+        #: لكل ضغطة: أقرب عنصرٍ إلى كل نقطةٍ وبُعده، للتشخيص؛ والمخالف منها في `landings` ببُعده.
+        self.nearest: list[tuple[str, list[dict]]] = []
 
     # ── الانتظار ────────────────────────────────────────────────────────
     def screen(self, name: str) -> None:
@@ -157,9 +165,11 @@ class Flow:
         hazards = self.page.evaluate(LANDING, points)
         if hazards:
             self.landings.append(f"{label}: {sorted(set(hazards))}")
-        nearest = self.page.evaluate(NEAREST, points[0])
-        if nearest:
-            self.landings.append(f"{label}: أقرب عنصرٍ إلى النظر يعتمد — {nearest}")
+        nearest = self.page.evaluate(NEAREST, points)
+        self.nearest.append((label, nearest))
+        hazards = sorted({f"{n['name']} على بعد {n['distance']}px" for n in nearest if n["commit"]})
+        if hazards:
+            self.landings.append(f"{label}: أقرب عنصرٍ إلى النظر يعتمد — {hazards}")
 
     # ── المسار ──────────────────────────────────────────────────────────
     def run(self) -> None:
