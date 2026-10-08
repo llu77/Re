@@ -9,6 +9,11 @@
 تحته. فبعد كل نقرة: ما تحت مركز الهدف وأركانه الأربعة (بإزاحة 8px) في
 الحالة التالية يجب ألّا يكون زرّاً يعتمد شيئاً (`data-commit`) ولا عنصر قيمة
 (خيار أو خطوة) — إلا العنصر نفسه في مكانه، لأن أثره ظاهرٌ ويُعكس.
+
+**والأقرب إلى النظر.** «الانتقال إلى العنصر» (Snap to Item، مفعّلٌ افتراضاً في
+تتبّع العين) ينقل المؤشر إلى أقرب عنصرٍ إلى موضع النظر، ولا تنشر Apple مسافته.
+فأقرب عنصرٍ مفعّل إلى مركز الهدف في الحالة التالية — أيّاً كان بُعده — لا يعتمد
+شيئاً.
 """
 
 from __future__ import annotations
@@ -82,6 +87,30 @@ LANDING = """
 """ % list(STEPPERS)
 
 
+#: أقرب عنصرٍ مفعّلٍ إلى نقطة الضغط في الحالة التالية: إليه ينقل «الانتقال إلى
+#: العنصر» (Snap to Item) مؤشرَ نظرٍ باقٍ. Apple لا تنشر مسافة الانتقال، فلا عتبة:
+#: الأقرب أيّاً كان بُعده لا يعتمد شيئاً.
+NEAREST = """
+([x, y]) => {
+    const screen = document.querySelector('.screen:not([hidden])');
+    const usable = (e) => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && !e.closest('[hidden]') && !e.disabled
+            && e.getAttribute('aria-disabled') !== 'true' && getComputedStyle(e).visibility !== 'hidden';
+    };
+    const distance = (r) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+    const controls = [...screen.querySelectorAll('button, a[href], label.btn, input, textarea')].filter(usable);
+    if (!controls.length) return null;
+    const nearest = controls.reduce((a, b) => distance(a.getBoundingClientRect()) <= distance(b.getBoundingClientRect()) ? a : b);
+    const key = (e) => e.id || (e.dataset && e.dataset.key) || '';
+    if (nearest === window.__activated || (key(nearest) && key(nearest) === window.__activatedKey)) return null;
+    return nearest.hasAttribute('data-commit')
+        ? `${nearest.id || nearest.textContent.trim()} على بعد ${Math.round(distance(nearest.getBoundingClientRect()))}px`
+        : null;
+}
+"""
+
+
 def sample_photo() -> bytes:
     buffer = io.BytesIO()
     Image.effect_noise((1200, 900), 40).convert("RGB").save(buffer, "JPEG")
@@ -128,6 +157,9 @@ class Flow:
         hazards = self.page.evaluate(LANDING, points)
         if hazards:
             self.landings.append(f"{label}: {sorted(set(hazards))}")
+        nearest = self.page.evaluate(NEAREST, points[0])
+        if nearest:
+            self.landings.append(f"{label}: أقرب عنصرٍ إلى النظر يعتمد — {nearest}")
 
     # ── المسار ──────────────────────────────────────────────────────────
     def run(self) -> None:

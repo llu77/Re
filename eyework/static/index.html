@@ -310,20 +310,24 @@
         </footer>
     </section>
 
+    <!-- «احذف حسابي» في الطرف الأسفل من الشاشة السابقة؛ فهنا في الموضع نفسه
+         «رجوع دون حذف»، والتأكيد في وسط المحتوى. «الانتقال إلى العنصر» ينقل المؤشر
+         إلى أقرب عنصرٍ إلى النظر، فأقرب ما إلى نظرٍ باقٍ لا يحذف شيئاً. -->
     <section class="screen" data-screen="account-delete" hidden>
         <header class="bar bar--top">
-            <div class="slot"><button class="btn" type="button" id="account-delete-back" data-safe>رجوع دون حذف</button></div>
+            <div class="slot"></div>
             <p class="step">حذف الحساب</p>
             <div class="slot"></div>
         </header>
         <div class="content">
             <h2 tabindex="-1">حذف الحساب نهائياً؟</h2>
             <p class="line">يُحذف الحساب وكل ما فيه: الاسم، وتاريخ الميلاد، والحملات وصورها ونصوصها. لا يُسترجع شيءٌ منها.</p>
+            <button class="btn btn--wide btn--commit spaced" type="button" id="account-delete-yes" data-commit>نعم، احذف حسابي</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
-            <div class="slot"><button class="btn btn--commit" type="button" id="account-delete-yes" data-commit>نعم، احذف حسابي</button></div>
             <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="account-delete-back" data-safe>رجوع دون حذف</button></div>
         </footer>
     </section>
 
@@ -407,11 +411,15 @@
         </header>
         <div class="content">
             <h2 tabindex="-1">ما التعديل الذي تريده؟</h2>
-            <div class="grid grid--3" id="edit-chips" role="group" aria-label="التعديلات، حتى ثلاثة"></div>
-            <div class="grid grid--2 spaced">
-                <button class="btn" type="button" id="edit-note" data-safe>ملاحظة نصية</button>
+            <!-- «النسخة السابقة» في أعلى الشاشة لا أسفلها: «الانتقال إلى العنصر» ينقل
+                 النظر الباقي إلى أقرب عنصر، فأقرب ما إلى «اطلب تعديلاً» (أسفل شاشة
+                 المقترح) هنا خياراتٌ تُعكس، وأقرب ما إليها بعد الرجوع «رجوع» لا
+                 «أوافق على النص». -->
+            <div class="grid grid--2">
                 <button class="btn" type="button" id="edit-restore" data-commit>النسخة السابقة</button>
+                <button class="btn" type="button" id="edit-note" data-safe>ملاحظة نصية</button>
             </div>
+            <div class="grid grid--3 spaced" id="edit-chips" role="group" aria-label="التعديلات، حتى ثلاثة"></div>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
