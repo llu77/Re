@@ -169,3 +169,22 @@ def test_traces_of_deleted_attempts_go_after_their_day(owner, purge):
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM attempt_tombstones")
         assert cursor.fetchone()[0] == 1
+
+
+@pytest.mark.parametrize(("age", "deleted"), [
+    (timedelta(minutes=4), False),                     # ما زال في مهلته
+    (timedelta(minutes=6), True),                      # انتهت مهلته قبل دقيقة
+])
+@pytest.mark.parametrize("used", [False, True])
+def test_passkey_challenges_go_once_their_five_minutes_are_over(owner, purge, age, deleted, used):
+    """الحذف بالمهلة وحدها، مستعملاً كان التحدّي أو لا: ما في مهلته قد يكون طقساً لم يكتمل بعد."""
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO passkey_challenges (challenge_hash, purpose, created_at, expires_at, used_at)"
+            " VALUES (%s, 'LOGIN', now() - %s, now() - %s + interval '5 minutes',"
+            "         CASE WHEN %s THEN now() - %s END)",
+            (b"p" * 32, age, age, used, age))
+    assert purge()["passkey_challenges"] == (1 if deleted else 0)
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM passkey_challenges")
+        assert cursor.fetchone()[0] == (0 if deleted else 1)

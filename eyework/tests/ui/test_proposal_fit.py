@@ -12,7 +12,7 @@ import pytest
 
 from eyework.copy_rules import DESCRIPTION_MAX, NOTE_TO_USER_MAX, TITLE_MAX, check_copy, check_note_to_user
 from eyework.tests.fakes import ok
-from eyework.tests.ui.conftest import VIEWPORTS
+from eyework.tests.ui.conftest import PHONES, STRESS, VIEWPORTS
 from eyework.tests.ui.flow import Flow, sample_photo
 
 WORDS = "حقيبة يد من الجلد الطبيعي بسعر مناسب وتصميم أنيق وصحية للظهر وتتسع لكل الأغراض اليومية "
@@ -93,16 +93,24 @@ RENDER = """([text, zoom]) => {
 }"""
 
 
-@pytest.mark.parametrize("zoom", [100, 115])
-def test_the_worst_wrapping_copy_is_never_clipped(page_factory, server, zoom):
+#: أصغر إطار هاتفٍ بلا تكبيرٍ وبتكبير 115%، وإطار الإجهاد بلا تكبير (انظر الوصف).
+WORST = [(*PHONES[0], 100), (*PHONES[0], 115), (*STRESS, 100)]
+
+
+@pytest.mark.parametrize(("width", "height", "zoom"), WORST, ids=[f"{w}x{h}-{z}" for w, h, z in WORST])
+def test_the_worst_wrapping_copy_is_never_clipped(page_factory, server, width, height, zoom):
     """
-    في أصغر إطار، بالفقرات التي تُهدر أكثر الأسطر (يُبحث عنها في الصفحة نفسها).
-    عند 115% — تكبير نصّ Safari — لا تتّسع الملاحظة معه: تُعرض وحدها أولاً، ثم
-    النصّ كاملاً. وما فوق ذلك في أصغر إطارٍ لا تتّسع له أيّ شاشة (الأهداف تكبر
-    مع النصّ)، وهو حدٌّ معلن لا يختبره هذا الملف.
+    في أصغر إطار هاتف، بالفقرات التي تُهدر أكثر الأسطر (يُبحث عنها في الصفحة
+    نفسها). عند 115% — تكبير الصفحة في Safari — لا تتّسع الملاحظة معه: تُعرض وحدها
+    أولاً، ثم النصّ كاملاً. وما فوق ذلك في أصغر إطارٍ لا تتّسع له أيّ شاشة (الأهداف
+    تكبر مع النصّ)، وهو حدٌّ معلن لا يختبره هذا الملف.
+
+    وإطار الإجهاد (320) عند 100% وحده: عند 110% يفيض هذا النصّ بعد الضغط وعرض
+    الملاحظة أولاً بنحو 17px، وعند 115% بنحو 49px. لا يتّسع دون إعادة تصميم
+    الشاشة، فهو حدٌّ معلنٌ آخر — لا قاعدةٌ مخفّفة.
     """
     server["writer"].queue(ok(TITLE, EVEN, NOTE))
-    page = page_factory(375, 635)
+    page = page_factory(width, height)
     flow = Flow(page, server["base"])
     page.goto(server["base"] + "/#/new")
     flow.screen("photo")

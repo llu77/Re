@@ -58,6 +58,9 @@ const state = {
     nav: 0,
     // النسخة التي عُرضت ملاحظتها وحدها لأن الشاشة لم تتّسع لها مع النصّ.
     noteShownFor: null,
+    // خيارات مفتاح المرور لشاشة الدخول (login) وشاشة الحساب (add)، تُجلب حين تُعرض
+    // الشاشة وتُؤخذ لضغطةٍ واحدة (portal.js).
+    passkey: { login: null, add: null },
 };
 
 /* ── الشبكة: موضعٌ واحد ─────────────────────────────────────────────── */
@@ -247,8 +250,11 @@ async function route() {
 
 /* ── الدخول والتفعيل ────────────────────────────────────────────────── */
 
+/* كل عرضٍ لشاشة الدخول من هنا: زرّ مفتاح المرور وخياراته معها، ولو عُرضت بتنبيه. */
 function renderLogin() {
-    UI.show('login');
+    const section = UI.show('login');
+    offerPasskey('login', $('login-passkey'));
+    return section;
 }
 
 async function onLogin(event) {
@@ -286,8 +292,7 @@ function captureActivation() {
 function renderActivate() {
     if (!state.activation) {
         // إعادة تحميلٍ بعد محو الرابط: الرمز لم يعد في الذاكرة.
-        UI.show('login');
-        UI.showAlert(UI.screen('login'), 'افتح رابط التفعيل من جديد.');
+        UI.showAlert(renderLogin(), 'افتح رابط التفعيل من جديد.');
         return;
     }
     $('activate-username').value = state.activation.username;
@@ -1221,7 +1226,8 @@ function wire() {
             }
             // الحذف لم يقع: إلى «حسابي». لو بقيت الشاشة لصار «نعم، احذف حسابي» أقرب ما
             // إلى نظرٍ باقٍ على «حسناً»، فتعيد نظرةٌ أخرى حذفاً لا رجعة فيه.
-            if (section.dataset.screen === 'account-delete') {
+            // والخروج مثله: «نعم، اخرج» لا يبقى أقرب ما إلى «حسناً».
+            if (['account-delete', 'account-logout'].includes(section.dataset.screen)) {
                 go('#/account');
                 return;
             }
@@ -1297,8 +1303,7 @@ async function boot() {
 
 function startupFailed(message) {
     retryBoot = true;
-    const section = UI.show('login');
-    UI.showAlert(section, `${message} «حسناً» تعيد المحاولة.`);
+    UI.showAlert(renderLogin(), `${message} «حسناً» تعيد المحاولة.`);
 }
 
 captureActivation();

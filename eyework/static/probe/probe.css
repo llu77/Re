@@ -3,7 +3,7 @@
  * ======================
  * لا :hover ولا حركة ولا انتقال: إن أطلق مؤشر النظر حدث مرور — وهذا مما
  * يقيسه الفحص نفسه — فما يتغيّر تحت النظر يُشتّت ولا يُفيد. والأهداف كبيرة ومتباعدة إلا أهداف قياس الحجم
- * نفسها في القسم الثاني.
+ * نفسها في قسم الضغط.
  */
 :root {
     --navy: #061840;
@@ -15,8 +15,9 @@
     --wash: #F5F8FC;
     --ok: #0B6B3A;
     --bad: #A3221B;
-    --target: 4rem;
-    --gap: 1rem;
+    /* هندسة التطبيق نفسها (styles.css): ما يُقاس هنا هو ما يُستعمل هناك. */
+    --target: 4.5rem;           /* 72px */
+    --gap: 1.5rem;              /* 24px */
     --font: 'Amiri', 'Segoe UI', Georgia, serif;
     color-scheme: light;
 }
@@ -27,16 +28,19 @@
    يُظهر زرّاً مخفيّاً فوق غيره — زرٌّ لا يُرى في الشيفرة يعترض النظر على الشاشة. */
 [hidden] { display: none !important; }
 
+/* الجذر بحجم المتصفّح كما في التطبيق، فتعني rem هنا ما تعنيه هناك (4.5rem = 72px)؛
+   والمتن 17px على body. */
+html { font-size: 100%; }
 html, body {
     margin: 0;
     height: 100%;
     background: var(--surface);
     color: var(--ink);
     font-family: var(--font);
-    font-size: 17px;
     line-height: 1.6;
     -webkit-text-size-adjust: 100%;
 }
+body { font-size: 17px; }
 
 button, label, input { font: inherit; }
 
@@ -135,7 +139,13 @@ h1:focus { outline: none; }
 .log { margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink-soft); direction: ltr; text-align: left; }
 
 .swap { display: grid; }
-.swap > .btn { grid-area: 1 / 1; }
+.swap > .btn, .swap > .row { grid-area: 1 / 1; }
+/* خانةٌ محجوزة بارتفاع الهدف وإن خلت: ما يظهر فيها أو يختفي لا يحرّك ما تحتها. */
+.swap.reserved { min-height: var(--target); }
+/* في أسفل القسم: أبعد ما يكون عن الأزرار فوقها. */
+.end { margin-block-start: auto; }
+/* ثلاثة أزرارٍ في سطرٍ بعرض 375: حشوةٌ أضيق ليتّسع نصّها في سطرين. */
+.row.tight > .btn { padding-inline: 0.5rem; }
 
 .value { font-size: 40px; font-weight: 700; text-align: center; color: var(--navy); }
 .result { color: var(--ink-soft); }

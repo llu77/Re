@@ -3,6 +3,7 @@
 ================================================
   • «حسناً» فوق وسط الشريط العلوي، وكل زرٍّ في الشريطين معطّلٌ ما دام التنبيه
     ظاهراً، وما يقع تحتها بعد الإقرار ليس زرّ اعتمادٍ ولا عنصر قيمة.
+  • وبينها وبين زرّي طرفي الشريط 24 على الأقل، في كل شاشةٍ وكل إطار.
   • فشل الإقلاع لا يترك شاشةً بلا مخرج: «حسناً» تعيد المحاولة.
   • طلبٌ انقطع في الطريق يُقال، ولا يُترك المستخدم أمام شاشةٍ صامتة.
   • «اطلب نسخة جديدة» لا تُرسل بنظرٍ مرّ بها: تبقى معطّلةً حتى يُختار فيها.
@@ -90,6 +91,45 @@ def test_the_acknowledgement_sits_alone_at_the_top_centre(page_factory, server, 
     flow.press(".screen:not([hidden]) .alert [data-ack]", lambda: flow.until(
         "document.querySelector('.screen:not([hidden]) .alert:not([hidden])') === null"), "حسناً")
     assert not flow.landings, flow.landings
+    assert not page.errors, page.errors
+
+
+#: كل شاشةٍ تُعرض بتنبيهها، ويُقاس بُعد كل زرٍّ في شريطها العلوي عن «حسناً» —
+#: والمحجوز منها أيضاً، فقد يظهر والتنبيه ظاهر: أسوأ الحال.
+ACK_CLEARANCE = """
+() => {
+    const screens = [...document.querySelectorAll('.screen')];
+    const close = [];
+    for (const screen of screens) {
+        screens.forEach((s) => { s.hidden = s !== screen; });
+        const alert = screen.querySelector('.alert');
+        alert.hidden = false;
+        const a = alert.querySelector('[data-ack]').getBoundingClientRect();
+        for (const button of screen.querySelectorAll('.bar--top .btn')) {
+            const r = button.getBoundingClientRect();
+            const gap = Math.max(r.left - a.right, a.left - r.right, r.top - a.bottom, a.top - r.bottom);
+            if (gap < 23.5) close.push(`${screen.dataset.screen} ${button.textContent.trim()}: ${Math.round(gap)}`);
+        }
+        alert.hidden = true;
+    }
+    return close;
+}
+"""
+
+
+@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=[f"{w}x{h}" for w, h in VIEWPORTS])
+def test_the_acknowledgement_keeps_its_distance_on_every_screen(page_factory, server, width, height):
+    """
+    زرّا طرفي الشريط العلوي لا يقتربان من «حسناً» أقلّ من 24: في 320px كان كلٌّ
+    منهما على 4 منها، و«احفظ الملاحظة» — أطول الأسماء — يركبها؛ وفي 375 و390 كان
+    على 15 و22.
+    """
+    page = page_factory(width, height)
+    page.goto(server["base"] + "/#/")
+    Flow(page, server["base"]).screen("home")
+    # عرض الاسم بخطّ Amiri لا بالخطّ البديل قبل وصوله.
+    page.evaluate("() => document.fonts.ready.then(() => true)")
+    assert page.evaluate(ACK_CLEARANCE) == []
     assert not page.errors, page.errors
 
 

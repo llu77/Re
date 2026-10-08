@@ -31,6 +31,7 @@ from eyework.tests.conftest import (
 RLS_TABLES = (
     "public.users", "public.sessions", "public.activation_tokens", "public.campaigns",
     "public.generation_attempts", "public.copy_versions", "public.campaign_images",
+    "public.passkeys", "public.passkey_challenges",
 )
 OWNERS_PER_TABLE = [
     "SELECT DISTINCT user_id FROM campaigns",

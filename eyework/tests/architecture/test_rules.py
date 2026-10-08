@@ -77,6 +77,15 @@ def test_no_other_network_library_in_production_code():
     assert not offenders, f"اتصالٌ خارجي خارج كاتب النصّ: {offenders}"
 
 
+def test_only_the_passkey_module_verifies_passkeys():
+    """
+    التحقّق من مفاتيح المرور في مكتبةٍ واحدة مثبّتة وفي وحدةٍ واحدة: لا تحليلٌ
+    ثانٍ لـCBOR أو COSE يقبل ما ترفضه المكتبة.
+    """
+    importers = sorted(_rel(p) for p in _production_python() if _tops(p) & {"webauthn", "cbor2"})
+    assert importers == ["passkeys.py"]
+
+
 def test_only_the_image_module_decodes_images():
     """`scripts/make_icons.py` يرسم الأيقونات وقت البناء ولا يفكّ صورة مستخدم."""
     importers = sorted(_rel(p) for p in _production_python() if "PIL" in _tops(p))
@@ -209,6 +218,13 @@ def test_fakes_are_only_imported_by_tests():
     assert not importers, f"الكاتب المصطنع في مسار الإنتاج: {importers}"
 
 
+def test_production_imports_nothing_from_the_tests():
+    """الجهاز المصطنع يوقّع بأيّ أصلٍ وأيّ عدّاد: في مسار الإنتاج يصير مفتاحاً لكل حساب."""
+    importers = [_rel(p) for p in _production_python()
+                 if any(m == "eyework.tests" or m.startswith("eyework.tests.") for m in _imports(p))]
+    assert not importers, f"شيفرة الاختبار في مسار الإنتاج: {importers}"
+
+
 # ── الواجهة ─────────────────────────────────────────────────────────────
 def _js(name: str) -> str:
     return (STATIC / name).read_text(encoding="utf-8")
@@ -288,6 +304,23 @@ def test_fields_are_large_enough_not_to_trigger_ios_zoom():
     field = re.search(r"\.field\s*\{([^}]*)\}", css).group(1)
     assert "font-size: var(--fs-body)" in field
     assert re.search(r"--fs-body:\s*1\.125rem", css)
+
+
+def test_ios_text_size_reaches_the_screen_text_and_never_the_root():
+    """
+    `font: -apple-system-body` يأخذ «حجم النصّ» من iOS، ويضبط معه العائلة وتباعد
+    الأسطر؛ فهو على `.screen` وحدها، وبعده في القاعدة نفسها عائلة الخطّ وتباعد الأسطر.
+    والجذر بحجم المتصفّح: لو تبعه الجذر لكبرت الأهداف (4.5rem) وفاضت كل شاشة.
+    """
+    css = re.sub(r"/\*.*?\*/", "", (STATIC / "styles.css").read_text(encoding="utf-8"), flags=re.S)
+    rules = [(selector.strip(), block) for selector, block in re.findall(r"([^{}]+)\{([^}]*)\}", css)
+             if "-apple-system" in block]
+    assert [selector for selector, _ in rules] == [".screen"], rules
+    block = rules[0][1]
+    order = [block.find(part) for part in
+             ("font: -apple-system-body;", "font-family: var(--font);", "line-height: var(--line-height);")]
+    assert -1 not in order and order == sorted(order), order
+    assert re.search(r"(?m)^html\s*\{[^}]*font-size:\s*100%", css)
 
 
 def test_the_users_name_never_reaches_the_model():
