@@ -42,7 +42,12 @@
                 <input class="field" id="login-password" name="password" type="password"
                        autocomplete="current-password" enterkeyhint="go" required>
             </div>
-            <button class="btn btn--commit spaced" type="submit" data-commit>ادخل</button>
+            <!-- مفتاح المرور بجانب «ادخل» لا في الشريط السفلي: بعد محاولةٍ فاشلة يغطّيه
+                 التنبيه كما يغطّي «ادخل»، فيبقى هو أقرب ما إلى نظرٍ باقٍ عليه. -->
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="login-passkey" data-safe>ادخل بمفتاح المرور</button>
+                <button class="btn btn--commit" type="submit" id="login-submit" data-commit>ادخل</button>
+            </div>
             <p class="help">تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك أو أعطاك رابط التسجيل.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </form>
@@ -302,10 +307,14 @@
             <p class="line" id="account-name"></p>
             <p class="line" id="account-profession"></p>
             <button class="btn btn--wide spaced" type="button" id="account-logout" data-safe>تسجيل الخروج</button>
+            <p class="help" id="account-passkey-help">مفتاح المرور دخولٌ بلا كتابة: ضغطةٌ، ثم يؤكّد الجهاز بـFace ID أو Touch ID أو رمزه. ويحتاج سلسلة مفاتيح iCloud والمصادقة بخطوتين.</p>
+            <p class="status" id="account-passkey-status" role="status"></p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
+        <!-- «تسجيل الخروج» في موضعه: ما تحته في شاشة الدخول بعده حقلٌ لا زرّ «ادخل».
+             و«أضف مفتاح مرور» في الشريط: لا ينقل إلى شاشةٍ أخرى. -->
         <footer class="bar bar--bottom">
-            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="account-passkey" data-safe>أضف مفتاح مرور</button></div>
             <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
         </footer>
     </section>
