@@ -419,12 +419,22 @@ CUSTOM_CSS = """
     --radius-sm: 6px; --radius: 10px; --radius-lg: 14px; --radius-xl: 18px;
 }
 *, *::before, *::after { box-sizing: border-box; }
-html, body, .stApp, [class*="st-emotion-cache"] {
+/*
+ * الجذر وحده، لا `[class*="st-emotion-cache"]`: ذلك الانتقاء يصيب أيقونات
+ * Streamlit أيضاً — تُرسَم نصّاً (`keyboard_arrow_down`) يحوّله خطّ
+ * Material Symbols إلى رمز — فكتب رأسُ كل مُوسِّع اسمَ أيقونته فوق تسميته،
+ * ودفع زرُّ طيّ الشريط محتواه خارج الشاشة. عناصر Streamlit تأخذ Amiri من
+ * سمتها؛ يثبت ذلك `test_arabic_text_is_set_in_amiri`.
+ *
+ * الأساس 14px — كثافة مكتب لا كثافة هاتف. Streamlit يقيس نصّه بـ`rem`،
+ * فيبلغه الأساس من `html` وحده. لا `font-size: inherit` على `.stApp span`
+ * وأخواتها: أسبقيتها (0,1,1) تغلب كل صنف هنا له مقاسه (0,1,0)، فكانت
+ * `.sb-wordmark` و`.badge` وغيرهما تُرسَم 14px مهما كُتب فيها.
+ */
+html, body, .stApp {
     font-family: 'Amiri', 'Segoe UI', Georgia, serif !important; direction: rtl;
     font-size: 14px;
 }
-/* الأساس 14px، والنصّ الطويل 14 أيضاً — كثافة مكتب لا كثافة هاتف */
-.stApp p, .stApp li, .stApp label, .stApp span, .stApp div { font-size: inherit; }
 /*
  * الخلفية فقط. لا `position` ولا `overflow` هنا:
  *

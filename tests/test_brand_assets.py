@@ -16,13 +16,23 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 ROOT = Path(__file__).resolve().parent.parent
 PORTAL = ROOT / "portal"
 STATIC = ROOT / "static"
+
+#: أول إصدار من Streamlit يعرف `theme.headingFont` ويوثّق `[[theme.fontFaces]]`.
+#: المصدر: ملاحظات الإصدار 1.44.0 (25 مارس 2025) — «Introducing advanced
+#: theming options… Change the fonts, colors, and roundness of your app
+#: without CSS». وفي حزمة 1.43.2 نفسها `fontFaces` خيارٌ مخفيّ ولا
+#: `headingFont` أصلاً.
+THEME_FONTS_SINCE = Version("1.44.0")
 
 #: الأوزان التي يحتاجها برنامج الممارس، وهي المنسوخة مرتين.
 SHARED_FONTS = ("amiri-arabic-400.woff2", "amiri-arabic-700.woff2")
@@ -71,6 +81,28 @@ def test_the_two_font_copies_match(name):
     assert _digest(portal_copy) == _digest(static_copy), f"النسختان افترقتا: {name}"
 
 
+# ── خطّ برنامج الممارس يحتاج إصداراً يفهم إعلانه ─────────────────────────
+def test_the_streamlit_floor_understands_the_theme_font():
+    """
+    الخطّ في برنامج الممارس تعلنه السمة وحدها، ولا `@font-face` احتياطية في
+    `CUSTOM_CSS`. إصدارٌ أقدم من 1.44 يتجاهل إعلانها بلا خطأ، فيُرسَم
+    التطبيق بخطّ بديل — ولذلك لا يجوز أن تسمح المتطلبات بتثبيته.
+    """
+    theme = tomllib.loads(
+        (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8"))["theme"]
+    assert "fontFaces" in theme and "headingFont" in theme, "السمة لم تعد تعلن الخطّ"
+
+    lines = (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    requirement = next(Requirement(line) for line in lines
+                       if re.match(r"streamlit\b", line.strip()))
+    floors = [Version(spec.version) for spec in requirement.specifier
+              if spec.operator in (">=", ">", "~=", "==")]
+    assert floors, f"لا حدّ أدنى لـStreamlit: {requirement}"
+    assert max(floors) >= THEME_FONTS_SINCE, (
+        f"{requirement} يسمح بإصدار لا يفهم theme.fontFaces/headingFont")
+    assert requirement.specifier.contains(THEME_FONTS_SINCE), requirement
+
+
 def test_the_font_licence_travels_with_the_files():
     """Amiri تحت SIL OFL 1.1، وهي تشترط إرفاق نصّ الرخصة مع الملفات."""
     for folder in (PORTAL / "fonts", STATIC / "fonts"):
@@ -98,6 +130,25 @@ def test_every_asset_the_portal_references_exists():
             if not (PORTAL / ref).exists():
                 missing.append(f"{source.name} → {ref}")
     assert not missing, f"مراجع مكسورة: {missing}"
+
+
+def test_every_test_a_comment_cites_exists():
+    """
+    تعليقٌ يقول «يختبره `test_…`» وعدٌ بأن CI يحرس القرار. اسمٌ لا يوجد —
+    كما كان `test_the_portal_survives_250_percent_text` في `styles.css` —
+    وعدٌ لا يحرسه شيء.
+    """
+    defined = set()
+    for path in (ROOT / "tests").rglob("test_*.py"):
+        defined.update(re.findall(r"^\s*def (test_\w+)", path.read_text(encoding="utf-8"), re.M))
+
+    missing = []
+    for path in [ROOT / "app.py", *PORTAL.rglob("*.css"), *PORTAL.rglob("*.html"),
+                 *PORTAL.rglob("*.js"), *(ROOT / ".streamlit").rglob("*.toml")]:
+        for name in re.findall(r"`(test_\w+)`", path.read_text(encoding="utf-8")):
+            if name not in defined:
+                missing.append(f"{path.relative_to(ROOT)} → {name}")
+    assert not missing, f"تعليقات تستشهد باختبار غير موجود: {missing}"
 
 
 def test_the_manifest_icons_exist():
