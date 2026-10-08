@@ -2,7 +2,7 @@
  * التسجيل والحساب والبوابة
  * ========================
  * يُحمَّل قبل app.js، ويستعمل عند التشغيل ما فيه: `state` و`api` و`go` و`detail`
- * و`renderValue`. و`wire()` في app.js يستدعي `wirePortal()` من هنا.
+ * و`renderValue` و`renderLogin`. و`wire()` في app.js يستدعي `wirePortal()` من هنا.
  *
  *   • التسجيل برابطٍ من المشغّل (#signup=…): الرمز يُقرأ إلى الذاكرة ويُمحى من
  *     شريط العنوان، ويُسأل الخادم عنه قبل الخطوة الأولى. البيانات في الذاكرة
@@ -11,6 +11,8 @@
  *   • تاريخ الميلاد بأزرارٍ لا بكتابة: سنواتٌ وأشهرٌ وأيامٌ جاهزة، وخطوة «أقدم/أحدث».
  *   • البوابة لمهنة صاحب الحساب وحدها، والمهامّ والمهارات بندٌ واحد في كل شاشة:
  *     لا تمرير، ولا نصٌّ مقصوص.
+ *   • مفتاح المرور: «ادخل بمفتاح المرور» في شاشة الدخول و«أضف مفتاح مرور» في
+ *     الحساب، وكلمة المرور باقيةٌ بجانبه.
  */
 
 'use strict';
@@ -121,8 +123,7 @@ function signupParent(name) {
 async function renderSignup(step, nav) {
     if (!state.signup) {
         // إعادة تحميلٍ بعد محو الرابط: الرمز لم يعد في الذاكرة.
-        UI.show('login');
-        UI.showAlert(UI.screen('login'), 'افتح رابط التسجيل من جديد.');
+        UI.showAlert(renderLogin(), 'افتح رابط التسجيل من جديد.');
         return;
     }
     if (!state.signup.checked) {
@@ -131,14 +132,14 @@ async function renderSignup(step, nav) {
             return;
         }
         if (result.status !== 204) {
-            UI.show('login');
+            const login = renderLogin();
             if ([403, 410, 422].includes(result.status)) {
                 // رمزٌ لا يصلح أو تسجيلٌ مغلق: لا فائدة من المحاولة به ثانيةً.
                 state.signup = null;
-                UI.showAlert(UI.screen('login'), result.status === 422 ? SIGNUP_LINK_INVALID : detail(result));
+                UI.showAlert(login, result.status === 422 ? SIGNUP_LINK_INVALID : detail(result));
             } else {
                 // انقطاعٌ أو حدٌّ أو عطلٌ عابر: الرمز باقٍ في الذاكرة، و«حسناً» تعيد الفحص.
-                UI.showAlert(UI.screen('login'), `${detail(result)} «حسناً» تعيد المحاولة.`);
+                UI.showAlert(login, `${detail(result)} «حسناً» تعيد المحاولة.`);
             }
             return;
         }
@@ -380,8 +381,7 @@ async function onSignupCreate(event) {
     const field = result.data && result.data.field;
     if (result.data && result.data.code === 'REGISTER_CODE') {
         state.signup = null;
-        UI.show('login');
-        UI.showAlert(UI.screen('login'), detail(result));
+        UI.showAlert(renderLogin(), detail(result));
         return;
     }
     const step = FIELD_STEPS[field];
@@ -401,6 +401,9 @@ async function renderAccount(nav) {
     $('account-name').textContent = state.displayName ? `الاسم: ${state.displayName}` : 'بلا اسم';
     const profession = (portal) => (portal ? `المهنة: ${portal.name}` : '\u00a0');
     $('account-profession').textContent = profession(state.portal);
+    $('account-passkey-status').textContent = '';
+    $('account-passkey-help').hidden = !passkeysAvailable();
+    offerPasskey('add', $('account-passkey'));
     const portal = await loadPortal({ fresh: true });
     if (nav !== state.nav) {
         return;
@@ -448,6 +451,187 @@ async function onAccountDelete() {
     }
     if (result.status !== 401) {
         UI.showAlert(section, detail(result));
+    }
+}
+
+/* ── مفاتيح المرور ──────────────────────────────────────────────────── */
+
+/*
+ * الخيارات — وفيها التحدّي — تُجلب حين تُعرض الشاشة، لا داخل الضغطة: WebKit قد
+ * يشترط لهذا الطلب تفعيلاً من المستخدم، ومهلة التفعيل فيه خمس ثوانٍ، فجلبٌ داخل
+ * الضغطة قد يستنفدها. فالضغطة تستدعي الجهاز قبل أيّ انتظار، ولا حقل يُركَّز:
+ * نافذة النظام تعرض المفاتيح، ثم يؤكّد صاحب الجهاز بـFace ID أو Touch ID أو رمزه.
+ *
+ * والتحدّي لمرةٍ واحدة ومهلته في الخادم: بعد كل محاولةٍ — نجحت أو فشلت — تُجلب
+ * خياراتٌ جديدة. والبايتات بين الخادم والمتصفّح base64url بلا حشو.
+ */
+
+const PASSKEY_OPTIONS = { login: '/api/auth/passkey/options', add: '/api/me/passkeys/options' };
+const PASSKEY_NOT_READY = 'لم يجهز مفتاح المرور بعد. حاول مرة أخرى.';
+// الجهاز لا يقول لماذا: إلغاءٌ، أو لا مفتاح لهذا الموقع، أو انتهاء المهلة — جوابٌ واحد عمداً.
+const PASSKEY_NOT_SIGNED_IN = 'لم يكتمل الدخول بمفتاح المرور. إن لم يُضَف لحسابك مفتاحٌ بعد، '
+    + 'فادخل بكلمة المرور، ثم أضفه من «حسابي».';
+const PASSKEY_NOT_SAVED = 'لم يُحفظ مفتاح المرور. يحتاج سلسلة مفاتيح iCloud والمصادقة بخطوتين مفعّلتين، '
+    + 'ثم تأكيداً بـFace ID أو Touch ID أو رمز الجهاز.';
+const PASSKEY_ALREADY_HERE = 'في هذا الجهاز مفتاح مرورٍ لهذا الحساب من قبل.';
+const PASSKEY_SAVED = 'حُفظ مفتاح المرور. ادخل به في المرة القادمة من شاشة الدخول.';
+
+function passkeysAvailable() {
+    return Boolean(window.PublicKeyCredential && navigator.credentials);
+}
+
+function fromBase64url(text) {
+    const base64 = text.replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(base64 + '='.repeat((4 - (base64.length % 4)) % 4));
+    return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+
+function toBase64url(buffer) {
+    let binary = '';
+    new Uint8Array(buffer).forEach((byte) => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/* خيارات الخادم بالشكل الذي يقبله المتصفّح: التحدّي والمعرّفات بايتات. */
+function publicKeyOptions(json) {
+    const options = { ...json, challenge: fromBase64url(json.challenge) };
+    if (json.user) {
+        options.user = { ...json.user, id: fromBase64url(json.user.id) };
+    }
+    ['allowCredentials', 'excludeCredentials'].forEach((key) => {
+        if (json[key]) {
+            options[key] = json[key].map((credential) => ({ ...credential, id: fromBase64url(credential.id) }));
+        }
+    });
+    return options;
+}
+
+/* ردّ الجهاز بالأسماء التي يقرؤها الخادم (schemas.py)، ولا حقل غيرها. */
+function credentialJson(credential, response) {
+    const json = { id: credential.id, rawId: toBase64url(credential.rawId), type: credential.type, response };
+    if (credential.authenticatorAttachment) {
+        json.authenticatorAttachment = credential.authenticatorAttachment;
+    }
+    return json;
+}
+
+function assertionJson(credential) {
+    const r = credential.response;
+    const response = {
+        clientDataJSON: toBase64url(r.clientDataJSON),
+        authenticatorData: toBase64url(r.authenticatorData),
+        signature: toBase64url(r.signature),
+    };
+    if (r.userHandle) {
+        response.userHandle = toBase64url(r.userHandle);
+    }
+    return credentialJson(credential, response);
+}
+
+function attestationJson(credential) {
+    const r = credential.response;
+    return credentialJson(credential, {
+        clientDataJSON: toBase64url(r.clientDataJSON),
+        attestationObject: toBase64url(r.attestationObject),
+        transports: typeof r.getTransports === 'function' ? r.getTransports() : [],
+    });
+}
+
+/*
+ * يجلب خياراتٍ جديدة لـ`kind` ويحفظها في `state.passkey`. ما يصل لطلبٍ أقدم
+ * يُترك: الخيارات لآخر عرضٍ للشاشة.
+ */
+function preparePasskey(kind) {
+    const ticket = { options: null, error: null };
+    state.passkey[kind] = ticket;
+    api('POST', PASSKEY_OPTIONS[kind]).then((result) => {
+        if (result.status === 200) {
+            ticket.options = publicKeyOptions(result.data);
+        } else {
+            ticket.error = detail(result);
+        }
+    });
+}
+
+/* الزرّ حيث يعمل مفتاح المرور، وخياراته تُجلب الآن؛ وإلا يبقى مكانه محجوزاً. */
+function offerPasskey(kind, button) {
+    const offered = passkeysAvailable();
+    UI.setButton(button, { reserved: !offered });
+    if (offered) {
+        preparePasskey(kind);
+    } else {
+        state.passkey[kind] = null;
+    }
+}
+
+/*
+ * خيارات الضغطة، لمرةٍ واحدة. وإن لم تصل بعد أو فشل جلبها يُقال ذلك — وتُطلب من
+ * جديد إن فشلت — فلا ضغطةٌ بلا أثر، ولا جلبٌ داخلها.
+ */
+function takePasskeyOptions(kind, section) {
+    const ticket = state.passkey[kind];
+    if (!ticket || state.busy || UI.alertOpen(section)) {
+        return null;
+    }
+    if (!ticket.options) {
+        UI.showAlert(section, ticket.error || PASSKEY_NOT_READY);
+        if (ticket.error) {
+            preparePasskey(kind);
+        }
+        return null;
+    }
+    state.passkey[kind] = null;
+    return ticket.options;
+}
+
+async function onPasskeyLogin() {
+    const section = UI.screen('login');
+    const options = takePasskeyOptions('login', section);
+    if (!options) {
+        return;
+    }
+    state.busy = true;
+    const credential = await navigator.credentials.get({ publicKey: options }).catch(() => null);
+    const result = credential ? await api('POST', '/api/auth/passkey', { json: assertionJson(credential) }) : null;
+    state.busy = false;
+    if (result && result.status === 204) {
+        // انتقالٌ كامل كالدخول بكلمة المرور: لا يبقى في الذاكرة شيءٌ من قبله.
+        location.replace('/');
+        return;
+    }
+    preparePasskey('login');
+    if (!section.hidden) {
+        UI.showAlert(section, result ? detail(result) : PASSKEY_NOT_SIGNED_IN);
+    }
+}
+
+async function onPasskeyAdd() {
+    const section = UI.screen('account');
+    const options = takePasskeyOptions('add', section);
+    if (!options) {
+        return;
+    }
+    state.busy = true;
+    $('account-passkey-status').textContent = '';
+    let failure = PASSKEY_NOT_SAVED;
+    const credential = await navigator.credentials.create({ publicKey: options }).catch((error) => {
+        // أحد مفاتيح الحساب المسمّاة في الخيارات (excludeCredentials) على هذا الجهاز.
+        if (error && error.name === 'InvalidStateError') {
+            failure = PASSKEY_ALREADY_HERE;
+        }
+        return null;
+    });
+    const result = credential ? await api('POST', '/api/me/passkeys', { json: attestationJson(credential) }) : null;
+    state.busy = false;
+    // انتهت الجلسة (`api()` نقل إلى الدخول) أو غادر الشاشة: خياراتها تُجلب حين تُعرض.
+    if ((result && result.status === 401) || section.hidden) {
+        return;
+    }
+    preparePasskey('add');
+    if (result && result.status === 204) {
+        $('account-passkey-status').textContent = PASSKEY_SAVED;
+    } else {
+        UI.showAlert(section, result ? detail(result) : failure);
     }
 }
 
@@ -556,6 +740,8 @@ function wirePortal() {
     $('home-account').addEventListener('click', () => go('#/account'));
     $('home-tasks').addEventListener('click', () => go('#/tasks/1'));
     $('home-skills').addEventListener('click', () => go('#/skills/1'));
+    $('login-passkey').addEventListener('click', onPasskeyLogin);
+    $('account-passkey').addEventListener('click', onPasskeyAdd);
     $('account-logout').addEventListener('click', onLogout);
     $('account-delete').addEventListener('click', () => go('#/account/delete'));
     $('account-sources').addEventListener('click', () => go('#/account/sources'));

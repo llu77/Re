@@ -63,6 +63,7 @@ __all__ = [
     "logout",
     "new_token",
     "normalize_login",
+    "open_session",
     "profession_of",
     "register",
     "resolve",
@@ -146,7 +147,8 @@ def _decoy_hash() -> str:
     return hash_password(secrets.token_urlsafe(24))
 
 
-def _open_session(cursor, user_id: UUID) -> str:
+def open_session(cursor, user_id: UUID) -> str:
+    """جلسةٌ جديدة في معاملة المستدعي — مع ما يُثبت الدخول أو لا تكون."""
     token = new_token()
     cursor.execute(_OPEN, (user_id, hash_token(token)))
     return token
@@ -160,7 +162,7 @@ def login(db: Database, key: bytes, username: str, password: str) -> str:
         stored = row["password_hash"] if row else _decoy_hash()
         if not verify_password(password, stored) or row is None:
             raise AuthenticationFailed
-        return _open_session(cursor, row["user_id"])
+        return open_session(cursor, row["user_id"])
 
 
 def activate(db: Database, key: bytes, token: str, username: str, password: str) -> str:
@@ -179,7 +181,7 @@ def activate(db: Database, key: bytes, token: str, username: str, password: str)
         user_id = cursor.fetchone()["user_id"]
         if user_id is None:
             raise AuthenticationFailed
-        return _open_session(cursor, user_id)
+        return open_session(cursor, user_id)
 
 
 #: حروف لوحات المفاتيح الفارسية والأردية التي تشبه العربية: تُوحَّد قبل الفحص.
@@ -249,7 +251,7 @@ def register(db: Database, key: bytes, *, code: str, name: str, birth_date: date
         cursor.execute(_REGISTER, (hash_token(code), login_hmac(key, email), password_hash, name,
                                    birth_date, profession.value, TERMS_VERSION))
         row = cursor.fetchone()
-        token = _open_session(cursor, row["new_user"]) if row["outcome"] == "OK" else None
+        token = open_session(cursor, row["new_user"]) if row["outcome"] == "OK" else None
     # الاستثناء بعد المعاملة لا داخلها: داخلها يُلغي عدَّ «مأخوذ» على الرمز.
     if row["outcome"] == "CODE":
         raise RegistrationCodeInvalid

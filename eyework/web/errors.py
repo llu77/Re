@@ -38,6 +38,7 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
     "version_cap": ErrorSpec(409, "VERSION_CAP", "بلغت هذه الحملة عشر نسخ، وهو الحدّ."),
     "open_campaign_cap": ErrorSpec(409, "OPEN_CAP", "لديك عشرون حملةً مفتوحة. أكمل بعضها أو ألغِه أولاً."),
     "campaign_needs_marketing": ErrorSpec(403, "PROFESSION", "هذه الأداة لبوابة مهنةٍ أخرى."),
+    "passkey_cap": ErrorSpec(409, "PASSKEY_CAP", "لهذا الحساب عشرة مفاتيح مرور، وهو الحدّ."),
     "registration_daily_cap": ErrorSpec(503, "REGISTER_FULL",
                                         "اكتمل عدد الحسابات الجديدة لهذا اليوم. حاول غداً.", 3600),
     "campaign_is_final": ErrorSpec(409, "FINAL", "الحملة معتمدة أو ملغاة ولا تتغيّر."),

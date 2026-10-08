@@ -27,6 +27,8 @@ __all__ = [
     "DaysBody",
     "EditBody",
     "LoginBody",
+    "PasskeyAddBody",
+    "PasskeyLoginBody",
     "RegisterBody",
     "SignupCodeBody",
     "RestoreBody",
@@ -71,6 +73,55 @@ class RegisterBody(_Body):
 
 class SignupCodeBody(_Body):
     code: SignupCode
+
+
+# ── مفاتيح المرور ──────────────────────────────────────────────────────
+# ما ترسله الواجهة من ردّ الجهاز: بايتاته بترميز base64url بلا حشو، وبالأسماء
+# التي تقرؤها py_webauthn. الأطوال حدودٌ للطلب لا للمفتاح: ما في داخلها تفحصه
+# المكتبة، وما يُحفظ تحدّه القاعدة.
+def _base64url(max_length: int):
+    return Annotated[StrictStr, Field(min_length=2, max_length=max_length, pattern=r"^[A-Za-z0-9_-]+$")]
+
+
+#: معرّف المفتاح حتى 1023 بايتاً ⇒ 1364 حرفاً.
+CredentialId = _base64url(1364)
+ClientData = _base64url(4096)
+AuthenticatorData = _base64url(2048)
+Signature = _base64url(2048)
+#: معرّف المستخدم حتى 64 بايتاً ⇒ 86 حرفاً.
+UserHandle = _base64url(86)
+AttestationObject = _base64url(12_000)
+Transport = Annotated[StrictStr, Field(pattern=r"^[a-z-]{1,20}$")]
+
+
+class _AssertionResponse(_Body):
+    clientDataJSON: ClientData
+    authenticatorData: AuthenticatorData
+    signature: Signature
+    #: معرّف المستخدم الذي حفظه الجهاز. غيابه رفضٌ في `passkeys.sign_in` كسائر الفشل.
+    userHandle: UserHandle | None = None
+
+
+class _AttestationResponse(_Body):
+    clientDataJSON: ClientData
+    attestationObject: AttestationObject
+    #: ما لا تعرفه py_webauthn منها يُترك ولا يُحفظ.
+    transports: Annotated[list[Transport], Field(max_length=8)] = []
+
+
+class _Credential(_Body):
+    id: CredentialId
+    rawId: CredentialId
+    type: Literal["public-key"]
+    authenticatorAttachment: Literal["platform", "cross-platform"] | None = None
+
+
+class PasskeyLoginBody(_Credential):
+    response: _AssertionResponse
+
+
+class PasskeyAddBody(_Credential):
+    response: _AttestationResponse
 
 
 class RowVersionBody(_Body):

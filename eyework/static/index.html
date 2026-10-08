@@ -42,7 +42,12 @@
                 <input class="field" id="login-password" name="password" type="password"
                        autocomplete="current-password" enterkeyhint="go" required>
             </div>
-            <button class="btn btn--commit spaced" type="submit" data-commit>ادخل</button>
+            <!-- مفتاح المرور بجانب «ادخل» لا في الشريط السفلي: بعد محاولةٍ فاشلة يغطّيه
+                 التنبيه كما يغطّي «ادخل»، فيبقى هو أقرب ما إلى نظرٍ باقٍ عليه. -->
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="login-passkey" data-safe>ادخل بمفتاح المرور</button>
+                <button class="btn btn--commit" type="submit" id="login-submit" data-commit>ادخل</button>
+            </div>
             <p class="help">تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك أو أعطاك رابط التسجيل.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </form>
@@ -304,12 +309,18 @@
             <h2 tabindex="-1">حسابي</h2>
             <p class="line" id="account-name"></p>
             <p class="line" id="account-profession">&nbsp;</p>
-            <!-- في بداية السطر لا في الشريط: موضع «حسابي» في الرئيسية يبقى هنا فارغاً، فأقرب ما إليه «رجوع». -->
-            <button class="btn btn--start spaced" type="button" id="account-sources" data-safe>المصادر</button>
+            <!-- المصادر ومفتاح المرور في المحتوى لا في الشريط: موضع «حسابي» في الرئيسية يبقى هنا
+                 فارغاً، فلا يقع تحت نظرٍ باقٍ زرٌّ ينقل أو يعتمد. -->
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="account-passkey" data-safe>أضف مفتاح مرور</button>
+                <button class="btn" type="button" id="account-sources" data-safe>المصادر</button>
+            </div>
+            <p class="help" id="account-passkey-help">مفتاح المرور دخولٌ بلا كتابة: ضغطةٌ، ثم يؤكّد الجهاز بـFace ID أو Touch ID أو رمزه. ويحتاج سلسلة مفاتيح iCloud والمصادقة بخطوتين.</p>
+            <p class="status" id="account-passkey-status" role="status"></p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
-        <!-- «حسابي» في الطرف الأعلى الأيسر من الرئيسية؛ فأقرب ما إليه هنا «رجوع»، والخروج
-             (والدخول من جديد بالنظر أغلى خطوةٍ في التطبيق) بعيدٌ في الطرف الأسفل الآخر. -->
+        <!-- «حسابي» في الطرف الأعلى الأيسر من الرئيسية؛ والخروج (والدخول من جديد بالنظر أغلى
+             خطوةٍ في التطبيق) بعيدٌ عنه في الطرف الأسفل الآخر. -->
         <footer class="bar bar--bottom">
             <div class="slot"><button class="btn btn--commit" type="button" id="account-logout" data-commit>تسجيل الخروج</button></div>
             <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
