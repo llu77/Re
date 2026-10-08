@@ -26,7 +26,7 @@
 <main class="frame">
     <header class="head">
         <h1 id="heading" tabindex="-1">فحص الإدخال</h1>
-        <p class="step" id="step-label">١ من ١٠</p>
+        <p class="step" id="step-label">١ من ١٤</p>
     </header>
 
     <!-- ١: البيئة — ما يختاره المختبِر بيده قبل القياس -->
@@ -119,11 +119,53 @@
         <p class="result" id="text-result" role="status">لم يُختبر بعد. لا يُحفظ ما تكتبه.</p>
     </section>
 
-    <!-- ٩: النتيجة -->
+    <!-- ٩: التفعيل — هل يُعدّ الضغط بالنظر ضغطاً من المستخدم عند النسخ وإبقاء الشاشة
+         مضاءة ومشاركة ملف؟ زرٌّ لكلٍّ منها، فيجري كلٌّ في مكوثه. -->
+    <section class="sec" data-section="apis" hidden>
+        <p>اضغط كل زرٍّ مرةً واحدة. أكمل المشاركة إلى أيّ وجهة، كالحفظ في تطبيق الملفات.</p>
+        <div class="row tight">
+            <button type="button" class="btn" id="api-copy" data-probe="api-copy">انسخ نصّاً</button>
+            <button type="button" class="btn" id="api-wake" data-probe="api-wake">أبقِ الشاشة مضاءة</button>
+            <button type="button" class="btn" id="api-share" data-probe="api-share">شارك صورة</button>
+        </div>
+        <dl class="facts" id="api-results"></dl>
+    </section>
+
+    <!-- ١٠: ملفٌّ نصّي إلى Pages — اختياري، ولا يدخل في القرار -->
+    <section class="sec" data-section="pages" hidden>
+        <p>اختياري: شارك ملفّاً نصّياً عربياً صغيراً، وانظر هل يظهر Pages بين التطبيقات في لوحة المشاركة، ثم أغلقها.</p>
+        <button type="button" class="btn" id="api-text" data-probe="api-text">شارك ملفّاً نصّياً</button>
+        <p class="result" id="pages-result" role="status">لم يُختبر بعد.</p>
+        <p class="label" id="pages-label">هل ظهر Pages في لوحة المشاركة؟</p>
+        <div class="row" role="group" aria-labelledby="pages-label">
+            <button type="button" class="btn" data-pages="yes" aria-pressed="false" disabled>ظهر</button>
+            <button type="button" class="btn" data-pages="no" aria-pressed="false" disabled>لم يظهر</button>
+        </div>
+    </section>
+
+    <!-- ١١: الانتظار الطويل — هل تبقى الشاشة مضاءة طوال كتابة النص؟ الزر الذي
+         يُنهي الانتظار في أسفل القسم، بعيداً عن الزر الذي يبدؤه وعن الأجوبة. -->
+    <section class="sec" data-section="wait" hidden>
+        <p id="wait-intro">اضغط «ابدأ الانتظار»، وانظر إلى هذا النص نحو ٢١٠ ثوانٍ دون أن تضغط شيئاً، ثم اضغط «انتهى الانتظار» وأجب: ماذا حدث للشاشة؟ الصفحة لا تعدّ الوقت، فاستعن بساعة.</p>
+        <div class="swap reserved">
+            <button type="button" class="btn" id="wait-start" data-probe="wait-start">ابدأ الانتظار</button>
+            <div class="row" id="wait-answers" role="group" aria-labelledby="wait-intro" hidden>
+                <button type="button" class="btn" data-wait="on" aria-pressed="false">بقيت مضاءة</button>
+                <button type="button" class="btn" data-wait="dimmed" aria-pressed="false">خفتت</button>
+                <button type="button" class="btn" data-wait="locked" aria-pressed="false">أُقفلت</button>
+            </div>
+        </div>
+        <p class="result" id="wait-result" role="status">لم يُختبر بعد.</p>
+        <div class="swap reserved end">
+            <button type="button" class="btn" id="wait-done" data-probe="wait-done" hidden>انتهى الانتظار</button>
+            <button type="button" class="btn" id="wait-again" data-probe="wait-again" hidden>انتظارٌ آخر</button>
+        </div>
+    </section>
+
+    <!-- ١٢: النتيجة -->
     <section class="sec" data-section="verdict" hidden>
         <p class="verdict" id="verdict" role="status"></p>
         <div class="row">
-            <button type="button" class="btn" id="share" data-probe="share">جرّب المشاركة</button>
             <button type="button" class="btn" id="copy" data-probe="copy">انسخ النتيجة</button>
         </div>
         <table class="checks">
@@ -132,7 +174,15 @@
         </table>
     </section>
 
-    <!-- ١٠: التفاصيل -->
+    <!-- ١٣: المنصّة — التفعيل والانتظار -->
+    <section class="sec" data-section="platform" hidden>
+        <table class="checks">
+            <thead><tr><th scope="col">الفحص</th><th scope="col">النتيجة</th></tr></thead>
+            <tbody id="checks-platform"></tbody>
+        </table>
+    </section>
+
+    <!-- ١٤: التفاصيل -->
     <section class="sec" data-section="details" hidden>
         <table class="checks">
             <thead><tr><th scope="col">الملاحظة</th><th scope="col">القيمة</th></tr></thead>

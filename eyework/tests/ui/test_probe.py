@@ -7,9 +7,11 @@
 
 from __future__ import annotations
 
+import io
 import re
 
 import pytest
+from PIL import Image
 
 
 @pytest.fixture
@@ -22,7 +24,7 @@ def probe(page_factory, server):
 
 
 def _section(page, name):
-    for _ in range(12):
+    for _ in range(20):
         if page.locator(f".sec[data-section='{name}']").is_visible():
             return
         page.locator("#next").click()
@@ -35,6 +37,15 @@ def test_nothing_leaves_the_device(probe, server):
     _section(probe, "activation")
     for target in ("t44", "t56", "t72", "t96"):
         probe.locator(f"[data-probe='{target}']").click()
+    # واجهات المنصّة الحقيقية في المتصفّح، بلا بدائل: الملفّان من بايتاتٍ في الصفحة.
+    _section(probe, "apis")
+    for button in ("#api-copy", "#api-wake", "#api-share"):
+        probe.locator(button).click()
+    _section(probe, "pages")
+    probe.locator("#api-text").click()
+    _section(probe, "wait")
+    probe.locator("#wait-start").click()
+    probe.locator("#wait-done").click()
     _section(probe, "verdict")
     probe.locator("#copy").click()
     assert probe.requests[loaded:] == []
@@ -90,7 +101,7 @@ def _rows(page, table):
 def _summary(page) -> dict[str, str]:
     """
     نصّ «انسخ النتيجة» كما يلصقه المختبِر في جدول البوابة: كل فحصٍ بمفتاحه،
-    وسطور الرأس بأسمائها، والأحداث تحت «events».
+    وسطور الرأس بأسمائها، والمحاولات تحت «attempts»، والأحداث تحت «events».
     """
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     _section(page, "verdict")
@@ -98,7 +109,8 @@ def _summary(page) -> dict[str, str]:
     page.wait_for_function("() => document.getElementById('copy').textContent === 'نُسخت النتيجة'")
     text = page.evaluate("() => navigator.clipboard.readText()")
     head, events = text.split("آخر الأحداث:", 1)
-    found = {"events": events}
+    head, _, attempts = head.partition("المحاولات:")
+    found = {"events": events, "attempts": attempts}
     for line in head.splitlines():
         if " · " in line:
             key, rest = line.split(" · ", 1)
@@ -338,6 +350,222 @@ def test_a_full_run_still_fits_the_smallest_window(page_factory, server):
     _section(page, "rearm")
     page.locator("#rearm-a").click()
     page.locator("#rearm-b").click()
-    for section in ("verdict", "details"):
+    # أطول ما تكتبه أقسام المنصّة: خطأٌ باسمه، وانتظارٌ خُفيت فيه الصفحة.
+    _stub(page, share="NotAllowedError")
+    _section(page, "apis")
+    for button in ("#api-copy", "#api-wake", "#api-share"):
+        page.locator(button).click()
+    page.wait_for_function("() => document.getElementById('api-results').textContent.includes('NotAllowedError')")
+    assert not page.evaluate(_OVERFLOWS), "apis"
+    _section(page, "pages")
+    page.locator("#api-text").click()
+    page.locator("[data-pages='no']").click()
+    assert not page.evaluate(_OVERFLOWS), "pages"
+    _section(page, "wait")
+    page.locator("#wait-start").click()
+    page.wait_for_function("() => window.__sentinel")
+    page.evaluate("() => window.__sentinel.dispatchEvent(new Event('release'))")
+    page.locator("#wait-done").click()
+    page.locator("[data-wait='dimmed']").click()
+    assert not page.evaluate(_OVERFLOWS), "wait"
+    for section in ("verdict", "platform", "details"):
         _section(page, section)
         assert not page.evaluate(_OVERFLOWS), section
+
+
+# ── التفعيل وواجهات المنصّة ─────────────────────────────────────────────
+
+#: بدائل الاختبار لواجهات المنصّة: كلٌّ يسجّل عند استدعائه هل كان التفعيل قائماً،
+#: ويفشل مرةً واحدة باسم الخطأ إن طُلب. الحافظة تبقى صالحةً لـ«انسخ النتيجة».
+_STUBS = """(failures) => {
+    const calls = [];
+    window.__calls = calls;
+    const active = () => navigator.userActivation.isActive;
+    const once = (api) => {
+        const name = failures[api];
+        failures[api] = null;
+        return name ? Promise.reject(new DOMException('stub', name)) : null;
+    };
+    let clipboard = '';
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+        writeText: (text) => {
+            calls.push({ api: 'copy', active: active(), text });
+            return once('copy') || Promise.resolve().then(() => { clipboard = text; });
+        },
+        readText: () => Promise.resolve(clipboard),
+    } });
+    Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: {
+        request: (type) => {
+            calls.push({ api: 'wake', active: active(), type });
+            const sentinel = new EventTarget();
+            sentinel.released = false;
+            sentinel.release = () => {
+                sentinel.released = true;
+                calls.push({ api: 'release' });
+                sentinel.dispatchEvent(new Event('release'));
+                return Promise.resolve();
+            };
+            window.__sentinel = sentinel;
+            return once('wake') || Promise.resolve(sentinel);
+        },
+    } });
+    Object.defineProperty(navigator, 'canShare', { configurable: true,
+        value: (data) => Boolean(data.files && data.files.length) });
+    Object.defineProperty(navigator, 'share', { configurable: true, value: (data) => {
+        const file = data.files[0];
+        const call = { api: 'share', active: active(), name: file.name, type: file.type };
+        calls.push(call);
+        return file.arrayBuffer().then((buffer) => {
+            call.bytes = Array.from(new Uint8Array(buffer));
+            return once('share');
+        });
+    } });
+}"""
+
+#: يقدّم زمن ضغطة «انتهى الانتظار» ثوانيَ: لا يُنتظر 210 ثوانٍ في اختبار، والصفحة
+#: لا تقرأ الزمن إلا من `event.timeStamp`.
+_LATER = """(seconds) => window.addEventListener('click', (event) => {
+    if (event.target.id === 'wait-done') {
+        Object.defineProperty(event, 'timeStamp', { value: event.timeStamp + seconds * 1000 });
+    }
+}, { capture: true })"""
+
+
+def _stub(page, **failures):
+    page.evaluate(_STUBS, failures)
+
+
+def _calls(page) -> list[dict]:
+    return page.evaluate("() => window.__calls")
+
+
+def test_each_platform_api_runs_inside_its_own_press(probe):
+    """
+    زرٌّ لكل واجهة، والاستدعاء داخل الضغطة والتفعيل قائم: هذا ما تشترطه WebKit
+    للنسخ والمشاركة وأول طلبٍ لإبقاء الشاشة مضاءة. ولا مؤقّت في أيٍّ منها.
+    """
+    _stub(probe)
+    _section(probe, "apis")
+    for button in ("#api-copy", "#api-wake", "#api-share"):
+        probe.locator(button).click()
+    probe.wait_for_function("() => window.__calls.some((call) => call.bytes)")
+    calls = {call["api"]: call for call in _calls(probe)}
+    assert calls["copy"]["active"] and calls["wake"]["active"] and calls["share"]["active"], calls
+    assert calls["wake"]["type"] == "screen" and "release" in calls, calls
+    shared = calls["share"]
+    assert (shared["name"], shared["type"]) == ("probe.jpg", "image/jpeg")
+    assert Image.open(io.BytesIO(bytes(shared["bytes"]))).format == "JPEG"
+    shown = probe.inner_text("#api-results")
+    assert shown.count("ok، موثوقة: نعم، التفعيل قائم: نعم") == 3, shown
+    found = _summary(probe)
+    for key in ("copy", "wake", "share"):
+        assert found[key].split(": ", 1)[1].startswith("PASS"), found[key]
+    assert "share gaze/snap-? ok isTrusted=true userActivation=true" in found["attempts"]
+    assert probe.evaluate("() => window.__eyework.timers") == []
+
+
+def test_a_synthetic_press_is_not_a_users_press(probe):
+    """
+    نقرةٌ من شيفرة (`element.click()`) ليست ضغطة مستخدم فلا تنجح، وإن نجح النسخ.
+    والتفعيل يُقرأ كما هو: قد يبقى قائماً من ضغطةٍ حقيقيةٍ قبلها بثوانٍ.
+    """
+    _stub(probe)
+    _section(probe, "apis")
+    probe.locator("#api-copy").evaluate("(button) => button.click()")
+    probe.wait_for_function("() => window.__calls.length === 1")
+    assert "ok، موثوقة: لا" in probe.inner_text("#api-results")
+    assert _summary(probe)["copy"].split(": ", 1)[1].startswith("FAIL (ok، موثوقة: لا")
+
+
+@pytest.mark.parametrize(("api", "error", "status"), [
+    ("share", "NotAllowedError", "FAIL"),
+    ("share", "AbortError", "INFO"),
+    ("wake", "NotAllowedError", "FAIL"),
+    ("copy", "NotAllowedError", "FAIL"),
+])
+def test_a_refused_api_is_recorded_by_its_error(probe, api, error, status):
+    _stub(probe, **{api: error})
+    _section(probe, "apis")
+    probe.locator(f"#api-{api}").click()
+    probe.wait_for_function("(name) => document.getElementById('api-results').textContent.includes(name)", arg=error)
+    row = _summary(probe)[api]
+    assert row.split(": ", 1)[1].startswith(f"{status} ({error}"), row
+
+
+def test_touch_presses_never_pass_the_platform_checks(probe):
+    """كما في الضغط: الحكم من ضغطات «بالنظر» وحدها، والباقي في قائمة المحاولات."""
+    _stub(probe)
+    _choose(probe, "mode", "touch")
+    _section(probe, "apis")
+    probe.locator("#api-copy").click()
+    probe.wait_for_function("() => window.__calls.length === 1")
+    found = _summary(probe)
+    assert found["copy"].split(": ", 1)[1].startswith("NOT_RUN"), found["copy"]
+    assert "copy touch/snap-? ok isTrusted=true" in found["attempts"]
+
+
+def test_the_pages_answer_belongs_to_a_text_share(probe):
+    """لا جواب قبل مشاركة؛ والملفّ نصٌّ عربي بترميز UTF-8 وعلامته، مبنيٌّ في الصفحة."""
+    _stub(probe)
+    _section(probe, "pages")
+    assert probe.locator("[data-pages='yes']").is_disabled()
+    probe.locator("#api-text").click()
+    probe.wait_for_function("() => window.__calls.some((call) => call.bytes)")
+    shared = next(call for call in _calls(probe) if call["api"] == "share")
+    assert (shared["name"], shared["type"]) == ("probe.txt", "text/plain")
+    text = bytes(shared["bytes"])
+    assert text.startswith(b"\xef\xbb\xbf") and "فحص الإدخال" in text.decode("utf-8")
+    probe.locator("[data-pages='yes']").click()
+    assert probe.locator("[data-pages='yes']").get_attribute("aria-pressed") == "true"
+    found = _summary(probe)
+    assert found["pages"].split(": ", 1)[1].startswith("INFO (ظهر"), found["pages"]
+    assert "pages=yes" in found["attempts"]
+
+
+@pytest.mark.parametrize(("seconds", "answer", "status"), [
+    (210, "on", "PASS"),
+    (0, "on", "INFO"),
+    (210, "dimmed", "INFO"),
+    (0, "locked", "FAIL"),
+])
+def test_the_long_wait(probe, seconds, answer, status):
+    """
+    القفل يُطلب داخل الضغطة ويُفلت عند «انتهى»؛ المدّة من `event.timeStamp`؛ ولا
+    ينجح إلا ما بقي مضاءً 200 ثانية فأكثر، ولا يُغتفر قفلُ الشاشة مهما قصر الانتظار.
+    """
+    _stub(probe)
+    probe.evaluate(_LATER, seconds)
+    _section(probe, "wait")
+    probe.locator("#wait-start").click()
+    probe.wait_for_function("() => document.getElementById('wait-result').textContent.includes('ok')")
+    assert probe.locator("#wait-start").is_hidden() and probe.locator("#wait-answers").is_hidden()
+    probe.locator("#wait-done").click()
+    assert [call["api"] for call in _calls(probe)] == ["wake", "release"]
+    assert _calls(probe)[0]["active"]
+    assert probe.locator("#wait-again").is_hidden()
+    probe.locator(f"[data-wait='{answer}']").click()
+    assert probe.locator("#wait-again").is_visible()
+    result = probe.inner_text("#wait-result")
+    assert _number(result) == seconds, result
+    row = _summary(probe)["wait"]
+    assert row.split(": ", 1)[1].startswith(status), row
+    assert probe.evaluate("() => window.__eyework.timers") == []
+
+
+def test_a_wait_that_hid_the_page_says_so(probe):
+    """ما تراه الصفحة بنفسها: خُفيت (قُفلت الشاشة أو تُرك التطبيق)، وأُفلت القفل قبل النهاية."""
+    _stub(probe)
+    _section(probe, "wait")
+    probe.locator("#wait-start").click()
+    probe.wait_for_function("() => window.__sentinel")
+    probe.evaluate("""() => {
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        window.__sentinel.dispatchEvent(new Event('release'));
+        delete document.visibilityState;
+    }""")
+    probe.locator("#wait-done").click()
+    probe.locator("[data-wait='on']").click()
+    found = _summary(probe)
+    assert "خُفيت الصفحة" in found["wait"] and "أُفلت القفل قبل النهاية" in found["wait"], found["wait"]
+    assert "hidden=true releasedEarly=true answer=on" in found["attempts"]

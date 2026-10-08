@@ -38,6 +38,27 @@ const SNAP = { on: 'مُفعَّل', off: 'مُعطَّل' };
 const IOS_VERSION = /^\d{2}(?:\.\d{1,2}){0,2}$/;
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 const DIGITS = '٠١٢٣٤٥٦٧٨٩';
+// المحاولات في الذاكرة وحدها، وحدٌّ لعددها كحدّ السجلّ.
+const ATTEMPT_CAP = 200;
+
+// صورة JPEG بلونٍ واحد (64×64) مكتوبةٌ هنا بايتاتٍ: CSP الصفحة تمنع جلب أيّ ملف
+// (connect-src 'none')، والتطبيق نفسه يشارك صورة JPEG.
+const SHARE_JPEG = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwg'
+    + 'JC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIy'
+    + 'MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCABAAEADASIAAhEBAxEB/8QA'
+    + 'FQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFgEBAQEAAAAAAAAAAAAA'
+    + 'AAAAAAQF/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AiwDUSAAAAAAAAAAAAAAAAAAA'
+    + 'AAAAAAAAAAAP/9k=';
+// نصٌّ عربي بعلامة ترتيب البايتات في أوّله، احتياطاً: Apple لا توثّق هل يُكتشف
+// ترميز UTF-8 تلقائياً في ملفٍّ نصّي يُفتح، بالعلامة أو بدونها.
+const SHARE_TEXT = '\uFEFFفحص الإدخال: نصٌّ عربيٌّ قصير لاختبار المشاركة.\n';
+const COPY_TEXT = 'فحص الإدخال: اختبار النسخ';
+// أطول ما تستغرقه كتابة النص في التطبيق (copywriter.py)؛ وانتظارٌ أقصر منه لا يُثبت شيئاً.
+const WAIT_SECONDS = 200;
+const WAIT_ANSWERS = { on: 'بقيت مضاءة', dimmed: 'خفتت', locked: 'أُقفلت' };
+const API_NAMES = {
+    copy: 'النسخ', wake: 'إبقاء الشاشة مضاءة', share: 'مشاركة صورة', text: 'مشاركة ملفٍّ نصّي',
+};
 
 const state = {
     mode: 'gaze',
@@ -57,8 +78,19 @@ const state = {
     check: null,
     dialog: { opened: false, closed: false },
     text: { focusedAt: null, result: null },
-    share: null,
+    // كل ضغطةٍ على زرّ واجهةٍ أو انتظار: الطريقة وحالة «الانتقال إلى العنصر» عندها،
+    // وهل كانت موثوقة وهل كان التفعيل قائماً، وما انتهت إليه.
+    attempts: [],
+    // الانتظار الجاري وقفل الشاشة الذي يمسكه.
+    waiting: null,
+    waitLock: null,
     navClicks: [],
+};
+
+// الملفّان يُبنيان عند التحميل من بايتاتٍ في الصفحة، فلا يسبق المشاركةَ شيءٌ في الضغطة.
+const FILES = {
+    image: new File([Uint8Array.from(atob(SHARE_JPEG), (c) => c.charCodeAt(0))], 'probe.jpg', { type: 'image/jpeg' }),
+    text: new File([new TextEncoder().encode(SHARE_TEXT)], 'probe.txt', { type: 'text/plain' }),
 };
 
 const toArabic = (n) => String(n).replace(/[0-9]/g, (d) => DIGITS[d]);
@@ -185,7 +217,7 @@ function showSection(index) {
     $('step-label').textContent = `${toArabic(state.section + 1)} من ${toArabic(all.length)}`;
     $('prev').disabled = state.section === 0;
     $('next').disabled = state.section === all.length - 1;
-    if (['verdict', 'details'].includes(all[state.section].dataset.section)) {
+    if (['verdict', 'platform', 'details'].includes(all[state.section].dataset.section)) {
         renderVerdict();
     }
     // التركيز على العنوان لا على زر: التركيز ليس تفعيلاً، لكنه يعلن القسم.
@@ -327,18 +359,236 @@ function onTextDone(event) {
         : 'لم تطابق الكلمة «نعم».';
 }
 
-async function onShare() {
-    if (!navigator.share) {
-        state.share = 'unsupported';
-    } else {
-        try {
-            await navigator.share({ title: 'فحص الإدخال', text: 'اختبار المشاركة' });
-            state.share = 'shared';
-        } catch (error) {
-            state.share = error && error.name ? error.name : 'error';
+/* ── التفعيل: النسخ وإبقاء الشاشة مضاءة والمشاركة ─────────────────────── */
+
+/*
+ * في WebKit يشترط النسخ ومشاركة ملفٍّ وأولُ طلبٍ لإبقاء الشاشة مضاءة «تفعيلاً
+ * عابراً» من المستخدم: خمس ثوانٍ بعد الضغطة، والمشاركة تستهلكه. فكلٌّ منها في زرٍّ
+ * وحده، ويُقرأ عند الدخول إلى المعالج هل الضغطة موثوقة وهل التفعيل قائم، ثم
+ * يُستدعى دون await قبله. `navigator.userActivation` في Safari على iOS منذ 16.4،
+ * وقبله يُسجَّل «غير متاح».
+ */
+function attempt(kind, event) {
+    const entry = {
+        kind,
+        mode: state.mode,
+        snap: state.snap,
+        trusted: event.isTrusted,
+        active: navigator.userActivation ? navigator.userActivation.isActive : null,
+        outcome: 'pending',
+    };
+    if (state.attempts.length >= ATTEMPT_CAP) {
+        state.attempts.shift();
+    }
+    state.attempts.push(entry);
+    return entry;
+}
+
+const failure = (error) => (error && error.name ? error.name : 'error');
+
+async function onApiCopy(event) {
+    const entry = attempt('copy', event);
+    try {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            entry.outcome = 'unsupported';
+        } else {
+            await navigator.clipboard.writeText(COPY_TEXT);
+            entry.outcome = 'ok';
+        }
+    } catch (error) {
+        entry.outcome = failure(error);
+    }
+    renderApis();
+}
+
+async function onApiWake(event) {
+    const entry = attempt('wake', event);
+    try {
+        if (!navigator.wakeLock) {
+            entry.outcome = 'unsupported';
+        } else {
+            const lock = await navigator.wakeLock.request('screen');
+            await lock.release();
+            entry.outcome = 'ok';
+        }
+    } catch (error) {
+        entry.outcome = failure(error);
+    }
+    renderApis();
+}
+
+async function shareFile(kind, file, event) {
+    const entry = attempt(kind, event);
+    const data = { files: [file] };
+    try {
+        if (!navigator.share) {
+            entry.outcome = 'unsupported';
+        } else if (navigator.canShare && !navigator.canShare(data)) {
+            entry.outcome = 'no-files';
+        } else {
+            await navigator.share(data);
+            entry.outcome = 'ok';
+        }
+    } catch (error) {
+        entry.outcome = failure(error);
+    }
+    renderApis();
+}
+
+function latest(kind, mode) {
+    for (let i = state.attempts.length - 1; i >= 0; i -= 1) {
+        const entry = state.attempts[i];
+        if (entry.kind === kind && (!mode || entry.mode === mode)) {
+            return entry;
         }
     }
-    renderVerdict();
+    return null;
+}
+
+const yesNo = (value) => {
+    if (value === null) {
+        return 'غير متاح';
+    }
+    return value ? 'نعم' : 'لا';
+};
+
+// «موثوقة» هي `isTrusted`، و«التفعيل قائم» هي `navigator.userActivation.isActive`.
+function activationText(entry) {
+    return `${entry.outcome}، موثوقة: ${yesNo(entry.trusted)}، التفعيل قائم: ${yesNo(entry.active)}`;
+}
+
+function renderApis() {
+    const list = $('api-results');
+    list.replaceChildren();
+    ['copy', 'wake', 'share'].forEach((kind) => {
+        const entry = latest(kind);
+        const term = document.createElement('dt');
+        term.textContent = API_NAMES[kind];
+        const detail = document.createElement('dd');
+        detail.textContent = entry ? activationText(entry) : 'لم يُختبر';
+        list.append(term, detail);
+    });
+
+    // جواب Pages للمشاركة الأخيرة وحدها: لا جواب قبل مشاركة.
+    const text = latest('text');
+    $('pages-result').textContent = text ? activationText(text) : 'لم يُختبر بعد.';
+    document.querySelectorAll('[data-pages]').forEach((button) => {
+        button.disabled = !text || text.outcome === 'pending';
+        button.setAttribute('aria-pressed', String(Boolean(text) && text.pages === button.dataset.pages));
+    });
+}
+
+function onPages(event) {
+    const text = latest('text');
+    if (text) {
+        text.pages = event.currentTarget.dataset.pages;
+    }
+    renderApis();
+}
+
+/* ── الانتظار الطويل ─────────────────────────────────────────────────── */
+
+/*
+ * يُطلب قفل الشاشة داخل الضغطة كما يطلبه التطبيق، ثم ينظر المختبِر إلى الشاشة
+ * نحو 210 ثوانٍ (الكتابة تنتهي في 200 ثانية على الأكثر). لا مؤقّت: المدّة من
+ * `event.timeStamp` للضغطتين. وما تراه الصفحة بنفسها يُسجَّل مع جواب المختبِر:
+ * هل خُفيت الصفحة، وهل أُفلت القفل قبل نهاية الانتظار — وWebKit يُفلته حين
+ * تُخفى الصفحة. ولا يُطلب من جديد هنا: المقيس قفلٌ واحد.
+ */
+async function onWaitStart(event) {
+    const entry = attempt('wait', event);
+    Object.assign(entry, {
+        startedAt: event.timeStamp, seconds: null, hidden: false, releasedEarly: false, answer: null,
+    });
+    state.waiting = entry;
+    renderWait();
+    try {
+        if (!navigator.wakeLock) {
+            entry.outcome = 'unsupported';
+        } else {
+            const lock = await navigator.wakeLock.request('screen');
+            entry.outcome = 'ok';
+            if (state.waiting !== entry) {
+                // انتهى الانتظار قبل أن يصل القفل.
+                lock.release().catch(() => {});
+            } else {
+                state.waitLock = lock;
+                lock.addEventListener('release', () => {
+                    if (state.waiting === entry) {
+                        entry.releasedEarly = true;
+                        renderWait();
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        entry.outcome = failure(error);
+    }
+    renderWait();
+}
+
+function onWaitDone(event) {
+    const entry = state.waiting;
+    if (!entry) {
+        return;
+    }
+    entry.seconds = Math.round((event.timeStamp - entry.startedAt) / 1000);
+    state.waiting = null;
+    const lock = state.waitLock;
+    state.waitLock = null;
+    if (lock && !lock.released) {
+        lock.release().catch(() => {});
+    }
+    renderWait();
+}
+
+function onWaitAnswer(event) {
+    const entry = latest('wait');
+    if (entry && entry.seconds !== null) {
+        entry.answer = event.currentTarget.dataset.wait;
+    }
+    renderWait();
+}
+
+function onVisibility() {
+    if (state.waiting && document.visibilityState === 'hidden') {
+        state.waiting.hidden = true;
+    }
+}
+
+function waitText(entry) {
+    const parts = [`${toArabic(entry.seconds)} ثانية`, `القفل: ${entry.outcome}`];
+    if (entry.hidden) {
+        parts.push('خُفيت الصفحة');
+    }
+    if (entry.releasedEarly) {
+        parts.push('أُفلت القفل قبل النهاية');
+    }
+    return parts.join('، ');
+}
+
+function renderWait() {
+    const entry = latest('wait');
+    const running = Boolean(state.waiting);
+    const finished = Boolean(entry) && entry.seconds !== null;
+    // الخانة العليا: «ابدأ» ثم الأجوبة؛ والسفلى: «انتهى» ثم «انتظارٌ آخر» بعد الجواب.
+    $('wait-start').hidden = Boolean(entry);
+    $('wait-answers').hidden = !finished;
+    $('wait-done').hidden = !running;
+    $('wait-again').hidden = !(finished && entry.answer);
+    document.querySelectorAll('[data-wait]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(finished && entry.answer === button.dataset.wait));
+    });
+    let text = 'لم يُختبر بعد.';
+    if (running) {
+        const lock = entry.outcome === 'pending' ? 'يُطلب إبقاء الشاشة مضاءة' : `إبقاء الشاشة مضاءة: ${entry.outcome}`;
+        text = `بدأ الانتظار (${lock}). انظر إلى الشاشة، ثم اضغط «انتهى الانتظار».`;
+    } else if (finished) {
+        text = entry.answer
+            ? `${WAIT_ANSWERS[entry.answer]} — ${waitText(entry)}.`
+            : `${waitText(entry)}. ماذا حدث للشاشة؟`;
+    }
+    $('wait-result').textContent = text;
 }
 
 /* ── النتيجة ────────────────────────────────────────────────────────── */
@@ -431,10 +681,59 @@ function checks() {
             ? (state.text.result.matched ? 'PASS' : 'FAIL') : 'NOT_RUN',
             state.text.result && state.text.result.seconds !== null
                 ? `${toArabic(state.text.result.seconds)} ثانية` : '—'],
-        ['share', 'المشاركة', state.share === null ? 'NOT_RUN'
-            : (state.share === 'shared' ? 'PASS' : 'INFO'), state.share || '—'],
         ['standalone', 'وضع الشاشة الرئيسية', 'INFO', environment()[0][1]],
+        ['copy', 'النسخ بالنظر', ...apiCheck('copy')],
+        ['wake', 'إبقاء الشاشة مضاءة بالنظر', ...apiCheck('wake')],
+        ['share', 'مشاركة صورة بالنظر', ...apiCheck('share')],
+        ['pages', 'ظهر Pages لملفٍّ نصّي (اختياري)', ...pagesCheck()],
+        ['wait', 'الشاشة في انتظارٍ طويل', ...waitCheck()],
     ];
+}
+
+/*
+ * الحكم من آخر ضغطةٍ بالنظر لكل واجهة. ينجح ما تمّ من ضغطةٍ موثوقة، ويلاحَظ ما
+ * غاب عن المتصفّح أو أُغلقت لوحته (AbortError)، ويفشل ما سواه.
+ */
+function apiCheck(kind) {
+    const entry = latest(kind, 'gaze');
+    if (!entry || entry.outcome === 'pending') {
+        return ['NOT_RUN', '—'];
+    }
+    let status = 'FAIL';
+    if (entry.outcome === 'ok' && entry.trusted) {
+        status = 'PASS';
+    } else if (['unsupported', 'no-files', 'AbortError'].includes(entry.outcome)) {
+        status = 'INFO';
+    }
+    return [status, activationText(entry)];
+}
+
+function pagesCheck() {
+    const entry = latest('text', 'gaze');
+    if (!entry || !entry.pages) {
+        return ['NOT_RUN', '—'];
+    }
+    return ['INFO', `${entry.pages === 'yes' ? 'ظهر' : 'لم يظهر'} — ${activationText(entry)}`];
+}
+
+/*
+ * الشاشة مضاءة طوال 200 ثانية فأكثر: نجح. أُقفلت: لم ينجح، مهما قصر الانتظار.
+ * خفتت، أو انتظارٌ أقصر من 200 ثانية، أو بلا جواب: ملاحظة.
+ */
+function waitCheck() {
+    const entry = latest('wait', 'gaze');
+    if (!entry || entry.seconds === null) {
+        return ['NOT_RUN', entry ? 'جارٍ' : '—'];
+    }
+    const detail = `${entry.answer ? `${WAIT_ANSWERS[entry.answer]}، ` : ''}${waitText(entry)}`
+        + `، موثوقة: ${yesNo(entry.trusted)}، التفعيل قائم: ${yesNo(entry.active)}`;
+    let status = 'INFO';
+    if (entry.answer === 'locked') {
+        status = 'FAIL';
+    } else if (entry.answer === 'on' && entry.seconds >= WAIT_SECONDS) {
+        status = 'PASS';
+    }
+    return [status, detail];
 }
 
 function rearmAnswer(moved) {
@@ -446,9 +745,10 @@ function rearmAnswer(moved) {
 
 const LABELS = { PASS: 'نجح', FAIL: 'لم ينجح', INFO: 'ملاحظة', NOT_RUN: 'لم يُختبر' };
 
-// الفحوص التي تحكم القرار تُعرض مع النتيجة؛ والملاحظات في القسم التالي، فلا
-// يحتاج أيّ قسمٍ إلى تمرير.
-const CORE = ['activation', 'rearm', 'stepper', 'scroll', 'file', 'typing', 'share'];
+// الفحوص التي تحكم القرار تُعرض مع النتيجة؛ وفحوص المنصّة في قسمٍ يليها،
+// والملاحظات في قسمٍ ثالث، فلا يحتاج أيّ قسمٍ إلى تمرير.
+const CORE = ['activation', 'rearm', 'stepper', 'scroll', 'file', 'typing'];
+const PLATFORM = ['copy', 'wake', 'share', 'pages', 'wait'];
 
 function fillTable(body, rows) {
     body.replaceChildren();
@@ -466,7 +766,8 @@ function fillTable(body, rows) {
 function renderVerdict() {
     const rows = checks();
     fillTable($('checks-core'), rows.filter(([key]) => CORE.includes(key)));
-    fillTable($('checks-detail'), rows.filter(([key]) => !CORE.includes(key)));
+    fillTable($('checks-platform'), rows.filter(([key]) => PLATFORM.includes(key)));
+    fillTable($('checks-detail'), rows.filter(([key]) => !CORE.includes(key) && !PLATFORM.includes(key)));
 
     const activation = rows[0][2];
     const verdict = $('verdict');
@@ -494,11 +795,30 @@ function summary() {
     lines.push(`نقاط اللمس: ${navigator.maxTouchPoints}`, `المتصفّح: ${navigator.userAgent}`);
     lines.push('');
     rows.forEach(([key, name, status, detail]) => lines.push(`${key} · ${name}: ${status}${detail ? ` (${detail})` : ''}`));
+    // كل محاولة، بكل طريقة: الجدول يحكم بآخر ضغطةٍ بالنظر وحدها.
+    lines.push('', 'المحاولات:');
+    state.attempts.forEach((entry) => lines.push(attemptLine(entry)));
     lines.push('', 'آخر الأحداث:');
     state.log.slice(-50).forEach((row) => lines.push(
         `${row.mode}/snap-${row.snap || '?'} ${row.section} ${row.probe} ${row.type} ${row.pointerType} ${row.trusted ? 'T' : 'S'} ${row.x},${row.y} Δ${row.dx},${row.dy} @${row.t}`,
     ));
     return lines.join('\n');
+}
+
+function attemptLine(entry) {
+    const flag = (value) => (value === null ? '?' : String(value));
+    const fields = [
+        `${entry.kind} ${entry.mode}/snap-${entry.snap || '?'}`, entry.outcome,
+        `isTrusted=${flag(entry.trusted)}`, `userActivation=${flag(entry.active)}`,
+    ];
+    if (entry.kind === 'text') {
+        fields.push(`pages=${entry.pages || '?'}`);
+    }
+    if (entry.kind === 'wait') {
+        fields.push(`seconds=${entry.seconds === null ? '?' : entry.seconds}`, `hidden=${entry.hidden}`,
+            `releasedEarly=${entry.releasedEarly}`, `answer=${entry.answer || '?'}`);
+    }
+    return fields.join(' ');
 }
 
 async function onCopy() {
@@ -560,12 +880,23 @@ function init() {
         }
     });
     $('text-done').addEventListener('click', onTextDone);
-    $('share').addEventListener('click', onShare);
+    $('api-copy').addEventListener('click', onApiCopy);
+    $('api-wake').addEventListener('click', onApiWake);
+    $('api-share').addEventListener('click', (event) => shareFile('share', FILES.image, event));
+    $('api-text').addEventListener('click', (event) => shareFile('text', FILES.text, event));
+    document.querySelectorAll('[data-pages]').forEach((button) => button.addEventListener('click', onPages));
+    $('wait-start').addEventListener('click', onWaitStart);
+    $('wait-again').addEventListener('click', onWaitStart);
+    $('wait-done').addEventListener('click', onWaitDone);
+    document.querySelectorAll('[data-wait]').forEach((button) => button.addEventListener('click', onWaitAnswer));
+    document.addEventListener('visibilitychange', onVisibility);
     $('copy').addEventListener('click', onCopy);
     $('next').addEventListener('click', (event) => navigate(event, 1));
     $('prev').addEventListener('click', (event) => navigate(event, -1));
 
     renderEnvironment();
+    renderApis();
+    renderWait();
     showSection(0);
 }
 
