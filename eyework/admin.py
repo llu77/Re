@@ -22,7 +22,8 @@
 
 **الاحتفاظ.** `purge` يُشغَّل يومياً من مجدول النظام: الحملة المعتمدة أو
 الملغاة تُحذف بعد تسعين يوماً، وغير المنتهية بعد ثلاثين يوماً من آخر تعديل،
-والجلسات ورموز التفعيل والتسجيل بعد ثلاثين يوماً من انتهائها أو استعمالها.
+والجلسات ورموز التفعيل والتسجيل بعد ثلاثين يوماً من انتهائها أو استعمالها،
+وتحدّيات مفاتيح المرور حين تنتهي مهلتها (خمس دقائق).
 
 **التسجيل برابط.** `issue-signup-codes` يطبع روابط تسجيلٍ لا تُربط ببريد، كلٌّ
 لحسابٍ واحد. يفتح صاحبه الرابط فيكتب اسمه وتاريخ ميلاده وبريده وكلمة مروره
@@ -117,6 +118,8 @@ _PURGE_SIGNUP_CODES = """
 DELETE FROM signup_codes
  WHERE expires_at < now() - interval '30 days' OR used_at < now() - interval '30 days'
 """
+#: التحدّي لا يُقبل بعد مهلته ولا يُقرأ لشيء: لا سبب لبقائه.
+_PURGE_PASSKEY_CHALLENGES = "DELETE FROM passkey_challenges WHERE expires_at < now()"
 
 
 class AdminError(Exception):
@@ -297,7 +300,8 @@ def purge() -> dict[str, int]:
     with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
         for name, statement in (("final_campaigns", _PURGE_FINAL), ("idle_campaigns", _PURGE_IDLE),
                                 ("sessions", _PURGE_SESSIONS), ("activation_tokens", _PURGE_TOKENS),
-                                ("signup_codes", _PURGE_SIGNUP_CODES)):
+                                ("signup_codes", _PURGE_SIGNUP_CODES),
+                                ("passkey_challenges", _PURGE_PASSKEY_CHALLENGES)):
             cursor.execute(statement)
             counts[name] = cursor.rowcount
     return counts

@@ -40,6 +40,10 @@ class Limiters:
     login_ip: RateLimiter
     activate_ip: RateLimiter
     register_ip: RateLimiter
+    #: خيارات الدخول بمفتاح المرور والتحقّق منه، لكل عنوان: كل طلب خياراتٍ صفٌّ في القاعدة.
+    passkey_ip: RateLimiter
+    #: خيارات إضافة مفتاحٍ وحفظه، لكل حساب.
+    passkey_add: RateLimiter
     upload: RateLimiter
     mutation: RateLimiter
     image: RateLimiter
@@ -55,6 +59,9 @@ class Limiters:
             # عشرون في الساعة من عنوانٍ واحد تكفي دفعةً تتسجّل من شبكة مركزٍ واحد.
             # والقاعدة تسقف المجموع اليومي للجميع (ew_register).
             register_ip=RateLimiter(RateLimit(20, 3600.0)),
+            # خيارات الدخول تُطلب كلما عُرضت شاشته، ثم التحقّق مرةً لكل ضغطة.
+            passkey_ip=RateLimiter(RateLimit(20, 60.0)),
+            passkey_add=RateLimiter(RateLimit(20, 3600.0)),
             upload=RateLimiter(RateLimit(10, 3600.0)),
             mutation=RateLimiter(RateLimit(120, 60.0)),
             image=RateLimiter(RateLimit(120, 60.0)),

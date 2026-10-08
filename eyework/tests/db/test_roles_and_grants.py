@@ -35,11 +35,14 @@ ALL_TABLES = frozenset({
     "campaigns", "generation_attempts", "copy_versions", "campaign_images",
     # 0005: المهن ورموز التسجيل — للمالك وحده؛ الويب يصلهما عبر دوالّ.
     "professions", "signup_codes",
+    # 0006: مفاتيح المرور وتحدّياتها — هويةٌ كالجلسات.
+    "passkeys", "passkey_challenges",
 })
 READABLE = frozenset({
     "campaign_transition", "campaigns", "generation_attempts", "copy_versions", "campaign_images",
 })
-IDENTITY_TABLES = ("public.users", "public.sessions", "public.activation_tokens")
+IDENTITY_TABLES = ("public.users", "public.sessions", "public.activation_tokens",
+                   "public.passkeys", "public.passkey_challenges")
 COLUMN_WRITES = {
     ("campaigns", "INSERT"): {"user_id"},
     # current_version_id: الاستعادة. المحفّز يقصرها على أحدث نسخة أو أساس الحالية.
@@ -60,6 +63,9 @@ APP_FUNCTIONS = frozenset({
     "ew_my_display_name",
     # 0005: التسجيل برمزه وسقفه اليومي، ومهنة صاحب الجلسة، وحذفه حسابه بنفسه.
     "ew_signup_code_usable", "ew_register", "ew_my_profession", "ew_delete_me",
+    # 0006: تحدّي مفتاح المرور، والدخول به، وإضافته لصاحب الجلسة وقراءة مفاتيحه وحده.
+    "ew_passkey_challenge", "ew_passkey_take_challenge", "ew_passkey_lookup", "ew_passkey_signed_in",
+    "ew_passkey_add", "ew_my_passkeys",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
     "ew_current_user", "ew_budget_allowed", "ew_is_billable", "ew_jpeg_has_no_metadata",
 })
@@ -155,6 +161,8 @@ def test_app_holds_no_delete_or_truncate_on_any_table(owner):
     "DELETE FROM sessions",
     "DELETE FROM activation_tokens",
     "DELETE FROM schema_migrations",
+    "DELETE FROM passkeys",
+    "DELETE FROM passkey_challenges",
     "TRUNCATE campaigns",
     "TRUNCATE generation_attempts",
     "TRUNCATE copy_versions",
@@ -164,6 +172,8 @@ def test_app_holds_no_delete_or_truncate_on_any_table(owner):
     "TRUNCATE sessions",
     "TRUNCATE activation_tokens",
     "TRUNCATE schema_migrations",
+    "TRUNCATE passkeys",
+    "TRUNCATE passkey_challenges",
 ])
 def test_app_delete_and_truncate_are_refused(app, two_users, statement):
     """المنح في الكتالوج قد يغيب ويبقى الحذف ممكناً بطريقٍ آخر؛ المحاولة نفسها تُرفض."""
@@ -351,9 +361,16 @@ def test_identity_tables_grant_nothing_beyond_the_owner(owner, table):
                  " VALUES (%s, sha256('forged'::bytea), now() + interval '1 day')"),
     ("activation_tokens", "INSERT INTO activation_tokens (user_id, token_hash, expires_at)"
                           " VALUES (%s, sha256('forged'::bytea), now() + interval '1 hour')"),
+    ("passkeys", "INSERT INTO passkeys (user_id, credential_id, public_key)"
+                 " VALUES (%s, 'forged'::bytea, 'forged'::bytea)"),
+    ("passkey_challenges", "INSERT INTO passkey_challenges (challenge_hash, purpose, user_id, expires_at)"
+                           " VALUES (sha256('forged'::bytea), 'ADD', %s, now() + interval '1 minute')"),
 ])
 def test_app_cannot_insert_into_identity_tables(app, two_users, table, statement):
-    """جلسةٌ يكتبها دور الويب بنفسه دخولٌ بلا كلمة مرور، ورمزٌ يزرعه يستردّ به حساب غيره."""
+    """
+    جلسةٌ يكتبها دور الويب بنفسه دخولٌ بلا كلمة مرور، ورمزٌ يزرعه يستردّ به حساب غيره،
+    ومفتاحٌ يزرعه بلا تحقّقٍ يُدخل صاحبَ المفتاح الخاص إلى أيّ حساب.
+    """
     user = two_users[0]
     as_user(app, user)
     with pytest.raises(psycopg.errors.InsufficientPrivilege) as caught, app.cursor() as cursor:
@@ -365,6 +382,8 @@ def test_app_cannot_insert_into_identity_tables(app, two_users, table, statement
     ("users", "UPDATE users SET is_active = true"),
     ("sessions", "UPDATE sessions SET revoked_at = NULL"),
     ("activation_tokens", "UPDATE activation_tokens SET used_at = NULL"),
+    ("passkeys", "UPDATE passkeys SET sign_count = 0"),
+    ("passkey_challenges", "UPDATE passkey_challenges SET used_at = NULL"),
 ])
 def test_app_cannot_update_identity_tables(app, two_users, table, statement):
     """جلسةٌ مُبطلة تعود، ورمزٌ مستعمل يُفتح ثانية. بلا شرطٍ يقرأ عموداً، فغياب SELECT لا يحجب منحَ UPDATE زائداً."""

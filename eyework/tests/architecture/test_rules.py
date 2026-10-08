@@ -77,6 +77,15 @@ def test_no_other_network_library_in_production_code():
     assert not offenders, f"اتصالٌ خارجي خارج كاتب النصّ: {offenders}"
 
 
+def test_only_the_passkey_module_verifies_passkeys():
+    """
+    التحقّق من مفاتيح المرور في مكتبةٍ واحدة مثبّتة وفي وحدةٍ واحدة: لا تحليلٌ
+    ثانٍ لـCBOR أو COSE يقبل ما ترفضه المكتبة.
+    """
+    importers = sorted(_rel(p) for p in _production_python() if _tops(p) & {"webauthn", "cbor2"})
+    assert importers == ["passkeys.py"]
+
+
 def test_only_the_image_module_decodes_images():
     """`scripts/make_icons.py` يرسم الأيقونات وقت البناء ولا يفكّ صورة مستخدم."""
     importers = sorted(_rel(p) for p in _production_python() if "PIL" in _tops(p))
@@ -207,6 +216,13 @@ def test_nothing_unfinished_in_the_production_path():
 def test_fakes_are_only_imported_by_tests():
     importers = [_rel(p) for p in _production_python() if any("fakes" in m for m in _imports(p))]
     assert not importers, f"الكاتب المصطنع في مسار الإنتاج: {importers}"
+
+
+def test_production_imports_nothing_from_the_tests():
+    """الجهاز المصطنع يوقّع بأيّ أصلٍ وأيّ عدّاد: في مسار الإنتاج يصير مفتاحاً لكل حساب."""
+    importers = [_rel(p) for p in _production_python()
+                 if any(m == "eyework.tests" or m.startswith("eyework.tests.") for m in _imports(p))]
+    assert not importers, f"شيفرة الاختبار في مسار الإنتاج: {importers}"
 
 
 # ── الواجهة ─────────────────────────────────────────────────────────────
