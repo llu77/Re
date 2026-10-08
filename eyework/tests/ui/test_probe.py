@@ -51,6 +51,36 @@ def test_nothing_is_stored_and_no_timer_runs(probe):
     assert probe.evaluate("() => window.__eyework.timers") == []
 
 
+def _rearm_row(page) -> str:
+    _section(page, "verdict")
+    return next(row for row in _rows(page, "checks-core") if "دون تحريك النظر" in row)
+
+
+def test_a_re_press_in_place_reads_as_a_re_press(probe):
+    """الضغط على الثاني في موضع الأول بلا حركة: الإخفاء والإظهار وحدهما ليسا حركة."""
+    _section(probe, "rearm")
+    box = probe.locator("#rearm-a").bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    probe.mouse.move(x, y)
+    probe.mouse.click(x, y)
+    probe.mouse.click(x, y)
+    assert "دون أن يتحرّك النظر" in probe.inner_text("#rearm-result")
+    assert "نعم" in _rearm_row(probe)
+
+
+def test_leaving_the_cell_between_presses_reads_as_movement(probe):
+    _section(probe, "rearm")
+    box = probe.locator("#rearm-a").bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    probe.mouse.move(x, y)
+    probe.mouse.click(x, y)
+    probe.mouse.move(x, box["y"] + box["height"] + 40)
+    probe.mouse.move(x, y)
+    probe.mouse.click(x, y)
+    assert "بعد أن تحرّك النظر" in probe.inner_text("#rearm-result")
+    assert "لا" in _rearm_row(probe).split("دون تحريك النظر", 1)[1]
+
+
 def _rows(page, table):
     return page.locator(f"#{table} tr").all_inner_texts()
 

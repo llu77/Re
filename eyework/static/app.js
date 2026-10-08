@@ -48,6 +48,10 @@ const state = {
     readyBlob: null,
     // الاسم الذي يناديه به المساعد، من /api/me. لا يُرسل إلى النموذج.
     displayName: null,
+    // يزيد مع كل انتقال: ردٌّ وصل بعد انتقالٍ أحدث لا يرسم شاشةً ولا يغيّر حملة.
+    nav: 0,
+    // النسخة التي عُرضت ملاحظتها وحدها لأن الشاشة لم تتّسع لها مع النصّ.
+    noteShownFor: null,
 };
 
 /* ── الشبكة: موضعٌ واحد ─────────────────────────────────────────────── */
@@ -120,21 +124,30 @@ function parentOf(name) {
     }[name] || '#/';
 }
 
+/* الحملة كما هي الآن في الخادم، بلا أثرٍ في الحالة: من طلبها يقرّر إن كان ما زال له. */
+async function fetchCampaign(id) {
+    const result = await api('GET', `/api/campaigns/${id}`);
+    return result.status === 200 ? result.data : null;
+}
+
 async function loadCampaign(id) {
     if (state.campaign && state.campaign.id === id) {
         return state.campaign;
     }
-    const result = await api('GET', `/api/campaigns/${id}`);
-    if (result.status !== 200) {
-        return null;
+    const campaign = await fetchCampaign(id);
+    if (campaign) {
+        state.campaign = campaign;
     }
-    state.campaign = result.data;
-    return state.campaign;
+    return campaign;
 }
 
 async function route() {
+    const nav = ++state.nav;
     // لا شاشة بلا خياراتها: إقلاعٌ فشل ثم دخولٌ ناجح يقرأها هنا قبل أيّ رسم.
     if (!state.choices && !(await loadChoices())) {
+        return;
+    }
+    if (nav !== state.nav) {
         return;
     }
     const hash = location.hash || '#/';
@@ -160,11 +173,18 @@ async function route() {
         go('#/', { replace: true });
         return;
     }
-    const campaign = await loadCampaign(match[1]);
+    const id = match[1];
+    const campaign = state.campaign && state.campaign.id === id ? state.campaign : await fetchCampaign(id);
+    // انتقالٌ أحدث (رجوعٌ أو «حملة جديدة») وقع أثناء القراءة: الشاشة له، والحملة
+    // التي طُلبت لا تصير الحالية — وإلا ذهبت صورةٌ جديدة إلى مسودةٍ أخرى.
+    if (nav !== state.nav) {
+        return;
+    }
     if (!campaign) {
         go('#/', { replace: true });
         return;
     }
+    state.campaign = campaign;
     const sub = match[2];
     const status = campaign.status;
     if (status === 'CANCELLED') {
@@ -213,7 +233,9 @@ async function onLogin(event) {
     state.busy = false;
     if (result.status === 204) {
         $('login-password').value = '';
-        go('#/');
+        // انتقالٌ كامل: لا يبقى في الذاكرة شيءٌ لحسابٍ سابق (الاسم والصفحة)،
+        // ويعرض Safari حفظ كلمة المرور.
+        location.replace('/');
     } else {
         UI.showAlert(section, detail(result));
     }
@@ -277,10 +299,14 @@ function greeting() {
 }
 
 async function renderHome() {
+    const nav = ++state.nav;
     state.campaign = null;
     const section = UI.show('home');
     $('home-greeting').textContent = greeting();
     const result = await api('GET', `/api/campaigns?page=${state.page}`);
+    if (nav !== state.nav) {
+        return;
+    }
     if (result.status !== 200) {
         if (result.status !== 401) {
             UI.showAlert(section, detail(result));
@@ -307,16 +333,26 @@ async function renderHome() {
     });
     $('home-empty').hidden = result.data.items.length > 0 || state.page > 1;
     const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-    // التلميح يظهر حين يتّسع له المكان: ثلاثة صفوفٍ تملأ الشاشة بلا تمرير.
+    // التلميح يظهر حين يتّسع له المكان: صفّان يملآن الشاشة بلا تمرير.
     $('home-install').hidden = standalone || result.data.items.length > 1;
     UI.setButton($('home-older'), { reserved: !result.data.has_more });
     UI.setButton($('home-newer'), { reserved: state.page <= 1 });
 }
 
 async function onLogout() {
-    await api('POST', '/api/auth/logout');
-    state.campaign = null;
-    go('#/login');
+    const section = document.querySelector('.screen:not([hidden])');
+    if (state.busy || UI.alertOpen(section)) {
+        return;
+    }
+    state.busy = true;
+    const result = await api('POST', '/api/auth/logout');
+    state.busy = false;
+    // ملفّ الجلسة لا يمحوه إلا الخادم: خروجٌ لم يصل لم يقع، ويُقال ذلك.
+    if (result.status === 204 || result.status === 401) {
+        location.replace('/');
+        return;
+    }
+    UI.showAlert(section, `لم يتمّ تسجيل الخروج. ${detail(result)}`);
 }
 
 /* ── الصورة ─────────────────────────────────────────────────────────── */
@@ -348,9 +384,14 @@ async function onPhotoChosen(event) {
         return;
     }
     const section = UI.screen('photo');
+    // الصورة لحملة الشاشة الظاهرة كما يسمّيها العنوان، لا لما بقي في الذاكرة.
+    const shown = location.hash.match(/^#\/c\/([0-9a-f-]{36})$/);
+    const campaign = shown && state.campaign && state.campaign.id === shown[1] ? state.campaign : null;
+    if (!campaign && location.hash !== '#/new') {
+        return;
+    }
     state.busy = true;
     $('photo-status').textContent = 'تُرفع الصورة…';
-    const campaign = state.campaign;
     const type = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ? file.type : 'image/jpeg';
     const result = campaign
         ? await api('PUT', `/api/campaigns/${campaign.id}/image?expected_row_version=${campaign.row_version}`,
@@ -358,6 +399,9 @@ async function onPhotoChosen(event) {
         : await api('POST', '/api/campaigns', { raw: file, type });
     state.busy = false;
     $('photo-status').textContent = '';
+    if (section.hidden) {
+        return;
+    }
     if (result.status === 200 || result.status === 201) {
         state.campaign = result.data;
         go(campaignRoute(result.data), { replace: true });
@@ -457,9 +501,41 @@ async function runGeneration(path, json) {
     }
 }
 
+const BUSY_ELSEWHERE = 'يكتب سيمبول نصّ حملةٍ أخرى الآن. حين ينتهي يمكن البدء هنا.';
+
+/* «تحقّق الآن» بعد ردٍّ لم يصل: تُقرأ الحملة، ويبقى الانتظار ما دام الاتصال مقطوعاً. */
+async function onProposalCheck() {
+    const section = UI.screen('proposal');
+    const campaign = state.campaign;
+    if (!campaign || state.busy || UI.alertOpen(section)) {
+        return;
+    }
+    const nav = state.nav;
+    state.busy = true;
+    const result = await api('GET', `/api/campaigns/${campaign.id}`);
+    state.busy = false;
+    if (nav !== state.nav || section.hidden || result.status === 401) {
+        return;
+    }
+    if (result.status === 404) {
+        go('#/', { replace: true });
+        return;
+    }
+    if (result.status !== 200) {
+        UI.showAlert(section, `${detail(result)} «تحقّق الآن» تعيد المحاولة.`);
+        return;
+    }
+    state.campaign = result.data;
+    route();
+}
+
 function onGenerate() {
     const campaign = state.campaign;
-    if (!campaign || state.busy || state.waitingFor) {
+    if (!campaign || state.busy) {
+        return;
+    }
+    if (state.waitingFor) {
+        UI.showAlert(UI.screen('photo'), BUSY_ELSEWHERE);
         return;
     }
     runGeneration(`/api/campaigns/${campaign.id}/copy`, { expected_row_version: campaign.row_version });
@@ -486,6 +562,10 @@ function renderProposal() {
         ? `تحقّق من هذه العبارة قبل الموافقة: ${copy.warnings.map((w) => WARNING_LABELS[w]).join('، ')}`
         : '';
     UI.setButton(section.querySelector('[data-cancel]'), { reserved: false });
+    // قياسٌ بعد الرسم لا مؤقّت: إن فاض المحتوى يُضغط تخطيطه، ولا يُقصّ النصّ.
+    const copyBox = $('proposal-copy');
+    copyBox.classList.remove('copy--compact');
+    const content = section.querySelector('.content');
     const approved = campaign.status === 'COPY_APPROVED';
     if (approved) {
         $('proposal-status').textContent = 'تمّت الموافقة على هذا النص.';
@@ -502,15 +582,40 @@ function renderProposal() {
         });
         UI.setButton($('proposal-end'), { label: 'أوافق على النص', commit: true });
     }
+    const overflowing = () => content.scrollHeight > content.clientHeight;
+    copyBox.classList.toggle('copy--compact', overflowing());
+    // والملاحظة إن بقي الفيض: تُعرض وحدها أولاً، مرةً لكل نسخة، ثم يُعرض النصّ
+    // كاملاً بلا قصّ. ما يُوافَق عليه لا يُقصّ منه حرف.
+    if (copy.assistant_note && overflowing()) {
+        note.hidden = true;
+        if (state.noteShownFor !== copy.version_id) {
+            state.noteShownFor = copy.version_id;
+            UI.showAlert(section, `${PERSONA}: ${copy.assistant_note}`);
+        }
+    }
 }
 
+/*
+ * كتابةٌ على الحملة الحالية. تعيد الحملة الجديدة إن بقي المستخدم على الشاشة
+ * التي أرسلت؛ فإن غادرها لا تُرسم شاشته من تحته — ولا يقع زرٌّ يعتمد تحت نظرٍ
+ * استقرّ على شاشةٍ أخرى — وتُحدَّث الحملة المحفوظة إن كانت هي نفسها فقط.
+ */
 async function mutate(section, method, path, json) {
     if (state.busy || UI.alertOpen(section)) {
         return null;
     }
+    const nav = state.nav;
+    const id = state.campaign && state.campaign.id;
     state.busy = true;
     const result = await api(method, path, { json });
     state.busy = false;
+    const stillHere = nav === state.nav && !section.hidden;
+    if (!stillHere) {
+        if (result.status === 200 && state.campaign && state.campaign.id === id) {
+            state.campaign = result.data;
+        }
+        return null;
+    }
     if (result.status === 200) {
         state.campaign = result.data;
         return result.data;
@@ -635,7 +740,11 @@ function renderEdit() {
 function onEditSubmit() {
     const campaign = state.campaign;
     const edit = editState();
-    if (state.busy || state.waitingFor || !edit.armed || (!edit.presets.size && !edit.note)) {
+    if (state.busy || !edit.armed || (!edit.presets.size && !edit.note)) {
+        return;
+    }
+    if (state.waitingFor) {
+        UI.showAlert(UI.screen('edit'), BUSY_ELSEWHERE);
         return;
     }
     runGeneration(`/api/campaigns/${campaign.id}/copy/edit`, {
@@ -922,12 +1031,7 @@ function wire() {
     $('photo-generate').addEventListener('click', onGenerate);
     $('proposal-start').addEventListener('click', onProposalStart);
     $('proposal-end').addEventListener('click', onProposalEnd);
-    $('proposal-check').addEventListener('click', async () => {
-        const id = state.campaign.id;
-        state.campaign = null;
-        await loadCampaign(id);
-        route();
-    });
+    $('proposal-check').addEventListener('click', onProposalCheck);
     $('edit-note').addEventListener('click', () => go(`#/c/${state.campaign.id}/note`));
     $('edit-restore').addEventListener('click', onRestore);
     $('edit-submit').addEventListener('click', onEditSubmit);
@@ -962,6 +1066,11 @@ function wire() {
             if (retryBoot && section.dataset.screen === 'login') {
                 retryBoot = false;
                 boot();
+                return;
+            }
+            // انتظارٌ لا يُعرف مآله: يبقى، و«تحقّق الآن» فيه هو المخرج.
+            if (section.dataset.screen === 'proposal' && !$('proposal-check').hidden
+                && !$('proposal-waiting').hidden) {
                 return;
             }
             // بعد الإقرار تُعرض الحملة كما هي الآن، لا كما كانت.

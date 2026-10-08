@@ -72,6 +72,8 @@ def test_a_draft_whose_photo_changed_today_is_kept(owner, app, two_users, purge)
     """استبدال الصورة لا يغيّر الحملة نفسها؛ كان الحذف يراها خاملةً منذ إنشائها."""
     user, _ = two_users
     campaign = create_campaign(app, user)
+    # الصورة نفسها قديمة أيضاً: لا يجعلها حديثةً إلا محفّز اللمس عند الاستبدال.
+    age_image(owner, campaign, timedelta(days=31))
     age_campaign(owner, campaign, timedelta(days=31))
     import hashlib
 
@@ -82,6 +84,23 @@ def test_a_draft_whose_photo_changed_today_is_kept(owner, app, two_users, purge)
                        (jpeg, hashlib.sha256(jpeg + b"x").digest(), campaign))
     purge()
     assert exists(owner, campaign)
+
+
+def test_without_the_touch_trigger_that_draft_would_be_deleted(owner, app, two_users, purge):
+    """يثبت أن الاختبار السابق يحرس المحفّز: بدونه تُحذف المسودة نفسها."""
+    import hashlib
+
+    user, _ = two_users
+    campaign = create_campaign(app, user)
+    age_image(owner, campaign, timedelta(days=31))
+    age_campaign(owner, campaign, timedelta(days=31))
+    jpeg = sample_jpeg()
+    as_user(app, user)
+    with guards_off(owner, "campaign_images", "trg_image_touch"), app.cursor() as cursor:
+        cursor.execute("UPDATE campaign_images SET jpeg = %s, sha256 = %s WHERE campaign_id = %s",
+                       (jpeg, hashlib.sha256(jpeg + b"x").digest(), campaign))
+    purge()
+    assert not exists(owner, campaign)
 
 
 def test_a_campaign_with_a_recent_attempt_is_kept(owner, app, two_users, purge):

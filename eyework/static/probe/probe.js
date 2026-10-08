@@ -101,7 +101,13 @@ function record(event) {
     }
     if ((probe === 'rearm-a' || probe === 'rearm-b') && event.type === 'pointerout'
         && state.rearm.clickedA !== null) {
-        state.rearm.outSinceA = true;
+        // إخفاء الأول وإظهار الثاني في الخانة نفسها يُطلق pointerout من الأول
+        // نحو الثاني دون أيّ حركة: لا يُحسب تحرّكاً إلا الخروج من الخانة.
+        const cell = event.target.closest('.swap');
+        const to = event.relatedTarget;
+        if (!cell || !(to instanceof Node) || !cell.contains(to)) {
+            state.rearm.outSinceA = true;
+        }
     }
 }
 

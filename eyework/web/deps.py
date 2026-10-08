@@ -32,6 +32,9 @@ _TOKEN = re.compile(r"[A-Za-z0-9_-]{43}")
 class Limiters:
     """حدود المعدّل في الذاكرة. ما كلفته مال (التوليد) محدودٌ في القاعدة."""
 
+    #: الحدّ الصارم لكل (اسم، عنوان): من يخمّن من عنوانه لا يحبس صاحب الحساب في عنوانه.
+    login_name_ip: RateLimiter
+    #: سقفٌ عالٍ لكل اسم من كل العناوين: حاجزٌ أمام التخمين الموزّع وحده.
     login_name: RateLimiter
     login_ip: RateLimiter
     activate_ip: RateLimiter
@@ -42,7 +45,8 @@ class Limiters:
     @classmethod
     def default(cls) -> "Limiters":
         return cls(
-            login_name=RateLimiter(RateLimit(5, 60.0)),
+            login_name_ip=RateLimiter(RateLimit(5, 60.0)),
+            login_name=RateLimiter(RateLimit(300, 3600.0)),
             login_ip=RateLimiter(RateLimit(20, 60.0)),
             activate_ip=RateLimiter(RateLimit(5, 60.0)),
             upload=RateLimiter(RateLimit(10, 3600.0)),

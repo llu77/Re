@@ -47,7 +47,16 @@ def _imports(path: Path) -> set[str]:
             modules |= {alias.name for alias in node.names}
         elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             modules.add(node.module)
+            # `from eyework import db` يستورد الوحدة eyework.db لا اسماً فيها.
+            modules |= {f"{node.module}.{alias.name}" for alias in node.names}
     return modules
+
+
+def test_the_import_scanner_sees_modules_imported_from_a_package(tmp_path):
+    source = tmp_path / "m.py"
+    source.write_text("from eyework import db\nfrom eyework.tests import fakes\nimport psycopg.rows\n",
+                      encoding="utf-8")
+    assert {"eyework.db", "eyework.tests.fakes", "psycopg.rows"} <= _imports(source)
 
 
 def _tops(path: Path) -> set[str]:

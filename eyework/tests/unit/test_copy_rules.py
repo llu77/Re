@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 import re
 from pathlib import Path
 
@@ -77,7 +78,8 @@ def test_latin_brand_inside_arabic_copy_is_accepted():
 
 def test_copy_is_normalized_not_rewritten():
     """NFC ودمج المسافات المتكرّرة وحدهما — الكلمات كما كتبها النموذج."""
-    decomposed = "حقيبة جلدية بنية   أنيقة"
+    decomposed = unicodedata.normalize("NFD", "حقيبة جلدية بنية   أنيقة")
+    assert decomposed != unicodedata.normalize("NFC", decomposed)   # «أ» مفكّكةً حقاً
     check = check_copy(decomposed, DESCRIPTION)
     assert check.ok
     assert check.title == "حقيبة جلدية بنية أنيقة"

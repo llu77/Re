@@ -73,10 +73,17 @@ const UI = (() => {
         alert.querySelector('.alert__text').textContent = message;
         alert.hidden = false;
         // «حسناً» وحدها مفعّلة: فوق وسط الشريط العلوي، حيث لا زرّ في أيّ شاشة.
-        section.querySelectorAll('.bar .btn').forEach((button) => {
-            if (!button.disabled) {
-                button.dataset.lockedByAlert = '';
-                button.disabled = true;
+        section.querySelectorAll('.bar .btn').forEach((control) => {
+            // الرابط لا يعرف disabled: يُقفل بـaria-disabled ولا يقبل نقرة (styles.css).
+            if (control.tagName === 'A') {
+                if (control.getAttribute('aria-disabled') !== 'true') {
+                    control.dataset.lockedByAlert = '';
+                    control.setAttribute('aria-disabled', 'true');
+                    control.tabIndex = -1;
+                }
+            } else if (!control.disabled) {
+                control.dataset.lockedByAlert = '';
+                control.disabled = true;
             }
         });
     }
@@ -89,9 +96,14 @@ const UI = (() => {
         if (alert) {
             alert.hidden = true;
         }
-        section.querySelectorAll('[data-locked-by-alert]').forEach((button) => {
-            delete button.dataset.lockedByAlert;
-            button.disabled = false;
+        section.querySelectorAll('[data-locked-by-alert]').forEach((control) => {
+            delete control.dataset.lockedByAlert;
+            if (control.tagName === 'A') {
+                control.removeAttribute('aria-disabled');
+                control.removeAttribute('tabindex');
+            } else {
+                control.disabled = false;
+            }
         });
     }
 

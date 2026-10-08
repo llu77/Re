@@ -7,7 +7,11 @@
 -- ════════════════════════════════════════════════════════════════════════
 
 ALTER TABLE campaign_images ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+-- الحارس يرفض أيّ تعديلٍ على صورة حملةٍ خرجت من المسودة، ويكتب created_at من
+-- جديد على ما يقبله؛ والتعبئة هنا ليست تعديلاً من المستخدم، فتمرّ من دونه.
+ALTER TABLE campaign_images DISABLE TRIGGER trg_image_guard;
 UPDATE campaign_images SET updated_at = created_at;
+ALTER TABLE campaign_images ENABLE TRIGGER trg_image_guard;
 
 CREATE FUNCTION ew_image_touch() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$

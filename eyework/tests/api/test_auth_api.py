@@ -17,17 +17,22 @@
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 
 import pytest
+from fastapi.testclient import TestClient
 
 from eyework import auth
+from eyework.rate_limit import RateLimit, RateLimiter
 from eyework.tests.api.conftest import (
     COOKIE,
     INTRUDER,
     LOGIN_KEY,
+    ORIGIN,
     PASSWORD,
     SELLER,
+    WRITE_HEADERS,
     add_user,
     log_in,
     with_cookie,
@@ -148,6 +153,31 @@ def test_sixth_login_for_one_name_within_a_minute_is_refused(owner, browser):
 
     # الحدّ لكل اسم لا لكل جهاز: اسمٌ آخر من الجهاز نفسه يُجاب كالمعتاد.
     assert log_in(client, INTRUDER, PASSWORD).json() == LOGIN_FAILED
+
+
+def test_guessing_from_elsewhere_does_not_lock_the_owner_out(owner, server):
+    """
+    أسماء الدخول عناوين بريد تُعرف: من يخمّن من عنوانه يُحبس في عنوانه، وصاحب
+    الحساب من عنوانه يدخل. والسقف لكل اسم من كل العناوين يبقى للتخمين الموزّع.
+    """
+    add_user(owner, SELLER)
+    with TestClient(server, base_url=ORIGIN, headers=dict(WRITE_HEADERS), client=("203.0.113.9", 50000)) as attacker:
+        for _ in range(5):
+            assert log_in(attacker, SELLER, "wrong-password-123").status_code == 401
+        assert log_in(attacker, SELLER, "wrong-password-123").status_code == 429
+    with TestClient(server, base_url=ORIGIN, headers=dict(WRITE_HEADERS), client=("198.51.100.7", 50000)) as device:
+        assert log_in(device).status_code == 204
+
+
+def test_distributed_guessing_still_meets_a_ceiling_per_name(owner, server):
+    add_user(owner, SELLER)
+    server.state.limiters = dataclasses.replace(server.state.limiters,
+                                                login_name=RateLimiter(RateLimit(6, 3600.0)))
+    for n in range(6):
+        with TestClient(server, base_url=ORIGIN, headers=dict(WRITE_HEADERS), client=(f"203.0.113.{n}", 50000)) as one:
+            assert log_in(one, SELLER, "wrong-password-123").status_code == 401
+    with TestClient(server, base_url=ORIGIN, headers=dict(WRITE_HEADERS), client=("203.0.113.99", 50000)) as one:
+        assert log_in(one, SELLER, "wrong-password-123").status_code == 429
 
 
 def test_a_successful_login_resets_the_counter_for_that_name(owner, browser):

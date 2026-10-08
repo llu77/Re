@@ -35,9 +35,12 @@ def _set_session(response: Response, token: str) -> None:
 @router.post("/auth/login", status_code=status.HTTP_204_NO_CONTENT)
 async def login(body: LoginBody, request: Request) -> Response:
     state = request.app.state
-    enforce(state.limiters.login_ip, client_ip(request))
+    ip = client_ip(request)
+    enforce(state.limiters.login_ip, ip)
     # المفتاح هو HMAC الاسم لا الاسم نفسه: الذاكرة لا تحمل أسماء الدخول.
-    enforce(state.limiters.login_name, auth.login_hmac(state.settings.login_key, body.username).hex())
+    name = auth.login_hmac(state.settings.login_key, body.username).hex()
+    enforce(state.limiters.login_name_ip, f"{name}:{ip}")
+    enforce(state.limiters.login_name, name)
     try:
         token = await run_in_threadpool(
             auth.login, state.db, state.settings.login_key, body.username, body.password)
@@ -47,7 +50,7 @@ async def login(body: LoginBody, request: Request) -> Response:
     previous = session_token(request)
     if previous:
         await run_in_threadpool(auth.logout, state.db, previous)
-    state.limiters.login_name.reset(auth.login_hmac(state.settings.login_key, body.username).hex())
+    state.limiters.login_name_ip.reset(f"{name}:{ip}")
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     _set_session(response, token)
     return response

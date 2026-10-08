@@ -233,6 +233,9 @@ def test_after_a_fallback_the_turn_is_echoed_by_the_documented_rule():
     assert [(block["type"], block.get("id") or block.get("signature")) for block in echoed] == [
         ("fallback", None), ("thinking", "b"), ("tool_use", "toolu_new"),
     ]
+    # نتيجةٌ لكل استدعاءٍ أُعيد، ولا نتيجة لما أُسقط.
+    results = handler.seen[1]["messages"][2]["content"]
+    assert [result["tool_use_id"] for result in results] == ["toolu_new"]
 
 
 def test_an_unknown_tool_is_answered_with_an_error_not_run():
@@ -249,6 +252,21 @@ def test_a_failure_after_a_processed_round_still_counts():
                           json={"type": "error", "error": {"type": "overloaded_error", "message": "m"}})
     handler = _sequence(([_tool_use(GOOD["title"], GOOD["description"])], "tool_use"), busy)
     assert _writer(handler).write(CopyRequest(jpeg=JPEG)).outcome == "OUTPUT_INVALID"
+
+
+@pytest.mark.parametrize("failure", [
+    httpx.Response(504, headers={"request-id": "req_504"},
+                   json={"type": "error", "error": {"type": "timeout_error", "message": "m"}}),
+    httpx.ReadTimeout("slow"),
+])
+def test_a_timeout_after_a_paid_round_keeps_what_was_paid(failure):
+    """المهلة بعد جولةٍ مدفوعة تبقى مهلة، ومعها رموز الجولة ونموذجها."""
+    handler = _sequence(([_tool_use(GOOD["title"], GOOD["description"])], "tool_use"), failure)
+    outcome = _writer(handler).write(CopyRequest(jpeg=JPEG))
+    assert outcome.outcome == "UPSTREAM_TIMEOUT"
+    assert (outcome.input_tokens, outcome.output_tokens) == (1000, 100)
+    assert outcome.served_model == "claude-opus-5-5"
+    assert outcome.request_id == ("req_504" if isinstance(failure, httpx.Response) else "req_1")
 
 
 def test_the_whole_exchange_has_one_deadline(monkeypatch):

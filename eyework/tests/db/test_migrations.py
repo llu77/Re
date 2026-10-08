@@ -172,3 +172,34 @@ def test_a_failing_migration_leaves_no_trace(connection, tmp_path, monkeypatch):
         cursor.execute("SELECT to_regclass('public.ew_half_applied')")
         assert cursor.fetchone()[0] is None
     assert [row[0] for row in _ledger(connection)] == _all_versions()
+
+
+def test_0004_backfills_images_of_every_status_and_keeps_their_times(connection, owner, app):
+    """
+    التعبئة في 0004 تمرّ على صور الحملات المعتمدة أيضاً، ولا تعيد كتابة وقت
+    إنشائها: الحارس الذي يرفض تعديل صورةٍ خارج المسودة لا يعني ترحيلاً.
+    """
+    from eyework.tests.conftest import add_version, create_campaign, make_user
+    from eyework.tests.db.test_generation_caps import move_to
+
+    assert migrate_down(connection, target="0003") == 1
+    user = make_user(owner, login=b"m" * 32)
+    ready = create_campaign(app, user)
+    add_version(app, user, ready)
+    move_to(app, user, ready, "READY")
+    draft = create_campaign(app, user)
+    with owner.cursor() as cursor:
+        cursor.execute("ALTER TABLE campaign_images DISABLE TRIGGER trg_image_guard")
+        cursor.execute("UPDATE campaign_images SET created_at = now() - interval '2 days'")
+        cursor.execute("ALTER TABLE campaign_images ENABLE TRIGGER trg_image_guard")
+        cursor.execute("SELECT campaign_id, created_at FROM campaign_images")
+        before = dict(cursor.fetchall())
+
+    assert migrate_up(connection) == 1
+
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT campaign_id, created_at, updated_at FROM campaign_images")
+        after = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
+    assert set(after) == {ready, draft}
+    for campaign, created in before.items():
+        assert after[campaign] == (created, created)

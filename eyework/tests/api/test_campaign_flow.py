@@ -348,3 +348,17 @@ def test_the_image_cannot_be_replaced_once_copy_describes_it(seller):
     assert response.status_code == 409
     assert seller.get(path(view, "/image")).content == image
     assert current(seller, view) == view
+
+
+def test_the_list_pages_two_at_a_time_newest_first(seller):
+    """صفّان يتّسعان لأصغر شاشةٍ بلا قصّ؛ والثالث في الصفحة التالية."""
+    from eyework.campaigns import PAGE_SIZE
+
+    assert PAGE_SIZE == 2
+    made = [upload(seller)["id"] for _ in range(3)]
+    first = seller.get("/api/campaigns?page=1").json()
+    second = seller.get("/api/campaigns?page=2").json()
+    assert [item["id"] for item in first["items"]] == made[:0:-1]
+    assert first["has_more"] is True
+    assert [item["id"] for item in second["items"]] == made[:1]
+    assert second["has_more"] is False

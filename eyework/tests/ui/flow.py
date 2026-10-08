@@ -45,11 +45,17 @@ AUDIT = """
     const edge = rects.filter(([, r]) => r.left < 15.5 || innerWidth - r.right < 15.5)
         .map(([e]) => e.id || e.textContent.trim().slice(0, 20));
     const content = screen.querySelector('.content');
+    // ما يقصّه حدّ المحتوى (overflow: hidden) لا يُرى ولا يُمرَّر إليه: قصٌّ لا تمرير.
+    const box = content.getBoundingClientRect();
+    const clipped = [...content.querySelectorAll('*')].filter(visible)
+        .filter((e) => !e.closest('.alert') && !e.classList.contains('visually-hidden'))
+        .filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > box.bottom + 1 || r.top < box.top - 1; })
+        .map((e) => e.id || e.className || e.tagName);
     const fonts = [...screen.querySelectorAll('input, textarea')].filter(visible)
         .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id);
     return {
         screen: screen.dataset.screen,
-        small, close, edge, fonts,
+        small, close, edge, fonts, clipped,
         enabled: controls.filter((e) => !e.disabled).length,
         vertical: content.scrollHeight > content.clientHeight + 1 || document.scrollingElement.scrollHeight > innerHeight + 1,
         horizontal: document.scrollingElement.scrollWidth > innerWidth + 1,

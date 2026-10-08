@@ -32,7 +32,7 @@ def test_every_screen_honours_the_gaze_contract(page_factory, server, width, hei
 
     failures = []
     for audit in flow.audits:
-        for key in ("small", "close", "edge", "fonts"):
+        for key in ("small", "close", "edge", "fonts", "clipped"):
             if audit[key]:
                 failures.append(f"{audit['label']} {key}: {audit[key]}")
         if audit["enabled"] > 10:

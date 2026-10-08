@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal, Protocol
 
 import anthropic
@@ -231,10 +231,15 @@ class AnthropicCopywriter:
                 )
             except anthropic.APIError as error:
                 outcome = _failure(error)
-                if processed and outcome.outcome in _UNBILLED:
-                    # جولةٌ سابقة عولجت ودُفعت؛ الفشل الآن لا يمحو ذلك.
+                if not processed:
+                    return outcome
+                # جولةٌ سابقة عولجت ودُفعت؛ الفشل الآن لا يمحو ذلك: تبقى رموزها
+                # ونموذجها معها، ولا تصير نتيجةً «غير محسوبة».
+                if outcome.outcome in _UNBILLED:
                     return CopyOutcome("OUTPUT_INVALID", **meta)
-                return outcome
+                return replace(outcome, served_model=meta["served_model"], input_tokens=meta["input_tokens"],
+                               output_tokens=meta["output_tokens"],
+                               request_id=outcome.request_id or meta["request_id"])
             processed = True
             meta["served_model"] = getattr(message, "model", None)
             meta["request_id"] = getattr(message, "_request_id", None)
@@ -248,8 +253,11 @@ class AnthropicCopywriter:
                 logger.info("أداةٌ بعد منعها (طلب %s)", meta["request_id"])
                 return CopyOutcome("OUTPUT_INVALID", **meta)
 
+            # النتائج لما يُعاد من الدور وحده: استدعاءٌ أسقطه `_echo` بلا نتيجة،
+            # وإلا رفضت الواجهة نتيجةً لا استدعاء لها في الدور السابق (400).
+            echoed = _echo(message.content)
             results = []
-            for block in message.content:
+            for block in echoed:
                 if block.type != "tool_use":
                     continue
                 if block.name == self_check.TOOL_NAME:
@@ -258,6 +266,6 @@ class AnthropicCopywriter:
                     content, is_error = f"لا أداة باسم {block.name}.", True
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": content, "is_error": is_error})
-            messages = [*messages, {"role": "assistant", "content": _echo(message.content)},
+            messages = [*messages, {"role": "assistant", "content": echoed},
                         {"role": "user", "content": results}]
         return CopyOutcome("OUTPUT_INVALID", **meta)

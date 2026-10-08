@@ -43,7 +43,10 @@ ACK_STATE = """
         width: r.width,
         height: r.height,
         viewport: innerWidth,
-        barEnabled: [...screen.querySelectorAll('.bar .btn')].filter((b) => !b.disabled).map((b) => b.textContent.trim()),
+        barEnabled: [...screen.querySelectorAll('.bar .btn')]
+            .filter((b) => !b.disabled && b.getAttribute('aria-disabled') !== 'true'
+                && getComputedStyle(b).pointerEvents !== 'none')
+            .map((b) => b.textContent.trim()),
         overlapping,
     };
 }
@@ -186,4 +189,21 @@ def test_a_new_version_is_requested_only_by_a_choice_made_on_the_edit_screen(pag
     page.click("#edit-chips .chip >> nth=2")
     assert page.is_enabled("#edit-submit")
     assert not flow.landings, flow.landings
+    assert not page.errors, page.errors
+
+
+def test_an_alert_also_locks_the_download_link_on_the_ready_screen(page_factory, server):
+    """الرابط لا يعرف disabled؛ نظرةٌ باقية عليه أثناء التنبيه لا تنزّل شيئاً."""
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    flow.to_review()
+    flow.press("#review-continue", lambda: flow.screen("confirm"), "متابعة للتأكيد")
+    flow.press("#confirm-yes", lambda: flow.screen("ready"), "نعم، اعتمد الحملة")
+    page.evaluate("() => UI.showAlert(UI.screen('ready'), 'تعذّر النسخ.')")
+    state = page.evaluate(ACK_STATE)
+    assert state["barEnabled"] == [], state
+    assert page.get_attribute("#ready-download", "aria-disabled") == "true"
+    page.click(".screen[data-screen='ready'] [data-ack]")
+    assert page.get_attribute("#ready-download", "aria-disabled") is None
+    assert page.evaluate("() => getComputedStyle(document.querySelector('#ready-download')).pointerEvents") != "none"
     assert not page.errors, page.errors

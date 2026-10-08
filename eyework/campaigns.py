@@ -62,8 +62,9 @@ __all__ = [
     "unapprove",
 ]
 
-#: ثلاث حملاتٍ في الصفحة: قائمةٌ تُقرأ بالعين بلا تمرير.
-PAGE_SIZE = 3
+#: حملتان في الصفحة: صفّان من 72px يتّسعان مع التحيّة و«حملة جديدة» في أصغر
+#: شاشة (375×635) بلا تمرير ولا قصّ؛ والثالث كان يُقصّ إلى 51px.
+PAGE_SIZE = 2
 #: آخر صفحةٍ يقبلها المسار؛ «الأقدم» لا يُعرض بعدها.
 MAX_PAGE = 100
 DAILY_GENERATIONS = 40
@@ -275,7 +276,7 @@ def get(db: Database, user_id: UUID, campaign_id: UUID) -> dict:
 
 
 def list_page(db: Database, user_id: UUID, page: int) -> dict:
-    """الأحدث أولاً، ثلاثٌ في الصفحة. الملغاة لا تُعرض: صورها حُذفت ولا عمل فيها."""
+    """الأحدث أولاً، اثنتان في الصفحة. الملغاة لا تُعرض: صورها حُذفت ولا عمل فيها."""
     with db.session(user_id) as cursor:
         cursor.execute(_LIST, (PAGE_SIZE + 1, (page - 1) * PAGE_SIZE))
         rows = cursor.fetchall()

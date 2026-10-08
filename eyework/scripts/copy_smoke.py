@@ -40,12 +40,14 @@ def main(argv: list[str]) -> int:
     print(f"الرموز: {outcome.input_tokens} داخل / {outcome.output_tokens} خارج")
     if outcome.outcome == "OK":
         print(f"\n{outcome.title}\n\n{outcome.description}")
+    # كلٌّ مستقلٌّ عن غيره: ملاحظةٌ رُفضت لا تُخفي التنبيهات، وملاحظة الصورة
+    # غير الصالحة لا تُخفي سببها.
+    if outcome.warnings:
+        print(f"\nتنبيهات: {', '.join(w.value for w in outcome.warnings)}")
+    if outcome.reason:
+        print(f"السبب: {outcome.reason}")
     if outcome.note:
         print(f"\nسيمبول: {outcome.note}")
-        if outcome.warnings:
-            print(f"\nتنبيهات: {', '.join(w.value for w in outcome.warnings)}")
-    elif outcome.reason:
-        print(f"السبب: {outcome.reason}")
     return 0 if outcome.outcome in ("OK", "UNUSABLE_PHOTO") else 1
 
 
