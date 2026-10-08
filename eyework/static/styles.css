@@ -90,7 +90,14 @@ p { margin: 0; }
     gap: var(--target-gap);
     min-width: 0;
 }
-.bar--top .slot { flex: 0 0 auto; min-width: 6.5rem; }
+/* «حسناً» (72) تظهر فوق وسط الشريط في كل شاشة، فلا يقترب منها زرّ الطرف أقلّ من
+   24 في أيّ عرض: عرضه حتى (الشريط − 72) ÷ 2 − 24، وما زاد من اسمه يلتفّ سطرين. */
+.bar--top .slot {
+    --slot-max: calc((100% - var(--target)) / 2 - var(--target-gap));
+    flex: 0 0 auto;
+    min-width: min(6.5rem, var(--slot-max));
+    max-width: var(--slot-max);
+}
 .bar--top .step {
     flex: 1;
     /* نصّ الخطوة يلتفّ سطرين ولا يدفع الزرّين إلى حافّة الشاشة: «بوابة أمين
@@ -251,6 +258,10 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
 .preview img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--radius); }
 
 .waiting, .copy { display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; }
+/* أجزاء النصّ المقترح لا تنكمش: صفّ العنوان وسطر الحالة لكلٍّ منهما حدٌّ أدنى معلن،
+   فكانا ينكمشان إليه في 320px ويركب نصُّهما ما حوله — فيضٌ لا يُقاس، فلا يُضغط
+   التخطيط ولا تُعرض الملاحظة أولاً. */
+.copy > * { flex-shrink: 0; }
 /* أطول نصٍّ مقبول مع ملاحظةٍ وتنبيه لا يتّسع في 375×635: تُقاس الشاشة بعد رسمها،
    فإن فاض المحتوى سقطت الصورة المصغّرة وتقاربت الأسطر — ولا يُقصّ حرفٌ من النصّ. */
 .copy--compact { gap: 0.25rem; }

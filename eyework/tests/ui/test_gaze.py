@@ -1,7 +1,8 @@
 """
 عقد التفاعل بالنظر — في متصفّحٍ حقيقي
 ======================================
-كل شاشةٍ يمرّ بها المسار الكامل، عند كل إطارٍ من إطارات iPhone والحاسوب:
+كل شاشةٍ يمرّ بها المسار الكامل، عند كل إطار — مقاسات iPhone المؤقّتة، وإطار
+الإجهاد، والحاسوب (conftest.py):
 
   • كل هدفٍ ≥ 72×72، وبين أيّ هدفين ≥ 24، وعن حافّتي الشاشة ≥ 16.
   • عشرة أهدافٍ مفعّلة على الأكثر.
@@ -19,7 +20,7 @@ import re
 
 import pytest
 
-from eyework.tests.ui.conftest import VIEWPORTS
+from eyework.tests.ui.conftest import HANDHELD, VIEWPORTS
 from eyework.tests.ui.flow import Flow
 
 HOVER_OR_GESTURE = re.compile(r"^(pointer|mouse|touch|drag|wheel|contextmenu)")
@@ -44,7 +45,7 @@ def test_every_screen_honours_the_gaze_contract(page_factory, server, width, hei
     assert not page.errors, page.errors
 
 
-@pytest.mark.parametrize(("width", "height"), VIEWPORTS[:3], ids=[f"{w}x{h}" for w, h in VIEWPORTS[:3]])
+@pytest.mark.parametrize(("width", "height"), HANDHELD, ids=[f"{w}x{h}" for w, h in HANDHELD])
 def test_nothing_that_commits_lands_under_a_resting_gaze(page_factory, server, width, height):
     flow = Flow(page_factory(width, height), server["base"])
     flow.run()

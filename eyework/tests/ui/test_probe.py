@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pytest
 
+from eyework.tests.ui.conftest import PHONES, STRESS
+
 
 @pytest.fixture
 def probe(page_factory, server):
@@ -137,7 +139,7 @@ def test_stepper_counts_exactly(probe):
                if "ثلاث" in row)
 
 
-@pytest.mark.parametrize(("width", "height"), [(375, 635), (390, 664)])
+@pytest.mark.parametrize(("width", "height"), [*PHONES[:2], STRESS])
 def test_every_section_fits_without_scrolling(page_factory, server, width, height):
     page = page_factory(width, height, session=False)
     page.goto(server["base"] + "/probe/")

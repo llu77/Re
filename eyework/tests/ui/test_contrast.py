@@ -11,9 +11,12 @@ from __future__ import annotations
 import pytest
 
 from eyework.tests.conftest import create_campaign
-from eyework.tests.ui.conftest import VIEWPORTS
+from eyework.tests.ui.conftest import PHONES, STRESS
 from eyework.tests.ui.flow import Flow
 from eyework.tests.ui.test_portals import _user_id
+
+#: أصغر إطارين للهاتف، وإطار الإجهاد: الحدّ الأعرض يُضيّق ما داخل الزرّ.
+SMALLEST = [*PHONES[:2], STRESS]
 
 
 def _luminance(rgb: str) -> float:
@@ -29,7 +32,7 @@ def _contrast(foreground: str, background: str = "rgb(255, 255, 255)") -> float:
     return (a + 0.05) / (b + 0.05)
 
 
-@pytest.mark.parametrize(("width", "height"), VIEWPORTS[:2], ids=[f"{w}x{h}" for w, h in VIEWPORTS[:2]])
+@pytest.mark.parametrize(("width", "height"), SMALLEST, ids=[f"{w}x{h}" for w, h in SMALLEST])
 def test_increase_contrast_darkens_lines_and_text_and_keeps_every_target(page_factory, server, width, height):
     page = page_factory(width, height)
     page.emulate_media(contrast="more")
