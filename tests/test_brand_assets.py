@@ -132,6 +132,25 @@ def test_every_asset_the_portal_references_exists():
     assert not missing, f"مراجع مكسورة: {missing}"
 
 
+def test_every_test_a_comment_cites_exists():
+    """
+    تعليقٌ يقول «يختبره `test_…`» وعدٌ بأن CI يحرس القرار. اسمٌ لا يوجد —
+    كما كان `test_the_portal_survives_250_percent_text` في `styles.css` —
+    وعدٌ لا يحرسه شيء.
+    """
+    defined = set()
+    for path in (ROOT / "tests").rglob("test_*.py"):
+        defined.update(re.findall(r"^\s*def (test_\w+)", path.read_text(encoding="utf-8"), re.M))
+
+    missing = []
+    for path in [ROOT / "app.py", *PORTAL.rglob("*.css"), *PORTAL.rglob("*.html"),
+                 *PORTAL.rglob("*.js"), *(ROOT / ".streamlit").rglob("*.toml")]:
+        for name in re.findall(r"`(test_\w+)`", path.read_text(encoding="utf-8")):
+            if name not in defined:
+                missing.append(f"{path.relative_to(ROOT)} → {name}")
+    assert not missing, f"تعليقات تستشهد باختبار غير موجود: {missing}"
+
+
 def test_the_manifest_icons_exist():
     manifest = json.loads((PORTAL / "manifest.webmanifest").read_text(encoding="utf-8"))
     missing = [i["src"] for i in manifest["icons"] if not (PORTAL / i["src"]).exists()]

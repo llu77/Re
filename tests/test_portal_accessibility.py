@@ -4,9 +4,9 @@
 «تُختبر لا تُفترض» حرفياً: كل بند هنا يُقاس في متصفح حقيقي على الصفحة
 المرندرة، لا يُراجَع في الشيفرة.
 
-البنود: تباين ≥ 4.5:1 للنص و3:1 للعناصر التفاعلية · مساحة لمس ≥ 44×44 ·
-**غياب أي تداخل بين عنصرين في أي مقاس شاشة** · كيبورد وقارئ شاشة · تكبير 200%
-دون فقد وظيفة · لا مهلة زمنية على أي تفاعل.
+البنود: تباين ≥ 4.5:1 للنص و3:1 للعناصر التفاعلية · مساحة لمس ≥ 48×48 ·
+**غياب أي تداخل بين عنصرين في أي مقاس شاشة** · كيبورد وقارئ شاشة · تكبير النصّ
+250% (فوق حدّ WCAG البالغ 200%) دون فقد وظيفة · لا مهلة زمنية على أي تفاعل.
 
 لا اعتماد على شبكة: الفحوص منفَّذة هنا لا مستوردة من CDN، فتعمل في CI كما
 تعمل محلياً.
@@ -35,6 +35,11 @@ PATIENT_EMAIL = "portal.patient@example.test"
 TOKEN_KEY = "symbol.patient.token"
 PLAN_KEY = "symbol.patient.plan"
 SECRET = "كلمة-مرور-البوابة"
+
+#: أصغر مساحة لمس مقبولة، بالبكسل: رمز `--tap` (3rem) في `portal/styles.css`.
+#: حدّ WCAG البالغ 44 لا يكفي هنا لأن الجمهور ذو إعاقة حركية. ثابتٌ لا يُقرأ من
+#: الرمز نفسه: لو تبعه الاختبار لنزل معه حين يُصغَّر الرمز، فلا يكشف شيئاً.
+TAP_MINIMUM = 48
 
 #: مقاسات تغطي الهاتف الضيق حتى سطح المكتب، ومنها مقاسات معروفة بكسر التخطيط.
 VIEWPORTS = [
@@ -441,11 +446,11 @@ def test_nothing_overlaps_at_any_screen_size(page, width, height):
 
 @pytest.mark.parametrize("width, height", VIEWPORTS)
 def test_touch_targets_are_large_enough(page, width, height):
-    """≥ 44×44 في كل مقاس — والبوابة تستهدف 56 لأن الجمهور ذو إعاقة حركية."""
+    """≥ 48×48 (`TAP_MINIMUM`) في كل مقاس — فوق حدّ WCAG البالغ 44."""
     page.set_viewport_size({"width": width, "height": height})
     page.wait_for_timeout(350)
-    small = page.evaluate(TOUCH_TARGET_SCRIPT, 44)
-    assert not small, f"عناصر تفاعلية أصغر من 44 عند {width}×{height}: {small}"
+    small = page.evaluate(TOUCH_TARGET_SCRIPT, TAP_MINIMUM)
+    assert not small, f"عناصر تفاعلية أصغر من {TAP_MINIMUM} عند {width}×{height}: {small}"
 
 
 @pytest.mark.parametrize("width, height", VIEWPORTS)
@@ -457,14 +462,18 @@ def test_nothing_overflows_horizontally(page, width, height):
 
 
 def test_two_hundred_percent_zoom_keeps_the_page_usable(page):
-    """تكبير 200% دون فقد وظيفة ولا تمرير أفقي."""
+    """
+    تكبير النصّ 250% — فوق حدّ WCAG البالغ 200% — دون فقد وظيفة ولا تمرير
+    أفقي. هذا ما يعنيه «تصمد عند 250%» في رأس `portal/styles.css`.
+    """
     page.set_viewport_size({"width": 390, "height": 844})
-    page.evaluate("document.documentElement.style.fontSize = '250%'")  # 125% × 2
+    # الجذر 100% (16px)، فـ250% هنا ضعفان ونصف الأساس: 40px
+    page.evaluate("document.documentElement.style.fontSize = '250%'")
     page.wait_for_timeout(400)
 
-    assert not page.evaluate(HORIZONTAL_OVERFLOW_SCRIPT), "تمرير أفقي عند 200%"
+    assert not page.evaluate(HORIZONTAL_OVERFLOW_SCRIPT), "تمرير أفقي عند 250%"
 
-    assert not page.evaluate(OVERLAP_SCRIPT), "تداخل عند تكبير 200%"
+    assert not page.evaluate(OVERLAP_SCRIPT), "تداخل عند تكبير 250%"
     assert page.get_by_role("button", name="أحتاج مساعدة الآن").is_visible()
 
 
@@ -663,13 +672,13 @@ def test_every_screen_passes_the_audit(audited_page, screen, width, height):
 
     assert not page.evaluate(CONTRAST_SCRIPT), f"تباين في {screen}"
     assert not page.evaluate(OVERLAP_SCRIPT), f"تداخل في {screen}"
-    assert not page.evaluate(TOUCH_TARGET_SCRIPT, 44), f"مساحة لمس في {screen}"
+    assert not page.evaluate(TOUCH_TARGET_SCRIPT, TAP_MINIMUM), f"مساحة لمس في {screen}"
     assert not page.evaluate(HORIZONTAL_OVERFLOW_SCRIPT), f"فيض أفقي في {screen}"
 
 
 def test_the_alarm_sheet_fits_and_does_not_overlap_at_200_percent(page):
     """
-    ورقة البلاغ تحت تكبير 200%: مسار الطوارئ هو آخر ما يجوز أن ينكسر.
+    ورقة البلاغ تحت تكبير النصّ 250%: مسار الطوارئ هو آخر ما يجوز أن ينكسر.
 
     الصفحة خلفها لا تمرَّر (وعاء التمرير `.shell`)، فلو تجاوزت الورقة الشاشة
     بلا تمرير ذاتي لصار زر الإرسال غير قابل للبلوغ.
