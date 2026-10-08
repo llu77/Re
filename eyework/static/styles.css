@@ -300,6 +300,23 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
  * ويظهر طلب التدوير. الحاسوب والجهاز اللوحي أطول من ذلك فلا يمسّهما.
  */
 .rotate { display: none; }
+/* «زيادة التباين» في iOS (prefers-contrast: more): النصّ الثانوي أغمق (9.7:1 بدل
+   6.5:1)، والخطوط 3:1 على الأقل، وحدود الأزرار أعرض — والأهداف بحجمها 72×72، فالحدّ
+   داخل الصندوق (border-box). iOS لا يُبلغ «less» أبداً، ولا استعلام لتقليل الشفافية:
+   الأسطح معتمةٌ أصلاً. */
+@media (prefers-contrast: more) {
+    :root {
+        --ink-soft: #3A4553;
+        --line: #8796A8;
+        --line-strong: #5F6E80;
+    }
+    .btn { border-width: 3px; }
+}
+
+/* زرٌّ من جزأين (العنوان والحالة) شكلٌ واحدٌ للنقر وللتظليل في Safari على Vision Pro:
+   ما تحت المؤشر هو الزرّ نفسه لا أحد جزأيه. */
+.btn > * { pointer-events: none; }
+
 @media (orientation: landscape) and (max-height: 500px) {
     .app { visibility: hidden; }
     .rotate {
