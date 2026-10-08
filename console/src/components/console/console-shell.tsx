@@ -63,8 +63,9 @@ export function ConsoleShell({
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   // رسالة النجاح تخصّ صفحةً بعينها: تُضبط قبل الانتقال إليها، فتُربط بها لا
-  // بلحظة ظهورها.
-  const [notice, setNotice] = React.useState<{ text: string; on: Route["name"] } | null>(null)
+  // بلحظة ظهورها. ولكل رسالةٍ رقمها، فتُعلَن ولو تكرّر نصّها.
+  const [notice, setNotice] = React.useState<{ id: number; text: string; on: Route["name"] } | null>(null)
+  const notices = React.useRef(0)
   const [signingOut, setSigningOut] = React.useState(false)
 
   const refresh = React.useCallback(async () => {
@@ -106,7 +107,8 @@ export function ConsoleShell({
 
   const done = React.useCallback(
     (text: string, on: Route["name"]) => {
-      setNotice({ text, on })
+      notices.current += 1
+      setNotice({ id: notices.current, text, on })
       if (on === "queue") {
         navigate({ name: "queue" })
       } else {
@@ -173,7 +175,7 @@ export function ConsoleShell({
 
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 sm:px-6">
           <p className="text-muted-foreground">{DESCRIPTIONS[route.name]}</p>
-          <SuccessNotice message={notice?.on === route.name ? notice.text : null} />
+          <SuccessNotice message={notice?.on === route.name ? notice.text : null} id={notice?.id} />
           {error && (queue || flags) ? (
             <p role="alert" className="text-destructive">
               {error}

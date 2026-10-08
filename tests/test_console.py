@@ -57,6 +57,7 @@ PHONE = {"width": 390, "height": 844}
 DOCUMENTATION_TEXT = "ملخّص الجلسة الثالثة: تحسّن مدى حركة الكتف إلى 120 درجة."
 FIRST_STEP_TITLE = "أدخِل الذراع المصابة في الكمّ"
 RED_FLAG_TEXT = "ألم شديد مفاجئ في الكتف منذ الصباح مع تنميل في الأصابع."
+SECOND_FLAG_TEXT = "دوخة عند الوقوف وسقطتُ مرةً في الحمّام."
 
 
 def _free_port() -> int:
@@ -443,6 +444,39 @@ def test_acknowledging_is_announced_and_focus_returns_to_the_heading(browser, cl
     page.get_by_role("button", name="تأكيد الاستلام").click()
     page.get_by_role("status").get_by_text("سُجّل استلام البلاغ.").wait_for()
     assert _focused(page) == "H1:البلاغات العاجلة"
+
+
+def test_a_second_acknowledgment_is_announced_too(browser, clinic, seed):
+    """
+    استلامان متتاليان والرسالة نفسها. لو بقيت فقرتها كما هي لما تغيّر في
+    المنطقة الحيّة شيء، ولما سمع مستخدم قارئ الشاشة أن الثاني سُجّل.
+    """
+    escalation.report(tenant_id=seed.tenant_a, patient_id=seed.patient_a,
+                      body=SECOND_FLAG_TEXT, reported_by=clinic.flag.reported_by)
+    page = browser.open(token=_token(), path="/console/#/red-flags")
+    page.get_by_text(SECOND_FLAG_TEXT).wait_for()
+
+    def acknowledge_the_oldest():
+        page.get_by_role("button", name="استلام البلاغ").first.click()
+        page.get_by_role("button", name="تأكيد الاستلام").click()
+
+    acknowledge_the_oldest()
+    page.get_by_role("status").get_by_text("سُجّل استلام البلاغ.").wait_for()
+    page.get_by_text(RED_FLAG_TEXT).wait_for(state="detached")
+    page.evaluate("""() => {
+        window.__announced = []
+        new MutationObserver((records) => {
+            for (const record of records)
+                for (const node of record.addedNodes) window.__announced.push(node.textContent)
+        }).observe(document.querySelector('[role=status][aria-live=polite]'),
+                   { childList: true, subtree: true, characterData: true })
+    }""")
+
+    acknowledge_the_oldest()
+    page.get_by_text("لا بلاغات عاجلة غير مستلَمة.").wait_for()
+    announced = page.evaluate("() => window.__announced")
+    assert any("سُجّل استلام البلاغ." in (text or "") for text in announced), announced
+    assert not browser.problems, browser.problems
 
 
 def test_an_expired_session_says_so_and_keeps_the_unsent_reason(browser, clinic, owner):

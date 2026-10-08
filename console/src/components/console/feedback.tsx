@@ -25,12 +25,15 @@ export function ErrorNotice({ message, className }: { message: string; className
  *
  * فارغةً تبقى في شجرة الوصول (`sr-only` لا `hidden`): المنطقة التي تظهر ومعها
  * نصّها لا يعلنها أغلب قارئات الشاشة؛ تُعلَن حين يتغيّر ما في منطقةٍ موجودة.
+ *
+ * `id` لكل إجراء: نجاحان متتاليان بالنصّ نفسه (استلام بلاغين مثلاً) لا يغيّران
+ * شيئاً في الصفحة لو بقيت الفقرة نفسها، فلا يُعلَن الثاني. المفتاح يستبدلها.
  */
-export function SuccessNotice({ message }: { message: string | null }) {
+export function SuccessNotice({ message, id }: { message: string | null; id?: number }) {
   return (
     <div role="status" aria-live="polite" className="empty:sr-only">
       {message ? (
-        <p className="flex items-center gap-2 rounded-md border border-primary/30 bg-accent p-3 text-foreground">
+        <p key={id} className="flex items-center gap-2 rounded-md border border-primary/30 bg-accent p-3 text-foreground">
           <CircleCheck className="size-5 shrink-0 text-primary" aria-hidden="true" />
           {message}
         </p>
