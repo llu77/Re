@@ -81,4 +81,28 @@ jobs:
         run: |
           ! grep -rniE '\b(TODO|FIXME|XXX|HACK)\b' \
               --include='*.py' --include='*.sql' --include='*.js' --include='*.html' --include='*.css' \
-              --exclude-dir=tests eyework/
+              --include='*.ts' --include='*.tsx' \
+              --exclude-dir=tests --exclude-dir=node_modules --exclude-dir=dist eyework/
+
+  # الواجهة الجديدة (React وTailwind ومكوّنات shadcn/ui و21st.dev): الأنواع
+  # والاختبارات والبناء، مستقلّةً عن خادم Python.
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eyework/client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: eyework/client/package-lock.json
+
+      - name: التبعيات والأنواع والاختبارات والبناء
+        run: |
+          npm ci --no-fund --no-audit
+          npm run typecheck
+          npm test
+          npm run build
