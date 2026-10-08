@@ -140,6 +140,82 @@ def test_a_later_step_cannot_be_opened_before_the_earlier_ones(page_factory, ser
     flow.screen("signup-notice")
 
 
+LOGIN_ALERT = ".screen[data-screen='login'] .alert"
+
+
+@pytest.mark.parametrize("failure", ["offline", "busy"])
+def test_a_failed_code_check_keeps_the_link_and_tries_again(page_factory, server, owner, failure):
+    """انقطاعٌ أو حدٌّ عند فحص الرمز لا يُضيّع الرابط وقد مُحي من شريط العنوان: «حسناً» تعيد الفحص."""
+    left = {"failures": 1}
+
+    def check(route):
+        if not left["failures"]:
+            route.continue_()
+        elif failure == "offline":
+            left["failures"] -= 1
+            route.abort("connectionreset")
+        else:
+            left["failures"] -= 1
+            route.fulfill(status=429, content_type="application/json",
+                          body='{"code": "RATE", "detail": "طلباتٌ كثيرة. حاول بعد قليل."}')
+
+    page = page_factory(session=False)
+    page.route("**/api/auth/signup-code", check)
+    page.goto(f"{server['base']}/#signup={_issue_code(owner)}")
+    flow = Flow(page, server["base"])
+    flow.screen("login")
+    page.wait_for_selector(f"{LOGIN_ALERT}:not([hidden])")
+    assert "تعيد المحاولة" in page.text_content(f"{LOGIN_ALERT} .alert__text")
+    page.click(f"{LOGIN_ALERT} [data-ack]")
+    flow.screen("signup-notice")
+    assert not page.errors, page.errors
+
+
+def test_a_malformed_link_says_the_link_is_invalid(page_factory, server, owner):
+    """حرفٌ زائد ألصقه تطبيق محادثةٍ بالرابط: يُقال إن الرابط لا يصلح، لا «قيمةٌ غير صالحة في الطلب»."""
+    page = page_factory(session=False)
+    page.goto(f"{server['base']}/#signup={_issue_code(owner)}.")
+    Flow(page, server["base"]).screen("login")
+    page.wait_for_selector(f"{LOGIN_ALERT}:not([hidden])")
+    assert page.text_content(f"{LOGIN_ALERT} .alert__text").startswith("رابط التسجيل غير صالح")
+    assert not page.errors, page.errors
+
+
+def test_a_link_opened_where_the_app_is_already_open_starts_signing_up(page_factory, server, owner):
+    """الرابط يُلصق في تبويبٍ فيه التطبيق: لا تحميل جديد، فيُلتقط الرمز عند تغيّر الوسم."""
+    page = page_factory(session=False)
+    page.goto(f"{server['base']}/#/login")
+    flow = Flow(page, server["base"])
+    flow.screen("login")
+    code = _issue_code(owner)
+    page.evaluate("(code) => { location.hash = `#signup=${code}`; }", code)
+    flow.screen("signup-notice")
+    assert code not in page.url
+    assert not page.errors, page.errors
+
+
+def test_a_birth_date_in_the_future_never_reaches_the_review(page_factory, server, owner):
+    """تاريخٌ في المستقبل لا تصل به المراجعة؛ وتغيير الشهر إلى المستقبل يُسقط اليوم المختار."""
+    page = page_factory(session=False)
+    page.goto(f"{server['base']}/#signup={_issue_code(owner)}")
+    flow = Flow(page, server["base"])
+    flow.screen("signup-notice")
+    page.evaluate("""() => {
+        const later = new Date(Date.now() + 2 * 86400000);
+        Object.assign(state.signup, { agreed: true, name: 'سارة', year: later.getFullYear(),
+            month: later.getMonth() + 1, day: later.getDate(), profession: 'STOREKEEPER', email: 'sara@example.sa' });
+        location.hash = '#/signup/review';
+    }""")
+    flow.screen("signup-day")
+    assert page.evaluate("""() => {
+        const later = new Date(Date.now() + 40 * 86400000);
+        Object.assign(state.signup, { year: later.getFullYear(), month: 1, day: later.getDate() });
+        setMonth(later.getMonth() + 1);
+        return state.signup.day;
+    }""") is None
+    assert not page.errors, page.errors
+
+
 # ── البوابات ─────────────────────────────────────────────────────────────
 def _walk(flow: Flow, kind: str, count: int, label: str) -> None:
     page = flow.page
@@ -148,6 +224,10 @@ def _walk(flow: Flow, kind: str, count: int, label: str) -> None:
         flow.until(f"document.querySelector('#portal-item-position').textContent.endsWith('{n} من {count}')")
         flow.audit(f"{label} {kind} {n}")
         assert page.is_visible("#portal-item-source")
+        # «في هذه البوابة» لا يدّعي أن التطبيق يؤدّي المهمّة: جزءٌ منها، والملاحظة تسمّيه.
+        if page.get_attribute("#portal-item-mode", "data-mode") == "IN_APP":
+            assert "جزءٌ منها" in page.text_content("#portal-item-mode")
+            assert page.is_visible("#portal-item-note")
         if n < count:
             flow.press("#portal-item-next", lambda: None, "التالي")
     page.go_back(wait_until="commit")
@@ -232,6 +312,62 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
         assert cursor.fetchone()[0] == 0
     assert not _failures(flow), "\n".join(_failures(flow))
     assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+
+
+def test_the_portal_follows_a_profession_change_while_the_app_is_open(page_factory, server, owner):
+    """المشغّل ينقل الحساب والتطبيق مفتوح: الحساب ثم الرئيسية يقرآن البوابة من جديد."""
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/")
+    flow.until("document.querySelector('#home-portal').textContent === 'بوابة التسويق'")
+    assert page.is_visible("#home-new")
+    _set_profession(owner, "STOREKEEPER")
+    page.click("#home-account")
+    flow.until("document.querySelector('#account-profession').textContent === 'المهنة: أمين المخزون'")
+    page.click(".screen[data-screen='account'] [data-back]")
+    flow.until("document.querySelector('#home-portal').textContent === 'بوابة أمين المخزون'")
+    assert page.is_hidden("#home-new")
+    assert page.is_hidden(".screen[data-screen='home'] .alert")
+    assert not page.errors, page.errors
+
+
+def test_home_buttons_are_not_drawn_before_the_portal_is_known(page_factory, server):
+    """قبل البوابة لا أزرار في موضعٍ مؤقّت: لا يبدأ نظرٌ على زرٍّ ينتقل حين تصل."""
+    page = page_factory()
+    held = []
+    page.route("**/api/portal", lambda route: held.append(route))
+    page.goto(server["base"] + "/#/")
+    flow = Flow(page, server["base"])
+    flow.screen("home")
+    for _ in range(200):
+        if held:
+            break
+        page.wait_for_timeout(25)
+    assert held
+    assert page.is_hidden("#home-tasks") and page.is_hidden("#home-skills")
+    held[0].continue_()
+    flow.until("document.querySelector('#home-portal').textContent === 'بوابة التسويق'")
+    assert page.is_visible("#home-tasks") and page.is_visible("#home-new")
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+def test_an_alert_on_the_delete_screen_keeps_its_distance(page_factory, server, owner, width, height):
+    """الحذف فشل (انقطاعٌ أو عطل): «حسناً» لا تجاور زرّاً، والحساب باقٍ."""
+    page = page_factory(width, height)
+    page.route("**/api/me/delete", lambda route: route.fulfill(
+        status=503, content_type="application/json", body='{"code": "UNAVAILABLE", "detail": "الخدمة غير متاحة."}'))
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/account/delete")
+    flow.screen("account-delete")
+    page.click("#account-delete-yes")
+    page.wait_for_selector(".screen[data-screen='account-delete'] .alert:not([hidden])")
+    flow.audit("account-delete alert")
+    assert not _failures(flow), "\n".join(_failures(flow))
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM users")
+        assert cursor.fetchone()[0] == 1
     assert not page.errors, page.errors
 
 

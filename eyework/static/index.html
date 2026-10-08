@@ -310,20 +310,24 @@
         </footer>
     </section>
 
+    <!-- «احذف حسابي» في الطرف الأسفل من الشاشة السابقة؛ فهنا في الموضع نفسه
+         «رجوع دون حذف»، والتأكيد في وسط المحتوى. والشريط العلوي فارغ: «حسناً»
+         في وسطه لا يجاور زرّاً. -->
     <section class="screen" data-screen="account-delete" hidden>
         <header class="bar bar--top">
-            <div class="slot"><button class="btn" type="button" id="account-delete-back" data-safe>رجوع دون حذف</button></div>
+            <div class="slot"></div>
             <p class="step">حذف الحساب</p>
             <div class="slot"></div>
         </header>
         <div class="content">
             <h2 tabindex="-1">حذف الحساب نهائياً؟</h2>
             <p class="line">يُحذف الحساب وكل ما فيه: الاسم، وتاريخ الميلاد، والحملات وصورها ونصوصها. لا يُسترجع شيءٌ منها.</p>
+            <button class="btn btn--wide btn--commit spaced" type="button" id="account-delete-yes" data-commit>نعم، احذف حسابي</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
-            <div class="slot"><button class="btn btn--commit" type="button" id="account-delete-yes" data-commit>نعم، احذف حسابي</button></div>
             <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="account-delete-back" data-safe>رجوع دون حذف</button></div>
         </footer>
     </section>
 
