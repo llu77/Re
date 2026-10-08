@@ -260,3 +260,18 @@ def test_the_page_validates_names_and_emails_as_the_server_does(page_factory, se
         })""", [NAMES, EMAILS])
     assert page_says["names"] == [_server_says(auth.check_name, raw) for raw in NAMES]
     assert page_says["emails"] == [_server_says(auth.check_email, raw) for raw in EMAILS]
+
+
+def test_every_row_on_the_home_screen_has_its_own_name(page_factory, server, owner, app):
+    """«التحكم الصوتي» يضغط بالاسم: حملتان بلا عنوان لا تحملان الاسم نفسه."""
+    user = _user_id(owner)
+    for _ in range(2):
+        create_campaign(app, user)
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/")
+    flow.until("document.querySelectorAll('#home-list li').length === 2")
+    names = [b.evaluate("(e) => e.textContent.replace(/\\s+/g, ' ').trim()")
+             for b in page.locator("#home-list button").all()]
+    assert len(set(names)) == len(names) == 2, names
+    assert not any(name.startswith("مسودة") for name in names), names

@@ -358,14 +358,17 @@ async function renderHome() {
     }
     const list = $('home-list');
     list.replaceChildren();
-    result.data.items.forEach((item) => {
+    // لكل صفٍّ اسمٌ لا يشاركه فيه غيره: «التحكم الصوتي» يضغط بالاسم، و«مسودة مسودة»
+    // مرتين في الشاشة اسمٌ لا يُختار به أحدهما. الحملة بلا عنوان تُرقَّم بموضعها.
+    const first = (state.page - 1) * state.choices.limits.page_size;
+    result.data.items.forEach((item, index) => {
         const row = document.createElement('li');
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'btn';
         button.dataset.safe = '';
         const title = document.createElement('span');
-        title.textContent = item.title || 'مسودة';
+        title.textContent = item.title || `حملة بلا عنوان ${first + index + 1}`;
         const status = document.createElement('span');
         status.className = 'row-status';
         status.textContent = STATUS_LABELS[item.status] || '';
