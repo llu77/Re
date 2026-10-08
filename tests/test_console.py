@@ -8,8 +8,9 @@
 وتُقاس اللوحة بمقاييس البوابة نفسها (تباين، تداخل، مساحة لمس ≥ 44، لا فيض
 أفقي) — المقاييس مستوردة لا منسوخة، فلا تختلف المسطرة بين الواجهتين.
 
-بلا بناءٍ (`npm ci && npm run build` في console/) تُتجاوز هذه الاختبارات
-بسببٍ صريح، كما تُتجاوز اختبارات المتصفّح حين يغيب Chromium.
+بلا بناءٍ (`npm ci && npm run build` في console/) أو بلا Chromium تُتجاوز هذه
+الاختبارات بسببٍ صريح — وفي CI يُفشلها الغياب (`tests/browsers.py`). ترويسات
+الخادم لا تحتاج متصفّحاً، فتُختبر في `test_console_headers.py`.
 """
 
 from __future__ import annotations
@@ -18,7 +19,6 @@ import json
 import os
 import socket
 import subprocess
-import urllib.request
 from pathlib import Path
 
 import pytest
@@ -26,24 +26,23 @@ import pytest
 from core import escalation, identity, proposals
 from core.adl import gate as adl_gate
 from core.types import Actor
+from tests import browsers
 from tests.conftest import cite_evidence_as, requires_db
 
 pytestmark = requires_db
 
 ROOT = Path(__file__).resolve().parent.parent
-CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
 DIST = ROOT / "console" / "dist" / "index.html"
 
 PRACTITIONER_EMAIL = "practitioner.A@example.test"
 SECRET = "كلمة-مرور-اللوحة"
 SESSION_KEY = "symbol.practitioner.session"
 
-playwright_api = pytest.importorskip("playwright.sync_api", reason="playwright غير مثبّت")
-
-if not Path(CHROMIUM).exists():  # pragma: no cover - يعتمد على البيئة
-    pytest.skip("متصفح Chromium غير متاح", allow_module_level=True)
+CHROMIUM = browsers.chromium_executable()
 if not DIST.exists():  # pragma: no cover - يعتمد على البناء
-    pytest.skip("لوحة الممارس لم تُبنَ: npm ci && npm run build في console/", allow_module_level=True)
+    browsers.unavailable("لوحة الممارس لم تُبنَ: npm ci && npm run build في console/")
+
+import playwright.sync_api as playwright_api  # noqa: E402 — بعد شرط التجاوز
 
 from tests.test_portal_accessibility import (  # noqa: E402 — بعد شرط التجاوز
     CONTRAST_SCRIPT,
@@ -555,28 +554,3 @@ def test_the_login_screen_passes_the_portal_audit(browser, clinic):
 def test_the_document_is_arabic_and_right_to_left(browser, clinic):
     page = browser.open()
     assert page.evaluate("() => [document.documentElement.lang, document.documentElement.dir]") == ["ar", "rtl"]
-
-
-# ── الخادم ──────────────────────────────────────────────────────────────
-
-
-def test_the_console_is_served_with_its_security_headers(server):
-    with urllib.request.urlopen(f"{server}/console/") as response:
-        headers = response.headers
-        html = response.read().decode()
-    assert "script-src 'self'" in headers["Content-Security-Policy"]
-    assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
-    assert headers["X-Content-Type-Options"] == "nosniff"
-    assert headers["Referrer-Policy"] == "same-origin"
-    assert headers["Cache-Control"] == "no-cache"
-
-    asset = html.split('src="', 1)[1].split('"', 1)[0]
-    with urllib.request.urlopen(f"{server}{asset}") as response:
-        assert "immutable" in response.headers["Cache-Control"]
-        assert "script-src 'self'" in response.headers["Content-Security-Policy"]
-
-
-def test_the_patient_portal_keeps_its_own_headers(server):
-    """الترويسات للوحة وحدها: البوابة لا تتغيّر بسببها."""
-    with urllib.request.urlopen(f"{server}/app/") as response:
-        assert "Content-Security-Policy" not in response.headers
