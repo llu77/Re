@@ -14,6 +14,8 @@
     <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="styles.css">
     <script src="ui.js" defer></script>
+    <!-- قبل app.js: يعرّف دوالّ يستدعيها app.js عند إقلاعه. -->
+    <script src="portal.js" defer></script>
     <script src="app.js" defer></script>
 </head>
 <body>
@@ -41,7 +43,7 @@
                        autocomplete="current-password" enterkeyhint="go" required>
             </div>
             <button class="btn btn--commit spaced" type="submit" data-commit>ادخل</button>
-            <p class="help">تعذّر الدخول؟ اطلب رابط تفعيلٍ جديداً ممّن دعاك.</p>
+            <p class="help">تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك أو أعطاك رابط التسجيل.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </form>
         <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
@@ -69,17 +71,214 @@
         <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
     </section>
 
+
+    <!-- ── التسجيل: برابطٍ من المشغّل، خطوةً خطوة، والبيانات في الذاكرة حتى الأخيرة ── -->
+    <section class="screen" data-screen="signup-notice" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">قبل أن تبدأ</h2>
+            <p class="line">يُحفظ في هذا التطبيق: الاسم، وتاريخ الميلاد، والمهنة، وكلمة المرور مجزّأةً لا نصّاً.</p>
+            <p class="line">البريد لا يُحفظ: تُحفظ بصمةٌ منه للدخول فقط. لا يصله شيء، ولا يُستردّ الحساب به.</p>
+            <p class="line">في بوابة التسويق تُرسَل صورة المنتج وما يُكتب عنه إلى مزوّد النموذج (Anthropic) خارج المملكة لصياغة النص. لا يُرسَل الاسم ولا تاريخ الميلاد.</p>
+            <p class="line">يُحذف الحساب وكل بياناته من داخل التطبيق متى شاء صاحبه.</p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-agree" data-safe>أوافق وأتابع</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-name" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · الاسم</p>
+            <div class="slot"></div>
+        </header>
+        <form class="content" id="signup-name-form" novalidate>
+            <h2 tabindex="-1">الاسم الذي يناديك به سيمبول</h2>
+            <div class="field-group">
+                <label class="label" for="signup-name-input">الاسم الأول يكفي، حتى 30 حرفاً</label>
+                <input class="field" id="signup-name-input" type="text" autocomplete="given-name"
+                       autocapitalize="words" enterkeyhint="next" maxlength="60" required>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </form>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <!-- خارج النموذج بالسمة form: «التالي» في موضعه من كل خطوة، ومفتاح «التالي»
+                 في لوحة المفاتيح يُرسل النموذج نفسه. -->
+            <div class="slot"><button class="btn" type="submit" form="signup-name-form" id="signup-name-next" data-safe>التالي</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-year" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · تاريخ الميلاد</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">سنة الميلاد</h2>
+            <div class="value" id="signup-year-value" aria-live="polite"></div>
+            <div class="grid grid--3" id="signup-year-presets" role="group" aria-label="سنواتٌ جاهزة"></div>
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="signup-year-down"></button>
+                <button class="btn" type="button" id="signup-year-up"></button>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-year-next" data-safe>التالي</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-month" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · تاريخ الميلاد</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">شهر الميلاد</h2>
+            <div class="value" id="signup-month-value" aria-live="polite"></div>
+            <div class="grid grid--3" id="signup-month-presets" role="group" aria-label="أشهرٌ جاهزة"></div>
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="signup-month-down"></button>
+                <button class="btn" type="button" id="signup-month-up"></button>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-month-next" data-safe>التالي</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-day" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · تاريخ الميلاد</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">يوم الميلاد</h2>
+            <div class="value" id="signup-day-value" aria-live="polite"></div>
+            <div class="grid grid--3" id="signup-day-presets" role="group" aria-label="أيامٌ جاهزة"></div>
+            <div class="grid grid--2 spaced">
+                <button class="btn" type="button" id="signup-day-down"></button>
+                <button class="btn" type="button" id="signup-day-up"></button>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-day-next" data-safe>التالي</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-profession" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · المهنة</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">المهنة</h2>
+            <p class="help">تُفتح بها بوابتك. تغييرها بعد التسجيل بطلبٍ ممّن أعطاك الرابط.</p>
+            <div class="rows" id="signup-professions" role="group" aria-label="المهن"></div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-profession-next" data-safe>التالي</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-email" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · البريد</p>
+            <div class="slot"></div>
+        </header>
+        <form class="content" id="signup-email-form" novalidate>
+            <h2 tabindex="-1">البريد الإلكتروني</h2>
+            <div class="field-group">
+                <label class="label" for="signup-email-input">يكون اسم دخولك</label>
+                <input class="field" id="signup-email-input" type="email" inputmode="email" autocomplete="email"
+                       autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" dir="ltr" required>
+            </div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </form>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <!-- خارج النموذج بالسمة form: «التالي» في موضعه من كل خطوة، ومفتاح «التالي»
+                 في لوحة المفاتيح يُرسل النموذج نفسه. -->
+            <div class="slot"><button class="btn" type="submit" form="signup-email-form" id="signup-email-next" data-safe>التالي</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-review" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · المراجعة</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">راجِع قبل كلمة المرور</h2>
+            <p class="line" id="signup-review-name"></p>
+            <p class="line" id="signup-review-birth"></p>
+            <p class="line" id="signup-review-profession"></p>
+            <p class="line">اسم الدخول: <bdi dir="ltr" class="login-name" id="signup-review-email"></bdi></p>
+            <p class="help">لا يصل هذا البريدَ شيء، ولا يُستردّ الحساب به. إن نُسيت كلمة المرور فرابطٌ جديد ممّن أعطاك رابط التسجيل.</p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-review-next" data-safe>التالي: كلمة المرور</button></div>
+        </footer>
+    </section>
+    <section class="screen" data-screen="signup-password" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">التسجيل · كلمة المرور</p>
+            <div class="slot"></div>
+        </header>
+        <form class="content" id="signup-password-form" novalidate>
+            <h2 tabindex="-1">كلمة المرور</h2>
+            <div class="field-group">
+                <label class="label" for="signup-password-login">اسم الدخول</label>
+                <input class="field" id="signup-password-login" name="username" type="email" autocomplete="username"
+                       dir="ltr" readonly>
+            </div>
+            <div class="field-group">
+                <label class="label" for="signup-password-input">كلمة مرورٍ جديدة، 12 حرفاً على الأقل</label>
+                <input class="field" id="signup-password-input" name="password" type="password"
+                       autocomplete="new-password" minlength="12" maxlength="128" enterkeyhint="done"
+                       passwordrules="minlength: 20; required: lower; required: upper; required: digit;" required>
+            </div>
+            <button class="btn btn--commit spaced" type="submit" id="signup-create" data-commit>أنشئ حسابي</button>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </form>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="signup-reveal" data-safe aria-pressed="false">أظهر كلمة المرور</button></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
     <!-- ── الرئيسية ───────────────────────────────────────────────── -->
     <section class="screen" data-screen="home" hidden>
         <header class="bar bar--top">
             <div class="slot"></div>
-            <p class="step"></p>
-            <div class="slot"><button class="btn" type="button" id="home-logout" data-safe>خروج</button></div>
+            <p class="step" id="home-portal"></p>
+            <div class="slot"><button class="btn" type="button" id="home-account" data-safe>حسابي</button></div>
         </header>
         <div class="content">
-            <h2 tabindex="-1">حملاتي</h2>
-            <p class="help" id="home-greeting"></p>
-            <button class="btn btn--wide" type="button" id="home-new" data-safe>حملة تسويق جديدة</button>
+            <h2 tabindex="-1" id="home-greeting"></h2>
+            <div class="grid" id="home-actions">
+                <button class="btn" type="button" id="home-new" data-safe hidden>حملة جديدة</button>
+                <button class="btn" type="button" id="home-tasks" data-safe>المهامّ</button>
+                <button class="btn" type="button" id="home-skills" data-safe>المهارات</button>
+            </div>
+            <p class="help" id="home-about" hidden></p>
             <ol class="rows spaced" id="home-list"></ol>
             <p class="help" id="home-empty" hidden>لا حملات بعد.</p>
             <p class="help" id="home-install" hidden>للاستعمال بالنظر: أضف التطبيق إلى الشاشة الرئيسية من زرّ المشاركة في Safari.</p>
@@ -88,6 +287,64 @@
         <footer class="bar bar--bottom">
             <div class="slot"><button class="btn" type="button" id="home-older" data-safe>الأقدم</button></div>
             <div class="slot"><button class="btn" type="button" id="home-newer" data-safe>الأحدث</button></div>
+        </footer>
+    </section>
+
+    <!-- ── الحساب ─────────────────────────────────────────────────── -->
+    <section class="screen" data-screen="account" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">حسابي</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">حسابي</h2>
+            <p class="line" id="account-name"></p>
+            <p class="line" id="account-profession"></p>
+            <button class="btn btn--wide spaced" type="button" id="account-logout" data-safe>تسجيل الخروج</button>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
+        </footer>
+    </section>
+
+    <section class="screen" data-screen="account-delete" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" id="account-delete-back" data-safe>رجوع دون حذف</button></div>
+            <p class="step">حذف الحساب</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">حذف الحساب نهائياً؟</h2>
+            <p class="line">يُحذف الحساب وكل ما فيه: الاسم، وتاريخ الميلاد، والحملات وصورها ونصوصها. لا يُسترجع شيءٌ منها.</p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn btn--commit" type="button" id="account-delete-yes" data-commit>نعم، احذف حسابي</button></div>
+            <div class="slot"></div>
+        </footer>
+    </section>
+
+    <!-- ── البوابة: المهامّ والمهارات، بندٌ واحد في كل شاشة ─────────── -->
+    <section class="screen" data-screen="portal-item" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step" id="portal-item-position"></p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1" id="portal-item-heading"></h2>
+            <p class="title" id="portal-item-text"></p>
+            <p class="line" id="portal-item-note"></p>
+            <p class="badge" id="portal-item-mode"></p>
+            <p class="help" id="portal-item-source"></p>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"><button class="btn" type="button" id="portal-item-previous" data-safe>السابق</button></div>
+            <div class="slot"><button class="btn" type="button" id="portal-item-next" data-safe>التالي</button></div>
         </footer>
     </section>
 

@@ -16,12 +16,13 @@ import re
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 
 from eyework import auth
+from eyework.professions import Profession
 from eyework.rate_limit import RateLimit, RateLimiter, RateLimitExceeded
 
-__all__ = ["COOKIE", "Limiters", "client_ip", "enforce", "require_user", "session_token"]
+__all__ = ["COOKIE", "Limiters", "client_ip", "enforce", "require_profession", "require_user", "session_token"]
 
 COOKIE = "__Host-ew"
 COOKIE_MAX_AGE = 30 * 24 * 3600
@@ -38,6 +39,7 @@ class Limiters:
     login_name: RateLimiter
     login_ip: RateLimiter
     activate_ip: RateLimiter
+    register_ip: RateLimiter
     upload: RateLimiter
     mutation: RateLimiter
     image: RateLimiter
@@ -49,6 +51,10 @@ class Limiters:
             login_name=RateLimiter(RateLimit(300, 3600.0)),
             login_ip=RateLimiter(RateLimit(20, 60.0)),
             activate_ip=RateLimiter(RateLimit(5, 60.0)),
+            # التسجيل برمزٍ يصدره المشغّل، وطلبات فحص الرمز وإنشاء الحساب معاً:
+            # عشرون في الساعة من عنوانٍ واحد تكفي دفعةً تتسجّل من شبكة مركزٍ واحد.
+            # والقاعدة تسقف المجموع اليومي للجميع (ew_register).
+            register_ip=RateLimiter(RateLimit(20, 3600.0)),
             upload=RateLimiter(RateLimit(10, 3600.0)),
             mutation=RateLimiter(RateLimit(120, 60.0)),
             image=RateLimiter(RateLimit(120, 60.0)),
@@ -88,3 +94,22 @@ def require_user(request: Request) -> UUID:
             detail={"code": "SESSION", "detail": "سجّل الدخول للمتابعة."},
         )
     return user_id
+
+
+def require_profession(profession: Profession):
+    """
+    بوابة مهنةٍ واحدة: الأداة لأصحاب مهنتها وحدهم، 403 لغيرهم.
+
+    `require_user` داخلها هو نفسه في المسار، وFastAPI يحسبه مرةً للطلب.
+    والقاعدة تفرض الشرط نفسه عند الإنشاء؛ هذا الحاجز الأول لا الوحيد.
+    """
+
+    def dependency(request: Request, user_id: UUID = Depends(require_user)) -> UUID:
+        if auth.profession_of(request.app.state.db, user_id) is not profession:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail={"code": "PROFESSION", "detail": "هذه الأداة لبوابة مهنةٍ أخرى."},
+            )
+        return user_id
+
+    return dependency

@@ -48,6 +48,10 @@ const state = {
     readyBlob: null,
     // الاسم الذي يناديه به المساعد، من /api/me. لا يُرسل إلى النموذج.
     displayName: null,
+    // التسجيل الجاري (portal.js): الرمز وما اختير خطوةً خطوة، في الذاكرة وحدها.
+    signup: null,
+    // بوابة مهنة صاحب الحساب من /api/portal: اسمها، وأداتها، ومهامّها، ومهاراتها.
+    portal: null,
     // يزيد مع كل انتقال: ردٌّ وصل بعد انتقالٍ أحدث لا يرسم شاشةً ولا يغيّر حملة.
     nav: 0,
     // النسخة التي عُرضت ملاحظتها وحدها لأن الشاشة لم تتّسع لها مع النصّ.
@@ -111,8 +115,13 @@ function campaignRoute(campaign) {
 
 // الأب المنطقي لكل شاشة: «رجوع» يذهب إليه دائماً، لا إلى تاريخ المتصفّح.
 function parentOf(name) {
+    if (name.startsWith('signup-')) {
+        return signupParent(name);
+    }
     const id = state.campaign && state.campaign.id;
     return {
+        account: '#/',
+        'portal-item': '#/',
         photo: '#/',
         proposal: '#/',
         ready: '#/',
@@ -159,8 +168,20 @@ async function route() {
         renderActivate();
         return;
     }
+    if (await routePortal(hash, nav)) {
+        return;
+    }
     if (hash === '#/' || hash === '#') {
         await renderHome();
+        return;
+    }
+    // الحملة أداة بوابة التسويق وحدها: البوابات الأخرى لا تصل مساراتها.
+    const portal = await loadPortal();
+    if (nav !== state.nav) {
+        return;
+    }
+    if (!portal || !portal.tools.includes('CAMPAIGN')) {
+        go('#/', { replace: true });
         return;
     }
     if (hash === '#/new') {
@@ -303,6 +324,28 @@ async function renderHome() {
     state.campaign = null;
     const section = UI.show('home');
     $('home-greeting').textContent = greeting();
+    const portal = await loadPortal();
+    if (nav !== state.nav) {
+        return;
+    }
+    if (!portal) {
+        UI.showAlert(section, GENERIC);
+        return;
+    }
+    $('home-portal').textContent = `بوابة ${portal.name}`;
+    const campaigns = portal.tools.includes('CAMPAIGN');
+    $('home-new').hidden = !campaigns;
+    $('home-actions').className = `grid ${campaigns ? 'grid--3' : 'grid--2'}`;
+    $('home-about').hidden = campaigns;
+    $('home-about').textContent = portal.summary;
+    if (!campaigns) {
+        $('home-list').replaceChildren();
+        $('home-empty').hidden = true;
+        $('home-install').hidden = true;
+        UI.setButton($('home-older'), { reserved: true });
+        UI.setButton($('home-newer'), { reserved: true });
+        return;
+    }
     const result = await api('GET', `/api/campaigns?page=${state.page}`);
     if (nav !== state.nav) {
         return;
@@ -1024,7 +1067,6 @@ function wire() {
     $('login-form').addEventListener('submit', onLogin);
     $('activate-form').addEventListener('submit', onActivate);
     $('home-new').addEventListener('click', () => go('#/new'));
-    $('home-logout').addEventListener('click', onLogout);
     $('home-older').addEventListener('click', () => { state.page += 1; renderHome(); });
     $('home-newer').addEventListener('click', () => { state.page = Math.max(1, state.page - 1); renderHome(); });
     $('photo-input').addEventListener('change', onPhotoChosen);
@@ -1079,6 +1121,7 @@ function wire() {
             }
         });
     });
+    wirePortal();
     window.addEventListener('hashchange', route);
     // صفحةٌ تعود من ذاكرة الرجوع في Safari قد تعرض تأكيداً قديماً: تُقرأ من جديد.
     window.addEventListener('pageshow', (event) => {
@@ -1111,6 +1154,11 @@ async function boot() {
         renderActivate();
         return;
     }
+    // التسجيل قبل الجلسة: لا يُسأل عن صاحبٍ لم يُنشأ حسابه بعد.
+    if (location.hash.startsWith('#/signup')) {
+        route();
+        return;
+    }
     const me = await api('GET', '/api/me');
     if (me.status === 200) {
         state.displayName = me.data.display_name || null;
@@ -1128,5 +1176,6 @@ function startupFailed(message) {
 }
 
 captureActivation();
+captureSignup();
 wire();
 boot();

@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from fastapi.concurrency import run_in_threadpool
 
 from eyework import campaigns, images
-from eyework.web.deps import enforce, require_user
+from eyework.professions import Profession
+from eyework.web.deps import enforce, require_profession, require_user
 from eyework.web.errors import UNUSABLE
 from eyework.web.schemas import (
     ApproveBody,
@@ -30,7 +31,8 @@ from eyework.web.schemas import (
 
 __all__ = ["router"]
 
-router = APIRouter(prefix="/api/campaigns")
+#: الحملة أداة بوابة التسويق وحدها.
+router = APIRouter(prefix="/api/campaigns", dependencies=[Depends(require_profession(Profession.MARKETING))])
 
 _CHUNK = 64 * 1024
 

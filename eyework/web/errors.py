@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-__all__ = ["ErrorSpec", "AI_OUTCOMES", "CONSTRAINTS", "EDIT_REQUEST", "IMAGE", "UNUSABLE", "GENERIC"]
+__all__ = ["ErrorSpec", "AI_OUTCOMES", "CONSTRAINTS", "EDIT_REQUEST", "IMAGE", "REGISTRATION",
+           "REGISTRATION_CONSTRAINTS", "UNUSABLE", "GENERIC"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +37,9 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
     "generation_global_cap": ErrorSpec(503, "AI_BUSY", "خدمة الكتابة مشغولة الآن. حاول لاحقاً.", 600),
     "version_cap": ErrorSpec(409, "VERSION_CAP", "بلغت هذه الحملة عشر نسخ، وهو الحدّ."),
     "open_campaign_cap": ErrorSpec(409, "OPEN_CAP", "لديك عشرون حملةً مفتوحة. أكمل بعضها أو ألغِه أولاً."),
+    "campaign_needs_marketing": ErrorSpec(403, "PROFESSION", "هذه الأداة لبوابة مهنةٍ أخرى."),
+    "registration_daily_cap": ErrorSpec(503, "REGISTER_FULL",
+                                        "اكتمل عدد الحسابات الجديدة لهذا اليوم. حاول غداً.", 3600),
     "campaign_is_final": ErrorSpec(409, "FINAL", "الحملة معتمدة أو ملغاة ولا تتغيّر."),
     "campaign_transition": ErrorSpec(409, "STALE", _STALE),
     "money_only_while_approved": ErrorSpec(409, "STALE", _STALE),
@@ -98,4 +102,28 @@ EDIT_REQUEST: dict[str, ErrorSpec] = {
     "BUDGET_RANGE": ErrorSpec(422, "BUDGET_RANGE", "اختر مبلغاً من القيم المعروضة."),
     "RESTORE_TARGET": ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب."),
     "DAYS_RANGE": ErrorSpec(422, "DAYS_RANGE", "المدّة من يومٍ واحد إلى ثلاثين يوماً."),
+}
+
+
+#: التسجيل: لكل حقلٍ رسالته، فتعود الواجهة إلى خطوته.
+REGISTRATION: dict[str, ErrorSpec] = {
+    "NAME": ErrorSpec(422, "REGISTER_INVALID", "الاسم: حروفٌ عربية أو لاتينية فقط، حتى 30 حرفاً."),
+    "BIRTH": ErrorSpec(422, "REGISTER_INVALID", "تاريخ الميلاد غير صحيح. اكتب اليوم والشهر والسنة بالأرقام."),
+    "CONSENT": ErrorSpec(422, "REGISTER_INVALID", "الموافقة على الإشعار مطلوبة لإنشاء الحساب."),
+    "EMAIL": ErrorSpec(422, "REGISTER_INVALID", "البريد غير صحيح. مثال: name@example.com"),
+    "PASSWORD": ErrorSpec(422, "REGISTER_INVALID", "كلمة المرور من 12 حرفاً على الأقل."),
+    "TAKEN": ErrorSpec(409, "REGISTER_TAKEN",
+                       "يوجد حسابٌ بهذا البريد. ادخل به، أو اكتب بريداً آخر."),
+    "CODE": ErrorSpec(410, "REGISTER_CODE",
+                      "رابط التسجيل غير صالح أو انتهى. اطلب رابطاً جديداً ممّن أعطاك إياه."),
+    "CLOSED": ErrorSpec(403, "REGISTER_CLOSED", "التسجيل مغلق. اطلب دعوةً ممّن يدير التطبيق."),
+}
+
+#: قيود القاعدة على التسجيل ← الحقل الذي يُصلَح. «اليوم» بتاريخ الرياض في القاعدة لا بساعة بايثون.
+REGISTRATION_CONSTRAINTS: dict[str, str] = {
+    "registration_birth_date": "BIRTH",
+    "registration_needs_consent": "CONSENT",
+    "birth_date_range": "BIRTH",
+    "display_name_shape": "NAME",
+    "registration_needs_name": "NAME",
 }

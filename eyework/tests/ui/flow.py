@@ -17,7 +17,8 @@ import io
 
 from PIL import Image
 
-STEPPERS = ("budget-up", "budget-down", "days-up", "days-down")
+STEPPERS = ("budget-up", "budget-down", "days-up", "days-down",
+            *(f"signup-{unit}-{way}" for unit in ("year", "month", "day") for way in ("up", "down")))
 
 AUDIT = """
 () => {

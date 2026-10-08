@@ -37,6 +37,8 @@ class Settings:
     anthropic_api_key: str | None
     #: الأصل العام بلا مسار، مثل https://work.example.sa — لفحص Origin والروابط.
     public_origin: str
+    #: التسجيل برابط المشغّل مفتوح؟ `EYEWORK_REGISTRATION=closed` يغلقه (الدعوة باقية).
+    registration_open: bool = True
 
 
 def _required(name: str) -> str:
@@ -85,6 +87,18 @@ def _no_sdk_overrides() -> None:
         )
 
 
+def _registration() -> bool:
+    """
+    `code` (الافتراض): يُسجَّل برابطٍ فيه رمزٌ يصدره المشغّل. `closed`: بالدعوة وحدها.
+    لا تسجيل بلا رمز: من شاء يسأل حينها «هل لهذا البريد حساب؟» — وقائمة المستخدمين
+    معلومةٌ صحّية.
+    """
+    value = os.environ.get("EYEWORK_REGISTRATION", "code").strip().lower() or "code"
+    if value not in ("code", "closed"):
+        raise ConfigError("EYEWORK_REGISTRATION يجب أن يكون code أو closed")
+    return value == "code"
+
+
 def load() -> Settings:
     _no_sdk_overrides()
     return Settings(
@@ -92,6 +106,7 @@ def load() -> Settings:
         login_key=_login_key(_required("EYEWORK_LOGIN_KEY")),
         anthropic_api_key=os.environ.get("EYEWORK_ANTHROPIC_API_KEY", "").strip() or None,
         public_origin=_origin(_required("EYEWORK_PUBLIC_ORIGIN")),
+        registration_open=_registration(),
     )
 
 

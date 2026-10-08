@@ -90,9 +90,13 @@ p { margin: 0; }
 .bar--top .slot { flex: 0 0 auto; min-width: 6.5rem; }
 .bar--top .step {
     flex: 1;
+    /* نصّ الخطوة يلتفّ سطرين ولا يدفع الزرّين إلى حافّة الشاشة: «بوابة أمين
+       المخزون» أعرض من المسافة بينهما في 375px. */
+    min-width: 0;
     align-self: center;
     text-align: center;
-    white-space: nowrap;
+    text-wrap: balance;
+    line-height: 1.3;
     color: var(--ink-soft);
     font-size: var(--fs-small);
 }
@@ -201,6 +205,19 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
 .headline { display: flex; align-items: center; gap: 0.75rem; min-height: 4.5rem; }
 .thumb { width: 4.5rem; height: 4.5rem; object-fit: cover; border-radius: var(--radius); flex: none; background: var(--surface-sunk); }
 .title { font-size: var(--fs-title); font-weight: 700; line-height: 1.4; color: var(--navy); }
+/* كيف تُؤدّى المهمّة: علامةٌ مقروءة لا لونٌ وحده. */
+.badge {
+    align-self: flex-start;
+    padding: 0.125rem 0.75rem;
+    border: 2px solid var(--line-strong);
+    border-radius: var(--radius);
+    font-size: var(--fs-small);
+    font-weight: 700;
+    color: var(--ink);
+}
+.badge[data-mode="IN_APP"] { border-color: var(--ok); color: var(--ok); }
+/* اسم الدخول كاملاً، كبيراً، من اليسار: خطأٌ فيه يُرى قبل أن يصير حساباً. */
+.login-name { font-size: var(--fs-title); font-weight: 700; color: var(--navy); word-break: break-all; }
 .description { white-space: pre-line; }
 .description--3, .description--2 {
     display: -webkit-box;

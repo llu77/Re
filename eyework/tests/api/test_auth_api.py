@@ -81,7 +81,7 @@ def _invite(owner, username: str, *, age_hours: int = 0) -> str:
     """دعوةٌ كما يُنشئها المشغّل: حسابٌ بلا كلمة مرور، ورمزٌ مجزّأ له مهلة."""
     with owner.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO users (login_hmac) VALUES (%s) RETURNING id",
+            "INSERT INTO users (login_hmac, profession) VALUES (%s, 'MARKETING') RETURNING id",
             (auth.login_hmac(LOGIN_KEY, username),),
         )
         user_id = cursor.fetchone()[0]
@@ -298,12 +298,14 @@ def test_me_returns_the_generations_left_and_only_the_users_own_name(owner, sell
     لا معرّف ولا اسم دخول: يصلان كل سجلٍّ وكل إضافةٍ في المتصفّح. الاسم الذي
     يناديه به المساعد وحده، واسم صاحب الجلسة لا غيره.
     """
-    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": None}
+    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": None,
+                                            "profession": "MARKETING"}
 
     with owner.cursor() as cursor:
         cursor.execute("UPDATE users SET display_name = 'عمر' WHERE login_hmac = %s",
                        (auth.login_hmac(LOGIN_KEY, SELLER),))
-    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": "عمر"}
+    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": "عمر",
+                                            "profession": "MARKETING"}
     assert intruder.get("/api/me").json()["display_name"] is None
 
 

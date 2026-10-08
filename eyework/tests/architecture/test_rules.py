@@ -103,7 +103,7 @@ def test_web_routes_never_touch_the_database_directly():
 
 
 PURE = ("states.py", "money.py", "arabic_numbers.py", "copy_rules.py", "prompt.py", "passwords.py",
-        "clock.py", "rate_limit.py")
+        "clock.py", "rate_limit.py", "professions.py")
 IMPURE = {"fastapi", "starlette", "psycopg", "psycopg_pool", "anthropic", "PIL"}
 
 

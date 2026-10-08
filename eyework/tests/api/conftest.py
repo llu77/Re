@@ -91,18 +91,19 @@ def _password_hash(password: str) -> str:
     return hash_password(password)
 
 
-def add_user(owner, username: str, *, password: str = PASSWORD, active: bool = True) -> UUID:
+def add_user(owner, username: str, *, password: str = PASSWORD, active: bool = True,
+             profession: str = "MARKETING") -> UUID:
     """حسابٌ مفعَّل كما يتركه التفعيل: HMAC الاسم، وتجزئة الكلمة، و`activated_at`."""
     return make_user(owner, login=auth.login_hmac(LOGIN_KEY, username),
-                     password_hash=_password_hash(password), active=active)
+                     password_hash=_password_hash(password), active=active, profession=profession)
 
 
 def log_in(client: TestClient, username: str = SELLER, password: str = PASSWORD) -> httpx.Response:
     return client.post("/api/auth/login", json={"username": username, "password": password})
 
 
-def signed_in(owner, browser, username: str, **options) -> TestClient:
-    add_user(owner, username)
+def signed_in(owner, browser, username: str, *, profession: str = "MARKETING", **options) -> TestClient:
+    add_user(owner, username, profession=profession)
     client = browser(**options)
     response = log_in(client, username)
     assert response.status_code == 204, response.text
