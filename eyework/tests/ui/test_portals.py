@@ -16,7 +16,7 @@ import pytest
 
 from eyework import auth, campaigns, professions
 from eyework.tests.conftest import add_version, create_campaign
-from eyework.tests.ui.conftest import LOGIN, LOGIN_KEY, VIEWPORTS
+from eyework.tests.ui.conftest import DESKTOP, HANDHELD, LOGIN, LOGIN_KEY, VIEWPORTS
 from eyework.tests.ui.flow import Flow
 from eyework.tests.ui.test_gaze import HOVER_OR_GESTURE
 
@@ -127,7 +127,7 @@ def test_signing_up_from_the_link_to_the_portal(page_factory, server, owner, wid
     _gaze_safe(page)
 
     assert not _failures(flow), "\n".join(_failures(flow))
-    if (width, height) != VIEWPORTS[-1]:
+    if (width, height) != DESKTOP:
         assert not flow.landings, "\n".join(flow.landings)
     assert not page.errors, page.errors
     with owner.cursor() as cursor:
@@ -329,7 +329,7 @@ def test_a_full_page_of_campaigns_fits_the_home_screen(page_factory, server, own
 
 
 # ── الحساب ───────────────────────────────────────────────────────────────
-@pytest.mark.parametrize(("width", "height"), VIEWPORTS[:3], ids=IDS[:3])
+@pytest.mark.parametrize(("width", "height"), HANDHELD, ids=[f"{w}x{h}" for w, h in HANDHELD])
 def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width, height):
     page = page_factory(width, height)
     flow = Flow(page, server["base"])
