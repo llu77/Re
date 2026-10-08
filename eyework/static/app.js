@@ -486,6 +486,16 @@ async function keepAwake() {
     }
     try {
         const lock = await navigator.wakeLock.request('screen');
+        // انتهى الانتظار والطلب في الطريق (WebKit يمنحه بعد سؤال الإذن): يُترك
+        // فوراً، وإلا بقيت الشاشة مضاءة بلا انتظار حتى تُخفى الصفحة.
+        if (!state.waitingFor) {
+            lock.release().catch(() => {});
+            return null;
+        }
+        // عودتان سريعتان تطلبان مرتين: يبقى قفلٌ واحد.
+        if (state.wakeLock) {
+            state.wakeLock.release().catch(() => {});
+        }
         lock.addEventListener('release', () => {
             if (state.wakeLock === lock) {
                 state.wakeLock = null;

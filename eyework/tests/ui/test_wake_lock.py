@@ -14,7 +14,9 @@ from eyework.tests.ui.flow import Flow, sample_photo
 
 STUB = """
 (() => {
-    const log = { requests: 0, released: 0, live: null, refuse: false };
+    // hold: الطلب يبقى معلّقاً حتى grant()، كما يتأخّر WebKit بسؤال الإذن.
+    const log = { requests: 0, released: 0, live: null, refuse: false, hold: false, pending: [], locks: [] };
+    log.grant = () => log.pending.shift()();
     Object.defineProperty(window, '__wake', { value: log });
     Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: {
         request: async () => {
@@ -28,6 +30,10 @@ STUB = """
                 log.released += 1;
                 lock.dispatchEvent(new Event('release'));
             };
+            log.locks.push(lock);
+            if (log.hold) {
+                return new Promise((resolve) => log.pending.push(() => { log.live = lock; resolve(lock); }));
+            }
             log.live = lock;
             return lock;
         },
@@ -85,4 +91,46 @@ def test_a_refused_lock_is_said_on_the_waiting_screen(page_factory, server):
     assert not audit["vertical"] and not audit["clipped"], audit
     held[0].continue_()
     flow.until("!document.querySelector('#proposal-copy').hidden")
+    assert not page.errors, page.errors
+
+
+def test_a_lock_granted_after_the_wait_ended_is_let_go(page_factory, server):
+    """طلبٌ من عودة الصفحة لم يُمنح بعد حين وصل الردّ: يُترك فور منحه، فلا تبقى الشاشة مضاءة بلا انتظار."""
+    page, flow, held = _waiting(page_factory, server)
+    page.wait_for_function("() => window.__wake.requests === 1")
+    page.evaluate("""() => {
+        window.__wake.hold = true;
+        window.__setVisibility('hidden');
+        window.__wake.live.release();
+        window.__setVisibility('visible');
+    }""")
+    page.wait_for_function("() => window.__wake.pending.length === 1")
+    held[0].continue_()
+    flow.until("!document.querySelector('#proposal-copy').hidden")
+    page.wait_for_function("() => state.waitingFor === null")
+    page.evaluate("() => window.__wake.grant()")
+    page.wait_for_function("() => window.__wake.locks.every((lock) => lock.released)", timeout=3000)
+    assert page.evaluate("() => state.wakeLock") is None
+    assert not page.errors, page.errors
+
+
+def test_two_returns_while_waiting_keep_one_lock(page_factory, server):
+    """الصفحة تُخفى وتعود مرتين والطلبان معلّقان: يبقى قفلٌ واحد، ويُترك عند الردّ."""
+    page, flow, held = _waiting(page_factory, server)
+    page.wait_for_function("() => window.__wake.requests === 1")
+    page.evaluate("""() => {
+        window.__wake.hold = true;
+        window.__setVisibility('hidden');
+        window.__wake.live.release();
+        window.__setVisibility('visible');
+        window.__setVisibility('hidden');
+        window.__setVisibility('visible');
+    }""")
+    page.wait_for_function("() => window.__wake.pending.length === 2")
+    page.evaluate("() => { window.__wake.grant(); window.__wake.grant(); }")
+    page.wait_for_function("() => window.__wake.locks.filter((lock) => !lock.released).length === 1", timeout=3000)
+    assert page.evaluate("() => window.__wake.locks.find((lock) => !lock.released) === state.wakeLock")
+    held[0].continue_()
+    flow.until("!document.querySelector('#proposal-copy').hidden")
+    page.wait_for_function("() => window.__wake.locks.every((lock) => lock.released)", timeout=3000)
     assert not page.errors, page.errors
