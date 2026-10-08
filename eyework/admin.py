@@ -113,6 +113,10 @@ _PURGE_TOKENS = """
 DELETE FROM activation_tokens
  WHERE expires_at < now() - interval '30 days' OR used_at < now() - interval '30 days'
 """
+#: أثر المحاولات المحذوفة لا يعدّه السقف بعد يومه.
+_PURGE_TOMBSTONES = """
+DELETE FROM attempt_tombstones WHERE started_at < now() - interval '24 hours'
+"""
 _PURGE_SIGNUP_CODES = """
 DELETE FROM signup_codes
  WHERE expires_at < now() - interval '30 days' OR used_at < now() - interval '30 days'
@@ -297,7 +301,7 @@ def purge() -> dict[str, int]:
     with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
         for name, statement in (("final_campaigns", _PURGE_FINAL), ("idle_campaigns", _PURGE_IDLE),
                                 ("sessions", _PURGE_SESSIONS), ("activation_tokens", _PURGE_TOKENS),
-                                ("signup_codes", _PURGE_SIGNUP_CODES)):
+                                ("signup_codes", _PURGE_SIGNUP_CODES), ("attempt_tombstones", _PURGE_TOMBSTONES)):
             cursor.execute(statement)
             counts[name] = cursor.rowcount
     return counts

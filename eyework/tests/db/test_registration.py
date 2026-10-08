@@ -159,21 +159,33 @@ def test_a_failed_registration_leaves_the_code_unused(owner, app):
     assert _register(app, code)[1] == "OK"
 
 
-def test_the_daily_cap_counts_self_registered_accounts_of_the_last_day(owner, app):
+def _used_codes(owner, count: int, *, age: str = "1 hour") -> None:
     with owner.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO users (login_hmac, profession, self_registered, terms_version, terms_accepted_at)"
-            " SELECT sha256(convert_to('cap-' || g, 'UTF8')), 'MARKETING', true, %s, now()"
-            " FROM generate_series(1, 199) g", (TERMS,))
-        # حسابات الدعوة لا تُحسب، ولا الحسابات الأقدم من يوم.
-        cursor.execute(
-            "INSERT INTO users (login_hmac, profession) SELECT sha256(convert_to('invite-' || g, 'UTF8')),"
-            " 'MARKETING' FROM generate_series(1, 50) g")
-        cursor.execute(
-            "INSERT INTO users (login_hmac, profession, self_registered, created_at, terms_version,"
-            " terms_accepted_at) VALUES (sha256('old'::bytea), 'MARKETING', true,"
-            " now() - interval '25 hours', %s, now())", (TERMS,))
+            "INSERT INTO signup_codes (code_hash, created_at, expires_at, used_at)"
+            " SELECT sha256(convert_to('used-' || %s || '-' || g, 'UTF8')), now() - %s::interval - interval '1 hour',"
+            " now() - %s::interval + interval '1 day', now() - %s::interval FROM generate_series(1, %s) g",
+            (age, age, age, age, count))
+
+
+def test_the_daily_cap_counts_the_codes_used_in_the_last_day(owner, app):
+    _used_codes(owner, 199)
+    # الرموز غير المستعملة لا تُحسب، ولا المستعملة قبل أكثر من يوم.
+    for n in range(50):
+        issue_code(owner, f"unused-{n}")
+    _used_codes(owner, 5, age="25 hours")
     assert _register(app, issue_code(owner, "a"), "the-200th@example.sa")[1] == "OK"
+    with pytest.raises(errors.CheckViolation) as caught:
+        _register(app, issue_code(owner, "b"), "the-201st@example.sa")
+    assert caught.value.diag.constraint_name == "registration_daily_cap"
+
+
+def test_deleting_an_account_does_not_make_room_under_the_daily_cap(owner, app):
+    """الحساب يُحذف بيد صاحبه، والرمز الذي فتحه يبقى مستعملاً: لا تُفرغ الدورةُ السقفَ."""
+    _used_codes(owner, 199)
+    assert _register(app, issue_code(owner, "a"), "the-200th@example.sa")[1] == "OK"
+    with owner.cursor() as cursor:
+        cursor.execute("DELETE FROM users WHERE self_registered")
     with pytest.raises(errors.CheckViolation) as caught:
         _register(app, issue_code(owner, "b"), "the-201st@example.sa")
     assert caught.value.diag.constraint_name == "registration_daily_cap"

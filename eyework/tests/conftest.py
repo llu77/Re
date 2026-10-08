@@ -28,7 +28,8 @@ REQUIRE_DB = os.environ.get("EYEWORK_REQUIRE_DB") == "1"
 
 #: TRUNCATE على users يمتدّ بـCASCADE إلى كل ما يرجع إليه: الجلسات، ورموز
 #: التفعيل، والحملات، والمحاولات، والنسخ، والصور.
-_CLEAN = "TRUNCATE users RESTART IDENTITY CASCADE"
+# أثر المحاولات المحذوفة بلا مفتاحٍ إلى المستخدمين، فيُذكر وحده.
+_CLEAN = "TRUNCATE users, attempt_tombstones RESTART IDENTITY CASCADE"
 
 
 def app_url_for(owner_url: str) -> str:

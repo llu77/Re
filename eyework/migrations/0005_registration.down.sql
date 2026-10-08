@@ -92,12 +92,14 @@ DROP FUNCTION IF EXISTS ew_signup_code_usable(bytea);
 DROP FUNCTION IF EXISTS ew_riyadh_today();
 
 DROP TABLE IF EXISTS signup_codes;
+DROP TRIGGER IF EXISTS trg_attempt_tombstone ON generation_attempts;
+DROP FUNCTION IF EXISTS ew_attempt_tombstone();
+DROP TABLE IF EXISTS attempt_tombstones;
 
 ALTER TABLE users DROP CONSTRAINT IF EXISTS self_registered_accepted_terms;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS terms_complete;
 ALTER TABLE users DROP COLUMN IF EXISTS terms_accepted_at;
 ALTER TABLE users DROP COLUMN IF EXISTS terms_version;
-DROP INDEX IF EXISTS users_self_registered_recent;
 ALTER TABLE users DROP COLUMN IF EXISTS self_registered;
 ALTER TABLE users DROP COLUMN IF EXISTS birth_date;
 ALTER TABLE users DROP COLUMN IF EXISTS profession;
