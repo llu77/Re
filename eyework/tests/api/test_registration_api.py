@@ -159,12 +159,17 @@ def test_an_unknown_profession_is_a_plain_invalid_request(browser, owner):
 
 
 def test_registration_from_one_address_is_limited_and_field_errors_do_not_count(browser, owner):
+    """عشرون تسجيلاً في الساعة من عنوانٍ واحد كما تُجريها الواجهة: فحص الرمز ثم إنشاء الحساب."""
     client = browser()
     for _ in range(5):
         assert _register(client, owner, name="سارة 2").status_code == 422
-    statuses = [_register(client, owner, email=f"worker{i}@example.sa").status_code for i in range(21)]
-    assert statuses[:20] == [204] * 20
-    assert statuses[20] == 429
+    for i in range(20):
+        code = issue_code(owner)
+        assert client.post("/api/auth/signup-code", json={"code": code}).status_code == 204, i
+        assert _register(client, owner, code=code, email=f"worker{i}@example.sa").status_code == 204, i
+    code = issue_code(owner)
+    assert client.post("/api/auth/signup-code", json={"code": code}).status_code == 429
+    assert _register(client, owner, code=code, email="worker20@example.sa").status_code == 429
 
 
 def test_registration_needs_the_write_headers(browser, owner):
