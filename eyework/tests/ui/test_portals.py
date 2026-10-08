@@ -334,10 +334,7 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
     page.goto(server["base"] + "/#/")
     flow.until("document.querySelector('#home-portal').textContent !== ''")
     flow.press("#home-account", lambda: flow.screen("account"), "حسابي")
-    flow.until("!document.querySelector('#account-attribution').hidden")
     flow.audit("account")
-    # نسبة O*NET كاملةً كما يطلبها ترخيصه، في شاشةٍ يصلها كل حساب.
-    assert page.text_content("#account-attribution") == professions.ATTRIBUTION
     flow.press("#account-delete", lambda: flow.screen("account-delete"), "احذف حسابي")
     flow.audit("account-delete")
     flow.press("#account-delete-back", lambda: flow.screen("account"), "رجوع دون حذف")
@@ -408,6 +405,132 @@ def test_an_alert_on_the_delete_screen_keeps_its_distance(page_factory, server, 
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM users")
         assert cursor.fetchone()[0] == 1
+    assert not page.errors, page.errors
+
+
+# نصٌّ لاتيني في سطرٍ عربي: كل رمزٍ محايد (® والقوسان) بجوار ما يخصّه، لا في طرف السطر.
+BIDI = """
+(selector) => {
+    const node = document.querySelector(selector).firstChild;
+    const text = node.textContent;
+    const box = (i) => { const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 1);
+                         return r.getBoundingClientRect(); };
+    const gaps = [];
+    for (let i = text.indexOf('®'); i > 0; i = text.indexOf('®', i + 1)) {
+        gaps.push(['®', Math.abs(box(i).left - box(i - 1).right)]);
+    }
+    // القوسان حول نصٍّ لاتيني: كلٌّ عند أحد طرفيه، وكلٌّ عند طرفٍ غير طرف صاحبه
+    // (في سطرٍ من اليمين إلى اليسار قد يقع قوس الفتح عند الطرف الأيمن، وهذا صحيح).
+    for (let i = text.indexOf('('); i >= 0; i = text.indexOf('(', i + 1)) {
+        const close = text.indexOf(')', i);
+        if (!/^[A-Za-z]/.test(text[i + 1])) continue;
+        const inner = []; for (let k = i + 1; k < close; k += 1) inner.push(box(k));
+        const left = Math.min(...inner.map((r) => r.left)), right = Math.max(...inner.map((r) => r.right));
+        const side = (r) => (Math.abs(r.right - left) <= 3 ? 'L' : Math.abs(r.left - right) <= 3 ? 'R' : '?');
+        const sides = side(box(i)) + side(box(close));
+        gaps.push(['()', sides === 'LR' || sides === 'RL' ? 0 : 99, sides]);
+    }
+    return gaps;
+}
+"""
+
+
+@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+def test_the_sources_screen_gives_the_full_onet_notice(page_factory, server, owner, width, height):
+    """نسبة O*NET كاملةً كما يطلبها ترخيصه، في شاشةٍ يصلها كل حساب من «حسابي»، ومصادر بوابته."""
+    _set_profession(owner, "STOREKEEPER")
+    page = page_factory(width, height)
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/")
+    flow.until("document.querySelector('#home-portal').textContent === 'بوابة أمين المخزون'")
+    flow.press("#home-account", lambda: flow.screen("account"), "حسابي")
+    flow.press("#account-sources", lambda: flow.until(
+        "document.querySelector('#account-attribution').textContent !== ''"), "المصادر")
+    flow.audit("account-sources")
+    assert page.text_content("#account-attribution") == professions.ATTRIBUTION
+    portal = professions.view(professions.Profession.STOREKEEPER)
+    assert page.locator("#account-source-lines p").all_text_contents() == [portal["sources"]["tasks"]]
+    misplaced = [g for g in page.evaluate(BIDI, "#account-attribution") if g[1] > 3]
+    assert not misplaced, misplaced
+    flow.press(".screen[data-screen='account-sources'] [data-back]", lambda: flow.screen("account"), "رجوع")
+    assert not _failures(flow), "\n".join(_failures(flow))
+    if (width, height) != VIEWPORTS[-1]:
+        assert not flow.landings, "\n".join(flow.landings)
+    _gaze_safe(page)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("name", ["MOHAMMED ABDULLAH ALSHAMMARI", "عبدالرحمن بن عبدالعزيز الشمري"])
+def test_the_account_screen_fits_a_name_on_two_lines(page_factory, server, owner, name):
+    _set_profession(owner, "STOREKEEPER")
+    with owner.cursor() as cursor:
+        cursor.execute("UPDATE users SET display_name = %s", (name,))
+    page = page_factory(*VIEWPORTS[0])
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/account")
+    flow.until("document.querySelector('#account-profession').textContent === 'المهنة: أمين المخزون'")
+    flow.audit("account long name")
+    assert not _failures(flow), "\n".join(_failures(flow))
+
+
+@pytest.mark.parametrize("start", ["cold", "after-home"])
+def test_nothing_moves_on_the_account_screen_when_the_portal_arrives(page_factory, server, start):
+    """سطر المهنة يحجز مكانه: «تسجيل الخروج» لا ينتقل تحت نظرٍ باقٍ حين تصل البوابة."""
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    gate = {"held": [], "open": start == "after-home"}
+
+    def hold(route):
+        if gate["open"]:
+            route.continue_()
+        else:
+            gate["held"].append(route)
+
+    page.route("**/api/portal", hold)
+    if start == "after-home":
+        page.goto(server["base"] + "/#/")
+        flow.until("document.querySelector('#home-portal').textContent === 'بوابة التسويق'")
+        gate["open"] = False
+        page.click("#home-account")
+    else:
+        page.goto(server["base"] + "/#/account")
+    flow.screen("account")
+    for _ in range(200):
+        if gate["held"]:
+            break
+        page.wait_for_timeout(25)
+    assert gate["held"]
+    before = page.locator("#account-logout").bounding_box()
+    gate["open"] = True
+    for route in gate["held"]:
+        route.continue_()
+    flow.until("document.querySelector('#account-profession').textContent === 'المهنة: التسويق'")
+    assert page.locator("#account-logout").bounding_box() == before
+
+
+def test_a_failed_portal_read_on_home_is_retried_by_the_acknowledgement(page_factory, server):
+    """بلا بوابةٍ لا زرّ في الرئيسية إلا «حسابي»: «حسناً» تقرؤها من جديد، ولا زرّ في موضعٍ مؤقّت."""
+    page = page_factory()
+    left = {"failures": 1}
+
+    def portal(route):
+        if left["failures"]:
+            left["failures"] -= 1
+            route.abort("connectionreset")
+        else:
+            route.continue_()
+
+    page.route("**/api/portal", portal)
+    page.goto(server["base"] + "/#/")
+    flow = Flow(page, server["base"])
+    alert = ".screen[data-screen='home'] .alert"
+    page.wait_for_selector(f"{alert}:not([hidden])")
+    assert "تعيد المحاولة" in page.text_content(f"{alert} .alert__text")
+    assert page.is_hidden("#home-actions")
+    assert page.evaluate("() => ['home-older', 'home-newer'].every((id) => document.getElementById(id).disabled)")
+    page.click(f"{alert} [data-ack]")
+    flow.until("document.querySelector('#home-portal').textContent === 'بوابة التسويق'")
+    assert page.is_visible("#home-tasks") and page.is_visible("#home-new")
     assert not page.errors, page.errors
 
 

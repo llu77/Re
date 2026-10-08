@@ -395,17 +395,38 @@ async function onSignupCreate(event) {
 
 /* ── الحساب ─────────────────────────────────────────────────────────── */
 
+/* سطر المهنة يحجز مكانه قبل قراءة البوابة: لا يتحرّك تحته زرٌّ حين تصل. */
 async function renderAccount(nav) {
     UI.show('account');
     $('account-name').textContent = state.displayName ? `الاسم: ${state.displayName}` : 'بلا اسم';
+    const profession = (portal) => (portal ? `المهنة: ${portal.name}` : '\u00a0');
+    $('account-profession').textContent = profession(state.portal);
     const portal = await loadPortal({ fresh: true });
     if (nav !== state.nav) {
         return;
     }
-    $('account-profession').textContent = portal ? `المهنة: ${portal.name}` : '';
-    // نسبة O*NET كاملةً كما يطلبها ترخيصه، في شاشةٍ يصلها كل حساب.
-    $('account-attribution').textContent = portal ? portal.attribution : '';
-    $('account-attribution').hidden = !portal;
+    $('account-profession').textContent = profession(portal);
+}
+
+/* نسبة O*NET كاملةً كما يطلبها ترخيصه، ومصادر هذه البوابة بأسطرها. */
+async function renderAccountSources(nav) {
+    const section = UI.show('account-sources');
+    const portal = await loadPortal();
+    if (nav !== state.nav) {
+        return;
+    }
+    if (!portal) {
+        UI.showAlert(section, GENERIC);
+        return;
+    }
+    $('account-attribution').textContent = portal.attribution;
+    const lines = [...new Set([portal.sources.tasks, portal.sources.skills])].map((text) => {
+        const line = document.createElement('p');
+        line.className = 'help';
+        line.textContent = text;
+        return line;
+    });
+    $('account-source-lines').replaceChildren(...lines);
 }
 
 function renderAccountDelete() {
@@ -496,6 +517,10 @@ async function routePortal(hash, nav) {
         await renderAccount(nav);
         return true;
     }
+    if (hash === '#/account/sources') {
+        await renderAccountSources(nav);
+        return true;
+    }
     if (hash === '#/account/delete') {
         renderAccountDelete();
         return true;
@@ -533,6 +558,7 @@ function wirePortal() {
     $('home-skills').addEventListener('click', () => go('#/skills/1'));
     $('account-logout').addEventListener('click', onLogout);
     $('account-delete').addEventListener('click', () => go('#/account/delete'));
+    $('account-sources').addEventListener('click', () => go('#/account/sources'));
     $('account-delete-back').addEventListener('click', () => go('#/account'));
     $('account-delete-yes').addEventListener('click', onAccountDelete);
     $('portal-item-previous').addEventListener('click', (e) => go(e.currentTarget.dataset.target));

@@ -125,6 +125,7 @@ function parentOf(name) {
     const id = state.campaign && state.campaign.id;
     return {
         account: '#/',
+        'account-sources': '#/account',
         'portal-item': '#/',
         photo: '#/',
         proposal: '#/',
@@ -334,12 +335,17 @@ async function renderHome() {
     // لا أزرار في موضعٍ مؤقّت تحت النظر: قبل أول بوابةٍ تُخفى، وبعدها يبقى رسمها
     // الأخير حتى تُقرأ من جديد (المهنة قد تتغيّر والتطبيق مفتوح).
     $('home-actions').hidden = !state.portal;
+    if (!state.portal) {
+        UI.setButton($('home-older'), { reserved: true });
+        UI.setButton($('home-newer'), { reserved: true });
+    }
     const portal = await loadPortal({ fresh: true });
     if (nav !== state.nav) {
         return;
     }
     if (!portal) {
-        UI.showAlert(section, GENERIC);
+        // بلا بوابةٍ لا زرّ في الرئيسية إلا «حسابي»: «حسناً» تعيد القراءة.
+        UI.showAlert(section, `${GENERIC} «حسناً» تعيد المحاولة.`);
         return;
     }
     $('home-actions').hidden = false;
@@ -1126,6 +1132,11 @@ function wire() {
             }
             // فحص رمز التسجيل لم يكتمل (انقطاعٌ أو حدّ): الرمز في الذاكرة، فيُعاد.
             if (section.dataset.screen === 'login' && state.signup && !state.signup.checked) {
+                route();
+                return;
+            }
+            // الرئيسية بلا بوابة (قراءتها فشلت): تُقرأ من جديد.
+            if (section.dataset.screen === 'home' && !state.portal) {
                 route();
                 return;
             }

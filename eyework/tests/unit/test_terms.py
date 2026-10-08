@@ -20,7 +20,7 @@ INDEX = Path(__file__).resolve().parents[2] / "static" / "index.html"
 
 #: بصمة نصّ الإشعار لكل نسخة. نسخةٌ جديدة تُضاف هنا ولا تُستبدل بها القديمة.
 DIGESTS = {
-    "2026-10-08": "08cccc7a28367080bf92ebcfd1e092c7ab18ebb37bd681942890d0ded841c73c",
+    "2026-10-08": "836260968b16309dec9d2cfa4b4a3db01dbb39e348d4fbc1c3481ead30a4b43d",
 }
 
 

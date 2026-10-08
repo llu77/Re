@@ -354,10 +354,13 @@ _MODE_ORDER = (Mode.IN_APP, Mode.EMPLOYER_SYSTEM, Mode.VOICE, Mode.ON_SITE)
 
 #: نسبة O*NET كاملةً كما يطلبها ترخيصه (onetonline.org/help/license): الجهة، والعلامة
 #: التجارية، ورابط الترخيص، وأن المحتوى معدّلٌ لم تعتمده الجهة. تُعرض في شاشة الحساب.
+#: ‎ (U+200E) بعد رمزٍ محايد يليه نصٌّ عربي: يبقى ® بعد O*NET والقوس بعد العنوان في
+#: سطرٍ من اليمين إلى اليسار، لا في طرف السطر الآخر.
 ATTRIBUTION = (
-    "تتضمّن البوابة معلوماتٍ من O*NET® OnLine لإدارة التوظيف والتدريب بوزارة العمل الأمريكية (USDOL/ETA)، "
-    "بترخيص CC BY 4.0 (creativecommons.org/licenses/by/4.0). O*NET® علامةٌ تجارية لـUSDOL/ETA. "
-    "ترجم هذا التطبيق هذه المعلومات وعدّلها، ولم تعتمد USDOL/ETA هذه التعديلات ولم تؤيّدها ولم تختبرها.")
+    "تتضمّن البوابة معلوماتٍ من O*NET® OnLine (onetonline.org)\u200e لإدارة التوظيف والتدريب بوزارة العمل "
+    "الأمريكية (USDOL/ETA)، بترخيص CC BY 4.0 (creativecommons.org/licenses/by/4.0). O*NET®\u200e علامةٌ تجارية "
+    "لـUSDOL/ETA. ترجم هذا التطبيق هذه المعلومات وعدّلها، ولم تعتمد USDOL/ETA هذه التعديلات ولم تؤيّدها "
+    "ولم تختبرها.")
 
 
 def source_line(portal: Portal, kind: str) -> str:

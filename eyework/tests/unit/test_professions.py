@@ -148,6 +148,7 @@ def test_the_full_onet_attribution_says_what_the_licence_asks():
     text = P.ATTRIBUTION
     assert "O*NET®" in text and "USDOL/ETA" in text and "وزارة العمل الأمريكية" in text
     assert "CC BY 4.0" in text and "creativecommons.org/licenses/by/4.0" in text
+    assert "onetonline.org" in text
     assert "علامةٌ تجارية" in text and "ولم تختبرها" in text and "عدّلها" in text
     for profession in P.Profession:
         assert P.view(profession)["attribution"] == text

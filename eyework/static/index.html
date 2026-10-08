@@ -82,9 +82,9 @@
         <div class="content">
             <h2 tabindex="-1">قبل أن تبدأ</h2>
             <p class="line">يُحفظ في هذا التطبيق: الاسم، وتاريخ الميلاد، والمهنة، وكلمة المرور مجزّأةً لا نصّاً.</p>
-            <p class="line">البريد لا يُحفظ: تُحفظ بصمةٌ منه للدخول فقط. لا يصله شيء، ولا يُستردّ الحساب به.</p>
-            <p class="line">في بوابة التسويق تُرسَل صورة المنتج وما يُكتب عنه إلى مزوّد النموذج (Anthropic) خارج المملكة لصياغة النص. لا يُرسَل الاسم ولا تاريخ الميلاد.</p>
-            <p class="line">يحذف صاحب الحساب حسابه وكل بياناته من داخل التطبيق متى شاء، وإن أُوقف حسابه حذفه بطلبه مَن أعطاه الرابط. النسخ الاحتياطية الأقدم تبقى حتى تُحذف.</p>
+            <p class="line">البريد لا يُحفظ، بل بصمةٌ منه للدخول، فلا يصله شيء ولا يُستردّ الحساب به.</p>
+            <p class="line">في بوابة التسويق تُرسَل صورة المنتج ونصّه، لا الاسم ولا تاريخ الميلاد، إلى مزوّد النموذج (Anthropic) خارج المملكة لصياغة النص، ويحذفها هو خلال 30 يوماً إلا ما تُبقيه سياسته أو القانون.</p>
+            <p class="line">يحذف صاحب الحساب حسابه وبياناته من التطبيق متى شاء، أو يحذفه بطلبه مَن أعطاه الرابط إن أُوقف أو نُسيت كلمة مروره. والنسخ الاحتياطية الأقدم تبقى حتى تُحذف.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
@@ -296,13 +296,12 @@
         <header class="bar bar--top">
             <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
             <p class="step">حسابي</p>
-            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="account-sources" data-safe>المصادر</button></div>
         </header>
         <div class="content">
             <h2 tabindex="-1">حسابي</h2>
             <p class="line" id="account-name"></p>
-            <p class="line" id="account-profession"></p>
-            <p class="help" id="account-attribution" hidden></p>
+            <p class="line" id="account-profession">&nbsp;</p>
             <button class="btn btn--wide spaced" type="button" id="account-logout" data-safe>تسجيل الخروج</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
@@ -310,6 +309,23 @@
             <div class="slot"></div>
             <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
         </footer>
+    </section>
+
+    <!-- نسبة المحتوى كاملةً كما يطلبها ترخيص O*NET. «المصادر» في الطرف الأعلى الأيسر
+         من «حسابي»، والموضع نفسه هنا فارغ: أقرب ما إليه «رجوع». -->
+    <section class="screen" data-screen="account-sources" hidden>
+        <header class="bar bar--top">
+            <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
+            <p class="step">المصادر</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">مصادر المحتوى</h2>
+            <p class="line" id="account-attribution"></p>
+            <div id="account-source-lines"></div>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
     </section>
 
     <!-- «احذف حسابي» في الطرف الأسفل من الشاشة السابقة؛ فهنا في الموضع نفسه

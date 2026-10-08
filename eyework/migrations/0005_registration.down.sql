@@ -4,7 +4,10 @@
 
 -- مخطّط 0004 لا يصف حساباً مسجَّلاً ذاتياً ولا مهنةً غير التسويق: بعد التراجع
 -- يصير كلٌّ منها حساب دعوةٍ عادياً يفتح أداة الحملات وينفق حصّة النموذج، ويضيع
--- أن بريده لم يُتحقَّق منه. فلا تراجع وفي القاعدة واحدٌ منها.
+-- أن بريده لم يُتحقَّق منه. فلا تراجع وفي القاعدة واحدٌ منها. والقفل أولاً: تسجيلٌ
+-- أو نقلُ مهنةٍ لم يُثبَّت بعد لا يراه العدّ، فينتظره التراجع ثم يعدّه، ولا يبدأ
+-- غيره حتى ينتهي.
+LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE;
 DO $$
 DECLARE
     n integer;
@@ -12,7 +15,8 @@ BEGIN
     SELECT count(*) INTO n FROM users WHERE self_registered OR profession <> 'MARKETING';
     IF n > 0 THEN
         RAISE EXCEPTION 'في القاعدة % حساباً لا يصفه مخطّط 0004 (مسجَّلٌ ذاتياً أو من غير التسويق)', n
-            USING HINT = 'احذفها بـ python -m eyework.admin delete-user قبل التراجع';
+            USING HINT = 'البريد لا يُخزَّن فلا يجدها delete-user؛ تُحذف بدور المالك: '
+                         'DELETE FROM users WHERE self_registered OR profession <> ''MARKETING''';
     END IF;
 END
 $$;
