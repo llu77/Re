@@ -24,12 +24,13 @@ import pytest
 from core import caregivers, identity, proposals
 from core.adl import gate as adl_gate
 from core.types import Actor
+from tests import browsers
 from tests.conftest import cite_evidence_as, requires_db
 
 pytestmark = requires_db
 
 ROOT = Path(__file__).resolve().parent.parent
-CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+CHROMIUM = browsers.chromium_executable()
 
 PATIENT_EMAIL = "portal.patient@example.test"
 TOKEN_KEY = "symbol.patient.token"
@@ -47,9 +48,6 @@ VIEWPORTS = [
 ]
 
 playwright_api = pytest.importorskip("playwright.sync_api", reason="playwright غير مثبّت")
-
-if not Path(CHROMIUM).exists():  # pragma: no cover - يعتمد على البيئة
-    pytest.skip("متصفح Chromium غير متاح", allow_module_level=True)
 
 
 def _free_port() -> int:

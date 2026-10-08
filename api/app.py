@@ -85,9 +85,11 @@ def create_app() -> FastAPI:
 #: ولا إحالة تحمل مسارها إلى موقعٍ خارجي (روابط الأدلّة تفتح PubMed).
 #: `style-src 'unsafe-inline'` لأن مكتبة Radix تحقن عنصر <style> لقفل
 #: التمرير خلف النوافذ؛ الأنماط لا تنفّذ شيفرة، والسكربتات تبقى من الأصل وحده.
+#: `img-src data:` لرسوم المقترحات: تُراجَع صوراً (`<img>` بعنوان `data:`) كما
+#: سيراها المريض، والـSVG داخل `<img>` لا ينفّذ شيفرة ولا يجلب مورداً.
 CONSOLE_CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-    "font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; "
+    "font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; "
     "form-action 'none'; frame-ancestors 'none'"
 )
 _CONSOLE_HEADERS = {
@@ -128,10 +130,16 @@ def _mount_console(app: FastAPI) -> None:
             for name, value in _CONSOLE_HEADERS.items():
                 response.headers.setdefault(name, value)
             # الملفّات المجزّأة لا تتغيّر أبداً؛ الصفحة نفسها تُراجَع عند كل فتح.
-            immutable = path.startswith("/console/assets/")
-            response.headers.setdefault(
-                "Cache-Control", "public, max-age=31536000, immutable" if immutable else "no-cache"
-            )
+            # والخطأ لا يُحفظ: في نشرٍ متدرّج قد تطلب الصفحة الجديدة ملفّاً من
+            # نسخةٍ لم يصلها بعد، و404 «immutable» يبقى سنةً بعد أن يصل.
+            code = response.status_code
+            if code >= 400:
+                cache = "no-store"
+            elif path.startswith("/console/assets/") and (200 <= code < 300 or code == 304):
+                cache = "public, max-age=31536000, immutable"
+            else:
+                cache = "no-cache"
+            response.headers.setdefault("Cache-Control", cache)
         return response
 
 

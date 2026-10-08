@@ -8,3 +8,7 @@ pytest>=8.0,<9.0
 
 # عميل HTTP لـ fastapi.testclient
 httpx>=0.27,<1.0
+
+# اختبارات المتصفّح (لوحة الممارس وبوابة المريض). المتصفّح نفسه:
+#   python -m playwright install --with-deps chromium
+playwright==1.63.0

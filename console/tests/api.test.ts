@@ -19,9 +19,23 @@ describe("عميل بوابة الممارس", () => {
     vi.stubGlobal("fetch", fetchMock)
     await practitionerApi({ token: "t-1", role: "PRACTITIONER" }, () => undefined).queue()
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe("/practitioner/queue")
+    expect(url).toBe("/practitioner/queue?limit=51")
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer t-1")
     expect(init.credentials).toBe("omit")
+  })
+
+  it("القائمة صفحةٌ من خمسين، ووصول الحادي والخمسين يعني أن بعدها غيرها", async () => {
+    const api = practitionerApi({ token: "t", role: "PRACTITIONER" }, () => undefined)
+    const rows = (count: number) => Array.from({ length: count }, (_, index) => ({ id: String(index) }))
+
+    vi.stubGlobal("fetch", reply(200, rows(51)))
+    const full = await api.redFlags()
+    expect(full.items).toHaveLength(50)
+    expect(full.items.at(-1)).toEqual({ id: "49" })
+    expect(full.more).toBe(true)
+
+    vi.stubGlobal("fetch", reply(200, rows(50)))
+    expect((await api.queue()).more).toBe(false)
   })
 
   it("الرفض يرسل السبب في الجسم إلى مسار المقترح وحده", async () => {
@@ -59,6 +73,52 @@ describe("عميل بوابة الممارس", () => {
     await expect(practitionerApi({ token: "old", role: "PRACTITIONER" }, expired).queue()).rejects.toBeInstanceOf(ApiError)
     expect(expired).toHaveBeenCalledOnce()
     expect(loadSession()).toBeNull()
+  })
+
+  it("401 لطلبٍ أُرسل بجلسةٍ انتهت لا يُخرج الجلسة التي بعدها", async () => {
+    const old = { token: "old", role: "PRACTITIONER" }
+    window.sessionStorage.setItem("symbol.practitioner.session", JSON.stringify(old))
+    const answers: ((response: Response) => void)[] = []
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => answers.push(resolve))))
+    const expired = vi.fn()
+    const api = practitionerApi(old, expired)
+
+    // طلبان بالجلسة القديمة؛ الأول يعود 401 فتظهر شاشة الدخول.
+    const first = api.queue()
+    const late = api.redFlags()
+    answers[0](new Response(JSON.stringify({ detail: "جلسة غير صالحة" }), { status: 401 }))
+    await expect(first).rejects.toBeInstanceOf(ApiError)
+    expect(expired).toHaveBeenCalledOnce()
+
+    // الممارس يدخل من جديد، ثم يعود الطلب الثاني القديم بـ401.
+    vi.stubGlobal("fetch", reply(200, { token: "new", role: "PRACTITIONER" }))
+    await login("a@b.test", "secret")
+    answers[1](new Response(JSON.stringify({ detail: "جلسة غير صالحة" }), { status: 401 }))
+    await expect(late).rejects.toBeInstanceOf(ApiError)
+
+    expect(expired).toHaveBeenCalledOnce()
+    expect(loadSession()).toEqual({ token: "new", role: "PRACTITIONER" })
+  })
+
+  it("الخروج المقصود لا يُعلَن انتهاءَ جلسة حين يعود طلبٌ سابقٌ بـ401", async () => {
+    let answer: (response: Response) => void = () => undefined
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url.endsWith("/logout")
+          ? Promise.resolve(new Response(null, { status: 204 }))
+          : new Promise<Response>((resolve) => {
+              answer = resolve
+            }),
+      ),
+    )
+    const expired = vi.fn()
+    const api = practitionerApi({ token: "t", role: "PRACTITIONER" }, expired)
+    const refreshing = api.queue()
+    await api.logout()
+    answer(new Response(JSON.stringify({ detail: "جلسة غير صالحة" }), { status: 401 }))
+    await expect(refreshing).rejects.toBeInstanceOf(ApiError)
+    expect(expired).not.toHaveBeenCalled()
   })
 
   it("انقطاع الشبكة رسالةٌ مفهومة لا استثناءٌ خام", async () => {

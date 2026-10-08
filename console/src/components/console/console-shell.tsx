@@ -4,7 +4,7 @@ import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
-import { ApiError, practitionerApi } from "@/lib/api"
+import { ApiError, type Page, practitionerApi } from "@/lib/api"
 import type { Proposal, RedFlag } from "@/lib/types"
 
 import { AppSidebar } from "./app-sidebar"
@@ -58,13 +58,14 @@ export function ConsoleShell({
     [session, onSignedOut],
   )
   const [route, navigate] = useRoute()
-  const [queue, setQueue] = React.useState<Proposal[] | null>(null)
-  const [flags, setFlags] = React.useState<RedFlag[] | null>(null)
+  const [queue, setQueue] = React.useState<Page<Proposal> | null>(null)
+  const [flags, setFlags] = React.useState<Page<RedFlag> | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   // رسالة النجاح تخصّ صفحةً بعينها: تُضبط قبل الانتقال إليها، فتُربط بها لا
-  // بلحظة ظهورها.
-  const [notice, setNotice] = React.useState<{ text: string; on: Route["name"] } | null>(null)
+  // بلحظة ظهورها. ولكل رسالةٍ رقمها، فتُعلَن ولو تكرّر نصّها.
+  const [notice, setNotice] = React.useState<{ id: number; text: string; on: Route["name"] } | null>(null)
+  const notices = React.useRef(0)
   const [signingOut, setSigningOut] = React.useState(false)
 
   const refresh = React.useCallback(async () => {
@@ -106,7 +107,8 @@ export function ConsoleShell({
 
   const done = React.useCallback(
     (text: string, on: Route["name"]) => {
-      setNotice({ text, on })
+      notices.current += 1
+      setNotice({ id: notices.current, text, on })
       if (on === "queue") {
         navigate({ name: "queue" })
       } else {
@@ -140,8 +142,8 @@ export function ConsoleShell({
       <CloseSheetOnNavigate routeKey={routeKey} />
       <AppSidebar
         route={route}
-        queueCount={queue?.length ?? null}
-        redFlagCount={flags?.length ?? null}
+        queueCount={queue && { count: queue.items.length, more: queue.more }}
+        redFlagCount={flags && { count: flags.items.length, more: flags.more }}
         email={session.email}
         onSignOut={signOut}
         signingOut={signingOut}
@@ -173,7 +175,7 @@ export function ConsoleShell({
 
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 sm:px-6">
           <p className="text-muted-foreground">{DESCRIPTIONS[route.name]}</p>
-          <SuccessNotice message={notice?.on === route.name ? notice.text : null} />
+          <SuccessNotice message={notice?.on === route.name ? notice.text : null} id={notice?.id} />
           {error && (queue || flags) ? (
             <p role="alert" className="text-destructive">
               {error}
@@ -181,7 +183,7 @@ export function ConsoleShell({
           ) : null}
 
           {route.name === "queue" ? (
-            <QueuePage items={queue} error={error} />
+            <QueuePage items={queue?.items ?? null} more={queue?.more ?? false} error={error} />
           ) : route.name === "proposal" ? (
             <ProposalPage
               key={route.id}
@@ -192,7 +194,8 @@ export function ConsoleShell({
           ) : (
             <RedFlagsPage
               api={api}
-              items={flags}
+              items={flags?.items ?? null}
+              more={flags?.more ?? false}
               error={error}
               onAcknowledged={(message) => done(message, "red-flags")}
             />

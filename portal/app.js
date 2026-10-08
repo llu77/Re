@@ -229,12 +229,15 @@ function drawIllustration(container, markup) {
     }
 
     const root = document_.documentElement;
-    if (!root || root.nodeName.toLowerCase() !== 'svg') return false;
+    if (!root || root.nodeName.toLowerCase() !== 'svg' || root.namespaceURI !== 'http://www.w3.org/2000/svg') {
+        return false;
+    }
     if (document_.querySelector('parsererror')) return false;
 
     for (const element of [root, ...root.querySelectorAll('*')]) {
-        const name = element.nodeName.toLowerCase();
-        if (name === 'script' || name === 'foreignobject' || name === 'image') return false;
+        // الاسم بالبادئة وبدونها: «x:script» نصٌّ برمجي وإن اختلفت بادئته.
+        const names = [element.nodeName.toLowerCase(), element.localName.toLowerCase()];
+        if (names.some((name) => name === 'script' || name === 'foreignobject' || name === 'image')) return false;
         for (const attribute of element.getAttributeNames()) {
             const lowered = attribute.toLowerCase();
             if (lowered.startsWith('on') || lowered.endsWith('href')) return false;

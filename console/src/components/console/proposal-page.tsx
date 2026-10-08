@@ -8,6 +8,7 @@ import { formatDateTime, kindLabel, sideLabel, statusLabel } from "@/lib/labels"
 import type { Citation, Proposal } from "@/lib/types"
 
 import { ErrorNotice, LoadingList } from "./feedback"
+import { allDrawn, drawingsOf, IllustrationSet } from "./illustration-set"
 import { href } from "./route"
 import { PayloadView } from "./payload-view"
 
@@ -63,6 +64,11 @@ export function ProposalPage({
   const previousStep = React.useRef<Step | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [actionError, setActionError] = React.useState<string | null>(null)
+  // مجموعة الرسوم تُراجَع صوراً. تُفحص مرةً لكل مقترح، لا مع كل حرفٍ في سبب الرفض.
+  const drawings = React.useMemo(
+    () => (proposal?.kind === "ILLUSTRATION_SET" ? drawingsOf(proposal.payload) : null),
+    [proposal],
+  )
 
   React.useEffect(() => {
     let current = true
@@ -136,6 +142,8 @@ export function ProposalPage({
 
   const pending = proposal.status === "PENDING"
   const reasonText = reason.trim()
+  // ما لا يُرى كما سيصل المريض لا يُعتمد. الرفض يبقى متاحاً.
+  const approvable = drawings === null || allDrawn(drawings)
 
   return (
     <div className="flex flex-col gap-6">
@@ -177,7 +185,18 @@ export function ProposalPage({
           <h3 id="payload-title" className="text-lg font-bold">
             المحتوى المقترح كما سيصل المريض
           </h3>
-          <PayloadView value={proposal.payload} label="المحتوى المقترح" />
+          {drawings ? (
+            <>
+              <IllustrationSet drawings={drawings} side={proposal.affected_side} />
+              {/* الترميز للمراجعة لا للقرار: مطويٌّ تحت الصورة لا بدلها. */}
+              <details className="mt-2 rounded-md bg-secondary p-3">
+                <summary className="min-h-12 cursor-pointer py-3 font-bold">مصدر الرسوم (SVG)</summary>
+                <PayloadView value={proposal.payload} label="المحتوى المقترح" />
+              </details>
+            </>
+          ) : (
+            <PayloadView value={proposal.payload} label="المحتوى المقترح" />
+          )}
           <details className="mt-2 rounded-md bg-secondary p-3">
             <summary className="min-h-12 cursor-pointer py-3 font-bold">مصدر المقترح</summary>
             <PayloadView value={proposal.provenance} label="مصدر المقترح" />
@@ -235,9 +254,13 @@ export function ProposalPage({
           </div>
         ) : step === "idle" ? (
           <div className="flex flex-wrap gap-3">
-            <Button ref={approveButton} className="h-12 min-w-36 text-base" onClick={() => setStep("approving")}>
-              اعتماد
-            </Button>
+            {approvable ? (
+              <Button ref={approveButton} className="h-12 min-w-36 text-base" onClick={() => setStep("approving")}>
+                اعتماد
+              </Button>
+            ) : (
+              <p className="basis-full">لا يُعرض الاعتماد: في المجموعة رسمٌ لا يمكن عرضه كما سيراه المريض.</p>
+            )}
             <Button
               ref={rejectButton}
               variant="outline"
