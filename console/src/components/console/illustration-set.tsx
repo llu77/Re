@@ -34,13 +34,15 @@ function imageSource(markup: string): string | null {
     return null
   }
   const root = parsed.documentElement
-  // بلا فضاء أسماء SVG لا يُرسم شيء، لا هنا ولا عند المريض.
-  if (!root || root.localName !== "svg" || root.namespaceURI !== SVG_NAMESPACE) return null
+  // كما تفحصه بوابة المريض (portal/app.js): جذرٌ اسمه «svg» بلا بادئة، في فضاء
+  // أسماء SVG. ما لا تعرضه البوابة لا يُعرض هنا للاعتماد.
+  if (!root || root.nodeName.toLowerCase() !== "svg" || root.namespaceURI !== SVG_NAMESPACE) return null
   if (parsed.getElementsByTagName("parsererror").length > 0) return null
 
   for (const element of [root, ...Array.from(root.querySelectorAll("*"))]) {
-    const name = element.localName.toLowerCase()
-    if (name === "script" || name === "foreignobject" || name === "image") return null
+    // الاسم بالبادئة وبدونها: «x:script» نصٌّ برمجي وإن اختلفت بادئته.
+    const names = [element.nodeName.toLowerCase(), element.localName.toLowerCase()]
+    if (names.some((name) => name === "script" || name === "foreignobject" || name === "image")) return null
     for (const attribute of element.getAttributeNames()) {
       const lowered = attribute.toLowerCase()
       if (lowered.startsWith("on") || lowered.endsWith("href")) return null

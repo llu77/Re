@@ -142,6 +142,9 @@ describe("صفحة المقترح", () => {
     ["مرجع خارجي", '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://x.test/p.png"/></svg>'],
     ["بلا فضاء أسماء SVG", '<svg><rect width="1" height="1"/></svg>'],
     ["ترميز معطوب", '<svg xmlns="http://www.w3.org/2000/svg"><rect'],
+    // البوابة لا ترسم جذراً ببادئة؛ فلا يُعرض للاعتماد ما لن يراه المريض.
+    ["جذرٌ ببادئة", '<svg:svg xmlns:svg="http://www.w3.org/2000/svg"><svg:rect width="1" height="1"/></svg:svg>'],
+    ["سكربت ببادئة", '<svg xmlns="http://www.w3.org/2000/svg" xmlns:x="http://www.w3.org/2000/svg"><x:script>alert(1)</x:script></svg>'],
   ])("رسمٌ لا يُعرض (%s) لا يُرسم ولا يُعرض اعتماده", async (_, svg) => {
     const api = fakeApi({
       proposal: vi.fn(async () =>

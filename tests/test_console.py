@@ -321,6 +321,11 @@ def test_the_sidebar_sits_on_the_right_and_collapses_to_48px_icons(browser, clin
     link.hover()
     tooltip = page.get_by_role("tooltip")
     tooltip.wait_for()
+    # التلميح يدخل بحركةٍ مدّتها 150ms: يُقاس حين تنتهي، لا في منتصفها.
+    tooltip.evaluate(
+        "el => Promise.all((el.closest('[data-radix-popper-content-wrapper]') || el)"
+        ".getAnimations({ subtree: true }).map((a) => a.finished))"
+    )
     assert tooltip.inner_text().strip() == "البلاغات العاجلة، 1"
     assert tooltip.bounding_box()["x"] + tooltip.bounding_box()["width"] <= link.bounding_box()["x"] + 1
 
