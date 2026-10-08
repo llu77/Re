@@ -657,3 +657,49 @@ def test_every_row_on_the_home_screen_has_its_own_name(page_factory, server, own
              for b in page.locator("#home-list button").all()]
     assert len(set(names)) == len(names) == 2, names
     assert not any(name.startswith("مسودة") for name in names), names
+
+
+def test_two_campaigns_with_the_same_title_get_two_names(page_factory, server, owner, app):
+    """حملتان لصورة المنتج نفسها قد يُقترح لهما العنوان نفسه: يُرقَّم كلٌّ بموضعه."""
+    user = _user_id(owner)
+    for _ in range(2):
+        add_version(app, user, create_campaign(app, user))
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/")
+    flow.until("document.querySelectorAll('#home-list li').length === 2")
+    names = [b.evaluate("(e) => e.textContent.replace(/\\s+/g, ' ').trim()")
+             for b in page.locator("#home-list button").all()]
+    assert len(set(names)) == 2, names
+
+
+@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+def test_with_every_version_used_nothing_that_commits_is_nearest_on_the_edit_screen(
+        page_factory, server, owner, app, width, height):
+    """بلغت الحملة حدّ النسخ: «نسخةٌ سابقة» تفتح شاشة التعديل، وأقرب ما إلى نظرٍ باقٍ عليها
+    «عُد إلى النص» لا «النسخة السابقة» التي تعتمد؛ و«عُد إلى النص» تعيد إلى المقترح."""
+    from eyework.tests.db.test_generation_caps import PAST_RATE_WINDOW, age_attempts
+
+    user = _user_id(owner)
+    campaign = create_campaign(app, user)
+    add_version(app, user, campaign)
+    for _ in range(campaigns.VERSIONS_PER_CAMPAIGN - 1):
+        age_attempts(owner, user, PAST_RATE_WINDOW)
+        add_version(app, user, campaign, presets=("SHORTER",))
+    page = page_factory(width, height)
+    flow = Flow(page, server["base"])
+    page.goto(f"{server['base']}/#/c/{campaign}")
+    flow.until("document.querySelector('#proposal-start').textContent === 'نسخةٌ سابقة'"
+               " && !document.querySelector('#proposal-start').disabled")
+    flow.press("#proposal-start", lambda: flow.screen("edit"), "نسخةٌ سابقة")
+    flow.audit("edit-exhausted")
+    assert page.text_content("#edit-submit") == "عُد إلى النص"
+    assert not page.is_disabled("#edit-restore")
+    assert {n["name"] for n in flow.nearest[-1][1]} == {"edit-submit"}, flow.nearest[-1]
+    flow.press("#edit-submit", lambda: flow.screen("proposal"), "عُد إلى النص")
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM copy_versions WHERE campaign_id = %s", (campaign,))
+        assert cursor.fetchone()[0] == campaigns.VERSIONS_PER_CAMPAIGN
+    assert not _failures(flow), "\n".join(_failures(flow))
+    assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors

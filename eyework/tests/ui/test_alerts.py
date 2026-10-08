@@ -333,3 +333,47 @@ def test_the_help_quotes_no_label_that_a_device_has_not_confirmed(page_factory, 
     Flow(page, server["base"]).until("!document.querySelector('#home-install').hidden")
     assert "«" not in page.text_content("#home-install")
     assert "ثلاث دقائق" in page.text_content("#proposal-waiting .status")
+    # في كل نصّ مساعدة: ما بين «» تسميةُ زرٍّ في التطبيق نفسه، لا تسميةُ قائمةٍ في الجهاز.
+    quoted = page.evaluate("""() => {
+        const own = new Set([...document.querySelectorAll('button, a, .step, h2')]
+            .map((e) => e.textContent.trim()));
+        return [...document.querySelectorAll('.help, .status, .notice')]
+            .flatMap((e) => [...e.textContent.matchAll(/«([^»]+)»/g)].map((m) => m[1]))
+            .filter((label) => !own.has(label));
+    }""")
+    assert quoted == [], quoted
+
+
+def test_an_image_that_arrives_under_an_alert_leaves_share_locked_until_the_ack(page_factory, server):
+    """الصورة تصل وتنبيهٌ ظاهر (نسخٌ فشل مثلاً): «شارك الحملة» تبقى مقفلة حتى «حسناً»، ثم تُفتح."""
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    flow.to_review()
+    flow.press("#review-continue", lambda: flow.screen("confirm"), "متابعة للتأكيد")
+    gate = {"open": False, "held": []}
+
+    def hold(route):
+        if gate["open"]:
+            route.continue_()
+        else:
+            gate["held"].append(route)
+
+    page.route("**/api/campaigns/*/image*", hold)
+    held = gate["held"]
+    page.click("#confirm-yes")
+    flow.screen("ready")
+    flow.until("document.querySelector('#ready-share').disabled")
+    for _ in range(200):
+        if held:
+            break
+        page.wait_for_timeout(25)
+    assert held
+    page.evaluate("() => UI.showAlert(UI.screen('ready'), 'لم يُنسخ النص.')")
+    gate["open"] = True
+    for route in list(held):
+        route.continue_()
+    flow.until("document.querySelector('#ready-share').dataset.lockedByAlert !== undefined")
+    assert page.is_disabled("#ready-share")
+    page.click(".screen[data-screen='ready'] [data-ack]")
+    flow.until("!document.querySelector('#ready-share').disabled")
+    assert not page.errors, page.errors
