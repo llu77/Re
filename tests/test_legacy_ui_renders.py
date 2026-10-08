@@ -244,3 +244,65 @@ def test_arabic_text_is_set_in_amiri(page):
     assert measured["checked"] > 20, measured
     assert not measured["elsewhere"], measured["elsewhere"][:5]
     assert measured["loaded"], "ملفّ Amiri لم يُحمَّل"
+
+
+#: أصنافٌ لكلٍّ منها `font-size` صريح في `CUSTOM_CSS`. القاعدة
+#: `.stApp span { font-size: inherit }` تغلبها بالأسبقية (0,1,1 على 0,1,0)،
+#: فكانت كلها تُرسَم بـ14px الموروثة مهما كُتب فيها.
+SIZED_CLASSES = (
+    ".sb-wordmark", ".sb-model-badge", ".badge", ".sb-section-label",
+    ".tool-chip-icon", ".tool-chip-name", ".tool-chip-badge",
+)
+
+
+def test_explicitly_sized_classes_render_at_their_size(page):
+    """المقاس المعلن في ورقة الأنماط هو المقاس المرسوم، لا المقاس الموروث."""
+    measured = page.evaluate("""
+    (selectors) => {
+      const declared = {};
+      for (const sheet of document.styleSheets) {
+        let rules;
+        try { rules = sheet.cssRules; } catch (error) { continue; }
+        for (const rule of rules) {
+          if (rule.selectorText && selectors.includes(rule.selectorText)
+              && rule.style.fontSize) {
+            declared[rule.selectorText] = rule.style.fontSize;
+          }
+        }
+      }
+      return selectors.map(selector => ({
+        selector,
+        declared: declared[selector] || null,
+        rendered: [...document.querySelectorAll(selector)]
+          .filter(element => !element.style.fontSize)
+          .map(element => getComputedStyle(element).fontSize),
+      }));
+    }
+    """, list(SIZED_CLASSES))
+
+    for entry in measured:
+        assert entry["declared"], f"لا مقاس معلن: {entry}"
+        assert entry["rendered"], f"لا عنصر مرسوم بهذا الصنف: {entry}"
+        assert set(entry["rendered"]) == {entry["declared"]}, entry
+
+
+def test_body_text_keeps_the_desktop_base_size(page):
+    """
+    الأساس 14px — كثافة مكتب. يبلغ نصَّ Streamlit من جذر الصفحة لأنه يقيس
+    بـ`rem`، لا من قاعدة `inherit` تطغى على كل صنف له مقاسه.
+
+    حاوية `st.markdown` هي ما تأخذ منه فقراتُه مقاسها؛ ونصوص Streamlit
+    الأصغر بطبعها (`st.caption` وتسمية الزرّ: 0.875rem) تبقى أصغر.
+    """
+    measured = page.evaluate("""
+    () => ({
+      root: getComputedStyle(document.documentElement).fontSize,
+      markdown: [...document.querySelectorAll(
+          '[data-testid="stMain"] [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"]')]
+        .filter(container => container.getBoundingClientRect().height)
+        .map(container => getComputedStyle(container).fontSize),
+    })
+    """)
+    assert measured["root"] == "14px", measured
+    assert measured["markdown"], "لا حاوية Markdown مرسومة في المحتوى"
+    assert set(measured["markdown"]) == {"14px"}, measured
