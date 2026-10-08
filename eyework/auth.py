@@ -83,9 +83,9 @@ _CODE_USABLE = "SELECT ew_signup_code_usable(%s) AS usable"
 _PROFESSION = "SELECT ew_my_profession() AS profession"
 _DELETE_ME = "SELECT ew_delete_me()"
 
-#: نسخة نصّ الإشعار الذي يوافق عليه المسجِّل (`index.html`، شاشة «قبل أن تبدأ»).
-#: يُرفع حين يتغيّر النصّ؛ ويُحفظ مع الحساب ما وافق عليه صاحبه.
-TERMS_VERSION = "2026-10-08"
+#: نسخة نصّ الإشعار الذي يوافق عليه المسجِّل (`index.html`، شاشة «قبل أن تبدأ»):
+#: تاريخ سريانه. يُرفع حين يتغيّر النصّ؛ ويُحفظ مع الحساب ما وافق عليه صاحبه.
+TERMS_VERSION = "2026-10-09"
 
 #: نظير القيد display_name_shape (0003): حروفٌ عربية ولاتينية ومسافاتٌ مفردة.
 NAME_MAX = 30

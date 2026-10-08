@@ -1226,7 +1226,8 @@ function wire() {
             }
             // الحذف لم يقع: إلى «حسابي». لو بقيت الشاشة لصار «نعم، احذف حسابي» أقرب ما
             // إلى نظرٍ باقٍ على «حسناً»، فتعيد نظرةٌ أخرى حذفاً لا رجعة فيه.
-            if (section.dataset.screen === 'account-delete') {
+            // والخروج مثله: «نعم، اخرج» لا يبقى أقرب ما إلى «حسناً».
+            if (['account-delete', 'account-logout'].includes(section.dataset.screen)) {
                 go('#/account');
                 return;
             }

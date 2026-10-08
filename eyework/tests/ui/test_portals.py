@@ -359,6 +359,54 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
     assert not page.errors, page.errors
 
 
+@pytest.mark.parametrize(("width", "height"), HANDHELD, ids=[f"{w}x{h}" for w, h in HANDHELD])
+def test_signing_out_takes_two_steps(page_factory, server, width, height):
+    page = page_factory(width, height)
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/")
+    flow.until("document.querySelector('#home-portal').textContent !== ''")
+    flow.press("#home-account", lambda: flow.screen("account"), "حسابي")
+    flow.press("#account-logout", lambda: flow.screen("account-logout"), "تسجيل الخروج")
+    flow.audit("account-logout")
+    # «رجوع» موضعَ الضغطة، و«نعم، اخرج» بعيدٌ عنها.
+    assert {n["name"] for n in flow.nearest[-1][1]} == {"account-logout-back"}, flow.nearest[-1]
+    flow.press("#account-logout-back", lambda: flow.screen("account"), "رجوع")
+    assert page.evaluate("fetch('/api/me').then((r) => r.status)") == 200
+    flow.press("#account-logout", lambda: flow.screen("account-logout"), "تسجيل الخروج")
+    # قبل الخروج: نجاحه يحمّل الصفحة من جديد فيمحو سجلّ المؤقّتات والمستمعين.
+    _gaze_safe(page)
+    flow.press("#account-logout-yes", lambda: flow.screen("login"), "نعم، اخرج")
+    flow.audit("login")
+    assert page.evaluate("fetch('/api/me').then((r) => r.status)") == 401
+    assert not _failures(flow), "\n".join(_failures(flow))
+    assert not flow.landings, "\n".join(flow.landings)
+    _gaze_safe(page)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+def test_an_alert_on_the_sign_out_screen_returns_to_the_account(page_factory, server, width, height):
+    """الخروج لم يصل (انقطاعٌ أو عطل): يُقال ذلك، و«حسناً» تعيد إلى «حسابي» والجلسة باقية."""
+    page = page_factory(width, height)
+    page.route("**/api/auth/logout", lambda route: route.fulfill(
+        status=503, content_type="application/json", body='{"code": "UNAVAILABLE", "detail": "الخدمة غير متاحة."}'))
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/account/logout")
+    flow.screen("account-logout")
+    page.click("#account-logout-yes")
+    page.wait_for_selector(".screen[data-screen='account-logout'] .alert:not([hidden])")
+    assert page.text_content(".screen[data-screen='account-logout'] .alert__text").startswith("لم يتمّ تسجيل الخروج.")
+    flow.audit("account-logout alert")
+    # بعد «حسناً» لا يبقى «نعم، اخرج» أقرب ما إلى نظرٍ باقٍ: العودة إلى «حسابي».
+    flow.press(".screen[data-screen='account-logout'] [data-ack]", lambda: flow.screen("account"), "حسناً")
+    assert not _failures(flow), "\n".join(_failures(flow))
+    if (width, height) != VIEWPORTS[-1]:
+        assert not flow.landings, "\n".join(flow.landings)
+    page.unroute("**/api/auth/logout")
+    assert page.evaluate("fetch('/api/me').then((r) => r.status)") == 200
+    assert not page.errors, page.errors
+
+
 def test_the_portal_follows_a_profession_change_while_the_app_is_open(page_factory, server, owner):
     """المشغّل ينقل الحساب والتطبيق مفتوح: الرئيسية تقرأ البوابة من جديد، وكذلك الحساب."""
     page = page_factory()

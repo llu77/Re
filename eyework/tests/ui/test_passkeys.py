@@ -117,7 +117,9 @@ def _add_on_account_screen(flow: Flow) -> None:
 
 
 def _log_out(flow: Flow) -> None:
-    flow.press("#account-logout", lambda: flow.screen("login"), "تسجيل الخروج")
+    flow.press("#account-logout", lambda: flow.screen("account-logout"), "تسجيل الخروج")
+    flow.audit("account-logout")
+    flow.press("#account-logout-yes", lambda: flow.screen("login"), "نعم، اخرج")
     _ready(flow, "login")
     flow.audit("login")
 
@@ -282,7 +284,10 @@ def test_without_webauthn_no_button_is_offered_and_no_challenge_is_asked_for(pag
                " && document.getElementById(id).disabled"
     assert page.evaluate(reserved, "account-passkey")
     assert page.is_hidden("#account-passkey-help")
-    flow.press("#account-logout", lambda: flow.screen("login"), "تسجيل الخروج")
+    flow.press("#account-logout", lambda: flow.screen("account-logout"), "تسجيل الخروج")
+    flow.audit("account-logout")
+    # مفتاح المرور بجانب «ادخل» مخفيّ هنا، فلا يقابل «نعم، اخرج» إلا حقلا الدخول.
+    flow.press("#account-logout-yes", lambda: flow.screen("login"), "نعم، اخرج")
     flow.audit("login")
     assert page.evaluate(reserved, "login-passkey")
     assert _posts(page, LOGIN_OPTIONS) == 0 and _posts(page, ADD_OPTIONS) == 0

@@ -709,6 +709,10 @@ async function routePortal(hash, nav) {
         renderAccountDelete();
         return true;
     }
+    if (hash === '#/account/logout') {
+        UI.show('account-logout');
+        return true;
+    }
     const item = hash.match(/^#\/(tasks|skills)\/([0-9]{1,3})$/);
     if (item) {
         await renderPortalItem(item[1], Number(item[2]), nav);
@@ -742,7 +746,9 @@ function wirePortal() {
     $('home-skills').addEventListener('click', () => go('#/skills/1'));
     $('login-passkey').addEventListener('click', onPasskeyLogin);
     $('account-passkey').addEventListener('click', onPasskeyAdd);
-    $('account-logout').addEventListener('click', onLogout);
+    $('account-logout').addEventListener('click', () => go('#/account/logout'));
+    $('account-logout-back').addEventListener('click', () => go('#/account'));
+    $('account-logout-yes').addEventListener('click', onLogout);
     $('account-delete').addEventListener('click', () => go('#/account/delete'));
     $('account-sources').addEventListener('click', () => go('#/account/sources'));
     $('account-delete-back').addEventListener('click', () => go('#/account'));

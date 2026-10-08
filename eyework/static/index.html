@@ -86,9 +86,8 @@
         </header>
         <div class="content">
             <h2 tabindex="-1">قبل أن تبدأ</h2>
-            <p class="line">يُحفظ في هذا التطبيق: الاسم، وتاريخ الميلاد، والمهنة، وكلمة المرور مجزّأة.</p>
-            <p class="line">البريد لا يُحفظ، بل بصمةٌ منه للدخول، فلا يصله شيء ولا يُستردّ الحساب به.</p>
-            <p class="line">في بوابة التسويق تُرسَل صورة المنتج ونصّه، لا الاسم ولا الميلاد، إلى Anthropic خارج المملكة لصياغة النص، ويحذفها خلال 30 يوماً إلا ما تُبقيه سياسته أو القانون.</p>
+            <p class="line">يُحفظ في هذا التطبيق: الاسم، وتاريخ الميلاد، والمهنة، وكلمة المرور مجزّأة، وبصمة البريد لا البريد، فلا يصله شيء ولا يُستردّ الحساب به.</p>
+            <p class="line">في بوابة التسويق تُرسَل صورة المنتج ونصّه، دون الاسم والميلاد، إلى Anthropic خارج المملكة للصياغة، وتحذفها خلال 30 يوماً إلا ما تُبقيه سياستها أو القانون.</p>
             <p class="line">تحذف حسابك وبياناته متى شئت، أو يحذفه بطلبك مَن أعطاك الرابط إن أُوقف أو نسيت كلمة مرورك؛ والنسخ الاحتياطية الأقدم تبقى حتى تُحذف.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
@@ -323,7 +322,28 @@
              خطوةٍ في التطبيق) بعيدٌ عنه في الطرف الأسفل الآخر. -->
         <footer class="bar bar--bottom">
             <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
-            <div class="slot"><button class="btn btn--commit" type="button" id="account-logout" data-commit>تسجيل الخروج</button></div>
+            <div class="slot"><button class="btn" type="button" id="account-logout" data-safe>تسجيل الخروج</button></div>
+        </footer>
+    </section>
+
+    <!-- الخروج بخطوتين كالحذف: الدخول من جديد بالنظر أغلى خطوةٍ في التطبيق. و«نعم، اخرج» في
+         المحتوى لا في الشريط: يقابل في شاشة الدخول حقلَيها، فلا يكون «ادخل» أقرب ما إلى نظرٍ
+         باقٍ عليه، ومفتاح المرور بجانبه مخفيٌّ على جهازٍ بلا WebAuthn. و«رجوع» موضعَ الضغطة. -->
+    <section class="screen" data-screen="account-logout" hidden>
+        <header class="bar bar--top">
+            <div class="slot"></div>
+            <p class="step">تسجيل الخروج</p>
+            <div class="slot"></div>
+        </header>
+        <div class="content">
+            <h2 tabindex="-1">تسجيل الخروج؟</h2>
+            <p class="line">للدخول من جديد تُكتب كلمة المرور، أو يُستعمل مفتاح المرور إن أُضيف.</p>
+            <button class="btn btn--wide btn--commit spaced" type="button" id="account-logout-yes" data-commit>نعم، اخرج</button>
+            <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
+        </div>
+        <footer class="bar bar--bottom">
+            <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="account-logout-back" data-safe>رجوع</button></div>
         </footer>
     </section>
 

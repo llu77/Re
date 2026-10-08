@@ -43,6 +43,10 @@ def test_signing_in_and_moving_through_a_portal_by_touch(page_factory, server, o
     flow.screen("account-delete")
     page.tap("#account-delete-back")
     flow.screen("account")
+    page.tap("#account-logout")
+    flow.screen("account-logout")
+    page.tap("#account-logout-yes")
+    flow.screen("login")
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM users")
         assert cursor.fetchone()[0] == 1
