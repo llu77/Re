@@ -53,6 +53,23 @@ def test_the_console_is_served_with_its_security_headers(client):
     assert "immutable" in revalidated.headers["Cache-Control"]
 
 
+def test_illustrations_may_be_data_images_but_scripts_stay_on_the_origin(client):
+    """
+    رسوم المقترحات تُراجَع صوراً بعنوان `data:`، فتسمح بها `img-src`. وما
+    عداها لا يتّسع: السكربت والخط والاتصال من الأصل وحده.
+    """
+    policy = client.get("/console/").headers["Content-Security-Policy"]
+    directives = {
+        name: values
+        for name, *values in (part.split() for part in policy.split(";") if part.strip())
+    }
+    assert directives["img-src"] == ["'self'", "data:"]
+    assert directives["script-src"] == ["'self'"]
+    assert directives["font-src"] == ["'self'"]
+    assert directives["connect-src"] == ["'self'"]
+    assert directives["default-src"] == ["'none'"]
+
+
 @pytest.mark.parametrize("path", ["/console/assets/index-DOESNOTEXIST.js", "/console/assets/"])
 def test_a_missing_asset_is_never_cached(client, path):
     """

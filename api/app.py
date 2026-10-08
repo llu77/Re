@@ -85,9 +85,11 @@ def create_app() -> FastAPI:
 #: ولا إحالة تحمل مسارها إلى موقعٍ خارجي (روابط الأدلّة تفتح PubMed).
 #: `style-src 'unsafe-inline'` لأن مكتبة Radix تحقن عنصر <style> لقفل
 #: التمرير خلف النوافذ؛ الأنماط لا تنفّذ شيفرة، والسكربتات تبقى من الأصل وحده.
+#: `img-src data:` لرسوم المقترحات: تُراجَع صوراً (`<img>` بعنوان `data:`) كما
+#: سيراها المريض، والـSVG داخل `<img>` لا ينفّذ شيفرة ولا يجلب مورداً.
 CONSOLE_CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-    "font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; "
+    "font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; "
     "form-action 'none'; frame-ancestors 'none'"
 )
 _CONSOLE_HEADERS = {

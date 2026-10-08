@@ -24,9 +24,20 @@ const SIDES: Record<AffectedSide, string> = {
   BILATERAL: "الجانبان",
 }
 
+/** عناوين التمارين المصوَّرة كما يكتبها مولّدها (`tools/visual_exercises.py`). */
+const EXERCISES: Record<string, string> = {
+  scanning_grid: "تمرين مسح الشبكة البصرية",
+  fixation_cross: "تمرين الإبصار اللامركزي (PRL)",
+  contrast_chart: "تدريب حساسية التباين",
+  reading_ruler: "تمرين القراءة بالمسطرة",
+  tracking_exercise: "تمرين تتبع المسار البصري",
+}
+
 export const kindLabel = (kind: string) => KINDS[kind as ProposalKind] ?? kind
 export const statusLabel = (status: string) => STATUSES[status as ProposalStatus] ?? status
 export const sideLabel = (side: string) => SIDES[side as AffectedSide] ?? side
+export const exerciseLabel = (type: string) =>
+  Object.prototype.hasOwnProperty.call(EXERCISES, type) ? EXERCISES[type] : type
 
 // التوقيت توقيت الرياض والصيغة صيغة البوابة نفسها، فيقرأ الممارس والمريض
 // التاريخ نفسه بالكتابة نفسها.

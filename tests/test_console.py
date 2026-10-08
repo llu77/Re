@@ -17,17 +17,19 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import socket
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from core import escalation, identity, proposals
+from core import escalation, identity, illustration_gate, proposals
 from core.adl import gate as adl_gate
 from core.types import Actor
 from tests import browsers
 from tests.conftest import cite_evidence_as, requires_db
+from tools.visual_exercises import generate_visual_exercise
 
 pytestmark = requires_db
 
@@ -58,6 +60,8 @@ DOCUMENTATION_TEXT = "ملخّص الجلسة الثالثة: تحسّن مدى 
 FIRST_STEP_TITLE = "أدخِل الذراع المصابة في الكمّ"
 RED_FLAG_TEXT = "ألم شديد مفاجئ في الكتف منذ الصباح مع تنميل في الأصابع."
 SECOND_FLAG_TEXT = "دوخة عند الوقوف وسقطتُ مرةً في الحمّام."
+#: علامة الجانب في رسم «شبكة المسح» لجانبٍ أيمن، كما يرسمها المولّد.
+RIGHT_SIDE_MARK = 'polygon[points="490,190 454,160 454,220"]'
 
 
 def _free_port() -> int:
@@ -498,6 +502,54 @@ def test_counts_say_when_more_are_waiting_than_the_page_shows(browser, clinic, s
     assert page.get_by_text("تُعرض أقدم 50 بلاغاً").is_visible()
     assert not page.evaluate(CONTRAST_SCRIPT)
     assert not page.evaluate(OVERLAP_EXCEPT_BADGE)
+    assert not browser.problems, browser.problems
+
+
+def _illustration_set(practitioner: Actor, patient_id):
+    """مجموعة رسومٍ لجانبٍ أيمن، مفحوصةٌ ومُسلَّمة كما تمرّ في البوابة."""
+    svg = generate_visual_exercise(
+        {"exercise_type": "scanning_grid", "difficulty": 3, "side": "right"})["svg"]
+    drawing = proposals.create(
+        practitioner, patient_id=patient_id, kind="ILLUSTRATION_SET",
+        payload={"illustrations": [{"exercise_type": "scanning_grid", "svg": svg}]},
+        affected_side="RIGHT",
+    )
+    illustration_gate.verify_proposal(practitioner, drawing.id)
+    proposals.submit(drawing.id, practitioner)
+    return drawing
+
+
+@pytest.mark.parametrize("viewport", [DESKTOP, PHONE], ids=["1440", "390"])
+def test_an_illustration_set_is_approved_from_the_image_the_patient_will_see(
+        browser, clinic, seed, owner, viewport):
+    """
+    الممارس يعتمد ما يراه المريض: صورةً بجانبها المعلَّم، لا آلاف الحروف من
+    ترميز SVG. والمصدر باقٍ للمراجعة، مطويٌّ تحت الصورة.
+    """
+    drawing = _illustration_set(clinic.practitioner, seed.patient_a)
+    page = browser.open(viewport=viewport, token=_token(), path=f"/console/#/queue/{drawing.id}")
+    image = page.get_by_role("img", name=re.compile("تمرين مسح الشبكة البصرية"))
+    image.wait_for()
+    # رُسمت فعلاً: سياسة المحتوى سمحت بها والمتصفّح فكّها، لا مستطيلٌ مكسور.
+    assert image.evaluate("(img) => img.complete && img.naturalWidth") == 500
+    assert image.get_attribute("src").startswith("data:image/svg+xml")
+    assert image.bounding_box()["width"] <= viewport["width"]
+    assert "الجانب الأيمن" in page.locator("figure").filter(has=image).inner_text()
+    # صورةٌ لا ترميزٌ محقون، والمصدر مطويّ.
+    assert page.locator(RIGHT_SIDE_MARK).count() == 0
+    source = page.locator("details").filter(has_text="مصدر الرسوم (SVG)")
+    assert source.get_attribute("open") is None
+
+    page.wait_for_timeout(300)
+    assert not page.evaluate(CONTRAST_SCRIPT)
+    assert not page.evaluate(OVERLAP_EXCEPT_BADGE)
+    assert not page.evaluate(TARGETS_EXCEPT_RAIL, 44)
+    assert not page.evaluate(HORIZONTAL_OVERFLOW_SCRIPT)
+
+    page.get_by_role("button", name="اعتماد", exact=True).click()
+    page.get_by_role("button", name="تأكيد الاعتماد").click()
+    page.get_by_role("status").get_by_text("اعتُمد المقترح.").wait_for()
+    assert _status(owner, drawing.id)[0] == "APPROVED"
     assert not browser.problems, browser.problems
 
 
