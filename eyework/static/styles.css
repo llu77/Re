@@ -14,6 +14,8 @@
  *     AssistiveTouch وهو بطيء. الشريطان العلوي والسفلي ثابتا الارتفاع،
  *     والمحتوى يأخذ الباقي.
  *   • الحالة المختارة تُرى بالإطار والعلامة، لا باللون وحده.
+ *   • «حجم النصّ» (Text Size) في iOS يكبّر نصّ المحتوى وحده، حتى `--fs-cap`.
+ *     الأهداف والمسافات وأشرطة الإطار بالجذر (16px) فلا تتغيّر (انظر `.screen`).
  *   • مساحات الحالة والتنبيه محجوزة: ظهور رسالة لا يحرّك زرّاً تحت النظر.
  */
 
@@ -39,6 +41,18 @@
     --fs-title: 1.375rem;       /* 22px */
     --fs-value: 1.5rem;         /* 24px */
     --fs-small: 1rem;           /* 16px */
+    /* سقف نصّ المحتوى حين يتبع «حجم النصّ» في iOS (انظر `.screen`): أكبر حجمٍ تجتاز
+       عنده كل شاشةٍ فحوص tests/ui/test_text_size.py. عند 20 يُقصّ سطر الحالة تحت
+       النصّ المقبول الأكثر هدراً للأسطر في إطار الإجهاد (320)؛ وعند 21 تفيض شاشتا
+       «قبل أن تبدأ» و«تأكيدٌ نهائي» في 320، ويقع خيار مدّةٍ تحت النظر الباقي في 390.
+       رفعه يعني إعادة تصميم تلك الشاشات أولاً. */
+    --fs-cap: 1.1875rem;        /* 19px */
+    /* درجات نصّ المحتوى: فرقٌ ثابتٌ عن متن `.content`، فتكبر معه وتحفظ ترتيبها. وكلٌّ
+       منها عند المتن 18 هو الحجم الثابت المقابل: 16 و20 و22 و24. */
+    --text-small: calc(1em + var(--fs-small) - var(--fs-body));
+    --text-restate: calc(1em + 0.125rem);
+    --text-title: calc(1em + var(--fs-title) - var(--fs-body));
+    --text-value: calc(1em + var(--fs-value) - var(--fs-body));
     --line-height: 1.6;
     color-scheme: light;
 }
@@ -50,8 +64,9 @@
 [hidden] { display: none !important; }
 
 /* الجذر بحجم المتصفّح (16px) فتعني rem ما تقوله: 4.5rem = 72px. والمتن 18px على
-   body. حجم النصّ في إعدادات iOS لا يغيّر الجذر في Safari؛ ما يكبّر الصفحة —
-   الأهداف والنصّ معاً — هو تكبير الصفحة في Safari، وتكبير الشاشة، والتكبير. */
+   body. «حجم النصّ» في إعدادات iOS لا يغيّر الجذر في Safari، بل نصّ المحتوى وحده
+   عبر `.screen` أدناه. وما يكبّر الصفحة كلّها — الأهداف والنصّ معاً — هو تكبير
+   الصفحة في Safari، وتكبير الشاشة، والتكبير. */
 html { font-size: 100%; height: 100%; -webkit-text-size-adjust: 100%; }
 body {
     margin: 0;
@@ -67,7 +82,7 @@ body {
 
 button, input, textarea, label, a { font: inherit; }
 
-h2 { margin: 0; font-size: var(--fs-title); line-height: 1.4; color: var(--navy); }
+h2 { margin: 0; font-size: var(--text-title); line-height: 1.4; color: var(--navy); }
 h2:focus { outline: none; }
 p { margin: 0; }
 
@@ -81,10 +96,23 @@ p { margin: 0; }
     height: 100dvh;
     padding: max(var(--edge), env(safe-area-inset-top)) max(var(--edge), env(safe-area-inset-right))
              max(var(--edge), env(safe-area-inset-bottom)) max(var(--edge), env(safe-area-inset-left));
+    /* «حجم النصّ» للنصّ وحده. `-apple-system-body` قيمةٌ لـWebKit وحده تأخذ حجم نمط
+       Body من النظام وتتبعه إن تغيّر (17 نقطة عند الحجم الافتراضي، و23 عند
+       xxxLarge، و53 عند AX5)؛ وما لا يعرفها (Chromium مثلاً) يُسقطها فيبقى 18. وتُعاد
+       بعدها عائلة الخطّ وتباعد الأسطر. ويُحدّ الحجم في `.content` بين المتن والسقف،
+       والأشرطة والأزرار والحقول بأحجامها الثابتة: لا يكبر هدفٌ ولا تتغيّر مسافة.
+       لم يُقَس على جهازٍ بعد: هل يبقى الحجم بعد إعادة العائلة، وهل النقطة px. ومهما
+       أعطى WebKit فمتن المحتوى بين 18 و19 والدرجات الأخرى بفروقها: لا يصغر نصٌّ عمّا
+       كان ولا يتجاوز ما اختُبر. */
+    font: -apple-system-body;
+    font-family: var(--font);
+    line-height: var(--line-height);
 }
 .screen[hidden] { display: none; }
 
+/* الإطار لا يتبع «حجم النصّ»: الشريطان ثابتا الارتفاع. */
 .bar {
+    font-size: var(--fs-body);
     display: flex;
     align-items: stretch;
     gap: var(--target-gap);
@@ -128,6 +156,7 @@ p { margin: 0; }
     min-height: 0;
     overflow: hidden;
     margin: 0;
+    font-size: clamp(var(--fs-body), 1em, var(--fs-cap));
 }
 /* مجموعةٌ تفاعلية تلي مجموعةً تفاعلية: 8 + 16 = 24، حدّ التباعد بين هدفين. */
 .content > .spaced { margin-block-start: calc(var(--target-gap) - 0.5rem); }
@@ -145,6 +174,7 @@ p { margin: 0; }
     border-radius: var(--radius);
     background: var(--surface);
     color: var(--brand-strong);
+    font-size: var(--fs-body);
     font-weight: 700;
     line-height: 1.3;
     text-align: center;
@@ -193,7 +223,7 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
 .rows .btn .row-status { font-weight: 400; color: var(--ink-soft); font-size: var(--fs-small); }
 
 /* ── الحقول ─────────────────────────────────────────────────────────── */
-.label { font-weight: 700; font-size: var(--fs-small); }
+.label { font-weight: 700; font-size: var(--text-small); }
 .field {
     min-height: var(--target);
     padding: 0 1rem;
@@ -207,27 +237,27 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
 .field[readonly] { background: var(--surface-sunk); }
 
 /* ── النصوص ─────────────────────────────────────────────────────────── */
-.help, .notice, .status, .warnings { color: var(--ink-soft); font-size: var(--fs-small); }
+.help, .notice, .status { color: var(--ink-soft); font-size: var(--text-small); }
 .status { min-height: 1.6rem; }
 .warnings { color: var(--alert); }
 .notice { border-inline-start: 4px solid var(--line-strong); padding-inline-start: 0.75rem; }
 
 .headline { display: flex; align-items: center; gap: 0.75rem; min-height: 4.5rem; }
 .thumb { width: 4.5rem; height: 4.5rem; object-fit: cover; border-radius: var(--radius); flex: none; background: var(--surface-sunk); }
-.title { font-size: var(--fs-title); font-weight: 700; line-height: 1.4; color: var(--navy); }
+.title { font-size: var(--text-title); font-weight: 700; line-height: 1.4; color: var(--navy); }
 /* كيف تُؤدّى المهمّة: علامةٌ مقروءة لا لونٌ وحده. */
 .badge {
     align-self: flex-start;
     padding: 0.125rem 0.75rem;
     border: 2px solid var(--line-strong);
     border-radius: var(--radius);
-    font-size: var(--fs-small);
+    font-size: var(--text-small);
     font-weight: 700;
     color: var(--ink);
 }
 .badge[data-mode="IN_APP"] { border-color: var(--ok); color: var(--ok); }
 /* اسم الدخول كاملاً، كبيراً، من اليسار: خطأٌ فيه يُرى قبل أن يصير حساباً. */
-.login-name { font-size: var(--fs-title); font-weight: 700; color: var(--navy); word-break: break-all; }
+.login-name { font-size: var(--text-title); font-weight: 700; color: var(--navy); word-break: break-all; }
 .description { white-space: pre-line; }
 .description--3, .description--2 {
     display: -webkit-box;
@@ -248,11 +278,11 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
     border-radius: var(--radius);
     background: var(--surface-sunk);
 }
-.value__digits { font-size: var(--fs-value); font-weight: 700; color: var(--navy); line-height: 1.3; }
+.value__digits { font-size: var(--text-value); font-weight: 700; color: var(--navy); line-height: 1.3; }
 .value__words { color: var(--ink); line-height: 1.4; }
-.value__daily { color: var(--ink-soft); font-size: var(--fs-small); line-height: 1.4; }
+.value__daily { color: var(--ink-soft); font-size: var(--text-small); line-height: 1.4; }
 
-.restate { font-size: 1.25rem; line-height: 1.6; padding-block: 0.5rem; }
+.restate { font-size: var(--text-restate); line-height: 1.6; padding-block: 0.5rem; }
 
 .preview { flex: 1; min-height: 0; display: flex; justify-content: center; }
 .preview img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--radius); }

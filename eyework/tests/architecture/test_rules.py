@@ -290,6 +290,23 @@ def test_fields_are_large_enough_not_to_trigger_ios_zoom():
     assert re.search(r"--fs-body:\s*1\.125rem", css)
 
 
+def test_ios_text_size_reaches_the_screen_text_and_never_the_root():
+    """
+    `font: -apple-system-body` يأخذ «حجم النصّ» من iOS، ويضبط معه العائلة وتباعد
+    الأسطر؛ فهو على `.screen` وحدها، وبعده في القاعدة نفسها عائلة الخطّ وتباعد الأسطر.
+    والجذر بحجم المتصفّح: لو تبعه الجذر لكبرت الأهداف (4.5rem) وفاضت كل شاشة.
+    """
+    css = re.sub(r"/\*.*?\*/", "", (STATIC / "styles.css").read_text(encoding="utf-8"), flags=re.S)
+    rules = [(selector.strip(), block) for selector, block in re.findall(r"([^{}]+)\{([^}]*)\}", css)
+             if "-apple-system" in block]
+    assert [selector for selector, _ in rules] == [".screen"], rules
+    block = rules[0][1]
+    order = [block.find(part) for part in
+             ("font: -apple-system-body;", "font-family: var(--font);", "line-height: var(--line-height);")]
+    assert -1 not in order and order == sorted(order), order
+    assert re.search(r"(?m)^html\s*\{[^}]*font-size:\s*100%", css)
+
+
 def test_the_users_name_never_reaches_the_model():
     """
     الاسم يُعرض في الواجهة من قاعدة التطبيق، ولا تعرفه الوحدات التي تبني طلب
