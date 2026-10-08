@@ -39,9 +39,18 @@ from psycopg import errors as pg_errors
 from eyework import campaigns, config, images
 from eyework.copywriter import AnthropicCopywriter, Copywriter
 from eyework.db import Database
-from eyework.web import routes_auth, routes_campaigns
+from eyework.web import routes_auth, routes_campaigns, routes_portal
 from eyework.web.deps import Limiters
-from eyework.web.errors import AI_OUTCOMES, CONSTRAINTS, EDIT_REQUEST, GENERIC, IMAGE, ErrorSpec
+from eyework.web.errors import (
+    AI_OUTCOMES,
+    CONSTRAINTS,
+    EDIT_REQUEST,
+    GENERIC,
+    IMAGE,
+    REGISTRATION,
+    REGISTRATION_CONSTRAINTS,
+    ErrorSpec,
+)
 
 __all__ = ["create_app"]
 
@@ -83,10 +92,12 @@ def _internal(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"code": "INTERNAL", "detail": "حدث خطأ. حاول مرة أخرى."})
 
 
-def _error(spec: ErrorSpec) -> JSONResponse:
+def _error(spec: ErrorSpec, field: str | None = None) -> JSONResponse:
     headers = {"Retry-After": str(spec.retry_after)} if spec.retry_after else None
-    return JSONResponse(status_code=spec.status, content={"code": spec.code, "detail": spec.detail},
-                        headers=headers)
+    content = {"code": spec.code, "detail": spec.detail}
+    if field is not None:
+        content["field"] = field
+    return JSONResponse(status_code=spec.status, content=content, headers=headers)
 
 
 def create_app(
@@ -174,6 +185,17 @@ def create_app(
     def integrity_error(request: Request, exc: pg_errors.IntegrityError) -> JSONResponse:
         constraint = getattr(exc.diag, "constraint_name", None) or ""
         logger.warning("قيد %s على %s", constraint or "غير مسمّى", request.url.path)
+        # قيود التسجيل تعود باسم حقلها، فتفتح الواجهة خطوته.
+        if constraint in REGISTRATION_CONSTRAINTS:
+            field = REGISTRATION_CONSTRAINTS[constraint]
+            return _error(REGISTRATION[field], field)
+        return _error(CONSTRAINTS.get(constraint, GENERIC))
+
+    @app.exception_handler(pg_errors.InsufficientPrivilege)
+    def insufficient_privilege(request: Request, exc: pg_errors.InsufficientPrivilege) -> JSONResponse:
+        # القاعدة ترفض أداةً لغير مهنتها حتى لو تجاوز الطلبُ حاجز المسار.
+        constraint = getattr(exc.diag, "constraint_name", None) or ""
+        logger.warning("صلاحية %s على %s", constraint or "غير مسمّاة", request.url.path)
         return _error(CONSTRAINTS.get(constraint, GENERIC))
 
     @app.exception_handler(pg_errors.NoDataFound)
@@ -226,6 +248,7 @@ def create_app(
 
     app.include_router(routes_auth.router)
     app.include_router(routes_campaigns.router)
+    app.include_router(routes_portal.router)
     # أخيراً: كل ما لم يطابق مساراً أعلاه ملفٌّ ساكن. بلا شرط: نشرٌ بلا مجلد
     # الواجهة يفشل عند الإقلاع لا أن يعمل بلا واجهة.
     app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

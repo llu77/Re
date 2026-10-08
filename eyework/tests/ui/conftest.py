@@ -47,7 +47,7 @@ INSTRUMENT = r"""
         // يُحسب ما تستدعيه شيفرة التطبيق وحدها؛ أدوات الاختبار نفسها تستعمل
         // requestAnimationFrame في انتظارها.
         window[name] = function (...args) {
-            if (/\/(app|ui|probe)\.js/.test(new Error().stack || '')) log.timers.push(name);
+            if (/\/(app|ui|portal|probe)\.js/.test(new Error().stack || '')) log.timers.push(name);
             return original.apply(this, args);
         };
     }
@@ -57,7 +57,7 @@ INSTRUMENT = r"""
     }
     const add = EventTarget.prototype.addEventListener;
     EventTarget.prototype.addEventListener = function (type, ...rest) {
-        if (/\/(app|ui)\.js/.test(new Error().stack || '')) log.listeners.push(type);
+        if (/\/(app|ui|portal)\.js/.test(new Error().stack || '')) log.listeners.push(type);
         return add.call(this, type, ...rest);
     };
 })();
@@ -132,7 +132,8 @@ def signed_in(owner, server):
 
     with owner.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO users (login_hmac, password_hash, activated_at) VALUES (%s, %s, now())",
+            "INSERT INTO users (login_hmac, password_hash, activated_at, profession)"
+            " VALUES (%s, %s, now(), 'MARKETING')",
             (auth.login_hmac(LOGIN_KEY, LOGIN), hash_password(PASSWORD)),
         )
     server["writer"].outcomes.clear()

@@ -140,3 +140,32 @@ def test_cancelled_campaigns_go_after_ninety_days(owner, app, two_users, purge, 
     age_campaign(owner, campaign, age, column="cancelled_at")
     purge()
     assert exists(owner, campaign) is not deleted
+
+
+
+@pytest.mark.parametrize(("created", "used", "deleted"), [
+    (timedelta(days=61), None, True),                  # انتهى قبل 31 يوماً
+    (timedelta(days=50), None, False),                 # انتهى قبل 20 يوماً
+    (timedelta(days=40), timedelta(days=31), True),    # استُعمل قبل 31 يوماً
+    (timedelta(days=20), timedelta(days=10), False),   # استُعمل قبل 10 أيام
+])
+def test_signup_codes_go_thirty_days_after_they_expire_or_are_used(owner, purge, created, used, deleted):
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO signup_codes (code_hash, created_at, expires_at, used_at)"
+            " VALUES (%s, now() - %s, now() - %s + interval '30 days', now() - %s::interval)",
+            (b"c" * 32, created, created, used))
+    assert purge()["signup_codes"] == (1 if deleted else 0)
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM signup_codes")
+        assert cursor.fetchone()[0] == (0 if deleted else 1)
+
+
+def test_traces_of_deleted_attempts_go_after_their_day(owner, purge):
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO attempt_tombstones (started_at, outcome) VALUES"
+                       " (now() - interval '25 hours', 'OK'), (now() - interval '1 hour', 'OK')")
+    assert purge()["attempt_tombstones"] == 1
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM attempt_tombstones")
+        assert cursor.fetchone()[0] == 1

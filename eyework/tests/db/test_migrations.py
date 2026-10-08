@@ -209,3 +209,60 @@ def test_0004_backfills_images_of_every_status_and_keeps_their_times(connection,
     assert set(after) == {ready, draft}
     for campaign, created in before.items():
         assert after[campaign] == (created, created)
+
+
+@pytest.mark.parametrize("profession, self_registered", [("STOREKEEPER", False), ("MARKETING", True)])
+def test_0005_down_refuses_while_accounts_it_cannot_describe_exist(connection, owner, profession, self_registered):
+    """
+    بعد التراجع يصير الحساب المسجَّل ذاتياً، أو حساب مهنةٍ أخرى، حساب دعوةٍ
+    يفتح أداة الحملات. فالتراجع يرفض ولا يغيّر شيئاً حتى يُحذف.
+    """
+    from eyework.tests.conftest import make_user
+
+    make_user(owner, login=b"invited", profession="MARKETING")
+    other = make_user(owner, login=b"other", profession=profession)
+    if self_registered:
+        with owner.cursor() as cursor:
+            cursor.execute("UPDATE users SET self_registered = true, terms_version = '2026-10-01',"
+                           " terms_accepted_at = now() WHERE id = %s", (other,))
+    with pytest.raises(psycopg.errors.RaiseException, match="1 حساباً"):
+        migrate_down(connection, target="0004")
+    assert [row[0] for row in _ledger(connection)][-1] == "0005"
+
+    with owner.cursor() as cursor:
+        cursor.execute("DELETE FROM users WHERE id = %s", (other,))
+    assert migrate_down(connection, target="0004") == 1
+
+
+def test_0005_down_waits_for_an_account_being_created_and_still_refuses(connection, owner_url):
+    """
+    حسابٌ من غير التسويق لم يُثبَّت بعد لا يراه العدّ. فالتراجع يقفل الجدول أولاً:
+    ينتظر المعاملة، ثم يعدّه ويرفض، ولا يبقى حسابٌ لا يصفه 0004.
+    """
+    import threading
+
+    from eyework.tests.db.test_state_machine import blocked_on_a_lock
+
+    outcome = {}
+
+    def roll_back() -> None:
+        try:
+            migrate_down(connection, target="0004")
+            outcome["done"] = True
+        except psycopg.errors.RaiseException as exc:
+            outcome["refused"] = str(exc)
+
+    with psycopg.connect(owner_url) as writer:
+        writer.execute("INSERT INTO users (login_hmac, password_hash, activated_at, profession)"
+                       " VALUES (%s, %s, now(), 'STOREKEEPER')", (b"w" * 32, "scrypt$" + "0" * 32 + "$" + "0" * 128))
+        racer = threading.Thread(target=roll_back)
+        racer.start()
+        with psycopg.connect(owner_url, autocommit=True) as watcher:
+            waited = blocked_on_a_lock(watcher, connection.info.backend_pid, racer)
+        writer.commit()
+        racer.join(timeout=10)
+    assert waited
+    assert "refused" in outcome, outcome
+    assert [row[0] for row in _ledger(connection)][-1] == "0005"
+    with psycopg.connect(owner_url, autocommit=True) as cleanup:
+        cleanup.execute("DELETE FROM users")

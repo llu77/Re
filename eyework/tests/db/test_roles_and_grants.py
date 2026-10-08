@@ -33,6 +33,9 @@ from eyework.tests.conftest import (
 ALL_TABLES = frozenset({
     "schema_migrations", "users", "activation_tokens", "sessions", "campaign_transition",
     "campaigns", "generation_attempts", "copy_versions", "campaign_images",
+    # 0005: المهن ورموز التسجيل وأثر المحاولات المحذوفة — للمالك وحده؛ الويب
+    # يصلها عبر دوالّ.
+    "professions", "signup_codes", "attempt_tombstones",
 })
 READABLE = frozenset({
     "campaign_transition", "campaigns", "generation_attempts", "copy_versions", "campaign_images",
@@ -56,6 +59,8 @@ APP_FUNCTIONS = frozenset({
     "ew_activate", "ew_begin_generation", "ew_finish_generation",
     # 0003: اسم صاحب الجلسة وحده، لا قائمة المستخدمين.
     "ew_my_display_name",
+    # 0005: التسجيل برمزه وسقفه اليومي، ومهنة صاحب الجلسة، وحذفه حسابه بنفسه.
+    "ew_signup_code_usable", "ew_register", "ew_my_profession", "ew_delete_me",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
     "ew_current_user", "ew_budget_allowed", "ew_is_billable", "ew_jpeg_has_no_metadata",
 })

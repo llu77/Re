@@ -1,8 +1,9 @@
 """
 مسارات الدخول
 =============
-لا تسجيل ولا «نسيت كلمة المرور»: الحساب بدعوة، ورابط تفعيلٍ جديد هو
-الاسترداد. وكل فشلٍ برسالةٍ واحدة لا تقول أيّ الحقلين أخطأ.
+الحساب بالتسجيل أو بالدعوة، ولا «نسيت كلمة المرور»: رابط تفعيلٍ جديد من
+المشغّل هو الاسترداد. وكل فشلٍ في الدخول برسالةٍ واحدة لا تقول أيّ الحقلين
+أخطأ؛ أما التسجيل فيقول أيّ حقلٍ يُصلَح، لأن صاحبه هو من كتبه.
 """
 
 from __future__ import annotations
@@ -15,8 +16,10 @@ from fastapi.responses import JSONResponse
 
 from eyework import auth, campaigns, money
 from eyework.copy_rules import EDIT_NOTE_MAX, MAX_PRESETS, PRESET_CONFLICTS, EditPreset
+from eyework.professions import NAMES, TAGLINES, Profession
 from eyework.web.deps import COOKIE, COOKIE_MAX_AGE, client_ip, enforce, require_user, session_token
-from eyework.web.schemas import ActivateBody, LoginBody
+from eyework.web.errors import REGISTRATION
+from eyework.web.schemas import ActivateBody, LoginBody, RegisterBody, SignupCodeBody
 
 __all__ = ["router"]
 
@@ -70,6 +73,59 @@ async def activate(body: ActivateBody, request: Request) -> Response:
     return response
 
 
+def _registration_error(key: str) -> JSONResponse:
+    spec = REGISTRATION[key]
+    headers = {"Retry-After": str(spec.retry_after)} if spec.retry_after else None
+    return JSONResponse(status_code=spec.status, headers=headers,
+                        content={"code": spec.code, "field": key, "detail": spec.detail})
+
+
+@router.post("/auth/signup-code", status_code=status.HTTP_204_NO_CONTENT)
+async def signup_code(body: SignupCodeBody, request: Request) -> Response:
+    """
+    هل يصلح رمز الرابط؟ تسأله الواجهة قبل الخطوة الأولى، فلا يملأ أحدٌ تسع شاشاتٍ
+    برمزٍ منتهٍ. لا يكشف شيئاً عن الحسابات، وله حدٌّ لكل عنوان غير حدّ إنشاء الحساب.
+    """
+    state = request.app.state
+    if not state.settings.registration_open:
+        return _registration_error("CLOSED")
+    enforce(state.limiters.signup_code_ip, client_ip(request))
+    if not await run_in_threadpool(auth.signup_code_usable, state.db, body.code):
+        return _registration_error("CODE")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/auth/register", status_code=status.HTTP_204_NO_CONTENT)
+async def register(body: RegisterBody, request: Request) -> Response:
+    state = request.app.state
+    if not state.settings.registration_open:
+        return _registration_error("CLOSED")
+    try:
+        name = auth.check_name(body.name)
+        birth_date = auth.check_birth_date(body.birth_date)
+        email = auth.check_email(body.email)
+    except auth.RegistrationInvalid as exc:
+        return _registration_error(exc.field)
+    # الحدّ بعد فحص الشكل: خطأٌ في حقلٍ لا يمسّ القاعدة ولا يستهلك محاولة.
+    enforce(state.limiters.register_ip, client_ip(request))
+    try:
+        token = await run_in_threadpool(
+            auth.register, state.db, state.settings.login_key, code=body.code, name=name,
+            birth_date=birth_date, email=email, password=body.password, profession=body.profession)
+    except auth.RegistrationInvalid as exc:
+        return _registration_error(exc.field)
+    except auth.RegistrationCodeInvalid:
+        return _registration_error("CODE")
+    except auth.RegistrationTaken:
+        return _registration_error("TAKEN")
+    previous = session_token(request)
+    if previous:
+        await run_in_threadpool(auth.logout, state.db, previous)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _set_session(response, token)
+    return response
+
+
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(request: Request) -> Response:
     token = session_token(request)
@@ -80,18 +136,35 @@ def logout(request: Request) -> Response:
     return response
 
 
+@router.post("/me/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(request: Request, user_id: UUID = Depends(require_user)) -> Response:
+    """
+    يحذف صاحب الجلسة حسابه وكل بياناته. التأكيد خطوتان في الواجهة؛ وهنا الحذف
+    نفسه، لا يُعاد ولا يُسترجع.
+    """
+    auth.delete_me(request.app.state.db, user_id)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+    return response
+
+
 @router.get("/me")
 def me(request: Request, user_id: UUID = Depends(require_user)) -> dict:
-    """لا معرّف ولا اسم: الواجهة لا تحتاج إلا ما تبقّى من طلبات اليوم."""
+    """
+    ما تحتاجه الواجهة لتفتح البوابة وتحيّي صاحبها: مهنته، واسمه، وما بقي من
+    طلبات اليوم. لا معرّف ولا بريد ولا تاريخ ميلاد.
+    """
     db = request.app.state.db
+    profession = auth.profession_of(db, user_id)
     return {
         "generations_left": campaigns.remaining_generations(db, user_id),
         "display_name": campaigns.display_name(db, user_id),
+        "profession": profession.value if profession else None,
     }
 
 
 @router.get("/choices")
-def choices() -> dict:
+def choices(request: Request) -> dict:
     """
     كل ما تعرضه الواجهة للاختيار، من الخادم وحده: قيم الميزانية والمدّة
     بكلماتها، وخيارات التعديل وتعارضاتها، والحدود.
@@ -101,6 +174,14 @@ def choices() -> dict:
     """
     return {
         **money.choices(),
+        "registration_open": request.app.state.settings.registration_open,
+        "registration": {
+            "name_max": auth.NAME_MAX,
+            "password_min": auth.PASSWORD_MIN,
+            "earliest_year": 1900,
+            "terms_version": auth.TERMS_VERSION,
+        },
+        "professions": [{"code": p.value, "name": NAMES[p], "tagline": TAGLINES[p]} for p in Profession],
         "edit_presets": [preset.value for preset in EditPreset],
         "preset_conflicts": [sorted(p.value for p in pair) for pair in PRESET_CONFLICTS],
         "limits": {

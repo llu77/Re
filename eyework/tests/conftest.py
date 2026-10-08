@@ -28,7 +28,8 @@ REQUIRE_DB = os.environ.get("EYEWORK_REQUIRE_DB") == "1"
 
 #: TRUNCATE على users يمتدّ بـCASCADE إلى كل ما يرجع إليه: الجلسات، ورموز
 #: التفعيل، والحملات، والمحاولات، والنسخ، والصور.
-_CLEAN = "TRUNCATE users RESTART IDENTITY CASCADE"
+# أثر المحاولات المحذوفة بلا مفتاحٍ إلى المستخدمين، فيُذكر وحده.
+_CLEAN = "TRUNCATE users, attempt_tombstones RESTART IDENTITY CASCADE"
 
 
 def app_url_for(owner_url: str) -> str:
@@ -94,13 +95,13 @@ UNUSABLE_HASH = "scrypt$" + "0" * 32 + "$" + "0" * 128
 
 
 def make_user(owner, *, login: bytes, password_hash: str | None = UNUSABLE_HASH,
-              active: bool = True) -> UUID:
+              active: bool = True, profession: str = "MARKETING") -> UUID:
     """مستخدمٌ مفعَّل افتراضاً. `password_hash=None` ⇒ مدعوٌّ لم يُفعِّل بعد."""
     with owner.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO users (login_hmac, password_hash, is_active, activated_at)"
-            " VALUES (%s, %s, %s, CASE WHEN %s::text IS NULL THEN NULL ELSE now() END) RETURNING id",
-            (login.ljust(32, b"\0")[:32], password_hash, active, password_hash),
+            "INSERT INTO users (login_hmac, password_hash, is_active, activated_at, profession)"
+            " VALUES (%s, %s, %s, CASE WHEN %s::text IS NULL THEN NULL ELSE now() END, %s) RETURNING id",
+            (login.ljust(32, b"\0")[:32], password_hash, active, password_hash, profession),
         )
         return cursor.fetchone()[0]
 
