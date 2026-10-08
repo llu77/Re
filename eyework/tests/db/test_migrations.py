@@ -179,11 +179,17 @@ def test_0004_backfills_images_of_every_status_and_keeps_their_times(connection,
     التعبئة في 0004 تمرّ على صور الحملات المعتمدة أيضاً، ولا تعيد كتابة وقت
     إنشائها: الحارس الذي يرفض تعديل صورةٍ خارج المسودة لا يعني ترحيلاً.
     """
-    from eyework.tests.conftest import add_version, create_campaign, make_user
+    from eyework.tests.conftest import UNUSABLE_HASH, add_version, create_campaign
     from eyework.tests.db.test_generation_caps import move_to
 
-    assert migrate_down(connection, target="0003") == 1
-    user = make_user(owner, login=b"m" * 32)
+    # إلى ما قبل 0004 أيّاً كان ما بعده؛ و0004 وحده يُطبَّق ثم يُفحص.
+    migrate_down(connection, target="0003")
+    assert [row[0] for row in _ledger(connection)][-1] == "0003"
+    # بأعمدة 0003 وحدها: ما أضافته ترحيلاتٌ لاحقة لا يوجد بعد.
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO users (login_hmac, password_hash, activated_at) VALUES (%s, %s, now())"
+                       " RETURNING id", (b"m" * 32, UNUSABLE_HASH))
+        user = cursor.fetchone()[0]
     ready = create_campaign(app, user)
     add_version(app, user, ready)
     move_to(app, user, ready, "READY")
@@ -195,7 +201,7 @@ def test_0004_backfills_images_of_every_status_and_keeps_their_times(connection,
         cursor.execute("SELECT campaign_id, created_at FROM campaign_images")
         before = dict(cursor.fetchall())
 
-    assert migrate_up(connection) == 1
+    assert migrate_up(connection, "0004") == 1
 
     with owner.cursor() as cursor:
         cursor.execute("SELECT campaign_id, created_at, updated_at FROM campaign_images")
