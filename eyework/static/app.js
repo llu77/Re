@@ -380,7 +380,7 @@ async function renderHome() {
         list.append(row);
     });
     $('home-empty').hidden = result.data.items.length > 0 || state.page > 1;
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    const standalone = installedApp();
     // التلميح يظهر حين يتّسع له المكان: صفّان يملآن الشاشة بلا تمرير.
     $('home-install').hidden = standalone || result.data.items.length > 1;
     UI.setButton($('home-older'), { reserved: !result.data.has_more });
@@ -1048,13 +1048,31 @@ function brief(campaign) {
     ].join('\n');
 }
 
+/* التطبيق مفتوحٌ من الشاشة الرئيسية لا من تبويب Safari. */
+function installedApp() {
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
 async function renderReady() {
     const campaign = state.campaign;
     UI.show('ready');
     fillCopy('ready', campaign, campaign.copy);
     $('ready-summary').replaceChildren(UI.bdi(`${campaign.budget.short} · ${campaign.days.short}`));
     $('ready-status').textContent = '';
-    $('ready-download').href = imageUrl(campaign);
+    // في التطبيق المضاف إلى الشاشة الرئيسية قد يُفضي التنزيل إلى شاشةٍ لا رجوع منها
+    // إلا بإغلاق التطبيق قسراً (WebKit 290847، مفتوح): لا يُعرض فيه، ويبقى مكانه.
+    const download = $('ready-download');
+    const offered = !installedApp();
+    download.classList.toggle('is-reserved', !offered);
+    if (offered) {
+        download.href = imageUrl(campaign);
+        download.removeAttribute('aria-hidden');
+        download.removeAttribute('tabindex');
+    } else {
+        download.removeAttribute('href');
+        download.setAttribute('aria-hidden', 'true');
+        download.tabIndex = -1;
+    }
     // الصورة تُجلب الآن لا عند الضغط: المشاركة يجب أن تبدأ داخل الضغطة نفسها.
     state.readyBlob = null;
     const result = await api('GET', imageUrl(campaign), { as: 'blob' });
@@ -1089,7 +1107,9 @@ async function onShare() {
         await navigator.share(data);
     } catch (error) {
         if (!error || error.name !== 'AbortError') {
-            UI.showAlert(UI.screen('ready'), 'تعذّرت المشاركة. استخدم «نزّل الصورة» و«انسخ الوصف».');
+            UI.showAlert(UI.screen('ready'), installedApp()
+                ? 'تعذّرت المشاركة. استخدم «انسخ العنوان» و«انسخ الوصف».'
+                : 'تعذّرت المشاركة. استخدم «نزّل الصورة» و«انسخ الوصف».');
         }
     }
 }

@@ -207,3 +207,31 @@ def test_an_alert_also_locks_the_download_link_on_the_ready_screen(page_factory,
     assert page.get_attribute("#ready-download", "aria-disabled") is None
     assert page.evaluate("() => getComputedStyle(document.querySelector('#ready-download')).pointerEvents") != "none"
     assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("installed", [False, True], ids=["safari", "home-screen"])
+def test_the_download_link_is_not_offered_in_the_installed_app(page_factory, server, installed):
+    """
+    WebKit 290847 (مفتوح): في التطبيق المضاف إلى الشاشة الرئيسية قد يُفضي التنزيل إلى
+    شاشةٍ لا يُخرج منها إلا بإغلاق التطبيق قسراً — طريقٌ مسدود لمن يعمل بالنظر.
+    """
+    page = page_factory()
+    if installed:
+        page.add_init_script("Object.defineProperty(navigator, 'standalone', { value: true });")
+    flow = Flow(page, server["base"])
+    flow.to_review()
+    flow.press("#review-continue", lambda: flow.screen("confirm"), "متابعة للتأكيد")
+    flow.press("#confirm-yes", lambda: flow.screen("ready"), "نعم، اعتمد الحملة")
+    link = page.locator("#ready-download")
+    if installed:
+        assert page.evaluate("() => getComputedStyle(document.querySelector('#ready-download')).visibility") == "hidden"
+        assert link.get_attribute("href") is None
+    else:
+        assert link.is_visible() and link.get_attribute("href").startswith("/api/campaigns/")
+    # المشاركة تفشل: الرسالة لا تدلّ على رابطٍ غير معروض.
+    page.evaluate("() => { navigator.share = () => Promise.reject(new DOMException('x', 'NotAllowedError')); }")
+    page.click("#ready-share")
+    page.wait_for_selector(".screen[data-screen='ready'] .alert:not([hidden])")
+    message = page.inner_text(".screen[data-screen='ready'] .alert__text")
+    assert ("نزّل الصورة" in message) is not installed
+    assert not page.errors, page.errors
