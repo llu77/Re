@@ -1219,6 +1219,12 @@ function wire() {
                 route();
                 return;
             }
+            // الحذف لم يقع: إلى «حسابي». لو بقيت الشاشة لصار «نعم، احذف حسابي» أقرب ما
+            // إلى نظرٍ باقٍ على «حسناً»، فتعيد نظرةٌ أخرى حذفاً لا رجعة فيه.
+            if (section.dataset.screen === 'account-delete') {
+                go('#/account');
+                return;
+            }
             // انتظارٌ لا يُعرف مآله: يبقى، و«تحقّق الآن» فيه هو المخرج.
             if (section.dataset.screen === 'proposal' && !$('proposal-check').hidden
                 && !$('proposal-waiting').hidden) {
