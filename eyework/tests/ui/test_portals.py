@@ -117,6 +117,8 @@ def test_signing_up_from_the_link_to_the_portal(page_factory, server, owner, wid
     page.fill("#signup-password-input", "Strong-Password-2026-y")
     # لا شيء يُرسل قبل الخطوة الأخيرة: فحص الرمز وحده.
     assert _posts(page, server["base"]) == ["/api/auth/signup-code"]
+    # قبل «أنشئ حسابي»: نجاحه يحمّل الصفحة من جديد فيمحو سجلّ المؤقّتات والمستمعين.
+    _gaze_safe(page)
     flow.press("#signup-create", lambda: flow.until(
         "document.querySelector('#home-portal') && document.querySelector('#home-portal').textContent"
         " === 'بوابة أمين المخزون'"), "أنشئ حسابي")
@@ -342,6 +344,8 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
         cursor.execute("SELECT count(*) FROM users")
         assert cursor.fetchone()[0] == 1
     flow.press("#account-delete", lambda: flow.screen("account-delete"), "احذف حسابي")
+    # قبل الحذف: نجاحه يحمّل الصفحة من جديد فيمحو سجلّ المؤقّتات والمستمعين.
+    _gaze_safe(page)
     flow.press("#account-delete-yes", lambda: flow.screen("login"), "نعم، احذف")
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM users")
@@ -353,19 +357,43 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
 
 
 def test_the_portal_follows_a_profession_change_while_the_app_is_open(page_factory, server, owner):
-    """المشغّل ينقل الحساب والتطبيق مفتوح: الحساب ثم الرئيسية يقرآن البوابة من جديد."""
+    """المشغّل ينقل الحساب والتطبيق مفتوح: الرئيسية تقرأ البوابة من جديد، وكذلك الحساب."""
     page = page_factory()
     flow = Flow(page, server["base"])
     page.goto(server["base"] + "/#/")
-    flow.until("document.querySelector('#home-portal').textContent === 'بوابة التسويق'")
+    # قائمة الحملات استقرّت قبل النقل: طلبٌ في الطريق قد يُرفض بالمهنة الجديدة.
+    flow.until("document.querySelector('#home-portal').textContent === 'بوابة التسويق'"
+               " && !document.querySelector('#home-empty').hidden")
     assert page.is_visible("#home-new")
     _set_profession(owner, "STOREKEEPER")
-    page.click("#home-account")
-    flow.until("document.querySelector('#account-profession').textContent === 'المهنة: أمين المخزون'")
-    page.click(".screen[data-screen='account'] [data-back]")
+    # إلى الرئيسية دون شاشة الحساب: من المهامّ ثم «رجوع».
+    page.click("#home-tasks")
+    flow.screen("portal-item")
+    page.click(".screen[data-screen='portal-item'] [data-back]")
     flow.until("document.querySelector('#home-portal').textContent === 'بوابة أمين المخزون'")
     assert page.is_hidden("#home-new")
     assert page.is_hidden(".screen[data-screen='home'] .alert")
+    _set_profession(owner, "SUPPORT")
+    page.click("#home-account")
+    flow.until("document.querySelector('#account-profession').textContent === 'المهنة: الدعم الفني'")
+    assert not page.errors, page.errors
+
+
+def test_a_profession_refusal_forgets_the_portal(page_factory, server, owner, app):
+    """ردّ PROFESSION من الخادم يعني أن البوابة المحفوظة لم تعد صحيحة: ما بعده يقرؤها من جديد."""
+    campaign = create_campaign(app, _user_id(owner))
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/")
+    flow.until("document.querySelectorAll('#home-list li').length === 1")
+    _set_profession(owner, "STOREKEEPER")
+    with page.expect_response(lambda response: f"/api/campaigns/{campaign}" in response.url
+                              and response.status == 403):
+        page.evaluate("(id) => { location.hash = `#/c/${id}`; }", str(campaign))
+    page.wait_for_function("() => state.portal === null")
+    # مسار البند يقرأ البوابة المحفوظة إن وُجدت: بعد النسيان يقرؤها من الخادم.
+    page.evaluate("() => { location.hash = '#/tasks/1'; }")
+    flow.until("document.querySelector('#portal-item-heading').textContent === 'مهامّ أمين المخزون'")
     assert not page.errors, page.errors
 
 

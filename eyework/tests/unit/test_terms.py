@@ -10,8 +10,8 @@
 from __future__ import annotations
 
 import hashlib
-import html
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 from eyework import auth
@@ -20,22 +20,45 @@ INDEX = Path(__file__).resolve().parents[2] / "static" / "index.html"
 
 #: بصمة نصّ الإشعار لكل نسخة. نسخةٌ جديدة تُضاف هنا ولا تُستبدل بها القديمة.
 DIGESTS = {
-    "2026-10-08": "836260968b16309dec9d2cfa4b4a3db01dbb39e348d4fbc1c3481ead30a4b43d",
+    "2026-10-08": "6b063626efc919d01a00838aa9ea4ad4d738ec6714e39c7a53155137ddc544af",
 }
 
 
-def _notice_lines() -> list[str]:
+class _Text(HTMLParser):
+    """نصّ شاشة الإشعار كلّه كما يُقرأ، بلا التنبيه: أيّ وسمٍ وأيّ تقسيمٍ للأسطر في الملف سواء."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        classes = (dict(attrs).get("class") or "").split()
+        if self._skip or "alert" in classes:
+            self._skip += 1
+
+    def handle_endtag(self, tag):
+        if self._skip:
+            self._skip -= 1
+
+    def handle_data(self, data):
+        if not self._skip:
+            self.parts.append(data)
+
+
+def _notice_text() -> str:
     page = INDEX.read_text(encoding="utf-8")
     section = re.search(r'<section class="screen" data-screen="signup-notice".*?</section>', page, re.S)
     assert section, "شاشة الإشعار غير موجودة"
-    return [html.unescape(re.sub(r"<[^>]+>", "", line)).strip()
-            for line in re.findall(r'<p class="line">(.*?)</p>', section.group(0), re.S)]
+    parser = _Text()
+    parser.feed(section.group(0))
+    return re.sub(r"\s+", " ", "".join(parser.parts)).strip()
 
 
 def test_the_notice_text_matches_the_consent_version_stored_with_accounts():
-    lines = _notice_lines()
-    assert lines and all(lines)
-    digest = hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+    text = _notice_text()
+    assert "يُحفظ في هذا التطبيق" in text
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     assert auth.TERMS_VERSION in DIGESTS, "نسخةٌ بلا بصمة: أضف بصمة النصّ الجديد"
     assert DIGESTS[auth.TERMS_VERSION] == digest, (
         "تغيّر نصّ الإشعار: ارفع auth.TERMS_VERSION وأضف بصمته إلى DIGESTS", digest)

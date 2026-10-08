@@ -101,7 +101,7 @@ def test_sources_name_the_body_and_the_licence(portal):
             assert "CC BY 4.0" in line and "USDOL/ETA" in line and "وزارة العمل الأمريكية" in line
             assert source.url.endswith(source.label.removeprefix("O*NET OnLine "))
         else:
-            assert source.label.startswith("ISCO-08") and "منظمة العمل الدولية" in line
+            assert source.label.startswith("ISCO-08") and source.label in line and "منظمة العمل الدولية" in line
 
 
 @pytest.mark.parametrize("profession", list(P.Profession), ids=lambda p: p.value)
@@ -116,7 +116,8 @@ def test_the_view_orders_tasks_as_the_source_or_the_tool_says_and_sends_no_engli
     shown = [by_text[task["text"]] for task in view["tasks"]]
     if portal.tools:
         order = [P.Mode.IN_APP, P.Mode.EMPLOYER_SYSTEM, P.Mode.VOICE, P.Mode.ON_SITE]
-        assert [t.mode for t in shown] == sorted((t.mode for t in shown), key=order.index)
+        # الترتيب ثابت: النوع أولاً، وداخل كل نوعٍ ترتيب المصدر.
+        assert shown == sorted(portal.tasks, key=lambda t: order.index(t.mode))
     else:
         assert shown == list(portal.tasks)
         ranks = [t.importance for t in shown]

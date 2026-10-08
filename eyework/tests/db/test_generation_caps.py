@@ -602,6 +602,19 @@ def test_deleting_accounts_does_not_make_room_under_the_global_cap(app, owner, t
         begin(app, user, campaign)
 
 
+def test_traces_older_than_a_day_do_not_count_under_the_global_cap(app, owner, two_users):
+    """
+    `purge` يحذف الأثر بعد يومه مرةً في اليوم، فقد يبقى أثرٌ عمره بين يومٍ ويومين حتى
+    يمرّ. السقف يعدّ آخر 24 ساعة وحدها، فأثرٌ أقدم لا يغلقه على أحد.
+    """
+    user, _ = two_users
+    campaign = new_campaign(app, user)
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO attempt_tombstones (started_at, outcome)"
+                       " SELECT now() - interval '25 hours', 'OK' FROM generate_series(1, 2000)")
+    begin(app, user, campaign)
+
+
 def test_the_trace_of_a_deleted_attempt_has_no_identity_and_only_counts_its_day(app, owner, two_users):
     user, _ = two_users
     campaign = new_campaign(app, user)
