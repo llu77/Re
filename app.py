@@ -419,7 +419,14 @@ CUSTOM_CSS = """
     --radius-sm: 6px; --radius: 10px; --radius-lg: 14px; --radius-xl: 18px;
 }
 *, *::before, *::after { box-sizing: border-box; }
-html, body, .stApp, [class*="st-emotion-cache"] {
+/*
+ * الجذر وحده، لا `[class*="st-emotion-cache"]`: ذلك الانتقاء يصيب أيقونات
+ * Streamlit أيضاً — تُرسَم نصّاً (`keyboard_arrow_down`) يحوّله خطّ
+ * Material Symbols إلى رمز — فكتب رأسُ كل مُوسِّع اسمَ أيقونته فوق تسميته،
+ * ودفع زرُّ طيّ الشريط محتواه خارج الشاشة. عناصر Streamlit تأخذ Amiri من
+ * سمتها؛ يثبت ذلك `test_arabic_text_is_set_in_amiri`.
+ */
+html, body, .stApp {
     font-family: 'Amiri', 'Segoe UI', Georgia, serif !important; direction: rtl;
     font-size: 14px;
 }

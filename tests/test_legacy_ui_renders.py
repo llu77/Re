@@ -131,3 +131,116 @@ def test_the_page_does_not_scroll_sideways(page):
         "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
     )
     assert overflow <= 1, f"تمرير أفقي: {overflow}px"
+
+
+def _open_the_new_patient_form(page):
+    """النموذج داخل `st.expander`، ورأسه يحمل أيقونة السهم."""
+    page.get_by_role("button", name="إنشاء ملف مريض جديد").click(timeout=10000)
+    page.wait_for_selector('[data-testid="stExpander"] summary', timeout=20000)
+    page.evaluate("document.fonts.ready")
+
+
+#: Streamlit يرسم أيقوناته نصّاً (`keyboard_arrow_down`) يحوّله خطّ
+#: Material Symbols إلى رمز واحد بالربط. عرض النصّ المرسوم هو الشاهد: رمزٌ
+#: واحد عرضه نحو 1em، والنصّ نفسه بخطّ آخر عرضه أضعاف ذلك.
+ICON_SCRIPT = """
+() => [...document.querySelectorAll('[data-testid="stIconMaterial"]')].map(icon => {
+  const style = getComputedStyle(icon);
+  const range = document.createRange();
+  range.selectNodeContents(icon);
+  return {
+    name: icon.textContent,
+    family: style.fontFamily.split(',')[0].replace(/["']/g, '').trim(),
+    fontSize: parseFloat(style.fontSize),
+    inkWidth: range.getBoundingClientRect().width,
+    inExpander: !!icon.closest('[data-testid="stExpander"] summary'),
+    inSidebar: !!icon.closest('[data-testid="stSidebar"]'),
+  };
+})
+"""
+
+
+def test_material_icons_render_as_icons_not_as_their_names(page):
+    """
+    `font-family: Amiri !important` على كل صنف `st-emotion-cache-…` أصاب
+    أيقونات Streamlit أيضاً: رأس كل `st.expander` كتب «keyboard_ar…» فوق
+    تسميته، وزرّ طيّ الشريط كتب «keyboard_double_arrow_left».
+    """
+    _open_the_new_patient_form(page)
+    icons = page.evaluate(ICON_SCRIPT)
+
+    # فحصٌ بلا أيقونات يمرّ على كل شيء: سهم المُوسِّع وزرّ الشريط شاهدان لازمان
+    assert any(i["inExpander"] for i in icons), icons
+    assert any(i["inSidebar"] for i in icons), icons
+
+    for icon in icons:
+        assert icon["family"].startswith("Material Symbols"), icon
+        assert icon["inkWidth"] <= icon["fontSize"] * 1.5, f"رُسم اسماً لا رمزاً: {icon}"
+
+
+def test_the_sidebar_content_stays_inside_the_sidebar(page):
+    """
+    اسم الأيقونة المرسوم نصّاً عريضٌ، فدفع محتوى الشريط كله 10px خارج حافة
+    الشاشة. كل عنصر مرئي في محتوى الشريط يجب أن يقع بين حافتيه.
+
+    مقبض تغيير العرض (`stSidebarResizeHandle`) شقيقٌ للمحتوى لا جزءٌ منه،
+    ويقع على الحدّ عمداً — فلا يُقاس هنا.
+    """
+    escaped = page.evaluate("""
+    () => {
+      const sidebar = document.querySelector('[data-testid="stSidebar"]');
+      const content = sidebar.querySelector('[data-testid="stSidebarContent"]');
+      const edge = sidebar.getBoundingClientRect();
+      const right = Math.min(edge.right, window.innerWidth);
+      const out = [];
+      for (const element of [content, ...content.querySelectorAll('*')]) {
+        const rect = element.getBoundingClientRect();
+        if (!rect.width || !rect.height) continue;
+        if (rect.left < edge.left - 1 || rect.right > right + 1) {
+          out.push({
+            testid: element.dataset.testid || '', cls: String(element.className).slice(0, 40),
+            left: Math.round(rect.left), right: Math.round(rect.right),
+          });
+        }
+      }
+      return out;
+    }
+    """)
+    assert not escaped, f"عناصر خارج الشريط: {escaped[:5]}"
+
+
+def test_arabic_text_is_set_in_amiri(page):
+    """
+    الخطّ من سمة Streamlit (`.streamlit/config.toml`) لا من قاعدة تفرضه على
+    كل صنف: كل نصّ عربي مرئي يُرسَم بـAmiri، وملفّه حُمِّل فعلاً لا سقط
+    إلى بديل النظام.
+    """
+    _open_the_new_patient_form(page)
+    measured = page.evaluate("""
+    () => {
+      const arabic = /[\\u0600-\\u06FF]/;
+      const walker = document.createTreeWalker(document.querySelector('.stApp'),
+                                               NodeFilter.SHOW_TEXT);
+      const elsewhere = [];
+      let checked = 0;
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!arabic.test(node.textContent)) continue;
+        const parent = node.parentElement;
+        if (!parent || parent.closest('style, script')) continue;
+        const rect = parent.getBoundingClientRect();
+        if (!rect.width || !rect.height) continue;
+        checked += 1;
+        const first = getComputedStyle(parent).fontFamily.split(',')[0]
+          .replace(/["']/g, '').trim();
+        if (first !== 'Amiri') {
+          elsewhere.push({ text: node.textContent.trim().slice(0, 30), font: first });
+        }
+      }
+      const loaded = [...document.fonts].some(
+        face => face.family.replace(/["']/g, '') === 'Amiri' && face.status === 'loaded');
+      return { checked, elsewhere, loaded };
+    }
+    """)
+    assert measured["checked"] > 20, measured
+    assert not measured["elsewhere"], measured["elsewhere"][:5]
+    assert measured["loaded"], "ملفّ Amiri لم يُحمَّل"
