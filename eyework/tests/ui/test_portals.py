@@ -337,8 +337,9 @@ def test_deleting_the_account_takes_two_steps(page_factory, server, owner, width
     flow.until("document.querySelector('#home-portal').textContent !== ''")
     flow.press("#home-account", lambda: flow.screen("account"), "حسابي")
     flow.audit("account")
-    # نظرٌ باقٍ بعد «حسابي» ينتقل إلى «رجوع»، لا إلى الخروج: الدخول من جديد بالنظر أغلى خطوة.
-    assert {n["name"] for n in flow.nearest[-1][1]} == {"رجوع"}, flow.nearest[-1]
+    # نظرٌ باقٍ بعد «حسابي» لا ينتقل إلى الخروج (الدخول من جديد بالنظر أغلى خطوة) ولا إلى ما يعتمد.
+    nearest = flow.nearest[-1][1]
+    assert "account-logout" not in {n["name"] for n in nearest} and not any(n["commit"] for n in nearest), nearest
     flow.press("#account-delete", lambda: flow.screen("account-delete"), "احذف حسابي")
     flow.audit("account-delete")
     flow.press("#account-delete-back", lambda: flow.screen("account"), "رجوع دون حذف")

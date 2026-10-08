@@ -45,8 +45,8 @@
             <!-- مفتاح المرور بجانب «ادخل» لا في الشريط السفلي: بعد محاولةٍ فاشلة يغطّيه
                  التنبيه كما يغطّي «ادخل»، فيبقى هو أقرب ما إلى نظرٍ باقٍ عليه. -->
             <div class="grid grid--2 spaced">
-                <button class="btn" type="button" id="login-passkey" data-safe>ادخل بمفتاح المرور</button>
                 <button class="btn btn--commit" type="submit" id="login-submit" data-commit>ادخل</button>
+                <button class="btn" type="button" id="login-passkey" data-safe>ادخل بمفتاح المرور</button>
             </div>
             <p class="help">تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك أو أعطاك رابط التسجيل.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
@@ -86,10 +86,10 @@
         </header>
         <div class="content">
             <h2 tabindex="-1">قبل أن تبدأ</h2>
-            <p class="line">يُحفظ في هذا التطبيق: الاسم، وتاريخ الميلاد، والمهنة، وكلمة المرور مجزّأةً لا نصّاً.</p>
+            <p class="line">يُحفظ في هذا التطبيق: الاسم، وتاريخ الميلاد، والمهنة، وكلمة المرور مجزّأة.</p>
             <p class="line">البريد لا يُحفظ، بل بصمةٌ منه للدخول، فلا يصله شيء ولا يُستردّ الحساب به.</p>
-            <p class="line">في بوابة التسويق تُرسَل صورة المنتج ونصّه، لا الاسم ولا تاريخ الميلاد، إلى مزوّد النموذج (Anthropic) خارج المملكة لصياغة النص، ويحذفها هو خلال 30 يوماً إلا ما تُبقيه سياسته أو القانون.</p>
-            <p class="line">يحذف صاحب الحساب حسابه وبياناته من التطبيق متى شاء، أو يحذفه بطلبه مَن أعطاه الرابط إن أُوقف أو نُسيت كلمة مروره. والنسخ الاحتياطية الأقدم تبقى حتى تُحذف.</p>
+            <p class="line">في بوابة التسويق تُرسَل صورة المنتج ونصّه، لا الاسم ولا الميلاد، إلى Anthropic خارج المملكة لصياغة النص، ويحذفها خلال 30 يوماً إلا ما تُبقيه سياسته أو القانون.</p>
+            <p class="line">تحذف حسابك وبياناته متى شئت، أو يحذفه بطلبك مَن أعطاك الرابط إن أُوقف أو نسيت كلمة مرورك؛ والنسخ الاحتياطية الأقدم تبقى حتى تُحذف.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
@@ -322,8 +322,8 @@
         <!-- «حسابي» في الطرف الأعلى الأيسر من الرئيسية؛ والخروج (والدخول من جديد بالنظر أغلى
              خطوةٍ في التطبيق) بعيدٌ عنه في الطرف الأسفل الآخر. -->
         <footer class="bar bar--bottom">
-            <div class="slot"><button class="btn btn--commit" type="button" id="account-logout" data-commit>تسجيل الخروج</button></div>
             <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
+            <div class="slot"><button class="btn btn--commit" type="button" id="account-logout" data-commit>تسجيل الخروج</button></div>
         </footer>
     </section>
 
@@ -360,8 +360,8 @@
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
-            <div class="slot"></div>
             <div class="slot"><button class="btn" type="button" id="account-delete-back" data-safe>رجوع دون حذف</button></div>
+            <div class="slot"></div>
         </footer>
     </section>
 
