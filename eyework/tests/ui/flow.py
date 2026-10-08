@@ -9,6 +9,11 @@
 تحته. فبعد كل نقرة: ما تحت مركز الهدف وأركانه الأربعة (بإزاحة 8px) في
 الحالة التالية يجب ألّا يكون زرّاً يعتمد شيئاً (`data-commit`) ولا عنصر قيمة
 (خيار أو خطوة) — إلا العنصر نفسه في مكانه، لأن أثره ظاهرٌ ويُعكس.
+
+**والأقرب إلى النظر.** «الانتقال إلى العنصر» (Snap to Item، مفعّلٌ افتراضاً في
+تتبّع العين) ينقل المؤشر إلى أقرب عنصرٍ إلى موضع النظر، ولا تنشر Apple مسافته.
+فأقرب عنصرٍ مفعّل إلى مركز الهدف في الحالة التالية — أيّاً كان بُعده — لا يعتمد
+شيئاً.
 """
 
 from __future__ import annotations
@@ -82,6 +87,36 @@ LANDING = """
 """ % list(STEPPERS)
 
 
+#: أقرب عنصرٍ مفعّلٍ إلى كل نقطةٍ من نقاط الضغط في الحالة التالية: إليه ينقل
+#: «الانتقال إلى العنصر» (Snap to Item) مؤشرَ نظرٍ باقٍ. Apple لا تنشر مسافة
+#: الانتقال، فلا عتبة: الأقرب أيّاً كان بُعده لا يعتمد شيئاً. والنظر الباقي يقع
+#: على نحو درجةٍ من موضع الضغط (قرابة 48px على 45 سم)، فتُفحص النقاط الخمس كلّها.
+NEAREST = """
+(points) => {
+    const screen = document.querySelector('.screen:not([hidden])');
+    const usable = (e) => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && !e.closest('[hidden]') && !e.disabled
+            && e.getAttribute('aria-disabled') !== 'true' && getComputedStyle(e).visibility !== 'hidden';
+    };
+    const controls = [...screen.querySelectorAll('button, a[href], label.btn, input, textarea')].filter(usable);
+    if (!controls.length) return [];
+    const key = (e) => e.id || (e.dataset && e.dataset.key) || '';
+    const name = (e) => e.id || e.textContent.trim();
+    return points.map(([x, y]) => {
+        const distance = (e) => {
+            const r = e.getBoundingClientRect();
+            return Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+        };
+        const nearest = controls.reduce((a, b) => distance(a) <= distance(b) ? a : b);
+        const same = nearest === window.__activated || (key(nearest) && key(nearest) === window.__activatedKey);
+        return { name: name(nearest), distance: Math.round(distance(nearest)),
+                 commit: !same && nearest.hasAttribute('data-commit') };
+    });
+}
+"""
+
+
 def sample_photo() -> bytes:
     buffer = io.BytesIO()
     Image.effect_noise((1200, 900), 40).convert("RGB").save(buffer, "JPEG")
@@ -94,6 +129,8 @@ class Flow:
         self.base = base
         self.audits: list[dict] = []
         self.landings: list[str] = []
+        #: لكل ضغطة: أقرب عنصرٍ إلى كل نقطةٍ وبُعده، للتشخيص؛ والمخالف منها في `landings` ببُعده.
+        self.nearest: list[tuple[str, list[dict]]] = []
 
     # ── الانتظار ────────────────────────────────────────────────────────
     def screen(self, name: str) -> None:
@@ -128,6 +165,11 @@ class Flow:
         hazards = self.page.evaluate(LANDING, points)
         if hazards:
             self.landings.append(f"{label}: {sorted(set(hazards))}")
+        nearest = self.page.evaluate(NEAREST, points)
+        self.nearest.append((label, nearest))
+        hazards = sorted({f"{n['name']} على بعد {n['distance']}px" for n in nearest if n["commit"]})
+        if hazards:
+            self.landings.append(f"{label}: أقرب عنصرٍ إلى النظر يعتمد — {hazards}")
 
     # ── المسار ──────────────────────────────────────────────────────────
     def run(self) -> None:

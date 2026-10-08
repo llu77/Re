@@ -207,3 +207,89 @@ def test_an_alert_also_locks_the_download_link_on_the_ready_screen(page_factory,
     assert page.get_attribute("#ready-download", "aria-disabled") is None
     assert page.evaluate("() => getComputedStyle(document.querySelector('#ready-download')).pointerEvents") != "none"
     assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("installed", [False, True], ids=["safari", "home-screen"])
+def test_the_download_link_is_not_offered_in_the_installed_app(page_factory, server, installed):
+    """
+    WebKit 290847 (مفتوح): في التطبيق المضاف إلى الشاشة الرئيسية قد يُفضي التنزيل إلى
+    شاشةٍ لا يُخرج منها إلا بإغلاق التطبيق قسراً — طريقٌ مسدود لمن يعمل بالنظر.
+    """
+    page = page_factory()
+    if installed:
+        page.add_init_script("Object.defineProperty(navigator, 'standalone', { value: true });")
+    flow = Flow(page, server["base"])
+    flow.to_review()
+    flow.press("#review-continue", lambda: flow.screen("confirm"), "متابعة للتأكيد")
+    flow.press("#confirm-yes", lambda: flow.screen("ready"), "نعم، اعتمد الحملة")
+    link = page.locator("#ready-download")
+    if installed:
+        assert page.evaluate("() => getComputedStyle(document.querySelector('#ready-download')).visibility") == "hidden"
+        assert link.get_attribute("href") is None
+    else:
+        assert link.is_visible() and link.get_attribute("href").startswith("/api/campaigns/")
+    # المشاركة تفشل: الرسالة لا تدلّ على رابطٍ غير معروض.
+    page.evaluate("() => { navigator.share = () => Promise.reject(new DOMException('x', 'NotAllowedError')); }")
+    page.click("#ready-share")
+    page.wait_for_selector(".screen[data-screen='ready'] .alert:not([hidden])")
+    message = page.inner_text(".screen[data-screen='ready'] .alert__text")
+    assert ("نزّل الصورة" in message) is not installed
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("image", ["arrives", "fails"])
+def test_sharing_waits_for_the_image_and_says_when_it_could_not_load(page_factory, server, image):
+    """
+    قبل وصول الصورة لا مشاركة: «شارك الحملة» كانت ترسل النصّ وحده دون أن تقول. وإن لم
+    تُحمَّل الصورة قيل ذلك، والمشاركة بالنصّ.
+    """
+    page = page_factory()
+    flow = Flow(page, server["base"])
+    flow.to_review()
+    flow.press("#review-continue", lambda: flow.screen("confirm"), "متابعة للتأكيد")
+    gate = {"open": False, "held": []}
+
+    def hold(route):
+        if image == "fails":
+            route.fulfill(status=500, content_type="application/json", body='{"detail": "عطل"}')
+        elif gate["open"]:
+            route.continue_()
+        else:
+            gate["held"].append(route)
+
+    page.route("**/api/campaigns/*/image*", hold)
+    page.click("#confirm-yes")
+    flow.screen("ready")
+    page.evaluate("""() => {
+        window.__shared = null;
+        navigator.canShare = () => true;
+        navigator.share = (data) => { window.__shared = data; return Promise.resolve(); };
+    }""")
+    if image == "arrives":
+        for _ in range(200):
+            if gate["held"]:
+                break
+            page.wait_for_timeout(25)
+        assert gate["held"] and page.is_disabled("#ready-share")
+        gate["open"] = True
+        for route in gate["held"]:
+            route.continue_()
+    flow.until("!document.querySelector('#ready-share').disabled")
+    page.click("#ready-share")
+    flow.until("window.__shared !== null")
+    files = page.evaluate("() => (window.__shared.files || []).length")
+    status = page.text_content("#ready-status")
+    if image == "arrives":
+        assert files == 1 and status == ""
+    else:
+        assert files == 0 and "النصّ وحده" in status
+    assert not page.errors, page.errors
+
+
+def test_the_help_quotes_no_label_that_a_device_has_not_confirmed(page_factory, server):
+    """تسميات قوائم iOS بالعربية لم تُتحقَّق على جهازٍ بعد (بوابة الإصدار 0): تُوصف ولا تُقتبس."""
+    page = page_factory()
+    page.goto(server["base"] + "/#/")
+    Flow(page, server["base"]).until("!document.querySelector('#home-install').hidden")
+    assert "«" not in page.text_content("#home-install")
+    assert "ثلاث دقائق" in page.text_content("#proposal-waiting .status")

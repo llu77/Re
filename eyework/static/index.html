@@ -65,7 +65,7 @@
                        passwordrules="minlength: 20; required: lower; required: upper; required: digit;" required>
             </div>
             <button class="btn btn--commit spaced" type="submit" data-commit>فعّل حسابي</button>
-            <p class="help">اختر «كلمة مرور قوية» ليحفظها الجهاز لك.</p>
+            <p class="help">إن اقترح الجهاز كلمة مرورٍ قوية فاقبلها ليحفظها لك.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </form>
         <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
@@ -258,9 +258,11 @@
             <button class="btn btn--commit spaced" type="submit" id="signup-create" data-commit>أنشئ حسابي</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </form>
+        <!-- «التالي: كلمة المرور» في الطرف الأيسر من الشاشة السابقة؛ فهنا تحت النظر
+             «أظهر كلمة المرور»، فلا يكون «أنشئ حسابي» أقرب عنصرٍ إلى نظرٍ باقٍ. -->
         <footer class="bar bar--bottom">
-            <div class="slot"><button class="btn" type="button" id="signup-reveal" data-safe aria-pressed="false">أظهر كلمة المرور</button></div>
             <div class="slot"></div>
+            <div class="slot"><button class="btn" type="button" id="signup-reveal" data-safe aria-pressed="false">أظهر كلمة المرور</button></div>
         </footer>
     </section>
 
@@ -282,7 +284,7 @@
             <p class="help" id="home-about-source" hidden></p>
             <ol class="rows spaced" id="home-list"></ol>
             <p class="help" id="home-empty" hidden>لا حملات بعد.</p>
-            <p class="help" id="home-install" hidden>للاستعمال بالنظر: أضف التطبيق إلى الشاشة الرئيسية من زرّ المشاركة في Safari.</p>
+            <p class="help" id="home-install" hidden>يمكن لمن يساعدك إضافة التطبيق إلى الشاشة الرئيسية من قائمة المشاركة في Safari.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
@@ -302,11 +304,12 @@
             <h2 tabindex="-1">حسابي</h2>
             <p class="line" id="account-name"></p>
             <p class="line" id="account-profession">&nbsp;</p>
-            <button class="btn btn--wide spaced" type="button" id="account-logout" data-safe>تسجيل الخروج</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
+        <!-- «حسابي» في الطرف الأعلى الأيسر من الرئيسية؛ فأقرب ما إليه هنا «رجوع»، والخروج
+             (والدخول من جديد بالنظر أغلى خطوةٍ في التطبيق) بعيدٌ في الطرف الأسفل الآخر. -->
         <footer class="bar bar--bottom">
-            <div class="slot"></div>
+            <div class="slot"><button class="btn btn--commit" type="button" id="account-logout" data-commit>تسجيل الخروج</button></div>
             <div class="slot"><button class="btn" type="button" id="account-delete" data-safe>احذف حسابي</button></div>
         </footer>
     </section>
@@ -329,8 +332,9 @@
     </section>
 
     <!-- «احذف حسابي» في الطرف الأسفل من الشاشة السابقة؛ فهنا في الموضع نفسه
-         «رجوع دون حذف»، والتأكيد في وسط المحتوى. والشريط العلوي فارغ: «حسناً»
-         في وسطه لا يجاور زرّاً. -->
+         «رجوع دون حذف»، والتأكيد في وسط المحتوى. «الانتقال إلى العنصر» ينقل المؤشر
+         إلى أقرب عنصرٍ إلى النظر، فأقرب ما إلى نظرٍ باقٍ لا يحذف شيئاً. والشريط
+         العلوي فارغ: «حسناً» في وسطه لا يجاور زرّاً. -->
     <section class="screen" data-screen="account-delete" hidden>
         <header class="bar bar--top">
             <div class="slot"></div>
@@ -401,7 +405,8 @@
         <div class="content">
             <div class="waiting" id="proposal-waiting" hidden>
                 <h2 tabindex="-1">يكتب المساعد</h2>
-                <p class="status" role="status">يكتب المساعد العنوان والوصف. قد يستغرق ذلك دقيقةً أو أكثر قليلاً. لا حاجة لفعل شيء.</p>
+                <p class="status" role="status">يكتب المساعد العنوان والوصف. قد يستغرق ذلك حتى ثلاث دقائق تقريباً. لا حاجة لفعل شيء.</p>
+                <p class="help" id="proposal-awake" hidden>قد تُقفل الشاشة أثناء الانتظار. إن أُقفلت فافتح التطبيق من جديد: يعود إلى هذه الشاشة.</p>
                 <button class="btn" type="button" id="proposal-check" data-safe hidden>تحقّق الآن</button>
             </div>
             <div class="copy" id="proposal-copy" hidden>
@@ -429,11 +434,15 @@
         </header>
         <div class="content">
             <h2 tabindex="-1">ما التعديل الذي تريده؟</h2>
-            <div class="grid grid--3" id="edit-chips" role="group" aria-label="التعديلات، حتى ثلاثة"></div>
-            <div class="grid grid--2 spaced">
-                <button class="btn" type="button" id="edit-note" data-safe>ملاحظة نصية</button>
+            <!-- «النسخة السابقة» في أعلى الشاشة لا أسفلها: «الانتقال إلى العنصر» ينقل
+                 النظر الباقي إلى أقرب عنصر، فأقرب ما إلى «اطلب تعديلاً» (أسفل شاشة
+                 المقترح) هنا خياراتٌ تُعكس، وأقرب ما إليها بعد الرجوع «رجوع» لا
+                 «أوافق على النص». -->
+            <div class="grid grid--2">
                 <button class="btn" type="button" id="edit-restore" data-commit>النسخة السابقة</button>
+                <button class="btn" type="button" id="edit-note" data-safe>ملاحظة نصية</button>
             </div>
+            <div class="grid grid--3 spaced" id="edit-chips" role="group" aria-label="التعديلات، حتى ثلاثة"></div>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">
