@@ -24,6 +24,7 @@ export function WorkHome({ workspace, userName, onNavigate }: { workspace: Works
           return (
             <li key={entry.id} className={cn(entry.primary && "col-span-2 lg:col-span-3")}>
               <a
+                id={`home-${entry.id}`}
                 href={entry.route}
                 data-safe=""
                 onClick={(event) => {

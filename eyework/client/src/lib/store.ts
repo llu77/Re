@@ -8,6 +8,7 @@
 
 import * as React from "react"
 
+import type { BudgetTable, Campaign, DaysTable } from "./campaigns"
 import type { SignupState } from "./signup"
 
 export type ServerSize = "COMPACT" | "GAZE"
@@ -46,6 +47,11 @@ export interface Choices {
   assistant: { question_max: number; ready: Record<string, string[]> }
   professions: { code: "STOREKEEPER" | "MARKETING" | "SUPPORT"; name: string; tagline: string }[]
   limits: { note_max: number; presets_max: number; versions_max: number; page_size: number }
+  /** جدولا الميزانية والمدّة بكلماتهما، وخيارات التعديل وتعارضاتها: من الخادم لا من الواجهة. */
+  budget: BudgetTable
+  days: DaysTable
+  edit_presets: string[]
+  preset_conflicts: string[][]
 }
 
 export interface State {
@@ -62,7 +68,28 @@ export interface State {
   activation: { token: string; username: string } | null
   /** رسالةٌ تعرضها الشاشة التالية مرةً واحدة (رابط تسجيلٍ رُفض يُقال على شاشة الدخول). */
   flash: string | null
+  /** أداة الحملة (lib/campaigns): الحملة المفتوحة، وصفحة «حملاتي»، وطلب التعديل قيد الإعداد. */
+  campaign: Campaign | null
+  page: number
+  edit: EditState
+  /** حملةٌ يُكتب نصّها الآن في هذه الصفحة، وقفل الشاشة ما دام قائماً. */
+  waitingFor: string | null
+  wakeLock: WakeLockSentinel | null
+  /** حملةٌ انقطع طلب كتابتها في الطريق ولم تُقرأ بعده: الانتظار باقٍ و«تحقّق الآن» فيه هو المخرج. */
+  waitUnknown: string | null
 }
+
+/** طلب التعديل قيد الإعداد، مربوطٌ بالنسخة التي يُبنى عليها. */
+export interface EditState {
+  versionId: string | null
+  presets: string[]
+  note: string | null
+  draft: string
+  /** اختار المستخدم شيئاً في شاشة التعديل: قبلها «اطلب نسخة جديدة» معطّل. */
+  armed: boolean
+}
+
+export const EMPTY_EDIT: EditState = { versionId: null, presets: [], note: null, draft: "", armed: false }
 
 let state: State = {
   choices: null,
@@ -74,6 +101,12 @@ let state: State = {
   signup: null,
   activation: null,
   flash: null,
+  campaign: null,
+  page: 1,
+  edit: EMPTY_EDIT,
+  waitingFor: null,
+  wakeLock: null,
+  waitUnknown: null,
 }
 
 const listeners = new Set<() => void>()
@@ -107,7 +140,8 @@ export function nextNav(): number {
 export function resetState(patch: Partial<State> = {}) {
   state = {
     choices: null, me: null, booted: false, startupError: null, busy: false, nav: 0, signup: null, activation: null,
-    flash: null, ...patch,
+    flash: null, campaign: null, page: 1, edit: EMPTY_EDIT, waitingFor: null, wakeLock: null, waitUnknown: null,
+    ...patch,
   }
   listeners.forEach((listener) => listener())
 }
