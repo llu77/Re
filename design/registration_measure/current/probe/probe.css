@@ -1,0 +1,173 @@
+/*
+ * فحص الإدخال — التنسيق
+ * ======================
+ * لا :hover ولا حركة ولا انتقال: إن أطلق مؤشر النظر حدث مرور — وهذا مما
+ * يقيسه الفحص نفسه — فما يتغيّر تحت النظر يُشتّت ولا يُفيد. والأهداف كبيرة ومتباعدة إلا أهداف قياس الحجم
+ * نفسها في قسم الضغط.
+ */
+:root {
+    --navy: #061840;
+    --brand-strong: #2455CC;
+    --ink: #101B33;
+    --ink-soft: #52606D;
+    --line: #D5DCE8;
+    --surface: #FFFFFF;
+    --wash: #F5F8FC;
+    --ok: #0B6B3A;
+    --bad: #A3221B;
+    /* هندسة التطبيق نفسها (styles.css): ما يُقاس هنا هو ما يُستعمل هناك. */
+    --target: 4.5rem;           /* 72px */
+    --gap: 1.5rem;              /* 24px */
+    --font: 'Amiri', 'Segoe UI', Georgia, serif;
+    color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+/* السمة hidden تغلب كل عرضٍ يحدّده صنف: `.btn { display: inline-flex }` كان
+   يُظهر زرّاً مخفيّاً فوق غيره — زرٌّ لا يُرى في الشيفرة يعترض النظر على الشاشة. */
+[hidden] { display: none !important; }
+
+/* الجذر بحجم المتصفّح كما في التطبيق، فتعني rem هنا ما تعنيه هناك (4.5rem = 72px)؛
+   والمتن 17px على body. */
+html { font-size: 100%; }
+html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font);
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+}
+body { font-size: 17px; }
+
+button, label, input { font: inherit; }
+
+button, label.btn, label.check {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+}
+
+.frame {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100dvh;
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: env(safe-area-inset-top) max(1rem, env(safe-area-inset-right))
+             env(safe-area-inset-bottom) max(1rem, env(safe-area-inset-left));
+}
+
+.head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+}
+
+h1 { font-size: 20px; margin: 0.5rem 0; color: var(--navy); }
+h1:focus { outline: none; }
+.step { margin: 0; color: var(--ink-soft); font-size: 15px; }
+
+.sec {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    padding-block: var(--gap);
+    overflow: hidden;
+    min-height: 0;
+}
+.sec[hidden] { display: none; }
+.sec p { margin: 0; }
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--target);
+    min-width: var(--target);
+    padding: 0 1.25rem;
+    border: 2px solid var(--brand-strong);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--brand-strong);
+    font-weight: 700;
+    cursor: pointer;
+}
+.btn[aria-pressed="true"] { background: var(--brand-strong); color: #FFFFFF; }
+.btn.big { min-height: 6rem; width: 100%; font-size: 20px; }
+.btn:focus-visible, .target:focus-visible, .scroller:focus-visible { outline: 3px solid var(--navy); outline-offset: 3px; }
+
+.row { display: flex; gap: var(--gap); }
+.row > .btn { flex: 1; }
+
+.nav {
+    display: flex;
+    gap: var(--gap);
+    padding-block: 0.75rem;
+    border-top: 1px solid var(--line);
+}
+.nav > .btn { flex: 1; }
+
+.label { font-weight: 700; }
+
+.facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.75rem; font-size: 14px; }
+.facts dt { color: var(--ink-soft); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* أهداف قياس الحجم: مواضع متباعدة في أركان المساحة ووسطها */
+.stage { position: relative; flex: 1; min-height: 16rem; border: 1px dashed var(--line); border-radius: 12px; }
+.target {
+    position: absolute;
+    border: 2px solid var(--navy);
+    border-radius: 10px;
+    background: var(--wash);
+    color: var(--navy);
+    font-weight: 700;
+    padding: 0;
+    cursor: pointer;
+}
+.target[data-clicked] { background: var(--navy); color: #FFFFFF; }
+.t44 { width: 44px; height: 44px; inset-block-start: 1rem; inset-inline-start: 1rem; }
+.t56 { width: 56px; height: 56px; inset-block-start: 1rem; inset-inline-end: 1rem; }
+.t72 { width: 72px; height: 72px; inset-block-end: 1rem; inset-inline-start: 1rem; }
+.t96 { width: 96px; height: 96px; inset-block-end: 1rem; inset-inline-end: 1rem; }
+
+.log { margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink-soft); direction: ltr; text-align: left; }
+
+.swap { display: grid; }
+.swap > .btn, .swap > .row { grid-area: 1 / 1; }
+/* خانةٌ محجوزة بارتفاع الهدف وإن خلت: ما يظهر فيها أو يختفي لا يحرّك ما تحتها. */
+.swap.reserved { min-height: var(--target); }
+/* في أسفل القسم: أبعد ما يكون عن الأزرار فوقها. */
+.end { margin-block-start: auto; }
+/* ثلاثة أزرارٍ في سطرٍ بعرض 375: حشوةٌ أضيق ليتّسع نصّها في سطرين. */
+.row.tight > .btn { padding-inline: 0.5rem; }
+
+.value { font-size: 40px; font-weight: 700; text-align: center; color: var(--navy); }
+.result { color: var(--ink-soft); }
+
+.scroller { height: 15rem; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: var(--gap); display: flex; flex-direction: column; gap: var(--gap); }
+.scroller > .btn { flex: none; }
+
+.check { display: flex; align-items: center; gap: 0.75rem; min-height: var(--target); font-weight: 700; }
+.check input { width: 2rem; height: 2rem; margin: 0; }
+
+.field { min-height: var(--target); border: 2px solid var(--ink-soft); border-radius: 12px; padding: 0 1rem; }
+
+.visually-hidden {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+dialog { border: 2px solid var(--navy); border-radius: 12px; padding: 1.5rem; max-width: 22rem; }
+dialog::backdrop { background: rgba(6, 24, 64, 0.4); }
+
+.verdict { font-size: 20px; font-weight: 700; }
+.verdict[data-state="pass"] { color: var(--ok); }
+.verdict[data-state="fail"] { color: var(--bad); }
+.checks { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.4; }
+.checks th, .checks td { border-bottom: 1px solid var(--line); padding: 0.25rem; text-align: start; vertical-align: top; }

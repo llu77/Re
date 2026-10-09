@@ -1,0 +1,7 @@
+{
+ "mode": "gaze",
+ "screens": 68,
+ "failed": {},
+ "landing_hazards": [],
+ "console": []
+}

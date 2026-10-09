@@ -1,0 +1,39 @@
+  ▲ 0001_identity
+  ▲ 0002_campaigns
+  ▲ 0003_persona
+  ▲ 0004_image_activity
+  ▲ 0005_registration
+  ▲ 0006_passkeys
+  ▲ 0007_open_registration
+طُبِّق 7 ترحيل
+  ▲ 0008_ai_layer
+طُبِّق 1 ترحيل
+  ▼ 0008_ai_layer
+تُراجع عن 1 ترحيل
+  ▲ 0008_ai_layer
+طُبِّق 1 ترحيل
+  ▼ 0008_ai_layer
+  ▼ 0007_open_registration
+  ▼ 0006_passkeys
+  ▼ 0005_registration
+  ▼ 0004_image_activity
+  ▼ 0003_persona
+  ▼ 0002_campaigns
+  ▼ 0001_identity
+تُراجع عن 8 ترحيل
+  ▲ 0001_identity
+  ▲ 0002_campaigns
+  ▲ 0003_persona
+  ▲ 0004_image_activity
+  ▲ 0005_registration
+  ▲ 0006_passkeys
+  ▲ 0007_open_registration
+  ▲ 0008_ai_layer
+طُبِّق 8 ترحيل
+  [مُطبَّق] 0006_passkeys
+  [مُطبَّق] 0007_open_registration
+  [مُطبَّق] 0008_ai_layer
+down to 0007 restores 0007:   identical
+up again matches first up:    identical
+from empty matches first up:  identical
+0008 changes the schema:      yes

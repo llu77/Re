@@ -1,0 +1,86 @@
+{
+ "failures": {
+  "current login 375x635 body23": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "current login 375x635 body53": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "current login 320x635 body23": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "current login 320x635 body53": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "proposed login 375x635 body23": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ],
+  "proposed login 375x635 body53": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ],
+  "proposed signup-notice 320x635 body23": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed login 320x635 body23": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ],
+  "proposed signup-notice 320x635 body53": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed login 320x635 body53": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ]
+ },
+ "spare": {
+  "spare-current notice 375x635 body-": 97,
+  "spare-current notice 375x635 body17": 97,
+  "spare-current notice 375x635 body23": 81,
+  "spare-current notice 375x635 body53": 81,
+  "spare-current notice 390x664 body-": 126,
+  "spare-current notice 390x664 body17": 126,
+  "spare-current notice 390x664 body23": 110,
+  "spare-current notice 390x664 body53": 110,
+  "spare-current notice 390x763 body-": 225,
+  "spare-current notice 390x763 body17": 225,
+  "spare-current notice 390x763 body23": 209,
+  "spare-current notice 390x763 body53": 209,
+  "spare-current notice 320x635 body-": 39,
+  "spare-current notice 320x635 body17": 39,
+  "spare-current notice 320x635 body23": 21,
+  "spare-current notice 320x635 body53": 21,
+  "spare-current notice 1280x800 body-": 262,
+  "spare-current notice 1280x800 body17": 262,
+  "spare-current notice 1280x800 body23": 246,
+  "spare-current notice 1280x800 body53": 246,
+  "spare notice 375x635 body-": 68,
+  "spare notice 375x635 body17": 68,
+  "spare notice 375x635 body23": 21,
+  "spare notice 375x635 body53": 21,
+  "spare notice 390x664 body-": 126,
+  "spare notice 390x664 body17": 126,
+  "spare notice 390x664 body23": 80,
+  "spare notice 390x664 body53": 80,
+  "spare notice 390x763 body-": 225,
+  "spare notice 390x763 body17": 225,
+  "spare notice 390x763 body23": 179,
+  "spare notice 390x763 body53": 179,
+  "spare notice 320x635 body-": 11,
+  "spare notice 320x635 body17": 11,
+  "spare notice 320x635 body23": -10,
+  "spare notice 320x635 body53": -10,
+  "spare notice 1280x800 body-": 262,
+  "spare notice 1280x800 body17": 262,
+  "spare notice 1280x800 body23": 246,
+  "spare notice 1280x800 body53": 246
+ }
+}

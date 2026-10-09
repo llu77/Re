@@ -1,0 +1,99 @@
+NOTICE:  database "invspec_check" does not exist, skipping
+PASS marketing account cannot create inventory settings
+PASS settings row cannot be written for another user
+PASS supplier VAT number must be 15 digits starting and ending with 3
+PASS supplier names collide after Arabic normalisation
+PASS item names collide after normalisation (ة/ه, digits)
+PASS a service item cannot have a stock unit
+PASS other account sees none of these rows
+PASS web role cannot write stock balance directly
+PASS lines are numbered by the database
+PASS a counted unit refuses a fractional quantity
+PASS a discount above the line amount is refused
+PASS calc: 10 cartons at 100.00 plus 10.00 shipping, VAT 15% exclusive
+PASS largest remainder: 40 lines of 0.10 give category VAT round(60.0)=60 with no negative line
+PASS line cap is 40
+PASS VAT-inclusive 1,255.00 gives VAT 163.70 (15/115, ZATCA guideline example 6)
+PASS half-up at category level: 0.10 at 15% is 0.02
+PASS printed total differing from the computed total is flagged
+PASS posting with an unacknowledged flag is refused and consumes no number
+PASS posting needs the row version the user saw
+PASS first posting gets number 1
+PASS posted totals and supplier snapshot
+PASS stock-in movement for the stock line only; service line has none
+PASS ledger entry dated the invoice date with net, VAT, gross
+PASS acknowledged rule flags are kept with the invoice
+PASS a second post of the same invoice is refused
+PASS a posted invoice header cannot be edited
+PASS a posted invoice line cannot be edited
+PASS not even the owner can delete a posted invoice, its movements or its ledger entry
+PASS web role has no DELETE on any inventory table
+PASS web role cannot read the counters or call internal helpers
+PASS the same supplier invoice number written differently is flagged as a duplicate
+PASS a discarded draft is gone
+PASS price ten times the history is flagged with extra_zero
+PASS quantity ten times the median is flagged with extra_zero
+PASS a VAT category different from the item's is flagged
+PASS an invoice older than 90 days is flagged
+PASS VAT from a supplier without a VAT number is flagged
+PASS an edit to a line bumps the invoice row version (what is posted is what was reviewed)
+PASS a future invoice date is refused at posting
+PASS another account cannot add a line to this invoice
+PASS another account cannot post this invoice (it does not exist for them)
+PASS an item's unit is locked once it is used
+PASS an item with stock cannot be archived
+PASS twenty open drafts per account
+PASS IFRS Ex 44: 1,400 units worth 18,000.00 before the sale
+PASS IFRS Ex 44: 900 units out at the moving average = 11,571.43 (exact, no rounded unit cost)
+PASS IFRS Ex 44: 500 units left worth 6,428.57
+PASS the voucher is idempotent by client token
+PASS an opening balance is refused once the item has movements
+PASS issuing more than on hand is refused
+PASS a count against a stale on-hand is refused
+PASS a count writes the difference out at the average
+PASS a voucher dated more than 30 days back is refused
+PASS the cost basis is locked after the first movement
+PASS a return without a reason is refused (hard rule)
+PASS reason OTHER needs a note
+PASS return numbering starts at 1
+PASS returning more than remains on the line is refused
+PASS partial returns share the line net exactly (100.00 × 3 → 100, 100, 100; total equals the line)
+PASS a service line return writes no stock movement
+PASS a return writes a negative ledger entry dated the return date
+PASS nothing remains returnable, so a new return line is refused
+PASS a posted return accepts the supplier credit note number once
+PASS a credit note dated in the future is refused
+PASS a posted return's reason cannot change
+PASS a return of goods already issued is refused (no stock below zero)
+PASS a failed return consumes no return number
+PASS reversal is refused when the invoice has returns
+PASS reversal reason OTHER needs a note
+PASS reversal gets its own number, takes the stock out and writes the negative entry
+PASS a reversed invoice is final
+PASS a reversed invoice cannot be returned
+PASS a reversed invoice no longer counts as a duplicate
+PASS purchase numbers have no gaps
+PASS two tabs posting one draft: the second waits on the lock, then is refused as already posted
+PASS two drafts posted at once get consecutive numbers, no gap, no duplicate
+PASS review needs the notice and the user's choice
+PASS review cannot be enabled without the notice
+PASS one review at a time per user
+PASS an AI flag on unchanged content is recorded
+PASS the same content is not reviewed twice
+PASS posting without acknowledging the AI flag is refused
+PASS after an edit the old AI flag no longer applies
+PASS a result for content that changed meanwhile is discarded
+PASS a code outside the portal's list is refused
+PASS six reviews in ten minutes is the limit
+PASS thirty billable reviews a day per user
+PASS busy upstream answers are not billed
+PASS six hundred reviews a day app-wide
+PASS deleting review calls of the last day leaves tombstones
+PASS the tombstones still count toward the global cap through ew_inv_ai_spend
+PASS the app-wide 2,000 cap (campaigns + reviews) refuses a review
+PASS campaign generation counts inventory reviews toward the 2,000 cap
+PASS deleting the account deletes every inventory record with it
+PASS an item or supplier is never deleted directly, even by the owner
+PASS down refuses while posted inventory records exist
+
+96/96 passed

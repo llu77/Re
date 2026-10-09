@@ -1,0 +1,29 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.js",
+    "css": "src/styles/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/lib/hooks"
+  },
+  "iconLibrary": "lucide",
+  "registries": {
+    "@21st": {
+      "url": "https://21st.dev/r/{name}",
+      "headers": {
+        "Authorization": "Bearer ${TWENTY_FIRST_API_KEY}"
+      }
+    }
+  }
+}

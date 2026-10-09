@@ -1,0 +1,1697 @@
+{
+ "mode": "gaze",
+ "presses": [
+  {
+   "press": "الأدوات ← ورقة الأدوات",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 16,
+    "y": 756,
+    "width": 72,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "الأدوات ← ورقة الأدوات",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 547,
+    "width": 72,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "الأدوات ← ورقة الأدوات",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 547,
+    "width": 72,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "إغلاق",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "حاسبة الضريبة ← لوحتها",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 16,
+    "y": 93.890625,
+    "width": 167,
+    "height": 94.75
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 13,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 13,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "حاسبة الضريبة ← لوحتها",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 93.890625,
+    "width": 159.5,
+    "height": 94.75
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 13,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 13,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "حاسبة الضريبة ← لوحتها",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 93.890625,
+    "width": 132,
+    "height": 119.5
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 38,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r3:",
+     "distance": 38,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "إغلاق ← الشاشة",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 16,
+    "y": 756,
+    "width": 167,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "الأدوات",
+     "distance": 12,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "إغلاق ← الشاشة",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 547,
+    "width": 159.5,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "الأدوات",
+     "distance": 8,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "إغلاق ← الشاشة",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 547,
+    "width": 132,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "راجع ← المراجعة بتنبيه",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 112,
+    "y": 756,
+    "width": 119,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 84,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "راجع ← المراجعة بتنبيه",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 112,
+    "y": 547,
+    "width": 111.5,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 80,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "راجع ← المراجعة بتنبيه",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 112,
+    "y": 547,
+    "width": 84,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 66,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "تابع رغم ذلك ← قرارٌ محفوظ",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 34,
+    "y": 397.28125,
+    "width": 149,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "تراجع",
+     "distance": 99,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 165,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 165,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "تابع رغم ذلك ← قرارٌ محفوظ",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 34,
+    "y": 334.890625,
+    "width": 141.5,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "تراجع",
+     "distance": 95,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 158,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 148,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "تابع رغم ذلك ← قرارٌ محفوظ",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 34,
+    "y": 389.890625,
+    "width": 114,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "تراجع",
+     "distance": 81,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 130,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 93,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "تراجع",
+     "distance": 32,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "أنشئ صنفاً ← نموذج الصنف",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 25,
+    "y": 245.390625,
+    "width": 340,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r7:",
+     "distance": 10,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r7:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r7:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:rb:",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "حبة",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "أنشئ صنفاً ← نموذج الصنف",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 25,
+    "y": 245.390625,
+    "width": 325,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r7:",
+     "distance": 10,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r7:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r7:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:rb:",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "حبة",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "أنشئ صنفاً ← نموذج الصنف",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 25,
+    "y": 245.390625,
+    "width": 270,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r7:",
+     "distance": 10,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r7:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r7:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:rb:",
+     "distance": 37,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "حبة",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "ادخل ← شاشة الدخول",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 16,
+    "y": 339,
+    "width": 358,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r1:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أظهر",
+     "distance": 12,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r1:",
+     "distance": 12,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أظهر",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r1:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "ادخل ← شاشة الدخول",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 339,
+    "width": 343,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r1:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أظهر",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r1:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أظهر",
+     "distance": 7,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r1:",
+     "distance": 7,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "ادخل ← شاشة الدخول",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 374,
+    "width": 288,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "f:r1:",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أظهر",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r1:",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أظهر",
+     "distance": 42,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "f:r1:",
+     "distance": 42,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "التالي ← البوابة",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 16,
+    "y": 756,
+    "width": 358,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "التالي ← البوابة",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 547,
+    "width": 343,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "التالي ← البوابة",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 548.921875,
+    "width": 288,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الأدوات",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "فاتورة شراء",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "تذكرة ← رسالة العميل",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 16,
+    "y": 311.390625,
+    "width": 358,
+    "height": 79.390625
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 118,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أغلق دون ردّ",
+     "distance": 149,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 149,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أغلق دون ردّ",
+     "distance": 85,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 85,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "تذكرة ← رسالة العميل",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 311.390625,
+    "width": 343,
+    "height": 79.390625
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 118,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أغلق دون ردّ",
+     "distance": 149,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 149,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أغلق دون ردّ",
+     "distance": 85,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 85,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "تذكرة ← رسالة العميل",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 311.390625,
+    "width": 288,
+    "height": 79.390625
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 144,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أغلق دون ردّ",
+     "distance": 176,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 176,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "أغلق دون ردّ",
+     "distance": 112,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "صعّد إلى مختص",
+     "distance": 112,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "المسوّدة ← المسوّدة والقرار",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 112,
+    "y": 756,
+    "width": 119,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "الرسالة",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الرسالة",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الرسالة",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الرسالة",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "الرسالة",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "المسوّدة ← المسوّدة والقرار",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 112,
+    "y": 547,
+    "width": 111.5,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "المسوّدة ← المسوّدة والقرار",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 112,
+    "y": 547,
+    "width": 84,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    },
+    {
+     "name": "القرار",
+     "distance": 0,
+     "commit": false,
+     "same": true
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "قسمٌ من القائمة ← القسم",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 207,
+    "y": 239.75,
+    "width": 166,
+    "height": 86.75
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "line-c-item",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 14,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "قسمٌ من القائمة ← القسم",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 199.5,
+    "y": 239.75,
+    "width": 158.5,
+    "height": 86.75
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "line-c-item",
+     "distance": 12,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-quantity",
+     "distance": 5,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-quantity",
+     "distance": 5,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "قسمٌ من القائمة ← القسم",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 172,
+    "y": 239.75,
+    "width": 131,
+    "height": 86.75
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "line-c-item",
+     "distance": 12,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-item",
+     "distance": 0,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-quantity",
+     "distance": 5,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "line-c-quantity",
+     "distance": 5,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "طبّق الحجم ← الحجم الآخر",
+   "viewport": [
+    390,
+    844
+   ],
+   "box": {
+    "x": 16,
+    "y": 355,
+    "width": 358,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "عادي (الحالي)",
+     "distance": 6,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "كبير",
+     "distance": 9,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عادي (الحالي)",
+     "distance": 9,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "كبير",
+     "distance": 21,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عادي (الحالي)",
+     "distance": 21,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "طبّق الحجم ← الحجم الآخر",
+   "viewport": [
+    375,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 355,
+    "width": 343,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "عادي (الحالي)",
+     "distance": 6,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "كبير",
+     "distance": 9,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عادي (الحالي)",
+     "distance": 9,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "كبير",
+     "distance": 21,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عادي (الحالي)",
+     "distance": 21,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  },
+  {
+   "press": "طبّق الحجم ← الحجم الآخر",
+   "viewport": [
+    320,
+    635
+   ],
+   "box": {
+    "x": 16,
+    "y": 382,
+    "width": 288,
+    "height": 72
+   },
+   "under": [],
+   "nearest": [
+    {
+     "name": "عادي (الحالي)",
+     "distance": 19,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "كبير",
+     "distance": 9,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عادي (الحالي)",
+     "distance": 9,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "كبير",
+     "distance": 47,
+     "commit": false,
+     "same": false
+    },
+    {
+     "name": "عادي (الحالي)",
+     "distance": 47,
+     "commit": false,
+     "same": false
+    }
+   ],
+   "hazards": []
+  }
+ ]
+}

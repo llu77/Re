@@ -1,0 +1,6178 @@
+{
+ "mode": "gaze",
+ "rules": {
+  "min": 72,
+  "gap": 24,
+  "edge": 16,
+  "max_enabled": 10,
+  "no_scroll": true,
+  "floatingFab": false
+ },
+ "summary": {
+  "welcome_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "welcome_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "welcome_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "welcome_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signin_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signin_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signin_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signin_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signup_size_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signup_size_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signup_size_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "signup_size_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "store_dashboard_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "store_dashboard_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "store_dashboard_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "store_dashboard_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_combobox_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 10,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_combobox_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 10,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_combobox_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_combobox_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_create_item_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_create_item_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_create_item_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "purchase_create_item_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "return_from_invoice_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "return_from_invoice_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "return_from_invoice_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "return_from_invoice_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "expenses_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "expenses_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "expenses_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "expenses_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "marketing_board_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "marketing_board_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "marketing_board_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "marketing_board_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_queue_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_queue_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_queue_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_queue_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_ticket_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_ticket_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_ticket_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "support_ticket_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "ai_flag_invoice_line_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "ai_flag_invoice_line_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "ai_flag_invoice_line_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "ai_flag_invoice_line_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_sheet_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_sheet_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_sheet_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_sheet_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "account_size_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "account_size_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "account_size_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "account_size_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "sections_menu_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "sections_menu_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "sections_menu_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "sections_menu_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_vat_calculator_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 6,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_vat_calculator_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 6,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_vat_calculator_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_vat_calculator_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_assistant_390x844": {
+   "pass": true,
+   "failures": [],
+   "targets": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_assistant_1280": {
+   "pass": true,
+   "failures": [],
+   "targets": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_assistant_375x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24
+  },
+  "fab_assistant_320x635": {
+   "pass": true,
+   "failures": [],
+   "targets": 5,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24
+  }
+ },
+ "screens": {
+  "welcome_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 230,
+     "y": 16,
+     "w": 143.7,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 243,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 339,
+     "w": 358,
+     "h": 72
+    }
+   ]
+  },
+  "welcome_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 736,
+     "y": 16,
+     "w": 143.7,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 400,
+     "y": 243,
+     "w": 480,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 400,
+     "y": 339,
+     "w": 480,
+     "h": 72
+    }
+   ]
+  },
+  "welcome_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 215,
+     "y": 16,
+     "w": 143.7,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 243,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 339,
+     "w": 343,
+     "h": 72
+    }
+   ]
+  },
+  "welcome_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 160,
+     "y": 16,
+     "w": 143.7,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 278,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 374,
+     "w": 288,
+     "h": 72
+    }
+   ]
+  },
+  "signin_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 230,
+     "y": 16,
+     "w": 143.7,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 170.8,
+     "h": 72
+    },
+    {
+     "name": "sara@example.sa",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 234,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "f:r1:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 153,
+     "y": 359,
+     "w": 221.5,
+     "h": 72
+    },
+    {
+     "name": "أظهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 359,
+     "w": 112.5,
+     "h": 72
+    },
+    {
+     "name": "بمفتاح المرور",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 756,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "commit",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 167,
+     "h": 72
+    }
+   ]
+  },
+  "signin_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 736,
+     "y": 16,
+     "w": 143.7,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 400,
+     "y": 16,
+     "w": 170.8,
+     "h": 72
+    },
+    {
+     "name": "sara@example.sa",
+     "kind": "safe",
+     "disabled": false,
+     "x": 400,
+     "y": 234,
+     "w": 480,
+     "h": 72
+    },
+    {
+     "name": "f:r1:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 537,
+     "y": 359,
+     "w": 343.5,
+     "h": 72
+    },
+    {
+     "name": "أظهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 400,
+     "y": 359,
+     "w": 112.5,
+     "h": 72
+    },
+    {
+     "name": "بمفتاح المرور",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 712,
+     "w": 228,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "commit",
+     "disabled": false,
+     "x": 400,
+     "y": 712,
+     "w": 228,
+     "h": 72
+    }
+   ]
+  },
+  "signin_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 215,
+     "y": 16,
+     "w": 143.7,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 170.8,
+     "h": 72
+    },
+    {
+     "name": "sara@example.sa",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 199,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "f:r1:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 153,
+     "y": 324,
+     "w": 206.5,
+     "h": 72
+    },
+    {
+     "name": "أظهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 324,
+     "w": 112.5,
+     "h": 72
+    },
+    {
+     "name": "بمفتاح المرور",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 547,
+     "w": 159.5,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "commit",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 159.5,
+     "h": 72
+    }
+   ]
+  },
+  "signin_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "حجمٌ أكبر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 183,
+     "y": 16,
+     "w": 121.5,
+     "h": 72
+    },
+    {
+     "name": "أنشئ حساباً",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 142.5,
+     "h": 72
+    },
+    {
+     "name": "sara@example.sa",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 199,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "f:r1:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 153,
+     "y": 324,
+     "w": 151.5,
+     "h": 72
+    },
+    {
+     "name": "أظهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 324,
+     "w": 112.5,
+     "h": 72
+    },
+    {
+     "name": "بمفتاح المرور",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 547,
+     "w": 132,
+     "h": 72
+    },
+    {
+     "name": "ادخل",
+     "kind": "commit",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 132,
+     "h": 72
+    }
+   ]
+  },
+  "signup_size_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 114.4,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 207,
+     "y": 585,
+     "w": 167,
+     "h": 147
+    },
+    {
+     "name": "كبير",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 585,
+     "w": 167,
+     "h": 147
+    },
+    {
+     "name": "التالي: الاسم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 358,
+     "h": 72
+    }
+   ]
+  },
+  "signup_size_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 400,
+     "y": 16,
+     "w": 114.4,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 652,
+     "y": 541,
+     "w": 228,
+     "h": 147
+    },
+    {
+     "name": "كبير",
+     "kind": "value",
+     "disabled": false,
+     "x": 400,
+     "y": 541,
+     "w": 228,
+     "h": 147
+    },
+    {
+     "name": "التالي: الاسم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 400,
+     "y": 712,
+     "w": 480,
+     "h": 72
+    }
+   ]
+  },
+  "signup_size_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 114.4,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 200,
+     "y": 376,
+     "w": 159.5,
+     "h": 147
+    },
+    {
+     "name": "كبير",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 376,
+     "w": 159.5,
+     "h": 147
+    },
+    {
+     "name": "التالي: الاسم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 343,
+     "h": 72
+    }
+   ]
+  },
+  "signup_size_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 4,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 114.4,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 172,
+     "y": 378,
+     "w": 132,
+     "h": 147
+    },
+    {
+     "name": "كبير",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 378,
+     "w": 132,
+     "h": 147
+    },
+    {
+     "name": "التالي: الاسم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 549,
+     "w": 288,
+     "h": 72
+    }
+   ]
+  },
+  "store_dashboard_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أوشك على النفاد 5 أصناف",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 438,
+     "w": 358,
+     "h": 113.2
+    },
+    {
+     "name": "فاتورة شراء",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "store_dashboard_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أوشك على النفاد 5 أصناف",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 298,
+     "w": 736,
+     "h": 113.2
+    },
+    {
+     "name": "فاتورة شراء",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "store_dashboard_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أوشك على النفاد 5 أصناف",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 370,
+     "w": 343,
+     "h": 83.6
+    },
+    {
+     "name": "فاتورة شراء",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "store_dashboard_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أوشك على النفاد 5 أصناف",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 414,
+     "w": 288,
+     "h": 83.6
+    },
+    {
+     "name": "فاتورة شراء",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_combobox_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 10,
+   "enabled": 10,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 140,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "أنشئ صنفاً جديداً: «كرسي دوّار» بسعر بيع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 25,
+     "y": 245,
+     "w": 340,
+     "h": 72
+    },
+    {
+     "name": "كرسي مكتب شبكي KRS-104 · حبة · الرصيد 14",
+     "kind": "value",
+     "disabled": false,
+     "x": 25,
+     "y": 341,
+     "w": 340,
+     "h": 72
+    },
+    {
+     "name": "كرسي زائر بلا عجلات KRS-110 · حبة · الرص",
+     "kind": "value",
+     "disabled": false,
+     "x": 25,
+     "y": 437,
+     "w": 340,
+     "h": 72
+    },
+    {
+     "name": "كرسي اجتماعات جلد KRS-131 · حبة · الرصيد",
+     "kind": "value",
+     "disabled": false,
+     "x": 25,
+     "y": 533,
+     "w": 340,
+     "h": 72
+    },
+    {
+     "name": "المورد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 255,
+     "y": 756,
+     "w": 119,
+     "h": 72
+    },
+    {
+     "name": "راجع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 119,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_combobox_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 10,
+   "enabled": 10,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار",
+     "kind": "safe",
+     "disabled": false,
+     "x": 659,
+     "y": 140,
+     "w": 348.6,
+     "h": 72
+    },
+    {
+     "name": "أنشئ صنفاً جديداً: «كرسي دوّار» بسعر بيع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 668,
+     "y": 245,
+     "w": 330.6,
+     "h": 72
+    },
+    {
+     "name": "كرسي مكتب شبكي KRS-104 · حبة · الرصيد 14",
+     "kind": "value",
+     "disabled": false,
+     "x": 668,
+     "y": 341,
+     "w": 330.6,
+     "h": 72
+    },
+    {
+     "name": "كرسي زائر بلا عجلات KRS-110 · حبة · الرص",
+     "kind": "value",
+     "disabled": false,
+     "x": 668,
+     "y": 437,
+     "w": 330.6,
+     "h": 72
+    },
+    {
+     "name": "كرسي اجتماعات جلد KRS-131 · حبة · الرصيد",
+     "kind": "value",
+     "disabled": false,
+     "x": 668,
+     "y": 533,
+     "w": 330.6,
+     "h": 72
+    },
+    {
+     "name": "المورد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 700,
+     "y": 712,
+     "w": 308,
+     "h": 72
+    },
+    {
+     "name": "راجع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 308,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_combobox_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 140,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "أنشئ صنفاً جديداً: «كرسي دوّار»",
+     "kind": "safe",
+     "disabled": false,
+     "x": 25,
+     "y": 245,
+     "w": 325,
+     "h": 72
+    },
+    {
+     "name": "كرسي مكتب شبكي 285.00",
+     "kind": "value",
+     "disabled": false,
+     "x": 25,
+     "y": 341,
+     "w": 325,
+     "h": 72
+    },
+    {
+     "name": "السابقة",
+     "kind": "safe",
+     "disabled": true,
+     "x": 238,
+     "y": 446,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "التالية",
+     "kind": "safe",
+     "disabled": false,
+     "x": 25,
+     "y": 446,
+     "w": 101.6,
+     "h": 72
+    },
+    {
+     "name": "المورد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 248,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "راجع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_combobox_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 140,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "أنشئ صنفاً جديداً: «كرسي دوّار»",
+     "kind": "safe",
+     "disabled": false,
+     "x": 25,
+     "y": 245,
+     "w": 270,
+     "h": 72
+    },
+    {
+     "name": "كرسي مكتب شبكي 285.00",
+     "kind": "value",
+     "disabled": false,
+     "x": 25,
+     "y": 341,
+     "w": 270,
+     "h": 72
+    },
+    {
+     "name": "السابقة",
+     "kind": "safe",
+     "disabled": true,
+     "x": 213,
+     "y": 446,
+     "w": 81.8,
+     "h": 72
+    },
+    {
+     "name": "التالية",
+     "kind": "safe",
+     "disabled": false,
+     "x": 25,
+     "y": 446,
+     "w": 76.3,
+     "h": 72
+    },
+    {
+     "name": "المورد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 220,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "راجع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_create_item_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار بمسند رأس",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 199,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "حبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 324,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "f:ra:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 324,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "أنشئ الصنف",
+     "kind": "commit",
+     "disabled": false,
+     "x": 16,
+     "y": 420,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "إلغاء الصنف الجديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_create_item_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار بمسند رأس",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 199,
+     "w": 736,
+     "h": 72
+    },
+    {
+     "name": "حبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 324,
+     "w": 356,
+     "h": 72
+    },
+    {
+     "name": "f:ra:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 324,
+     "w": 356,
+     "h": 72
+    },
+    {
+     "name": "أنشئ الصنف",
+     "kind": "commit",
+     "disabled": false,
+     "x": 272,
+     "y": 420,
+     "w": 736,
+     "h": 72
+    },
+    {
+     "name": "إلغاء الصنف الجديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_create_item_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار بمسند رأس",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 199,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "حبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 324,
+     "w": 159.5,
+     "h": 72
+    },
+    {
+     "name": "f:ra:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 324,
+     "w": 159.5,
+     "h": 72
+    },
+    {
+     "name": "أنشئ الصنف",
+     "kind": "commit",
+     "disabled": false,
+     "x": 16,
+     "y": 420,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "إلغاء الصنف الجديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "purchase_create_item_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 8,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "كرسي دوّار بمسند رأس",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 199,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "حبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 324,
+     "w": 132,
+     "h": 72
+    },
+    {
+     "name": "f:ra:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 346,
+     "w": 132,
+     "h": 72
+    },
+    {
+     "name": "أنشئ الصنف",
+     "kind": "commit",
+     "disabled": false,
+     "x": 16,
+     "y": 442,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "إلغاء الصنف الجديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "return_from_invoice_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أنقص الكمية المرتجعة من كرسي اجتماعات جل",
+     "kind": "value",
+     "disabled": false,
+     "x": 302,
+     "y": 376,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "زِد الكمية المرتجعة من كرسي اجتماعات جلد",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 376,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "السطر السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 207,
+     "y": 472,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "السطر التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 472,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 255,
+     "y": 756,
+     "w": 119,
+     "h": 72
+    },
+    {
+     "name": "التالي: السبب",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 119,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "return_from_invoice_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أنقص الكمية المرتجعة من كرسي اجتماعات جل",
+     "kind": "value",
+     "disabled": false,
+     "x": 936,
+     "y": 353,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "زِد الكمية المرتجعة من كرسي اجتماعات جلد",
+     "kind": "value",
+     "disabled": false,
+     "x": 272,
+     "y": 353,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "السطر السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 652,
+     "y": 449,
+     "w": 356,
+     "h": 72
+    },
+    {
+     "name": "السطر التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 449,
+     "w": 356,
+     "h": 72
+    },
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 700,
+     "y": 712,
+     "w": 308,
+     "h": 72
+    },
+    {
+     "name": "التالي: السبب",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 308,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "return_from_invoice_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أنقص الكمية المرتجعة من كرسي اجتماعات جل",
+     "kind": "value",
+     "disabled": false,
+     "x": 287,
+     "y": 244,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "زِد الكمية المرتجعة من كرسي اجتماعات جلد",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 244,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "السطر السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 200,
+     "y": 340,
+     "w": 159.5,
+     "h": 72
+    },
+    {
+     "name": "السطر التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 340,
+     "w": 159.5,
+     "h": 72
+    },
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 248,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "التالي: السبب",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "return_from_invoice_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أنقص الكمية المرتجعة من كرسي اجتماعات جل",
+     "kind": "value",
+     "disabled": false,
+     "x": 232,
+     "y": 244,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "زِد الكمية المرتجعة من كرسي اجتماعات جلد",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 244,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "السطر السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 172,
+     "y": 340,
+     "w": 132,
+     "h": 72
+    },
+    {
+     "name": "السطر التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 340,
+     "w": 132,
+     "h": 72
+    },
+    {
+     "name": "رجوع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 220,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "التالي: السبب",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "expenses_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "الفترة هذا الشهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "افتح المصروف مؤسسة الرواد للأثاث المكتبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 254,
+     "w": 358,
+     "h": 79.4
+    },
+    {
+     "name": "افتح المصروف نقل بضاعةٍ إلى المستودع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 358,
+     "w": 358,
+     "h": 79.4
+    },
+    {
+     "name": "افتح المصروف مؤسسة النخبة للتجهيزات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 461,
+     "w": 358,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 243,
+     "y": 565,
+     "w": 131.4,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 565,
+     "w": 119.1,
+     "h": 72
+    },
+    {
+     "name": "مصروفٌ جديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "expenses_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "الفترة هذا الشهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 112,
+     "w": 736,
+     "h": 72
+    },
+    {
+     "name": "افتح المصروف مؤسسة الرواد للأثاث المكتبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 254,
+     "w": 736,
+     "h": 79.4
+    },
+    {
+     "name": "افتح المصروف نقل بضاعةٍ إلى المستودع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 358,
+     "w": 736,
+     "h": 79.4
+    },
+    {
+     "name": "افتح المصروف مؤسسة النخبة للتجهيزات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 461,
+     "w": 736,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 877,
+     "y": 565,
+     "w": 131.4,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 565,
+     "w": 119.1,
+     "h": 72
+    },
+    {
+     "name": "مصروفٌ جديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "expenses_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "الفترة هذا الشهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "افتح المصروف مؤسسة الرواد للأثاث المكتبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 343,
+     "h": 79.4
+    },
+    {
+     "name": "افتح المصروف نقل بضاعةٍ إلى المستودع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 311,
+     "w": 343,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 229,
+     "y": 415,
+     "w": 130.2,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 415,
+     "w": 118.1,
+     "h": 72
+    },
+    {
+     "name": "مصروفٌ جديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "expenses_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "الفترة هذا الشهر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "افتح المصروف مؤسسة الرواد للأثاث المكتبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 288,
+     "h": 79.4
+    },
+    {
+     "name": "افتح المصروف نقل بضاعةٍ إلى المستودع",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 311,
+     "w": 288,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 203,
+     "y": 415,
+     "w": 100.6,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 415,
+     "w": 92.6,
+     "h": 72
+    },
+    {
+     "name": "مصروفٌ جديد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "marketing_board_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "التسويق الحملات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة الحملة نصٌّ مقترح · 2",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "افتح الحملة حقيبة ظهرٍ جلدية بنّية بخياط",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 358,
+     "h": 108.4
+    },
+    {
+     "name": "افتح الحملة كوب قهوةٍ خزفيّ بمقبضٍ خشبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 340,
+     "w": 358,
+     "h": 108.4
+    },
+    {
+     "name": "حملة جديدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "marketing_board_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "التسويق الحملات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة الحملة نصٌّ مقترح · 2",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 112,
+     "w": 736,
+     "h": 72
+    },
+    {
+     "name": "افتح الحملة حقيبة ظهرٍ جلدية بنّية بخياط",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 208,
+     "w": 736,
+     "h": 108.4
+    },
+    {
+     "name": "افتح الحملة كوب قهوةٍ خزفيّ بمقبضٍ خشبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 340,
+     "w": 736,
+     "h": 108.4
+    },
+    {
+     "name": "حملة جديدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "marketing_board_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "التسويق الحملات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة الحملة نصٌّ مقترح · 2",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "افتح الحملة حقيبة ظهرٍ جلدية بنّية بخياط",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 343,
+     "h": 108.4
+    },
+    {
+     "name": "افتح الحملة كوب قهوةٍ خزفيّ بمقبضٍ خشبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 340,
+     "w": 343,
+     "h": 108.4
+    },
+    {
+     "name": "حملة جديدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "marketing_board_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "التسويق الحملات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة الحملة نصٌّ مقترح · 2",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "افتح الحملة حقيبة ظهرٍ جلدية بنّية بخياط",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 288,
+     "h": 108.4
+    },
+    {
+     "name": "افتح الحملة كوب قهوةٍ خزفيّ بمقبضٍ خشبي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 340,
+     "w": 288,
+     "h": 108.4
+    },
+    {
+     "name": "حملة جديدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_queue_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة التذكرة جديدة · 6",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "افتح التذكرة 1042: تعطّل الدفع بالبطاقة ",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 358,
+     "h": 79.4
+    },
+    {
+     "name": "افتح التذكرة 1041: وصل طلبي وفيه كوبان م",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 311,
+     "w": 358,
+     "h": 79.4
+    },
+    {
+     "name": "افتح التذكرة 1040: متى يصل طلبي رقم 8821",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 415,
+     "w": 358,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 243,
+     "y": 518,
+     "w": 131.4,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 518,
+     "w": 119.1,
+     "h": 72
+    },
+    {
+     "name": "ابدأ بالتذكرة التالية",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_queue_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 10,
+   "enabled": 9,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة التذكرة جديدة · 6",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 112,
+     "w": 736,
+     "h": 72
+    },
+    {
+     "name": "افتح التذكرة 1042: تعطّل الدفع بالبطاقة ",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 208,
+     "w": 736,
+     "h": 79.4
+    },
+    {
+     "name": "افتح التذكرة 1041: وصل طلبي وفيه كوبان م",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 311,
+     "w": 736,
+     "h": 79.4
+    },
+    {
+     "name": "افتح التذكرة 1040: متى يصل طلبي رقم 8821",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 415,
+     "w": 736,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 877,
+     "y": 518,
+     "w": 131.4,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 518,
+     "w": 119.1,
+     "h": 72
+    },
+    {
+     "name": "ابدأ بالتذكرة التالية",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_queue_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة التذكرة جديدة · 6",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "افتح التذكرة 1042: تعطّل الدفع بالبطاقة ",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 343,
+     "h": 79.4
+    },
+    {
+     "name": "افتح التذكرة 1041: وصل طلبي وفيه كوبان م",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 311,
+     "w": 343,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 229,
+     "y": 415,
+     "w": 130.2,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 415,
+     "w": 118.1,
+     "h": 72
+    },
+    {
+     "name": "ابدأ بالتذكرة التالية",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_queue_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 9,
+   "enabled": 8,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "حالة التذكرة جديدة · 6",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 112,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "افتح التذكرة 1042: تعطّل الدفع بالبطاقة ",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 208,
+     "w": 288,
+     "h": 79.4
+    },
+    {
+     "name": "افتح التذكرة 1041: وصل طلبي وفيه كوبان م",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 311,
+     "w": 288,
+     "h": 79.4
+    },
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 203,
+     "y": 415,
+     "w": 100.6,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 415,
+     "w": 92.6,
+     "h": 72
+    },
+    {
+     "name": "ابدأ بالتذكرة التالية",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 523,
+     "w": 192,
+     "h": 96
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_ticket_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أرسل المسوّدة كما هي",
+     "kind": "commit",
+     "disabled": false,
+     "x": 16,
+     "y": 532,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "عدّل ثم أرسل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 628,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "اكتب بنفسك",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 628,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "الرسالة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_ticket_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "أرسل المسوّدة كما هي",
+     "kind": "commit",
+     "disabled": false,
+     "x": 842,
+     "y": 451,
+     "w": 166,
+     "h": 79.5
+    },
+    {
+     "name": "عدّل ثم أرسل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 451,
+     "w": 166,
+     "h": 79.5
+    },
+    {
+     "name": "اكتب بنفسك",
+     "kind": "safe",
+     "disabled": false,
+     "x": 462,
+     "y": 451,
+     "w": 166,
+     "h": 79.5
+    },
+    {
+     "name": "الرسالة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_ticket_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "الرسالة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 248,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "القرار",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "support_ticket_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "الدعم الفني الوارد",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "الرسالة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 220,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "القرار",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "ai_flag_invoice_line_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عدّل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 397,
+     "w": 149,
+     "h": 72
+    },
+    {
+     "name": "تابع رغم ذلك",
+     "kind": "commit",
+     "disabled": false,
+     "x": 34,
+     "y": 397,
+     "w": 149,
+     "h": 72
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 255,
+     "y": 756,
+     "w": 119,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": true,
+     "x": 112,
+     "y": 756,
+     "w": 119,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "ai_flag_invoice_line_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عدّل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 370,
+     "w": 338,
+     "h": 72
+    },
+    {
+     "name": "تابع رغم ذلك",
+     "kind": "commit",
+     "disabled": false,
+     "x": 290,
+     "y": 370,
+     "w": 338,
+     "h": 72
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 700,
+     "y": 712,
+     "w": 308,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": true,
+     "x": 368,
+     "y": 712,
+     "w": 308,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "ai_flag_invoice_line_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عدّل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 335,
+     "w": 141.5,
+     "h": 72
+    },
+    {
+     "name": "تابع رغم ذلك",
+     "kind": "commit",
+     "disabled": false,
+     "x": 34,
+     "y": 335,
+     "w": 141.5,
+     "h": 72
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 248,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": true,
+     "x": 112,
+     "y": 547,
+     "w": 111.5,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "ai_flag_invoice_line_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 7,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عدّل",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 390,
+     "w": 114,
+     "h": 72
+    },
+    {
+     "name": "تابع رغم ذلك",
+     "kind": "commit",
+     "disabled": false,
+     "x": 34,
+     "y": 390,
+     "w": 114,
+     "h": 72
+    },
+    {
+     "name": "عدّل الفاتورة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 220,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": true,
+     "x": 112,
+     "y": 547,
+     "w": 84,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "fab_sheet_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "اسأل سيمبول",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 94,
+     "w": 167,
+     "h": 94.8
+    },
+    {
+     "name": "حاسبة الضريبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 94,
+     "w": 167,
+     "h": 94.8
+    },
+    {
+     "name": "ملاحظات سريعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 213,
+     "w": 167,
+     "h": 94.8
+    },
+    {
+     "name": "اختصارات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 213,
+     "w": 167,
+     "h": 94.8
+    },
+    {
+     "name": "مساعدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 331,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 167,
+     "h": 72
+    }
+   ]
+  },
+  "fab_sheet_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "اسأل سيمبول",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 94,
+     "w": 612,
+     "h": 94.8
+    },
+    {
+     "name": "حاسبة الضريبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 94,
+     "w": 612,
+     "h": 94.8
+    },
+    {
+     "name": "ملاحظات سريعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 213,
+     "w": 612,
+     "h": 94.8
+    },
+    {
+     "name": "اختصارات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 213,
+     "w": 612,
+     "h": 94.8
+    },
+    {
+     "name": "مساعدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 331,
+     "w": 1248,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 612,
+     "h": 72
+    }
+   ]
+  },
+  "fab_sheet_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "اسأل سيمبول",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 94,
+     "w": 159.5,
+     "h": 94.8
+    },
+    {
+     "name": "حاسبة الضريبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 94,
+     "w": 159.5,
+     "h": 94.8
+    },
+    {
+     "name": "ملاحظات سريعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 213,
+     "w": 159.5,
+     "h": 94.8
+    },
+    {
+     "name": "اختصارات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 213,
+     "w": 159.5,
+     "h": 94.8
+    },
+    {
+     "name": "مساعدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 331,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 159.5,
+     "h": 72
+    }
+   ]
+  },
+  "fab_sheet_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 6,
+   "enabled": 6,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "اسأل سيمبول",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 94,
+     "w": 132,
+     "h": 119.5
+    },
+    {
+     "name": "حاسبة الضريبة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 94,
+     "w": 132,
+     "h": 119.5
+    },
+    {
+     "name": "ملاحظات سريعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 237,
+     "w": 132,
+     "h": 119.5
+    },
+    {
+     "name": "اختصارات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 237,
+     "w": 132,
+     "h": 119.5
+    },
+    {
+     "name": "مساعدة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 381,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 132,
+     "h": 72
+    }
+   ]
+  },
+  "account_size_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 207,
+     "y": 249,
+     "w": 167,
+     "h": 82
+    },
+    {
+     "name": "كبير (الحالي)",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 249,
+     "w": 167,
+     "h": 82
+    },
+    {
+     "name": "طبّق الحجم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 355,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 756,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "account_size_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 652,
+     "y": 222,
+     "w": 356,
+     "h": 72
+    },
+    {
+     "name": "كبير (الحالي)",
+     "kind": "value",
+     "disabled": false,
+     "x": 272,
+     "y": 222,
+     "w": 356,
+     "h": 72
+    },
+    {
+     "name": "طبّق الحجم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 318,
+     "w": 736,
+     "h": 72
+    },
+    {
+     "name": "حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 712,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "account_size_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 200,
+     "y": 249,
+     "w": 159.5,
+     "h": 82
+    },
+    {
+     "name": "كبير (الحالي)",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 249,
+     "w": 159.5,
+     "h": 82
+    },
+    {
+     "name": "طبّق الحجم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 355,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "account_size_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    },
+    {
+     "name": "عادي",
+     "kind": "value",
+     "disabled": false,
+     "x": 172,
+     "y": 276,
+     "w": 132,
+     "h": 82
+    },
+    {
+     "name": "كبير (الحالي)",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 276,
+     "w": 132,
+     "h": 82
+    },
+    {
+     "name": "طبّق الحجم",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 382,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 547,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "sections_menu_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 262,
+     "h": 72
+    },
+    {
+     "name": "لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 129,
+     "w": 166,
+     "h": 86.8
+    },
+    {
+     "name": "المخزون",
+     "kind": "safe",
+     "disabled": false,
+     "x": 17,
+     "y": 129,
+     "w": 166,
+     "h": 86.8
+    },
+    {
+     "name": "المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 240,
+     "w": 166,
+     "h": 86.8
+    },
+    {
+     "name": "المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 17,
+     "y": 240,
+     "w": 166,
+     "h": 86.8
+    },
+    {
+     "name": "المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 351,
+     "w": 166,
+     "h": 86.8
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "sections_menu_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 368,
+     "y": 16,
+     "w": 640,
+     "h": 72
+    },
+    {
+     "name": "لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 129,
+     "w": 355,
+     "h": 86.8
+    },
+    {
+     "name": "المخزون",
+     "kind": "safe",
+     "disabled": false,
+     "x": 273,
+     "y": 129,
+     "w": 355,
+     "h": 86.8
+    },
+    {
+     "name": "المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 240,
+     "w": 355,
+     "h": 86.8
+    },
+    {
+     "name": "المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 273,
+     "y": 240,
+     "w": 355,
+     "h": 86.8
+    },
+    {
+     "name": "المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 351,
+     "w": 355,
+     "h": 86.8
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 272,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "sections_menu_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 247,
+     "h": 72
+    },
+    {
+     "name": "لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 129,
+     "w": 158.5,
+     "h": 86.8
+    },
+    {
+     "name": "المخزون",
+     "kind": "safe",
+     "disabled": false,
+     "x": 17,
+     "y": 129,
+     "w": 158.5,
+     "h": 86.8
+    },
+    {
+     "name": "المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 240,
+     "w": 158.5,
+     "h": 86.8
+    },
+    {
+     "name": "المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 17,
+     "y": 240,
+     "w": 158.5,
+     "h": 86.8
+    },
+    {
+     "name": "المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 351,
+     "w": 158.5,
+     "h": 86.8
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "sections_menu_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 7,
+   "enabled": 7,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "أمين المخزون المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 112,
+     "y": 16,
+     "w": 192,
+     "h": 72
+    },
+    {
+     "name": "لوحة المتابعة",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 129,
+     "w": 131,
+     "h": 86.8
+    },
+    {
+     "name": "المخزون",
+     "kind": "safe",
+     "disabled": false,
+     "x": 17,
+     "y": 129,
+     "w": 131,
+     "h": 86.8
+    },
+    {
+     "name": "المشتريات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 240,
+     "w": 131,
+     "h": 86.8
+    },
+    {
+     "name": "المرتجعات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 17,
+     "y": 240,
+     "w": 131,
+     "h": 86.8
+    },
+    {
+     "name": "المصروفات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 351,
+     "w": 131,
+     "h": 86.8
+    },
+    {
+     "name": "س حسابي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 16,
+     "w": 72,
+     "h": 72
+    }
+   ]
+  },
+  "fab_vat_calculator_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 6,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "f:r7:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 96,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "قبل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 207,
+     "y": 291,
+     "w": 167,
+     "h": 82
+    },
+    {
+     "name": "شامل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 291,
+     "w": 167,
+     "h": 82
+    },
+    {
+     "name": "انسخ الإجمالي",
+     "kind": "safe",
+     "disabled": true,
+     "x": 16,
+     "y": 397,
+     "w": 358,
+     "h": 72
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 756,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 167,
+     "h": 72
+    }
+   ]
+  },
+  "fab_vat_calculator_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 6,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "f:r7:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 96,
+     "w": 1248,
+     "h": 72
+    },
+    {
+     "name": "قبل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 652,
+     "y": 291,
+     "w": 612,
+     "h": 72
+    },
+    {
+     "name": "شامل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 291,
+     "w": 612,
+     "h": 72
+    },
+    {
+     "name": "انسخ الإجمالي",
+     "kind": "safe",
+     "disabled": true,
+     "x": 16,
+     "y": 387,
+     "w": 1248,
+     "h": 72
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 712,
+     "w": 612,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 612,
+     "h": 72
+    }
+   ]
+  },
+  "fab_vat_calculator_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "f:r7:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 96,
+     "w": 343,
+     "h": 72
+    },
+    {
+     "name": "قبل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 200,
+     "y": 291,
+     "w": 159.5,
+     "h": 82
+    },
+    {
+     "name": "شامل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 291,
+     "w": 159.5,
+     "h": 82
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 547,
+     "w": 159.5,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 159.5,
+     "h": 72
+    }
+   ]
+  },
+  "fab_vat_calculator_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 5,
+   "enabled": 5,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "f:r7:",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 96,
+     "w": 288,
+     "h": 72
+    },
+    {
+     "name": "قبل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 172,
+     "y": 314,
+     "w": 132,
+     "h": 82
+    },
+    {
+     "name": "شامل الضريبة",
+     "kind": "value",
+     "disabled": false,
+     "x": 16,
+     "y": 314,
+     "w": 132,
+     "h": 82
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 547,
+     "w": 132,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 132,
+     "h": 72
+    }
+   ]
+  },
+  "fab_assistant_390x844": {
+   "size": "gaze",
+   "viewport": [
+    390,
+    844
+   ],
+   "count": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "سؤالٌ آخر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 224,
+     "y": 390,
+     "w": 149.8,
+     "h": 72
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 207,
+     "y": 756,
+     "w": 167,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 756,
+     "w": 167,
+     "h": 72
+    }
+   ]
+  },
+  "fab_assistant_1280": {
+   "size": "gaze",
+   "viewport": [
+    1280,
+    800
+   ],
+   "count": 3,
+   "enabled": 3,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "سؤالٌ آخر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 1114,
+     "y": 282,
+     "w": 149.8,
+     "h": 72
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 652,
+     "y": 712,
+     "w": 612,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 712,
+     "w": 612,
+     "h": 72
+    }
+   ]
+  },
+  "fab_assistant_375x635": {
+   "size": "gaze",
+   "viewport": [
+    375,
+    635
+   ],
+   "count": 5,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 230,
+     "y": 194,
+     "w": 110.9,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 34,
+     "y": 194,
+     "w": 101.4,
+     "h": 72
+    },
+    {
+     "name": "سؤالٌ آخر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 209,
+     "y": 308,
+     "w": 149.8,
+     "h": 72
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 200,
+     "y": 547,
+     "w": 159.5,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 159.5,
+     "h": 72
+    }
+   ]
+  },
+  "fab_assistant_320x635": {
+   "size": "gaze",
+   "viewport": [
+    320,
+    635
+   ],
+   "count": 5,
+   "enabled": 4,
+   "minTarget": 72,
+   "minGap": 24,
+   "small": [],
+   "close": [],
+   "edge": [],
+   "fonts": [],
+   "offscreen": [],
+   "clipped": [],
+   "underFab": [],
+   "vertical": false,
+   "horizontal": false,
+   "targets": [
+    {
+     "name": "السابق",
+     "kind": "safe",
+     "disabled": true,
+     "x": 205,
+     "y": 243,
+     "w": 81.3,
+     "h": 72
+    },
+    {
+     "name": "التالي",
+     "kind": "safe",
+     "disabled": false,
+     "x": 34,
+     "y": 243,
+     "w": 76,
+     "h": 72
+    },
+    {
+     "name": "سؤالٌ آخر",
+     "kind": "safe",
+     "disabled": false,
+     "x": 154,
+     "y": 357,
+     "w": 149.8,
+     "h": 72
+    },
+    {
+     "name": "كل الأدوات",
+     "kind": "safe",
+     "disabled": false,
+     "x": 172,
+     "y": 547,
+     "w": 132,
+     "h": 72
+    },
+    {
+     "name": "إغلاق",
+     "kind": "safe",
+     "disabled": false,
+     "x": 16,
+     "y": 547,
+     "w": 132,
+     "h": 72
+    }
+   ]
+  }
+ },
+ "console": []
+}

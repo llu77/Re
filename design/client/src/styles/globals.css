@@ -1,0 +1,446 @@
+/*
+ * صياغة — الطبقة البصرية
+ * ======================
+ * عقد التفاعل بالنظر، مفروضٌ هنا ومختبَرٌ في المتصفّح (tests/ui):
+ *
+ *   • كل عنصرٍ تفاعلي ≥ 72×72، وبين أيّ عنصرين ≥ 24، وعن الحافّة ≥ 16.
+ *     الرموز `--target` و`--target-gap` و`--edge` وحدها تُرفع إن أوصى «فحص الإدخال».
+ *   • لا `:hover` ولا حركة ولا انتقال: ما يتغيّر تحت النظر ضجيجٌ لعينٍ متعبة.
+ *   • كل خطوةٍ شاشةٌ واحدة بلا تمرير: الشريطان ثابتا الارتفاع والمحتوى يأخذ الباقي.
+ *   • ما يُضغط له حدٌّ ظاهر (3:1 على الأقل)؛ وما يُقرأ فقط بلا حدٍّ قويّ وبظلٍّ خفيف.
+ *     الحدّ يقول «هذا هدف»، والتعبئة الملوّنة تقول «هذا يُرسل أو يعتمد».
+ *   • الحالة المختارة تُرى بالإطار والعلامة، لا باللون وحده.
+ *   • «حجم النصّ» في iOS يكبّر نصّ المحتوى وحده حتى `--fs-cap` (انظر `.screen`).
+ *
+ * الخطوط مستضافةٌ هنا (OFL 1.1، src/fonts/LICENSE-*.txt): لا طلب إلى طرفٍ ثالث.
+ */
+
+@font-face {
+  font-family: "Noto Sans Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/noto-sans-arabic-arabic-wght-normal.woff2") format("woff2-variations"),
+       url("../fonts/noto-sans-arabic-arabic-wght-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+
+@font-face {
+  font-family: "Noto Kufi Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/noto-kufi-arabic-arabic-wght-normal.woff2") format("woff2-variations"),
+       url("../fonts/noto-kufi-arabic-arabic-wght-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+
+/* الحروف اللاتينية والأرقام والمسافات: Inter، كما في rehabai.co. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2-variations"),
+       url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── الألوان (HSL بلا غلاف، كما يتوقّعها shadcn) ─────────────────────── */
+    --background: 217.5 57.1% 97.3%;          /* paper   #F4F7FC */
+    --foreground: 220.5 56.9% 12.7%;          /* ink     #0E1A33 · 16.1:1 على paper */
+    --heading: 221.4 82.9% 13.7%;             /* navy    #061840 */
+    --card: 0 0% 100%;
+    --card-foreground: 220.5 56.9% 12.7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220.5 56.9% 12.7%;
+    --primary: 222.5 70% 47.1%;               /* brand   #2455CC · الأبيض عليه 6.47:1 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 84% 95.1%;               /* tint    #E8EFFD */
+    --secondary-foreground: 222.9 70% 35.3%;  /* brand-ink #1B3F99 · 8.2:1 على tint */
+    --muted: 215 50% 95.3%;                   /* sunk    #EDF2F9 */
+    --muted-foreground: 214 16.1% 36.5%;      /* ink-soft #4E5B6C · 6.9:1 على الأبيض */
+    --accent: 220 84% 95.1%;
+    --accent-foreground: 222.9 70% 35.3%;
+    --destructive: 2.8 87.4% 34.1%;           /* #A3120B · 7.9:1 */
+    --destructive-foreground: 0 0% 100%;
+    --destructive-tint: 4.3 77.8% 96.5%;      /* #FDF0EF */
+    --success: 156.1 76.9% 23.7%;             /* #0E6B46 · 6.5:1 */
+    --success-tint: 147.7 39.4% 93.5%;        /* #E8F5EE */
+    --border: 214.3 31.3% 86.9%;              /* line    #D3DCE8 — للبطاقات وحدها */
+    --control: 216 12.8% 54.1%;               /* #7B8799 · 3.6:1 — حدّ كل هدف */
+    --input: 216 12.8% 54.1%;
+    --ring: 221.4 82.9% 13.7%;                /* إطار التركيز بلون العناوين */
+    --gaze: 189.9 80.3% 66.1%;                /* #63D7EE — زخرفيٌّ فقط، لا نصّ عليه */
+
+    /* أسماء الطبقة السابقة، تقرؤها اختبارات «زيادة التباين» (test_contrast.py). */
+    --ink-soft: hsl(var(--muted-foreground));
+    --line: hsl(var(--border));
+    --surface-sunk: hsl(var(--muted));
+
+    --shadow-control: 0 1px 2px rgb(14 26 51 / 0.10), 0 2px 6px -2px rgb(14 26 51 / 0.12);
+    --shadow-card: 0 1px 2px rgb(14 26 51 / 0.05), 0 6px 18px -8px rgb(14 26 51 / 0.14);
+
+    /* ── الأبعاد ────────────────────────────────────────────────────────── */
+    --target: 4.5rem;          /* 72px */
+    --target-gap: 1.5rem;      /* 24px */
+    --edge: 1rem;              /* 16px */
+    --radius: 1rem;            /* 16px: الأزرار والحقول والبلاطات */
+    --radius-card: 1.25rem;    /* 20px: البطاقات والتنبيه */
+
+    /* ── الخطوط ─────────────────────────────────────────────────────────── */
+    --font-body: "Noto Sans Arabic", "Inter", system-ui, sans-serif;
+    --font-display: "Noto Kufi Arabic", "Inter", system-ui, sans-serif;
+    --fs-body: 1.125rem;       /* 18px */
+    --fs-title: 1.375rem;      /* 22px */
+    --fs-value: 1.5rem;        /* 24px */
+    --fs-display: 1.875rem;    /* 30px */
+    --fs-small: 1rem;          /* 16px: أصغر نصٍّ في التطبيق */
+    /* سقف نصّ المحتوى حين يتبع «حجم النصّ» في iOS. */
+    --fs-cap: 1.1875rem;       /* 19px */
+    --text-small: calc(1em + var(--fs-small) - var(--fs-body));
+    --text-title: calc(1em + var(--fs-title) - var(--fs-body));
+    --text-value: calc(1em + var(--fs-value) - var(--fs-body));
+    --text-display: calc(1em + var(--fs-display) - var(--fs-body));
+    --line-height: 1.6;
+
+    color-scheme: light dark;
+  }
+
+  /* «زيادة التباين» في iOS: النصّ الثانوي أغمق (10.6:1)، والخطوط 3:1 على الأبيض
+     وعلى السطح الغائر، وحدود الأهداف أعرض (`.btn` أدناه) والظلال حدودٌ. */
+  @media (prefers-contrast: more) {
+    :root {
+      --muted-foreground: 212.1 21.5% 25.5%;  /* #33404F */
+      --border: 213.8 15.5% 50.8%;            /* #6E7F95 · 4.1:1 أبيض، 3.6:1 غائر */
+      --control: 214.8 14.7% 41.4%;           /* #5A6779 · 5.8:1 */
+      --input: 214.8 14.7% 41.4%;
+      --shadow-control: none;
+      --shadow-card: none;
+    }
+  }
+
+  /* الوضع الداكن من النظام: سطحٌ ليليّ أزرق لا أسود، والتعبئة الملوّنة باقيةٌ لما يعتمد. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 221.7 51.1% 8.8%;         /* #0B1222 */
+      --foreground: 218.8 58.6% 94.3%;        /* #E8EEF9 */
+      --heading: 218.8 58.6% 94.3%;
+      --card: 220 45.5% 12.9%;                /* #121C30 */
+      --card-foreground: 218.8 58.6% 94.3%;
+      --popover: 220 45.5% 12.9%;
+      --popover-foreground: 218.8 58.6% 94.3%;
+      --primary: 223.1 67.6% 52.7%;           /* #3563D8 · الأبيض عليه 5.35:1 */
+      --secondary: 220.9 49.5% 18.6%;         /* #182747 */
+      --secondary-foreground: 223.5 100% 80.8%; /* #9DB8FF · 7.6:1 */
+      --muted: 220 49.1% 10.8%;               /* #0E1729 */
+      --muted-foreground: 215.6 21.9% 71.4%;  /* #A6B3C6 · 8.0:1 */
+      --accent: 220.9 49.5% 18.6%;
+      --accent-foreground: 223.5 100% 80.8%;
+      --destructive: 3.6 74.8% 43.5%;         /* #C2261C · الأبيض عليه 5.85:1 */
+      --destructive-tint: 351.4 33.3% 12.4%;
+      --success: 154.2 55.3% 59.6%;           /* #5FD1A0 */
+      --success-tint: 158.2 40.7% 10.6%;
+      --border: 217.9 34.5% 21.6%;            /* #24324A */
+      --control: 216.5 20% 45.1%;             /* #5C6E8A · 3.3:1 */
+      --input: 216.5 20% 45.1%;
+      --ring: 223.5 100% 80.8%;
+      --shadow-control: none;
+      --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset;
+    }
+  }
+  @media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+    :root {
+      --muted-foreground: 217.2 36.7% 84.5%;  /* #C9D4E6 */
+      --border: 216.8 28.6% 61%;              /* #7F95B8 */
+      --control: 216.8 28.6% 61%;
+      --input: 216.8 28.6% 61%;
+    }
+  }
+
+  /* السمة hidden تغلب كل عرضٍ يحدّده صنف: زرٌّ «مخفيّ» لا يعترض النظر. */
+  [hidden] {
+    display: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* الجذر بحجم المتصفّح (16px) فتعني rem ما تقوله: 4.5rem = 72px. */
+  html {
+    font-size: 100%;
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    height: 100%;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-body);
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+  #root {
+    height: 100%;
+  }
+  button,
+  input,
+  textarea,
+  label,
+  a {
+    font: inherit;
+  }
+  h1,
+  h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: hsl(var(--heading));
+  }
+  h1:focus,
+  h2:focus {
+    outline: none;
+  }
+  p {
+    margin: 0;
+  }
+  bdi {
+    unicode-bidi: isolate;
+  }
+}
+
+@layer components {
+  /* ── الإطار ─────────────────────────────────────────────────────────── */
+  .screen {
+    display: grid;
+    grid-template-rows: var(--target) minmax(0, 1fr) var(--target);
+    row-gap: var(--target-gap);
+    height: 100dvh;
+    padding: max(var(--edge), env(safe-area-inset-top)) max(var(--edge), env(safe-area-inset-right))
+      max(var(--edge), env(safe-area-inset-bottom)) max(var(--edge), env(safe-area-inset-left));
+    /* «حجم النصّ» للنصّ وحده: قيمةٌ لـWebKit وحده تأخذ حجم نمط Body من النظام؛
+       وما لا يعرفها يُسقطها فيبقى 18. ثم تُعاد العائلة وتباعد الأسطر. */
+    font: -apple-system-body;
+    font-family: var(--font-body);
+    line-height: var(--line-height);
+  }
+
+  /* الإطار لا يتبع «حجم النصّ»: الشريطان ثابتا الارتفاع. */
+  .bar {
+    font-size: var(--fs-body);
+    display: flex;
+    align-items: stretch;
+    gap: var(--target-gap);
+    min-width: 0;
+  }
+  /* «حسناً» (72) تظهر فوق وسط الشريط العلوي، فلا يقترب منها زرّ الطرف أقلّ من 24. */
+  .bar--top .slot {
+    --slot-max: calc((100% - var(--target)) / 2 - var(--target-gap));
+    flex: 0 0 auto;
+    min-width: min(6.5rem, var(--slot-max));
+    max-width: var(--slot-max);
+  }
+  .bar--top .step {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    text-wrap: balance;
+    line-height: 1.3;
+    color: hsl(var(--muted-foreground));
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .bar--bottom .slot {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .slot {
+    display: flex;
+  }
+  .slot > .btn {
+    flex: 1;
+  }
+  .slot-text {
+    align-self: center;
+    width: 100%;
+    text-align: center;
+    color: hsl(var(--muted-foreground));
+    font-size: var(--fs-small);
+    line-height: 1.4;
+  }
+
+  .content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 0;
+    overflow: hidden;
+    margin: 0;
+    font-size: clamp(var(--fs-body), 1em, var(--fs-cap));
+  }
+  /* مجموعةٌ تفاعلية تلي مجموعةً تفاعلية: 8 + 16 = 24، حدّ التباعد بين هدفين. */
+  .content > .spaced {
+    margin-block-start: calc(var(--target-gap) - 0.5rem);
+  }
+
+  /* ── الأهداف ─────────────────────────────────────────────────────────── */
+  /* العرض والحجم في مكوّن Button (cva)؛ هنا ما تفحصه الاختبارات ويتغيّر بالتباين. */
+  .btn {
+    border-style: solid;
+    border-width: 2px;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    cursor: default;
+  }
+  a.btn[aria-disabled="true"] {
+    pointer-events: none;
+  }
+  /* زرٌّ غير مطلوب الآن يبقى مكانه محجوزاً ولا يُرى: لا يتحرّك ما حوله. */
+  .btn.is-reserved {
+    visibility: hidden;
+  }
+  /* زرٌّ من أجزاء شكلٌ واحدٌ للنقر: ما تحت المؤشر هو الزرّ نفسه. */
+  .btn > * {
+    pointer-events: none;
+  }
+  .field {
+    border-style: solid;
+    border-width: 2px;
+  }
+  /* الخيار المختار: إطارٌ أعرض (4px) وعلامةٌ ممتلئة — لا اللون وحده. */
+  .chip[aria-pressed="true"] {
+    border-width: 4px;
+  }
+  @media (prefers-contrast: more) {
+    .btn,
+    .field {
+      border-width: 3px;
+    }
+    .card-surface {
+      border-color: hsl(var(--control));
+    }
+  }
+
+  /* ── التنبيه: يغطّي المحتوى ولا يحرّك الأشرطة ───────────────────────── */
+  .alert {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: hsl(var(--card));
+    border: 2px solid hsl(var(--destructive));
+    border-radius: var(--radius-card);
+  }
+  .alert__text {
+    color: hsl(var(--destructive));
+    font-weight: 700;
+  }
+  /* «حسناً» فوق وسط الشريط العلوي، حيث لا زرّ في أيّ شاشة. */
+  .alert [data-ack] {
+    position: fixed;
+    top: max(var(--edge), env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--target);
+    height: var(--target);
+    padding: 0;
+    z-index: 2;
+  }
+
+  .visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── الوضع الأفقي على الهاتف: لا تخطيط يحفظ عقد النظر، فيُطلب التدوير ──── */
+  .rotate {
+    display: none;
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    #root {
+      visibility: hidden;
+    }
+    .rotate {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      padding: var(--edge);
+      background: hsl(var(--background));
+      text-align: center;
+    }
+  }
+  .rotate__title {
+    font-family: var(--font-display);
+    font-size: var(--fs-title);
+    font-weight: 700;
+    color: hsl(var(--heading));
+  }
+
+  /* ── الحاسوب واللوحي: الإطار نفسه في عمودٍ متوسّط ───────────────────── */
+  @media (min-width: 48rem) {
+    body {
+      background: hsl(var(--muted));
+    }
+    .screen {
+      width: 26rem;
+      height: min(100dvh, 52.75rem);
+      margin: 0 auto;
+      background: hsl(var(--background));
+      border-inline: 1px solid hsl(var(--border));
+      box-shadow: var(--shadow-card);
+    }
+  }
+}
+
+@layer components {
+  /* مسرح الترحيب: شبكة نقاطٍ خفيفة (من Grid/Dot Pattern في 21st.dev، مرجعاً) خلف العلامة. */
+  .welcome-stage {
+    background-image: radial-gradient(hsl(var(--control) / 0.35) 1.2px, transparent 1.3px);
+    background-size: 18px 18px;
+    background-position: center;
+  }
+  @media (prefers-contrast: more) {
+    .welcome-stage {
+      background-image: none;
+    }
+  }
+}

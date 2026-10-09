@@ -1,0 +1,3 @@
+down restores 0007 exactly: True
+second up equals first up: True
+full down then up equals first up: True
