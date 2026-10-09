@@ -61,6 +61,9 @@ __all__ = ["create_app"]
 logger = logging.getLogger("eyework.web")
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
+#: الواجهة الجديدة مبنيةً (eyework/client، `npm run build`): تُخدم تحت /next/ بجانب الواجهة
+#: القائمة حتى حزمة التبديل، إن كانت مبنية؛ نشرٌ بلا بنائها يخدم الواجهة القائمة وحدها.
+CLIENT_DIST = Path(__file__).resolve().parent.parent / "client" / "dist"
 JSON_BODY_LIMIT = 16 * 1024
 #: المساران الوحيدان اللذان يحملان صورة: حدّهما في المسار نفسه لا هنا.
 _IMAGE_UPLOAD = re.compile(r"^(POST /api/campaigns|PUT /api/campaigns/[0-9a-f-]{36}/image)$")
@@ -288,6 +291,9 @@ def create_app(
     app.include_router(routes_campaigns.router)
     app.include_router(routes_portal.router)
     app.include_router(routes_ai.router)
+    # الواجهة الجديدة تحت /next/ قبل الجذر: المسارات تُطابَق بترتيبها، وسياسة المحتوى نفسها.
+    if CLIENT_DIST.is_dir():
+        app.mount("/next", StaticFiles(directory=CLIENT_DIST, html=True), name="next")
     # أخيراً: كل ما لم يطابق مساراً أعلاه ملفٌّ ساكن. بلا شرط: نشرٌ بلا مجلد
     # الواجهة يفشل عند الإقلاع لا أن يعمل بلا واجهة.
     app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
