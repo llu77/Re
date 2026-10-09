@@ -3,18 +3,21 @@
 ==============================================
 ما يُحذف يُحذف بلا رجعة، فيُختبر حدّه من الجانبين: الحملة الخاملة فعلاً تُحذف،
 والتي عُمل عليها — بتغيير صورتها أو بمحاولة كتابة — تبقى. وما تعدّه السقوف من
-محاولات اليوم لا يُمحى بحذف حملته.
+محاولات اليوم لا يُمحى بحذف حملته. ودفتر التسجيل يذهب بعد يومه، ودفتر استدعاءات
+النموذج بعد ثلاثين يوماً بلا أثر، والتنبيه الذي لم يُعتمد عمله بعد ثلاثين يوماً
+بقراراته؛ والمعتمد يبقى بقراراته وإن حُذف دفتره أو مُحيت نصوصه.
 """
 
 from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import timedelta
+from uuid import UUID, uuid4
 
 import pytest
 
 from eyework import admin
-from eyework.tests.conftest import add_version, as_user, create_campaign, sample_jpeg
+from eyework.tests.conftest import add_version, as_user, create_campaign, make_user, sample_jpeg
 
 
 @pytest.fixture
@@ -188,3 +191,115 @@ def test_passkey_challenges_go_once_their_five_minutes_are_over(owner, purge, ag
     with owner.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM passkey_challenges")
         assert cursor.fetchone()[0] == (0 if deleted else 1)
+
+
+# ── دفتر التسجيل (0008) ──────────────────────────────────────────────────
+def test_registration_ledger_rows_go_after_their_day(owner, purge):
+    """السقوف تُعدّ من آخر يوم وحده؛ صفٌّ أقدم لا يُقرأ لشيء، وما في يومه يبقى ليُعدّ — بنتيجته أيّاً كانت."""
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO registration_ledger (occurred_at, via, outcome) VALUES"
+                       " (now() - interval '25 hours', 'OPEN', 'OK'), (now() - interval '25 hours', 'CODE', 'OK'),"
+                       " (now() - interval '23 hours', 'OPEN', 'TAKEN'), (now() - interval '1 hour', 'OPEN', 'OK')")
+    assert purge()["registration_ledger"] == 2
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT via, outcome FROM registration_ledger ORDER BY occurred_at")
+        assert cursor.fetchall() == [("OPEN", "TAKEN"), ("OPEN", "OK")]
+
+
+# ── دفتر استدعاءات النموذج وتنبيهاته (0009) ─────────────────────────────
+REASON = "سعر الوحدة في السطر 1 أعلى بكثير من المعتاد لهذا الصنف."
+
+
+def seed_request(owner, user: UUID, *, age: timedelta, outcome: str | None = "OK", feature: str = "ASSISTANT",
+                 subject: UUID | None = None) -> UUID:
+    """صفٌّ في الدفتر بعمره: مفتوحٌ (بلا نتيجة) أو مُغلقٌ في وقته. المراجعة تحمل موضوعها وبصمته."""
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO ai_requests (user_id, feature, subject_kind, subject_id, content_digest, started_at,"
+            " finished_at, outcome)"
+            " VALUES (%s, %s, CASE WHEN %s::uuid IS NULL THEN NULL ELSE 'PURCHASE' END, %s,"
+            "         CASE WHEN %s::uuid IS NULL THEN NULL ELSE sha256('body'::bytea) END, now() - %s,"
+            "         CASE WHEN %s::text IS NULL THEN NULL ELSE now() - %s END, %s)"
+            " RETURNING id",
+            (user, feature, subject, subject, subject, age, outcome, age, outcome))
+        return cursor.fetchone()[0]
+
+
+def seed_flag(owner, user: UUID, request: UUID, subject: UUID, *, age: timedelta, closed: bool,
+              erased: bool = False, check_code: str = "PRICE_IMPLAUSIBLE", decision: str | None = None) -> UUID:
+    """تنبيهٌ على الموضوع بعمره: مفتوحٌ أو مُغلقٌ بعد يومٍ من كتابته، بنصّه أو ممحوّاً، وبقرارٍ واحدٍ إن سُمّي."""
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO ai_flags (user_id, request_id, feature, subject_kind, subject_id, content_digest, position,"
+            " check_code, severity, field, reason, created_at, closed_at, erased_at)"
+            " VALUES (%s, %s, 'STOCK_REVIEW', 'PURCHASE', %s, sha256('body'::bytea), 1, %s, 'HIGH', 'unit_cost',"
+            "         CASE WHEN %s THEN NULL ELSE %s END, now() - %s,"
+            "         CASE WHEN %s THEN now() - %s + interval '1 day' END, CASE WHEN %s THEN now() - %s END)"
+            " RETURNING id",
+            (user, request, subject, check_code, erased, REASON, age, closed, age, erased, age))
+        flag = cursor.fetchone()[0]
+        if decision is not None:
+            cursor.execute("INSERT INTO ai_flag_decisions (flag_id, user_id, choice) VALUES (%s, %s, %s)",
+                           (flag, user, decision))
+        return flag
+
+
+def test_a_request_open_for_an_hour_is_closed_as_abandoned_and_still_counts(owner, purge):
+    """عمليّةٌ انقطعت تترك استدعاءها مفتوحاً: بعد ساعةٍ يُغلق ABANDONED محسوباً، وما في مهلته يبقى مفتوحاً."""
+    user = make_user(owner, login=b"keeper", profession="STOREKEEPER")
+    stale = seed_request(owner, user, age=timedelta(minutes=61), outcome=None)
+    fresh = seed_request(owner, user, age=timedelta(minutes=59), outcome=None)
+    assert purge()["ai_abandoned"] == 1
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT outcome, finished_at IS NOT NULL, ew_is_billable(outcome) FROM ai_requests"
+                       " WHERE id = %s", (stale,))
+        assert cursor.fetchone() == ("ABANDONED", True, True)
+        cursor.execute("SELECT outcome, finished_at FROM ai_requests WHERE id = %s", (fresh,))
+        assert cursor.fetchone() == (None, None)
+
+
+@pytest.mark.parametrize(("age", "deleted"), [(timedelta(days=29), False), (timedelta(days=31), True)])
+def test_ai_requests_go_after_thirty_days_and_leave_no_tombstone(owner, purge, age, deleted):
+    """الدفتر لمراجعة الكلفة ثلاثين يوماً؛ وحذفه بعدها لا يكتب أثراً: الأثر لما يُعدّ في يومه وحده."""
+    user = make_user(owner, login=b"keeper", profession="STOREKEEPER")
+    seed_request(owner, user, age=age)
+    assert purge()["ai_requests"] == (1 if deleted else 0)
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM ai_requests")
+        assert cursor.fetchone()[0] == (0 if deleted else 1)
+        cursor.execute("SELECT count(*) FROM attempt_tombstones")
+        assert cursor.fetchone()[0] == 0
+
+
+def test_open_flags_go_after_thirty_days_with_their_decisions(owner, purge):
+    """تنبيهٌ لم يُعتمد موضوعه في ثلاثين يوماً لا قرار ينتظره؛ وما دون ذلك يبقى بقراره."""
+    user = make_user(owner, login=b"keeper", profession="STOREKEEPER")
+    old_subject, young_subject = uuid4(), uuid4()
+    old_request = seed_request(owner, user, age=timedelta(days=40), feature="STOCK_REVIEW", subject=old_subject)
+    young_request = seed_request(owner, user, age=timedelta(days=20), feature="STOCK_REVIEW", subject=young_subject)
+    seed_flag(owner, user, old_request, old_subject, age=timedelta(days=40), closed=False, decision="EDIT")
+    young = seed_flag(owner, user, young_request, young_subject, age=timedelta(days=20), closed=False, decision="EDIT")
+    counts = purge()
+    assert (counts["ai_requests"], counts["ai_open_flags"]) == (1, 1)
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT id, request_id FROM ai_flags")
+        assert cursor.fetchall() == [(young, young_request)]
+        cursor.execute("SELECT flag_id FROM ai_flag_decisions")
+        assert cursor.fetchall() == [(young,)]
+
+
+def test_closed_flags_are_kept_unlinked_with_their_decisions_when_their_request_goes(owner, purge):
+    """التنبيه المعتمد سجلٌّ مع موضوعه: يبقى بقراراته — ومحوُ نصوصه لا يمحو قراراته — ويُفكّ عن دفترٍ حُذف."""
+    user = make_user(owner, login=b"keeper", profession="STOREKEEPER")
+    subject = uuid4()
+    request = seed_request(owner, user, age=timedelta(days=40), feature="STOCK_REVIEW", subject=subject)
+    kept = seed_flag(owner, user, request, subject, age=timedelta(days=40), closed=True, decision="PROCEED")
+    erased = seed_flag(owner, user, request, subject, age=timedelta(days=40), closed=True, erased=True,
+                       check_code="UNIT_MISMATCH", decision="PROCEED")
+    counts = purge()
+    assert (counts["ai_requests"], counts["ai_open_flags"]) == (1, 0)
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT id, request_id, closed_at IS NOT NULL, erased_at IS NOT NULL, reason,"
+                       "       (SELECT count(*) FROM ai_flag_decisions d WHERE d.flag_id = f.id)"
+                       "  FROM ai_flags f ORDER BY check_code")
+        assert cursor.fetchall() == [(kept, None, True, False, REASON, 1), (erased, None, True, True, None, 1)]

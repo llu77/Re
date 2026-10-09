@@ -1,13 +1,16 @@
 """
-التسجيل والمهن — في القاعدة
-===========================
+التسجيل برمز والمهن — في القاعدة
+================================
 ما تفرضه القاعدة وحدها، بدور الويب نفسه الذي يحمله الخادم:
 
-  • لا حساب بلا رمز تسجيلٍ صالح؛ والرمز لحسابٍ واحد، وينتهي، ويُقفل بعد ثلاث
-    إجابات «البريد مأخوذ».
-  • حساب التسجيل مفعَّلٌ بمهنته واسمه وتاريخ ميلاده وموافقته، والبريد HMAC لا غير.
+  • لا حساب بهذا الطريق بلا رمز تسجيلٍ صالح؛ والرمز لحسابٍ واحد، وينتهي، ويُقفل
+    بعد ثلاث إجابات «البريد مأخوذ». (التسجيل المفتوح بلا رمز في
+    `test_open_registration.py`.)
+  • حساب التسجيل مفعَّلٌ بمهنته واسمه وتاريخ ميلاده وموافقته وطريقة استخدامه،
+    والبريد HMAC لا غير.
   • تاريخ الميلاد ليس في المستقبل بتاريخ الرياض، ولا قبل 1900.
-  • سقفٌ يومي للحسابات الجديدة يجمع الجميع.
+  • سقفٌ يومي للحسابات الجديدة يجمع الجميع، يُعدّ من دفتر التسجيل (0008) فلا
+    يُفرغه حذف الحساب.
   • الحملة لحساب التسويق وحده — عند الإنشاء وعند كل كتابةٍ تكلّف.
   • صاحب الحساب يحذفه بنفسه وكل ما يتبعه.
 """
@@ -23,7 +26,8 @@ from psycopg import errors
 from eyework.professions import NAMES, Profession
 from eyework.tests.conftest import UNUSABLE_HASH, as_user, create_campaign, make_user
 
-_REGISTER = "SELECT new_user, outcome FROM ew_register(%s, %s, %s, %s, %s, %s, %s)"
+# 0008: ثمانية معاملات، آخرها طريقة الاستخدام.
+_REGISTER = "SELECT new_user, outcome FROM ew_register(%s, %s, %s, %s, %s, %s, %s, %s)"
 TERMS = "2026-10-08"
 
 
@@ -47,10 +51,10 @@ def _riyadh_today(owner) -> datetime.date:
 
 def _register(app, code: bytes, login: str = "new@example.sa", *, name: str | None = "سارة",
               birth: datetime.date = datetime.date(1994, 3, 21), profession: str = "STOREKEEPER",
-              terms: str | None = TERMS):
+              terms: str | None = TERMS, ui_size: str | None = "GAZE"):
     as_user(app, None)
     with app.cursor() as cursor:
-        cursor.execute(_REGISTER, (code, _hash(login), UNUSABLE_HASH, name, birth, profession, terms))
+        cursor.execute(_REGISTER, (code, _hash(login), UNUSABLE_HASH, name, birth, profession, terms, ui_size))
         return cursor.fetchone()
 
 
@@ -159,21 +163,21 @@ def test_a_failed_registration_leaves_the_code_unused(owner, app):
     assert _register(app, code)[1] == "OK"
 
 
-def _used_codes(owner, count: int, *, age: str = "1 hour") -> None:
+def _ledger_rows(owner, count: int, *, via: str = "CODE", outcome: str = "OK", age: str = "1 hour") -> None:
+    """صفوفٌ في دفتر التسجيل (0008): منه يُعدّ السقف، لا من الرموز ولا من الحسابات."""
     with owner.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO signup_codes (code_hash, created_at, expires_at, used_at)"
-            " SELECT sha256(convert_to('used-' || %s || '-' || g, 'UTF8')), now() - %s::interval - interval '1 hour',"
-            " now() - %s::interval + interval '1 day', now() - %s::interval FROM generate_series(1, %s) g",
-            (age, age, age, age, count))
+            "INSERT INTO registration_ledger (occurred_at, via, outcome)"
+            " SELECT now() - %s::interval, %s, %s FROM generate_series(1, %s)",
+            (age, via, outcome, count))
 
 
-def test_the_daily_cap_counts_the_codes_used_in_the_last_day(owner, app):
-    _used_codes(owner, 199)
-    # الرموز غير المستعملة لا تُحسب، ولا المستعملة قبل أكثر من يوم.
+def test_the_daily_cap_counts_the_ledger_of_the_last_day(owner, app):
+    _ledger_rows(owner, 199)
+    # الرموز غير المستعملة لا تُحسب، ولا صفوف الدفتر الأقدم من يوم.
     for n in range(50):
         issue_code(owner, f"unused-{n}")
-    _used_codes(owner, 5, age="25 hours")
+    _ledger_rows(owner, 5, age="25 hours")
     assert _register(app, issue_code(owner, "a"), "the-200th@example.sa")[1] == "OK"
     with pytest.raises(errors.CheckViolation) as caught:
         _register(app, issue_code(owner, "b"), "the-201st@example.sa")
@@ -181,8 +185,8 @@ def test_the_daily_cap_counts_the_codes_used_in_the_last_day(owner, app):
 
 
 def test_deleting_an_account_does_not_make_room_under_the_daily_cap(owner, app):
-    """الحساب يُحذف بيد صاحبه، والرمز الذي فتحه يبقى مستعملاً: لا تُفرغ الدورةُ السقفَ."""
-    _used_codes(owner, 199)
+    """الحساب يُحذف بيد صاحبه، وصفّ الدفتر الذي كتبه تسجيله يبقى: لا تُفرغ الدورةُ السقفَ."""
+    _ledger_rows(owner, 199)
     assert _register(app, issue_code(owner, "a"), "the-200th@example.sa")[1] == "OK"
     with owner.cursor() as cursor:
         cursor.execute("DELETE FROM users WHERE self_registered")

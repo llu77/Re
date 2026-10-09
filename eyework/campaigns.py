@@ -68,6 +68,9 @@ PAGE_SIZE = 2
 #: آخر صفحةٍ يقبلها المسار؛ «الأقدم» لا يُعرض بعدها.
 MAX_PAGE = 100
 DAILY_GENERATIONS = 40
+#: يُستبدل عند الدمج: نظير ew_my_generation_limit للحساب المفتوح في أسبوعه الأول
+#: (registration_spec §7.5)؛ اختبارٌ في القاعدة يقارنهما.
+NEW_ACCOUNT_DAILY_GENERATIONS = 10
 VERSIONS_PER_CAMPAIGN = 10
 
 #: استدعاءاتٌ متزامنة للنموذج في العملية الواحدة. ما زاد ينتظر دوره خارجاً

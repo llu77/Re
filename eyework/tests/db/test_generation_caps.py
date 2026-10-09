@@ -634,7 +634,8 @@ def test_the_trace_of_a_deleted_attempt_has_no_identity_and_only_counts_its_day(
         cursor.execute("DELETE FROM users WHERE id = %s", (user,))
         cursor.execute("SELECT column_name FROM information_schema.columns"
                        " WHERE table_name = 'attempt_tombstones' ORDER BY column_name")
-        assert [row[0] for row in cursor.fetchall()] == ["outcome", "started_at"]
+        # 0008: علامةُ «من حسابٍ مفتوحٍ جديد» لحصّة الجدد، لا هوية.
+        assert [row[0] for row in cursor.fetchall()] == ["new_account", "outcome", "started_at"]
         cursor.execute("SELECT outcome FROM attempt_tombstones")
         assert [row[0] for row in cursor.fetchall()] == ["OUTPUT_INVALID"]
 

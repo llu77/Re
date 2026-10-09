@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import datetime
+import hashlib
 import os
 from uuid import UUID
 
@@ -27,9 +29,10 @@ APP_PASSWORD = os.environ.get("EYEWORK_APP_PASSWORD", "eyework_dev_app")
 REQUIRE_DB = os.environ.get("EYEWORK_REQUIRE_DB") == "1"
 
 #: TRUNCATE على users يمتدّ بـCASCADE إلى كل ما يرجع إليه: الجلسات، ورموز
-#: التفعيل، والحملات، والمحاولات، والنسخ، والصور.
-# أثر المحاولات المحذوفة بلا مفتاحٍ إلى المستخدمين، فيُذكر وحده.
-_CLEAN = "TRUNCATE users, attempt_tombstones RESTART IDENTITY CASCADE"
+#: التفعيل، والحملات، والمحاولات، والنسخ، والصور، ودفتر استدعاءات النموذج
+#: وتنبيهاته وقراراتها.
+# أثر المحاولات المحذوفة ودفتر التسجيل بلا مفتاحٍ إلى المستخدمين، فيُذكران وحدهما.
+_CLEAN = "TRUNCATE users, attempt_tombstones, registration_ledger RESTART IDENTITY CASCADE"
 
 
 def app_url_for(owner_url: str) -> str:
@@ -109,6 +112,34 @@ def make_user(owner, *, login: bytes, password_hash: str | None = UNUSABLE_HASH,
 @pytest.fixture
 def two_users(owner) -> tuple[UUID, UUID]:
     return make_user(owner, login=b"user-a"), make_user(owner, login=b"user-b")
+
+
+# ── التسجيل المفتوح ────────────────────────────────────────────────────
+#: نسخة الإشعار التي يوافق عليها المسجَّل في هذه الاختبارات؛ القاعدة لا تعرف النسخة
+#: الحالية، فأيّ نصٍّ يصلح.
+TERMS_VERSION = "2026-10-09"
+BIRTH_DATE = datetime.date(1994, 3, 21)
+_REGISTER_OPEN = "SELECT new_user, outcome FROM ew_register_open(%s, %s, %s, %s, %s, %s, %s)"
+
+
+def hashed_login(login: str) -> bytes:
+    """اسم الدخول كما تحمله القاعدة: 32 بايتاً لا تُقرأ. في الاختبار SHA-256 بدل HMAC."""
+    return hashlib.sha256(login.encode()).digest()
+
+
+def register_open(app, login: str | bytes, *, name: str | None = "سارة", birth: datetime.date | None = BIRTH_DATE,
+                  profession: str = "MARKETING", terms: str | None = TERMS_VERSION,
+                  ui_size: str | None = "COMPACT") -> tuple[UUID | None, str]:
+    """
+    تسجيلٌ مفتوح بلا رمز، بدور الويب وبلا هوية، كما يستدعيه الخادم. يُرجع (الحساب، النتيجة).
+
+    `login` نصٌّ يُجزَّأ، أو البايتات الاثنتان والثلاثون نفسها (لاستهداف حساب `make_user`).
+    """
+    as_user(app, None)
+    hmac = hashed_login(login) if isinstance(login, str) else login
+    with app.cursor() as cursor:
+        cursor.execute(_REGISTER_OPEN, (hmac, UNUSABLE_HASH, name, birth, profession, terms, ui_size))
+        return cursor.fetchone()
 
 
 # ── بيانات الحملة ──────────────────────────────────────────────────────
