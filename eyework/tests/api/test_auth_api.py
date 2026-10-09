@@ -298,14 +298,14 @@ def test_me_returns_the_generations_left_and_only_the_users_own_name(owner, sell
     لا معرّف ولا اسم دخول: يصلان كل سجلٍّ وكل إضافةٍ في المتصفّح. الاسم الذي
     يناديه به المساعد وحده، واسم صاحب الجلسة لا غيره.
     """
-    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": None,
-                                            "profession": "MARKETING"}
+    assert seller.get("/api/me").json() == {"generations_left": 40, "generation_limit": 40, "display_name": None,
+                                            "profession": "MARKETING", "ui_size": None, "terms_current": True}
 
     with owner.cursor() as cursor:
         cursor.execute("UPDATE users SET display_name = 'عمر' WHERE login_hmac = %s",
                        (auth.login_hmac(LOGIN_KEY, SELLER),))
-    assert seller.get("/api/me").json() == {"generations_left": 40, "display_name": "عمر",
-                                            "profession": "MARKETING"}
+    assert seller.get("/api/me").json() == {"generations_left": 40, "generation_limit": 40, "display_name": "عمر",
+                                            "profession": "MARKETING", "ui_size": None, "terms_current": True}
     assert intruder.get("/api/me").json()["display_name"] is None
 
 

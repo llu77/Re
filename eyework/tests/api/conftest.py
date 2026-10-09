@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import functools
 import io
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from uuid import UUID
 
 import httpx
@@ -26,7 +26,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import ExifTags, Image
 
-from eyework import auth, config
+from eyework import auth, config, terms
 from eyework.db import Database
 from eyework.passwords import hash_password
 from eyework.tests.conftest import app_url_for, make_user
@@ -38,6 +38,8 @@ LOGIN_KEY = b"k" * 32
 WRITE_HEADERS = {"X-Eyework": "1", "Origin": ORIGIN}
 JPEG = {"Content-Type": "image/jpeg"}
 COOKIE = "__Host-ew"
+#: بريد المشغّل: التسجيل المفتوح (الافتراض) لا يُقلع بدونه.
+SUPPORT_CONTACT = "help@example.sa"
 
 PASSWORD = "Strong-Password-2026-x"
 SELLER = "seller@example.sa"
@@ -50,15 +52,18 @@ def writer() -> FakeCopywriter:
     return FakeCopywriter()
 
 
-@pytest.fixture
-def server(owner, owner_url, writer):
-    """تطبيقٌ جديد على قاعدةٍ نظيفة (`owner` يفرّغها أولاً)، يُغلق تجمّعه بعده."""
-    settings = config.Settings(
-        app_database_url=app_url_for(owner_url),
-        login_key=LOGIN_KEY,
-        anthropic_api_key=None,
-        public_origin=ORIGIN,
-    )
+def build_settings(owner_url: str, **overrides) -> config.Settings:
+    """إعداد الإنتاج نفسه على قاعدة الاختبار بدور الويب؛ `overrides` لوضع تسجيلٍ آخر."""
+    values = dict(app_database_url=app_url_for(owner_url), login_key=LOGIN_KEY, anthropic_api_key=None,
+                  public_origin=ORIGIN, registration="open", support_contact=SUPPORT_CONTACT)
+    values.update(overrides)
+    return config.Settings(**values)
+
+
+@contextmanager
+def serve(owner_url: str, writer: FakeCopywriter, **overrides):
+    """التطبيق كما يُقلع في الإنتاج، بتجمّعه الذي يُغلق بعده؛ `overrides` لوضع تسجيلٍ آخر."""
+    settings = build_settings(owner_url, **overrides)
     database = Database(settings.app_database_url)
     try:
         yield create_app(settings, copywriter=writer, database=database)
@@ -67,18 +72,28 @@ def server(owner, owner_url, writer):
 
 
 @pytest.fixture
+def server(owner, owner_url, writer):
+    """تطبيقٌ جديد على قاعدةٍ نظيفة (`owner` يفرّغها أولاً)، يُغلق تجمّعه بعده."""
+    with serve(owner_url, writer) as app:
+        yield app
+
+
+@pytest.fixture
 def browser(server):
     """
     مصنع متصفّحات على التطبيق نفسه. `write_headers=False` ⇒ بلا ترويستي
-    الكتابة (لاختبارات CSRF وإعادة ملفٍّ قديم يدوياً).
+    الكتابة (لاختبارات CSRF وإعادة ملفٍّ قديم يدوياً). `address` عنوان العميل كما
+    يراه الخادم، لحدود الشبكة الواحدة.
     """
     with ExitStack() as stack:
-        def open_browser(*, write_headers: bool = True, raise_server_exceptions: bool = True) -> TestClient:
+        def open_browser(*, write_headers: bool = True, raise_server_exceptions: bool = True,
+                         address: str | None = None) -> TestClient:
             client = TestClient(
                 server,
                 base_url=ORIGIN,
                 headers=dict(WRITE_HEADERS) if write_headers else None,
                 raise_server_exceptions=raise_server_exceptions,
+                client=(address, 50000) if address else ("testclient", 50000),
             )
             return stack.enter_context(client)
 
@@ -92,10 +107,27 @@ def _password_hash(password: str) -> str:
 
 
 def add_user(owner, username: str, *, password: str = PASSWORD, active: bool = True,
-             profession: str = "MARKETING") -> UUID:
-    """حسابٌ مفعَّل كما يتركه التفعيل: HMAC الاسم، وتجزئة الكلمة، و`activated_at`."""
-    return make_user(owner, login=auth.login_hmac(LOGIN_KEY, username),
-                     password_hash=_password_hash(password), active=active, profession=profession)
+             profession: str = "MARKETING", terms_version: str | None = terms.TERMS_VERSION) -> UUID:
+    """
+    حسابٌ مفعَّل كما يتركه التفعيل: HMAC الاسم، وتجزئة الكلمة، و`activated_at`؛ وقد
+    وافق على النسخة الحالية من «قبل أن تبدأ» (`terms_version=None` ⇒ حساب دعوةٍ لم يوافق قطّ).
+    """
+    user_id = make_user(owner, login=auth.login_hmac(LOGIN_KEY, username),
+                        password_hash=_password_hash(password), active=active, profession=profession)
+    with owner.cursor() as cursor:
+        cursor.execute("UPDATE users SET terms_version = %s,"
+                       " terms_accepted_at = CASE WHEN %s::text IS NULL THEN NULL ELSE now() END WHERE id = %s",
+                       (terms_version, terms_version, user_id))
+    return user_id
+
+
+def issue_code(owner) -> str:
+    """رمز تسجيلٍ صالح يوماً، كما يصدره المشغّل: تجزئته وحدها في القاعدة."""
+    code = auth.new_token()
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO signup_codes (code_hash, expires_at) VALUES (%s, now() + interval '1 day')",
+                       (auth.hash_token(code),))
+    return code
 
 
 def log_in(client: TestClient, username: str = SELLER, password: str = PASSWORD) -> httpx.Response:

@@ -57,6 +57,26 @@ class RateLimiter:
                 raise RateLimitExceeded(window[0] + self._limit.window_seconds - timestamp)
             window.append(timestamp)
 
+    def blocked(self, key: str) -> float | None:
+        """ثوانٍ حتى يفرغ مكانٌ لهذا المفتاح، أو None إن كان فيه مكان. لا يسجّل شيئاً."""
+        timestamp = monotonic()
+        cutoff = timestamp - self._limit.window_seconds
+        with self._lock:
+            window = self._events.get(key)
+            while window and window[0] <= cutoff:
+                window.popleft()
+            if not window or len(window) < self._limit.max_events:
+                return None
+            return window[0] + self._limit.window_seconds - timestamp
+
+    def record(self, key: str) -> None:
+        """يسجّل حدثاً بلا فحص: لما يُعدّ بعد وقوعه (جواب «البريد مأخوذ»)."""
+        timestamp = monotonic()
+        with self._lock:
+            if len(self._events) > _SWEEP_ABOVE:
+                self._sweep(timestamp - self._limit.window_seconds)
+            self._events.setdefault(key, deque()).append(timestamp)
+
     def _sweep(self, cutoff: float) -> None:
         """يحذف المفاتيح التي انقضت كل أحداثها — عناوين كثيرة لا تملأ الذاكرة بلا حدّ."""
         stale = [key for key, window in self._events.items() if not window or window[-1] <= cutoff]

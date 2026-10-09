@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from eyework.auth import EMAIL_MAX, LOGIN_MAX, LOGIN_MIN, PASSWORD_MAX, PASSWORD_MIN
 from eyework.copy_rules import EDIT_NOTE_MAX, MAX_PRESETS, EditPreset
 from eyework.professions import Profession
+from eyework.ui_size import UiSize
 
 __all__ = [
     "ActivateBody",
@@ -34,11 +35,15 @@ __all__ = [
     "SignupCodeBody",
     "RestoreBody",
     "RowVersionBody",
+    "TermsBody",
+    "UiSizeBody",
 ]
 
 RowVersion = Annotated[StrictInt, Field(ge=1, le=2_000_000_000)]
 #: شكل رموز التسجيل والتفعيل: 43 حرفاً من base64url (`auth.new_token`).
 SignupCode = Annotated[StrictStr, Field(pattern=r"^[A-Za-z0-9_-]{43}$")]
+#: نسخة «قبل أن تبدأ»: تاريخ سريانها (`terms.TERMS_VERSION`).
+TermsVersion = Annotated[StrictStr, Field(pattern=r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")]
 
 
 class _Body(BaseModel):
@@ -60,20 +65,35 @@ class RegisterBody(_Body):
     """
     الأنواع والأطوال هنا؛ والشكل (الاسم، والبريد، والتاريخ، والعمر) في
     `auth.check_*`، فيعود لكل حقلٍ رمزه ورسالته وتعرف الواجهة أيّ خطوةٍ تُصلَح.
+
+    الرمز غائبٌ في التسجيل المفتوح. والنسخة ما عُرض على صاحب الطلب: إن تغيّرت منذ
+    عرضها فلا حساب.
     """
 
-    code: SignupCode
+    code: SignupCode | None = None
     name: Annotated[StrictStr, Field(min_length=1, max_length=60)]
     birth_date: Annotated[StrictStr, Field(min_length=10, max_length=10)]
     email: Annotated[StrictStr, Field(min_length=LOGIN_MIN, max_length=EMAIL_MAX)]
     password: Annotated[StrictStr, Field(min_length=1, max_length=PASSWORD_MAX)]
     profession: Profession
+    #: طريقة الاستخدام يختارها صاحب الحساب: لا حساب بلا اختيار، والقاعدة تشترطها كذلك.
+    ui_size: UiSize
     #: الموافقة على الإشعار: لا حساب تسجيلٍ بدونها، فلا قيمة غير `true`.
     accept_terms: Literal[True]
+    terms_version: TermsVersion
 
 
 class SignupCodeBody(_Body):
     code: SignupCode
+
+
+class UiSizeBody(_Body):
+    ui_size: UiSize
+
+
+class TermsBody(_Body):
+    #: ما عُرض ووافق عليه: يُقبل إن كان النسخة الحالية وحدها.
+    terms_version: TermsVersion
 
 
 # ── مفاتيح المرور ──────────────────────────────────────────────────────

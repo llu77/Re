@@ -112,7 +112,7 @@ def test_web_routes_never_touch_the_database_directly():
 
 
 PURE = ("states.py", "money.py", "arabic_numbers.py", "copy_rules.py", "prompt.py", "passwords.py",
-        "clock.py", "rate_limit.py", "professions.py")
+        "clock.py", "rate_limit.py", "professions.py", "terms.py", "ui_size.py")
 IMPURE = {"fastapi", "starlette", "psycopg", "psycopg_pool", "anthropic", "PIL"}
 
 
@@ -339,3 +339,64 @@ def test_the_users_name_never_reaches_the_model():
     assert set(inspect.signature(prompt.CopyRequest).parameters) == {
         "jpeg", "seller_note", "previous", "presets", "edit_note",
     }
+
+
+# ── بوّابة الموافقة ─────────────────────────────────────────────────────
+#: أسماء عملاء النموذج على حالة التطبيق (`request.app.state.<اسم>`): مسارٌ يذكر أحدها
+#: يصل النموذج. وكل ما تحت `/api/ai/` يصله بحكم اسمه.
+MODEL_CLIENTS = ("copywriter", "gateway", "reviewer", "assistant", "support_agent")
+#: يُغلقان في حزمة التبديل مع تسلسل البدء (القرار D1): قبلها لا سبيل لمن وافق على
+#: نسخةٍ أقدم إلى إعادة القبول من العميل الثابت، فحجبهم عن النصّ يوقف العمل.
+UNGATED_UNTIL_THE_SWITCH = {"POST /api/campaigns/{campaign_id}/copy", "POST /api/campaigns/{campaign_id}/copy/edit"}
+
+
+def _api_routes():
+    """مسارات كل وحدة `web/routes_*` بموجّهها، كما يضمّها التطبيق: اعتماديات الموجّه فيها."""
+    import importlib
+    import pkgutil
+
+    from eyework import web
+
+    for info in pkgutil.iter_modules(web.__path__):
+        if info.name.startswith("routes_"):
+            yield from importlib.import_module(f"eyework.web.{info.name}").router.routes
+
+
+def _depends_on(dependant, target) -> bool:
+    return any(sub.call is target or _depends_on(sub, target) for sub in dependant.dependencies)
+
+
+def _reaches_the_model(route) -> bool:
+    import inspect
+
+    source = inspect.getsource(route.endpoint)
+    return route.path.startswith("/api/ai/") or any(f"state.{name}" in source for name in MODEL_CLIENTS)
+
+
+def test_every_route_that_reaches_the_model_depends_on_the_consent_gate():
+    """لا يُرسَل شيءٌ لحسابٍ إلى مزوّد النموذج قبل أن يوافق على النسخة الحالية من «قبل أن تبدأ»."""
+    from eyework.web.deps import require_current_terms
+
+    reaching, offenders = [], []
+    for route in _api_routes():
+        if not _reaches_the_model(route):
+            continue
+        for method in sorted(route.methods):
+            name = f"{method} {route.path}"
+            reaching.append(name)
+            if name not in UNGATED_UNTIL_THE_SWITCH and not _depends_on(route.dependant, require_current_terms):
+                offenders.append(name)
+    assert not offenders, f"مسارٌ يصل النموذج بلا بوّابة الموافقة: {offenders}"
+    # الاستثناء يسمّي مساراتٍ تصل النموذج فعلاً: لو أُغلقت أو حُذفت فليُحذف من هنا.
+    assert UNGATED_UNTIL_THE_SWITCH <= set(reaching), set(reaching)
+
+
+def test_the_consent_gate_builds_on_the_session_and_nothing_else():
+    """البوّابة تعتمد `require_user` فتُحسب الجلسة مرةً للطلب، ولا تقرأ جسماً ولا استعلاماً."""
+    import inspect
+
+    from eyework.web.deps import require_current_terms, require_user
+
+    parameters = inspect.signature(require_current_terms).parameters
+    assert set(parameters) == {"request", "user_id"}
+    assert parameters["user_id"].default.dependency is require_user

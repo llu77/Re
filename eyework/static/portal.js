@@ -369,6 +369,8 @@ async function onSignupCreate(event) {
         json: {
             code: s.code, name: s.name, birth_date: birthDate(), email: s.email,
             password, profession: s.profession, accept_terms: true,
+            // هذا العميل بالحجم الكبير وحده، ونسخة الإشعار التي يعرضها هي ما قرأه الخادم.
+            ui_size: 'GAZE', terms_version: state.choices.registration.terms_version,
         },
     });
     state.busy = false;
