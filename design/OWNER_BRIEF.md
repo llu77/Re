@@ -79,3 +79,24 @@ The new client is served under `/next/` from part 2a (the owner asked to see pro
 4. **Slots are fixed by the landing rules**: «النسخة السابقة» in the top end slot, «ملاحظة نصية» in the bottom end slot, «أكثر» before «أقل», «التالي» in the top end slot of the budget and days screens, so nothing that commits or changes a value ever lands under a resting gaze after a press.
 
 **Deferred, said in the pull request:** plan decision D12 («حجم النصّ» in iOS following the system size with a cap). The design's CSS discards the system size (`font-size` after `font: -apple-system-body` wins, and `1em` is the parent's size); a correct version needs the system font on an ancestor and a pass over every text element, and only a WebKit device can measure it. It goes with the switch package and the device gate.
+
+## Owner update — 2026-10-09 (verbatim, then the decisions of part 2c)
+
+> التصاميم سيئه وكانها من عام ٢٠٠٤ . والاحجام كبيره جدا وكل شي من التصاميم والواجهات بحاجة الى اعاده بناء وتحسين. استخدم 21st.dev … استخدم احدث التصاميم والواجهات والالوان والتنسيقات وصغر الاحجام الى اقل حجم ممكن من اجل حركه العين ، ونسق ليكون ملائم لشاشات الايفون + الايباد.
+
+Part 2c (merged as #19) rebuilt the new client's look and shell; the screens, routes, ids and API stayed. What the owner sees now, and the rules behind it:
+
+1. **Two sizes, both smaller.** Touch: targets 40 px (primary buttons and rows 44), gaps 8, edge 16, text 15/13, inputs 16. Eye tracking: targets 48 px (Apple's documented 44 pt minimum plus four), gaps 12, edge 16, text 17/15, inputs 17, at most twelve enabled targets a screen, no scrolling, nothing clipped. The earlier 72 px targets, 24 px gaps and ten-target budget are gone; the 44 pt floor is the one line that is not crossed.
+2. **Look.** Neutral background, white cards with a hairline border and a light shadow, radii 12/16, one primary colour (a filled button only for what commits, a tinted secondary for the next step), control borders at 3:1, Noto Sans Arabic at weight 600 for headings and buttons, no dark mode (not requested). Motion only in the touch size and only by CSS; none in eye tracking.
+3. **Navigation.** Phones: a fixed bottom tab bar with four safe entries (الرئيسية · الأقسام · الأدوات · حسابي); the sections and the tools open as sheets. iPad and desktop from 744 px: a sidebar with the entries, «اسأل سيمبول», «مساعدة» and «حسابي»; in eye tracking the sidebar is a rail with the same four entries so the twelve-target budget holds. From 1024 px by touch, «حملاتي» sits beside the open campaign. The floating tools button, the header dropdown and the account sub-screen are gone.
+4. **Two 21st.dev components were used as layouts and rebuilt without Radix or motion** (Mobile Navigation Tabs by shadcnui-blocks; Sidebar by wensity), credited in the file headers and the README. The owner's 21st.dev key lives only in the environment variable `API_KEY_21ST`, never in the repository; the `21st@21st` plugin is installed for this environment.
+5. **One deviation from the plan, deliberate.** The tab bar hides under the keyboard only in the touch size, where it is fixed over the page. In eye tracking it sits in the flow of a non-scrolling screen, so hiding it would move every target under a lingering gaze; it stays.
+6. **The gaze contract moved to the new thresholds and to iPhone and iPad frames** (375×635, 390×664, 393×700, 430×800, the 320×635 stress frame, 744×1133, 820×1180, 1024×1366, 1180×820 landscape, 1280×800). A screenshot script (`tests/ui/next/shots.py`) walks every main screen on every frame in both sizes for the owner; 532 screenshots were sent, all audits clean.
+
+**Not measured here, as before:** Safari on a real iPhone or iPad, eye-tracking precision at 48 px, the keyboard against the hidden bar on a device. Decision D12 (iOS text size) stays deferred to the switch package.
+
+## Owner request — 2026-10-09 (verbatim)
+
+> بصفتك مهندس خبير ومختص، راجع المهن وقم ببحث موسع حول افضل الممارسات لكي تقوم باضافه كل مايحتاجونه ليجدوه. مثلا امين المخزون: يحتاج اضافته فاتوره شراء ، مسترجع ، جرد ، يجب ان يكون له مخزن وبضاعه (البضاعه يضيف منتج ويكتب اسمه ، ويظهر رمز مميز للمنتج ، السعر ، الضريبه ، المندوب بحيث يكتب اسم المندوب … الخ)
+
+Research is under way (best practice, Saudi rules, the apps Saudi SMEs use, the jobs themselves, data entry by eye tracking, AI assistance), verified against primary sources, then synthesized into a requirement list per profession. The list goes into the plan's packages 3 (storekeeper), 4 (support) and 6 (marketing). Known gaps against the owner's words already: the inventory spec has only an optional manual item code (no automatic unique code, no barcode), no supplier representative, no warehouse entity.
