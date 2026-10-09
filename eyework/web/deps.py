@@ -65,6 +65,8 @@ class Limiters:
     #: تغيير طريقة الاستخدام، والموافقة على نسخةٍ جديدة: لكل حساب.
     ui_size_user: RateLimiter
     terms_user: RateLimiter
+    #: قراءات المخزون (البحث أثناء الكتابة والصفحات) لكل حساب.
+    inventory_read: RateLimiter
 
     @classmethod
     def default(cls) -> "Limiters":
@@ -95,6 +97,7 @@ class Limiters:
             registration_check_net=RateLimiter(RateLimit(30, 3600.0)),
             ui_size_user=RateLimiter(RateLimit(30, 3600.0)),
             terms_user=RateLimiter(RateLimit(10, 3600.0)),
+            inventory_read=RateLimiter(RateLimit(240, 60.0)),
         )
 
 

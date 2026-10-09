@@ -150,6 +150,10 @@ UPDATE ai_requests SET finished_at = now(), outcome = 'ABANDONED'
 _PURGE_AI_REQUESTS = "DELETE FROM ai_requests WHERE started_at < now() - interval '30 days'"
 #: تنبيهٌ لم يُعتمد عمله في ثلاثين يوماً لا قرار ينتظره.
 _PURGE_AI_OPEN_FLAGS = "DELETE FROM ai_flags WHERE closed_at IS NULL AND created_at < now() - interval '30 days'"
+#: مسودات المخزون الخاملة ثلاثين يوماً (كل تعديلٍ في الأسطر يحدّث رأسها). المسجَّل لا يُحذف
+#: إلا مع حسابه (inv_record_is_permanent).
+_PURGE_INV_PURCHASE_DRAFTS = "DELETE FROM inv_purchases WHERE status = 'DRAFT' AND updated_at < now() - interval '30 days'"
+_PURGE_INV_RETURN_DRAFTS = "DELETE FROM inv_returns WHERE status = 'DRAFT' AND updated_at < now() - interval '30 days'"
 
 
 class AdminError(Exception):
@@ -336,7 +340,9 @@ def purge() -> dict[str, int]:
                                 # بهذا الترتيب: يُغلق المهجور قبل أن يُحذف القديم، وتُحذف التنبيهات
                                 # المفتوحة بعد أن يُفكّ ما يبقى منها عن دفترٍ حُذف.
                                 ("ai_abandoned", _PURGE_AI_ABANDONED), ("ai_requests", _PURGE_AI_REQUESTS),
-                                ("ai_open_flags", _PURGE_AI_OPEN_FLAGS)):
+                                ("ai_open_flags", _PURGE_AI_OPEN_FLAGS),
+                                ("inv_purchase_drafts", _PURGE_INV_PURCHASE_DRAFTS),
+                                ("inv_return_drafts", _PURGE_INV_RETURN_DRAFTS)):
             cursor.execute(statement)
             counts[name] = cursor.rowcount
     return counts

@@ -51,12 +51,15 @@ from eyework.service_errors import Conflict, NotFound
 
 __all__ = [
     "FEATURES",
+    "KIND_FEATURES",
     "FLAGS_UNDECIDED",
     "MESSAGES",
     "ReviewFeature",
     "ReviewRunner",
     "Snapshot",
     "decide",
+    "feature_for",
+    "flags_for",
     "flags_undecided",
     "headline",
     "parse_flags",
@@ -133,6 +136,13 @@ class ReviewFeature:
 
 #: يملؤه كل مسار عمل عند استيراده؛ فارغٌ قبل الحزمة الثالثة.
 FEATURES: dict[str, ReviewFeature] = {}
+#: أداةٌ تخدم نوعين بدالّتي بدءٍ وبصمةٍ مختلفتين (المخزون: الفاتورة والمرتجع) تسجّل
+#: نظيرها لكل نوعٍ هنا؛ وإلا فالأداة نفسها لكل أنواعها.
+KIND_FEATURES: dict[tuple[str, str], ReviewFeature] = {}
+
+
+def feature_for(code: str, kind: str) -> ReviewFeature | None:
+    return KIND_FEATURES.get((code, kind)) or FEATURES.get(code)
 
 # ── العبارات ────────────────────────────────────────────────────────────
 _STORED_REVIEW = """
@@ -438,7 +448,7 @@ def review(db: Database, runner: ReviewRunner, user_id: UUID, feature_code: str,
     حُجز مقعدٌ (أو عاد «غير متاح» من غير أن يُفتح شيء) وفُتح صفّ الدفتر. بعد
     الإيداع تُرسل المهمّة إلى الحوض ويُنتظر حتى `wait_seconds`.
     """
-    feature = FEATURES.get(feature_code)
+    feature = feature_for(feature_code, kind)
     if feature is None or kind not in feature.kinds:
         raise NotFound("NOT_FOUND", NO_REVIEW)
     reason = runner.guard.acquire()
@@ -505,7 +515,7 @@ def decide(db: Database, user_id: UUID, flag_id: UUID, choice: str, digest: str)
         stored = bytes(row["content_digest"])
         if bytes.fromhex(digest) != stored:
             raise Conflict("FLAG_STALE", FLAG_STALE)
-        feature = FEATURES.get(row["feature"])
+        feature = feature_for(row["feature"], row["subject_kind"])
         if feature is None:
             raise NotFound("NOT_FOUND", NO_REVIEW)
         cursor.execute(feature.digest_sql, (row["subject_id"],))
@@ -516,6 +526,15 @@ def decide(db: Database, user_id: UUID, flag_id: UUID, choice: str, digest: str)
         decided = cursor.fetchone()
     ai_log.event("flag_decided", outcome=choice)
     return {"flag_id": str(flag_id), "decision": decided["choice"], "decided_at": decided["decided_at"].isoformat()}
+
+
+def flags_for(db: Database, user_id: UUID, kind: str, subject_id: UUID, digest: bytes) -> list[dict]:
+    """ملاحظات سيمبول المحفوظة على هذا المحتوى بقراراتها، بشكل جواب المراجعة؛ لعرضها بلا استدعاء."""
+    with db.session(user_id) as cursor:
+        cursor.execute(_DISPLAY_NAME)
+        name = cursor.fetchone()["name"]
+        rows = _rows(cursor, _FLAGS_FOR_DIGEST, (kind, subject_id, digest))
+    return [_flag_view(row, name) for row in rows]
 
 
 def undecided_flags(db: Database, user_id: UUID, kind: str, subject_id: UUID, digest: bytes) -> list[dict]:

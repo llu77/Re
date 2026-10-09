@@ -97,7 +97,7 @@ def test_only_the_image_module_decodes_images():
 #: بدور المالك، و`campaigns.py` و`reviewer.py` يترجمان أخطاء القيود، و`web/app.py` يُنشئ
 #: التجمّع ويترجم أخطاءه. سائر الخدمات (`auth` و`passkeys` والمساعد) تصل القاعدة عبر
 #: `eyework.db` وحده؛ وقاعدة المسارات في `test_web_routes_never_touch_the_database_directly`.
-DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py"}
+DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py", "inventory.py"}
 
 
 def test_database_access_is_confined():
@@ -116,7 +116,7 @@ def test_web_routes_never_touch_the_database_directly():
 PURE = ("states.py", "money.py", "arabic_numbers.py", "copy_rules.py", "prompt.py", "passwords.py",
         "clock.py", "rate_limit.py", "professions.py", "terms.py", "ui_size.py", "service_errors.py",
         "prompt_kit.py", "ai_limits.py", "ai_text.py", "redact.py", "grounding.py", "reviewer_prompt.py",
-        "assistant_prompt.py", "ai_log.py")
+        "assistant_prompt.py", "ai_log.py", "inventory_rules.py", "inventory_flags.py", "inventory_prompt.py")
 IMPURE = {"fastapi", "starlette", "psycopg", "psycopg_pool", "anthropic", "PIL"}
 
 
@@ -348,11 +348,12 @@ def test_the_users_name_never_reaches_the_model():
 # ── طبقة الذكاء الاصطناعي ─────────────────────────────────────────────
 AI_MODULES = ("model_gateway.py", "prompt_kit.py", "ai_limits.py", "ai_text.py", "redact.py", "grounding.py",
               "reviewer_prompt.py", "reviewer.py", "assistant_prompt.py", "assistant.py", "ai_log.py",
-              "web/routes_ai.py", "scripts/ai_eval.py")
-PROMPT_MODULES = ("prompt_kit.py", "reviewer_prompt.py", "assistant_prompt.py")
+              "web/routes_ai.py", "scripts/ai_eval.py", "inventory_prompt.py")
+PROMPT_MODULES = ("prompt_kit.py", "reviewer_prompt.py", "assistant_prompt.py", "inventory_prompt.py")
 #: من يسجّل عبر `ai_log` وحده: لا `logging` ولا `print`، فلا يتسرّب نصٌّ إلى السجلّ.
 AI_LOG_ONLY = ("model_gateway.py", "prompt_kit.py", "ai_text.py", "redact.py", "grounding.py", "reviewer_prompt.py",
-               "reviewer.py", "assistant_prompt.py", "assistant.py", "web/routes_ai.py")
+               "reviewer.py", "assistant_prompt.py", "assistant.py", "web/routes_ai.py", "inventory_prompt.py",
+               "inventory.py")
 #: ما يعيد هذا النموذج 400 عليه، أو لا تحتاجه هذه الأدوات: لا يظهر حرفياً في وحداتها.
 _FORBIDDEN_REQUEST_KEYS = {"thinking", "budget_tokens", "tool_choice"}
 #: مفاتيح لا تدخل موضوعاً يُرسل (المواصفة §6.2).
