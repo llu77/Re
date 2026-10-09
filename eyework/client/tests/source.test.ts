@@ -20,8 +20,11 @@ describe("the adapted components", () => {
   it.each([
     ["timers", /\b(setTimeout|setInterval|requestIdleCallback)\s*\(/],
     ["browser storage", /\b(localStorage|sessionStorage|indexedDB)\b/],
-    ["hover and pointer handlers", /\bon(Mouse|Pointer)(Enter|Leave|Over|Out|Move)\b/],
-    ["external images and fonts", /https?:\/\/(?!cdn\.jsdelivr\.net\/npm\/@fontsource)/],
+    [
+      "hover and pointer handlers",
+      /\bon(Mouse|Pointer)(Enter|Leave|Over|Out|Move)\b|\bwhile(Hover|Tap)\b|\bonHover(Start|End)\b|\bonTap\b|addEventListener\(\s*["'](pointer|mouse)/,
+    ],
+    ["external URLs", /https?:\/\//],
   ])("hold no %s", (_, pattern) => {
     const hits = sources.filter((file) => pattern.test(readFileSync(file, "utf8").replace(/^\s*(\/\/|\*).*$/gm, "")))
     expect(hits).toEqual([])

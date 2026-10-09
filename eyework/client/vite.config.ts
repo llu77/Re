@@ -4,10 +4,11 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
 // واجهة eyework الجديدة: تُبنى ملفّاتٍ ثابتة يخدمها FastAPI تحت سياسة المحتوى نفسها
-// (كل شيءٍ من الأصل: لا خطّ ولا سكربت ولا صورة من خارجه). في التطوير يحوّل Vite
-// طلبات /api إلى الخادم.
+// (كل شيءٍ من الأصل: لا خطّ ولا سكربت ولا صورة من خارجه). تُخدم تحت /next/ ما دامت
+// الشاشات تنتقل إليها: ما لم ينتقل بعد شاشةٌ في التطبيق القائم عند «/»، والانتقال
+// إليها تنقّلٌ حقيقي إلى وثيقةٍ أخرى. في التطوير يحوّل Vite طلبات /api إلى الخادم.
 export default defineConfig({
-  base: "/",
+  base: "/next/",
   plugins: [react()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },

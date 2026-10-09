@@ -10,7 +10,10 @@
  *  • لا هاتف، ولا «تذكّرني» في localStorage: سلسلة مفاتيح iCloud تحفظ الدخول،
  *    والتطبيق لا يخزّن في المتصفّح شيئاً.
  *  • «حساب جديد» يبدأ خطوات التسجيل، خطوةً في كل شاشة (`onStartSignup`): نموذجٌ
- *    بستّة حقولٍ في شاشةٍ واحدة لا يُملأ بالنظر.
+ *    بستّة حقولٍ في شاشةٍ واحدة لا يُملأ بالنظر. ومضيفٌ لا يملك بعد طريقاً إلى
+ *    التسجيل لا يمرّر `onStartSignup`، فيقول الوضع ذلك بدل زرٍّ لا يفضي إلى شيء.
+ *  • بعد دخولٍ رُفض يبقى «ادخل» معطّلاً حتى يتغيّر حقل: نظرٌ باقٍ عليه لا يعيد إرسال
+ *    الاسم وكلمة المرور نفسيهما.
  *  • كل هدفٍ 72px على الأقل وبين كل هدفين 24px؛ فإظهار كلمة المرور زرٌّ مستقلٌّ
  *    بنصّه، لا أيقونةٌ صغيرة داخل الحقل.
  *  • قياس القوّة يقيس ما يفرضه الخادم وحده: الطول بين 12 و256. القواعد الأخرى
@@ -37,8 +40,8 @@ export const PASSWORD_MAX = 256
 export interface AuthFormProps {
   /** بعد دخولٍ نجح: الجلسة في ملفّ التعريف، والمضيف يفتح البوابة. */
   onSignedIn: () => void
-  /** «ابدأ التسجيل»: المضيف يفتح الخطوة الأولى من خطوات التسجيل. */
-  onStartSignup: () => void
+  /** «ابدأ التسجيل»: المضيف يفتح الخطوة الأولى من خطوات التسجيل. بلا قيمةٍ لا زرّ. */
+  onStartSignup?: () => void
   /** @default "login" */
   initialMode?: AuthMode
   className?: string
@@ -115,13 +118,14 @@ Field.displayName = "Field"
 
 /* ── العلامة ─────────────────────────────────────────────────────────── */
 
+/* علامةٌ هندسية محايدة: الاسم والعنوان والأيقونة لا تذكر النظر ولا العين ولا الإعاقة
+   (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق معلومةٌ صحّية. */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={cn("size-12 shrink-0", className)} role="img" aria-label="صياغة">
       <rect width="48" height="48" rx="14" className="fill-primary" />
-      <path d="M8 24c4.5-7 10-10.5 16-10.5S35.5 17 40 24c-4.5 7-10 10.5-16 10.5S12.5 31 8 24Z" className="fill-primary-foreground" />
-      <circle cx="24" cy="24" r="6" className="fill-primary" />
-      <circle cx="26" cy="22" r="2" className="fill-primary-foreground" />
+      <rect x="13" y="13" width="14" height="14" rx="3" className="fill-primary-foreground" />
+      <rect x="21" y="21" width="14" height="14" rx="3" className="fill-primary-foreground opacity-60" />
     </svg>
   )
 }
@@ -135,10 +139,16 @@ export function AuthForm({ onSignedIn, onStartSignup, initialMode = "login", cla
   const [reveal, setReveal] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // كل محاولةٍ تعيد رسم التنبيه، فيُقرأ من جديد ولو تكرّر نصّه.
+  const [attempt, setAttempt] = useState(0)
+  // ما رفضه الخادم: «ادخل» معطّلٌ ما دام الحقلان كما رُفضا.
+  const [refused, setRefused] = useState<{ username: string; password: string } | null>(null)
+  const unchanged = refused !== null && refused.username === username && refused.password === password
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (busy) return
+    if (busy || unchanged) return
+    setAttempt((n) => n + 1)
     const name = username.trim()
     if (!name || !password) {
       setError("اكتب اسم الدخول وكلمة المرور.")
@@ -151,6 +161,10 @@ export function AuthForm({ onSignedIn, onStartSignup, initialMode = "login", cla
     if (result.status === 204) {
       onSignedIn()
       return
+    }
+    // رفضٌ لما أُرسل (لا انقطاع ولا حدّ): لا يُعاد إرساله كما هو.
+    if (result.status === 401 || result.status === 422) {
+      setRefused({ username, password })
     }
     setError(result.status === 422 ? "تحقّق من اسم الدخول وكلمة المرور." : detail(result))
   }
@@ -173,7 +187,7 @@ export function AuthForm({ onSignedIn, onStartSignup, initialMode = "login", cla
             {mode === "login" ? "أهلاً بعودتك" : "حسابٌ جديد"}
           </h2>
           <p className="text-base text-muted-foreground">
-            {mode === "login" ? "ادخل إلى بوابة عملك" : "بوابة عملٍ لمهنتك، بالنظر أو باللمس"}
+            {mode === "login" ? "ادخل إلى بوابة عملك" : "بوابة عملٍ لمهنتك"}
           </p>
         </div>
       </header>
@@ -224,18 +238,23 @@ export function AuthForm({ onSignedIn, onStartSignup, initialMode = "login", cla
             onChange={(e) => setPassword(e.target.value)}
           />
           <div className="grid grid-cols-2 gap-target-gap">
-            <Button type="submit" disabled={busy} aria-busy={busy}>
-              {busy ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <LogIn aria-hidden="true" />}
+            <Button type="submit" disabled={busy || unchanged} aria-busy={busy}>
+              {busy ? (
+                <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <LogIn className="rtl:-scale-x-100" aria-hidden="true" />
+              )}
               ادخل
             </Button>
+            {/* زرّ تبديلٍ بتسميةٍ ثابتة: الحالة في aria-pressed وحدها (ARIA APG). */}
             <Button variant="secondary" aria-pressed={reveal} onClick={() => setReveal((shown) => !shown)}>
               {reveal ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-              {reveal ? "أخفِ" : "أظهر"}
+              أظهر كلمة المرور
             </Button>
           </div>
           <p role="alert" className="min-h-[1.6em] text-base text-destructive">
             {error && (
-              <span className="inline-flex items-start gap-2">
+              <span key={attempt} className="inline-flex items-start gap-2">
                 <AlertTriangle className="mt-1 size-5 shrink-0" aria-hidden="true" />
                 {error}
               </span>
@@ -248,10 +267,16 @@ export function AuthForm({ onSignedIn, onStartSignup, initialMode = "login", cla
             خطوةٌ في كل شاشة، ولا يُرسَل شيءٌ قبل الأخيرة: الموافقة، ثم الاسم، وتاريخ الميلاد، والمهنة،
             والبريد، ثم كلمة المرور.
           </p>
-          <Button width="full" onClick={onStartSignup}>
-            <UserPlus aria-hidden="true" />
-            ابدأ التسجيل
-          </Button>
+          {onStartSignup ? (
+            <Button width="full" onClick={onStartSignup}>
+              <UserPlus aria-hidden="true" />
+              ابدأ التسجيل
+            </Button>
+          ) : (
+            <p className="text-base leading-relaxed text-muted-foreground">
+              التسجيل الآن برابطٍ يصلك ممّن يدير التطبيق: افتح الرابط ليبدأ.
+            </p>
+          )}
         </div>
       )}
     </section>

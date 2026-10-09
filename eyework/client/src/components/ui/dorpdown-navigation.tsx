@@ -11,7 +11,8 @@
  *    بندين 24px؛ والقائمة بعرض الشريط تحته، لا عمودٌ ضيّق بجانب الزرّ.
  *  • الحركة تلاشٍ قصير بـframer-motion، ومع «تقليل الحركة» لا حركة أصلاً. لا layoutId
  *    ولا انزلاق: ما يتحرّك تحت نظرٍ باقٍ قد يُضغط وهو يتحرّك.
- *  • اختيار بندٍ يغلق القائمة؛ وEscape يغلقها ويعيد التركيز إلى زرّها.
+ *  • اختيار بندٍ يغلق القائمة؛ وEscape يغلقها؛ وفي الحالين يعود التركيز إلى زرّها.
+ *    والقائمة تلي زرّها في ترتيب التركيز، لا بعد الأزرار كلّها.
  *  • العربية من اليمين: `start` و`gap` بدل `left` و`space-x`.
  *  • شريطٌ يوضع في رأس الصفحة، لا <main> بارتفاع الشاشة كما في العرض؛ والنوع
  *    `Props` في الأصل كان نوع البند لا نوع الخصائص، فصُحّح.
@@ -32,6 +33,8 @@ export interface NavLeaf {
   /** وجهة البند. بندٌ بلا `href` يحمل `onSelect`. */
   href?: string
   onSelect?: () => void
+  /** أيقونةٌ لها اتجاه (دخول، خروج): تُعكس في الصفحة العربية. */
+  directional?: boolean
 }
 
 export interface NavSubMenu {
@@ -63,7 +66,7 @@ function Leaf({ leaf, onDone }: { leaf: NavLeaf; onDone: () => void }) {
   const body = (
     <>
       <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-        <Icon className="size-6" aria-hidden="true" />
+        <Icon className={cn("size-6", leaf.directional && "rtl:-scale-x-100")} aria-hidden="true" />
       </span>
       <span className="min-w-0">
         <span className="block text-lg font-medium leading-snug text-foreground">{leaf.label}</span>
@@ -97,11 +100,16 @@ export function DropdownNavigation({ navItems, label = "التنقّل", onOpenC
   const reduceMotion = useReducedMotion()
   const panelId = useId()
   const triggers = useRef(new Map<number, HTMLButtonElement>())
-  const open = navItems.find((item) => item.id === openId && item.subMenus)
 
   function setOpen(next: number | null) {
     setOpenId(next)
     onOpenChange?.(next !== null)
+  }
+
+  // الإغلاق بعد اختيارٍ أو بـEscape يعيد التركيز إلى زرّ القائمة، فلا يسقط إلى <body>.
+  function close(id: number) {
+    setOpen(null)
+    triggers.current.get(id)?.focus()
   }
 
   useEffect(() => {
@@ -133,53 +141,61 @@ export function DropdownNavigation({ navItems, label = "التنقّل", onOpenC
                 aria-expanded={openId === item.id}
                 aria-controls={openId === item.id ? panelId : undefined}
                 onClick={() => setOpen(openId === item.id ? null : item.id)}
-                className={cn(buttonVariants({ variant: openId === item.id ? "default" : "secondary", width: "full" }), "px-3")}
+                className={cn(
+                  buttonVariants({ variant: openId === item.id ? "default" : "secondary", width: "full" }),
+                  // في أضيق الشاشات: التسمية فوق السهم، فلا يفيض شيءٌ من الزرّ.
+                  "min-w-0 px-3 max-[359px]:flex-col max-[359px]:gap-0 max-[359px]:px-2",
+                )}
               >
                 <span>{item.label}</span>
                 <ChevronDown
-                  className={cn("transition-transform motion-reduce:transition-none", openId === item.id && "rotate-180")}
+                  className={cn(
+                    "transition-transform motion-reduce:transition-none max-[359px]:!size-4",
+                    openId === item.id && "rotate-180",
+                  )}
                   aria-hidden="true"
                 />
               </button>
             ) : (
-              <a href={item.link} className={cn(buttonVariants({ variant: "secondary", width: "full" }), "px-3")}>
+              <a href={item.link} className={cn(buttonVariants({ variant: "secondary", width: "full" }), "min-w-0 px-3")}>
                 {item.label}
               </a>
             )}
+
+            {/* القائمة في <li> زرّها، مباشرةً بعده في ترتيب التركيز؛ وموضعها نسبةً إلى <nav>. */}
+            <AnimatePresence initial={false}>
+              {openId === item.id && item.subMenus && (
+                <motion.div
+                  key={item.id}
+                  id={panelId}
+                  role="region"
+                  aria-label={item.label}
+                  initial={reduceMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={reduceMotion ? undefined : { opacity: 0 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute inset-x-0 top-full z-20 mt-target-gap rounded-2xl border border-border bg-popover p-5 text-popover-foreground shadow-xl"
+                >
+                  <div className="flex flex-col gap-target-gap">
+                    {item.subMenus.map((sub) => (
+                      <section key={sub.title} aria-label={sub.title}>
+                        <h3 className="mb-3 text-base font-medium text-muted-foreground">{sub.title}</h3>
+                        <ul className="flex flex-col gap-target-gap">
+                          {sub.items.map((leaf) => (
+                            <li key={leaf.label}>
+                              <Leaf leaf={leaf} onDone={() => close(item.id)} />
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </li>
         ))}
       </ul>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key={open.id}
-            id={panelId}
-            role="region"
-            aria-label={open.label}
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute inset-x-0 top-full z-20 mt-target-gap rounded-2xl border border-border bg-popover p-5 text-popover-foreground shadow-xl"
-          >
-            <div className="flex flex-col gap-target-gap">
-              {open.subMenus!.map((sub) => (
-                <section key={sub.title} aria-label={sub.title}>
-                  <h3 className="mb-3 text-base font-medium text-muted-foreground">{sub.title}</h3>
-                  <ul className="flex flex-col gap-target-gap">
-                    {sub.items.map((leaf) => (
-                      <li key={leaf.label}>
-                        <Leaf leaf={leaf} onDone={() => setOpen(null)} />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </nav>
   )
 }

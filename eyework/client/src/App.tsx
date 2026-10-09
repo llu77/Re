@@ -2,7 +2,8 @@
  * الواجهة
  * =======
  * من لا جلسة له يرى AuthForm؛ ومن له جلسةٌ يرى شريط التنقّل ببنود بوابته. الحالة
- * من الخادم وحده (/api/me ثم /api/portal)، لا من المتصفّح.
+ * من الخادم وحده (/api/me ثم /api/portal)، لا من المتصفّح. ولا طريق إلى التسجيل هنا
+ * بعد (يحتاج اليوم رابطاً من المشغّل)، فلا يُمرَّر `onStartSignup` ويقول النموذج ذلك.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -30,6 +31,7 @@ export default function App() {
   const [view, setView] = useState<View>({ kind: "loading" })
   const [menuOpen, setMenuOpen] = useState(false)
   const content = useRef<HTMLElement>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
 
   // React 18 لا يعرف الخاصيّة `inert`، فتُكتب على العنصر نفسه.
   useEffect(() => {
@@ -63,6 +65,11 @@ export default function App() {
     void load()
   }, [load])
 
+  // بعد الدخول يُنقل التركيز إلى العنوان، فيُعلَن ما تغيّر ولا يسقط التركيز إلى <body>.
+  useEffect(() => {
+    if (view.kind === "signed-in") heading.current?.focus({ preventScroll: true })
+  }, [view.kind])
+
   return (
     <div className="min-h-dvh px-edge pb-edge pt-[max(1rem,env(safe-area-inset-top))]">
       {view.kind === "loading" && (
@@ -74,7 +81,7 @@ export default function App() {
 
       {view.kind === "signed-out" && (
         <main className="pt-6">
-          <AuthForm onSignedIn={() => void load()} onStartSignup={() => window.location.assign("/#/signup")} />
+          <AuthForm onSignedIn={() => void load()} />
         </main>
       )}
 
@@ -92,7 +99,7 @@ export default function App() {
               <BrandMark />
               <div>
                 <p className="text-base text-muted-foreground">بوابة {view.portal.name}</p>
-                <h1 className="text-2xl font-bold leading-tight">
+                <h1 ref={heading} tabIndex={-1} className="text-2xl font-bold leading-tight">
                   {view.me.display_name ? `أهلاً، ${view.me.display_name}` : "أهلاً"}
                 </h1>
               </div>

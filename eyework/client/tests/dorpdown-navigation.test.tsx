@@ -3,6 +3,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { BookOpen, UserRound } from "lucide-react"
 
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
 import { DropdownNavigation, type NavItem } from "@/components/ui/dorpdown-navigation"
 import { navItemsFor } from "@/lib/nav"
 import { setReducedMotion } from "./setup"
@@ -56,16 +59,41 @@ describe("DropdownNavigation", () => {
     expect(screen.queryByRole("region")).toBeNull()
   })
 
-  it("closes on Escape and returns focus to its button", async () => {
+  it("closes on Escape, tells the host, and returns focus to its button", async () => {
     setReducedMotion(true)
-    render(<DropdownNavigation navItems={ITEMS} />)
+    const onOpenChange = vi.fn()
+    render(<DropdownNavigation navItems={ITEMS} onOpenChange={onOpenChange} />)
     const trigger = screen.getByRole("button", { name: "حسابي" })
     await userEvent.click(trigger)
+    // التركيز داخل القائمة أولاً، فلا يمرّ الاختبار لأن التركيز لم يغادر الزرّ.
+    screen.getByRole("link", { name: /المصادر/ }).focus()
+    expect(document.activeElement).not.toBe(trigger)
     act(() => {
       fireEvent.keyDown(document, { key: "Escape" })
     })
     expect(screen.queryByRole("region")).toBeNull()
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
     expect(document.activeElement).toBe(trigger)
+  })
+
+  it("returns focus to the menu's button after an item is chosen", async () => {
+    setReducedMotion(true)
+    render(<DropdownNavigation navItems={ITEMS} />)
+    const trigger = screen.getByRole("button", { name: "حسابي" })
+    await userEvent.click(trigger)
+    await userEvent.click(screen.getByRole("button", { name: /الاسم/ }))
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it("puts an open menu right after its button in the focus order", async () => {
+    setReducedMotion(true)
+    render(<DropdownNavigation navItems={ITEMS} />)
+    const trigger = screen.getByRole("button", { name: "حسابي" })
+    await userEvent.click(trigger)
+    const panel = screen.getByRole("region", { name: "حسابي" })
+    const next = screen.getByRole("link", { name: "عن التطبيق" })
+    expect(trigger.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(panel.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("gives every item a label and a description, and a plain link for an item without a menu", async () => {
@@ -93,3 +121,23 @@ describe("portal navigation", () => {
     expect(leaves.find((leaf) => leaf.label === "تسجيل الخروج")!.href).toBe("/#/account/logout")
   })
 })
+
+describe("where the menu items lead", () => {
+  const STATIC = join(__dirname, "..", "..", "static")
+  const current = ["app.js", "portal.js"].map((name) => readFileSync(join(STATIC, name), "utf8")).join("\n")
+
+  it("leads every item to a route the current app at / handles, from /next/ — a real navigation", () => {
+    expect(readFileSync(join(__dirname, "..", "vite.config.ts"), "utf8")).toMatch(/base: "\/next\/"/)
+    for (const tools of [["CAMPAIGN"], []]) {
+      const leaves = navItemsFor({ profession: "X", name: "بوابة", tools }).flatMap((item) =>
+        (item.subMenus ?? []).flatMap((sub) => sub.items),
+      )
+      for (const leaf of leaves) {
+        expect(leaf.href, leaf.label).toMatch(/^\/#\//)
+        const hash = leaf.href!.slice(1)
+        expect(current.includes(`'${hash}'`), `${leaf.label} → ${hash}`).toBe(true)
+      }
+    }
+  })
+})
+

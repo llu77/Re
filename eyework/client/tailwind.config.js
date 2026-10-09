@@ -9,7 +9,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Noto Sans Arabic", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        sans: ["Noto Sans Arabic", "Noto Sans", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
       },
       // عقد النظر: هدفٌ 72px، وبين هدفين 24px، و16px من حافّة الشاشة.
       spacing: {

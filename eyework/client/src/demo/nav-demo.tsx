@@ -5,7 +5,7 @@ import { navItemsFor } from "@/lib/nav"
 export function NavDemo() {
   return (
     <DropdownNavigation
-      navItems={navItemsFor({ profession: "MARKETING", name: "بوابة التسويق", tools: ["CAMPAIGN"] })}
+      navItems={navItemsFor({ profession: "MARKETING", name: "التسويق", tools: ["CAMPAIGN"] })}
       label="أقسام البوابة"
     />
   )

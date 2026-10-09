@@ -1,8 +1,9 @@
 /*
  * بنود التنقّل من بوابة صاحب الجلسة
  * =================================
- * من ردّ /api/portal وحده: «العمل» لا يظهر إلا لمهنةٍ لها أداة، ووجهات البنود مسارات
- * التطبيق القائمة (static/app.js وportal.js).
+ * من ردّ /api/portal وحده: «العمل» لا يظهر إلا لمهنةٍ لها أداة. ووجهات البنود مسارات
+ * التطبيق القائم (static/app.js وportal.js) عند «/»، والواجهة تحت /next/: الضغط
+ * تنقّلٌ حقيقي إلى شاشته هناك حتى تنتقل الشاشة إلى هنا. اختبارٌ يربط كل وجهةٍ بمسارها.
  */
 
 import { BookOpen, GraduationCap, LayoutGrid, ListChecks, LogOut, Megaphone, UserRound } from "lucide-react"
@@ -55,7 +56,7 @@ export function navItemsFor(portal: Portal): NavItem[] {
         items: [
           { label: "حسابي", description: "الاسم والمهنة ومفتاح المرور", icon: UserRound, href: "/#/account" },
           { label: "المصادر", description: "من أين جاءت المهامّ والمهارات", icon: BookOpen, href: "/#/account/sources" },
-          { label: "تسجيل الخروج", description: "بخطوة تأكيدٍ قبل الخروج", icon: LogOut, href: "/#/account/logout" },
+          { label: "تسجيل الخروج", description: "بخطوة تأكيدٍ قبل الخروج", icon: LogOut, href: "/#/account/logout", directional: true },
         ],
       },
     ],
