@@ -196,19 +196,22 @@ Digest = Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
 class ReviewBody(_Body):
-    """ضغطة «راجع»: الأداة، ونوع الموضوع، ومعرّفه، وما رآه صاحبه من رقم الصفّ إن كان له."""
+    """ضغطة «راجع»: الأداة، ونوع الموضوع، ومعرّفه، وما رآه صاحبه من رقم الصفّ إن كان له (المواصفة §8.2)."""
 
     feature: UpperCode
-    kind: UpperCode
+    subject_kind: UpperCode
     subject_id: UUID
     expected_row_version: RowVersion | None = None
 
 
 class DecisionBody(_Body):
-    """«عدّل» أو «تابع رغم ذلك» أو «تراجع»، مع بصمة المحتوى الذي عُرضت عليه الملاحظة."""
+    """
+    «عدّل» أو «تابع رغم ذلك» أو «تراجع»، مع بصمة المحتوى الذي عُرضت عليه الملاحظة
+    (المواصفة §3.7 و§8.2): بلا بصمةٍ لا قرار، فلا يُسجَّل قرارٌ على محتوىً لم يعد صاحبه يراه.
+    """
 
-    action: Literal["EDIT", "PROCEED", "UNDO"]
-    digest: Digest | None = None
+    choice: Literal["EDIT", "PROCEED", "UNDO"]
+    digest: Digest
 
 
 class ScreenBody(_Body):

@@ -16,6 +16,14 @@ def test_kb_norm_unifies_case_tashkeel_tatweel_and_spaces():
     assert kb_norm("ＡＢＣ") == "abc"
 
 
+def test_kb_norm_keeps_the_arabic_indic_digits_and_signs():
+    """الأرقام الهندية وعلاماتها تلي الحركات في Unicode وليست تشكيلاً: اقتباسٌ برقمٍ آخر لا يُثبَت."""
+    assert kb_norm("خلال ٣ أيام ٥٪ و١٢٫٥") == "خلال ٣ أيام ٥٪ و١٢٫٥"
+    assert kb_norm("مُدَّةٌ ٣ أيامٍ") == "مدة ٣ أيام"
+    assert not verify("خلال ٣ أيام ثم", "ستصل خلال ٧ أيام ثم تنتهي")
+    assert verify("خلال ٧ أيام ثم", "ستصل خلال ٧ أيام ثم تنتهي")
+
+
 def test_verify_requires_a_normalized_substring_between_eight_and_three_hundred_characters():
     assert verify("افتح الإعدادات ثم اختر", TEXT)
     assert verify("افْتَح   الإعدادات", TEXT)

@@ -271,6 +271,10 @@ class Breaker:
     قاطع دارةٍ واحد لكل عملية. يفتح بعد `failures` إخفاقاتٍ متتالية من المزوّد
     في `window_seconds`، ويبقى مفتوحاً `open_seconds`؛ ثم يسمح باستدعاءٍ واحد
     تجريبي: نجاحه يغلقه، وفشله يفتحه من جديد. نجاحٌ في أيّ وقتٍ يغلقه.
+
+    إذن التجربة يُعاد إن لم يُستدعَ به شيء (`cancel_trial`: مراجعةٌ مخزونة، أو سقفٌ،
+    أو لا مقعد)، وإلا فإذنٌ لم يُستعمل يُبطل العمل حتى إعادة التشغيل. وإن ضاع
+    الإذن رغم ذلك عاد بعد مدّة فتحٍ أخرى.
     """
 
     def __init__(self, *, failures: int = BREAKER_FAILURES, window_seconds: float = BREAKER_WINDOW_SECONDS,
@@ -282,6 +286,7 @@ class Breaker:
         self._recent: deque[float] = deque()
         self._opened_at: float | None = None
         self._trialing = False
+        self._trial_at: float | None = None
 
     @property
     def is_open(self) -> bool:
@@ -293,10 +298,21 @@ class Breaker:
         with self._lock:
             if self._opened_at is None:
                 return True
-            if now - self._opened_at >= self._open_seconds and not self._trialing:
+            if now - self._opened_at < self._open_seconds:
+                return False
+            # تجربةٌ واحدة في كل مدّة فتح: إذنٌ قائم لم يُسجَّل له شيء يُجدَّد بعد مدّة فتحٍ أخرى.
+            if not self._trialing or now - (self._trial_at or now) >= self._open_seconds:
                 self._trialing = True
+                self._trial_at = now
                 return True
             return False
+
+    def cancel_trial(self) -> None:
+        """إذن تجربةٍ أُخذ ولم يُستدعَ به شيء يعود، فتأخذه الضغطة التالية."""
+        with self._lock:
+            if self._opened_at is not None and self._trialing:
+                self._trialing = False
+                self._trial_at = None
 
     def record(self, reply: ModelReply) -> None:
         failed = reply.outcome in _TRIPPING and not (
@@ -309,9 +325,12 @@ class Breaker:
                 self._trialing = False
                 return
             if self._opened_at is not None:
-                # فشل الاستدعاء التجريبي: يبقى مفتوحاً مدّةً كاملة أخرى.
-                self._opened_at = now
-                self._trialing = False
+                # فشل الاستدعاء التجريبي: يبقى مفتوحاً مدّةً كاملة أخرى. وفشلُ استدعاءٍ بدأ
+                # قبل الفتح لا يمدّه: المدّة ستّون ثانية من الفتح لا من آخر فشلٍ يصل.
+                if self._trialing:
+                    self._opened_at = now
+                    self._trialing = False
+                    self._trial_at = None
                 return
             self._recent.append(now)
             while self._recent and self._recent[0] <= now - self._window:
@@ -325,6 +344,7 @@ class Breaker:
             self._recent.clear()
             self._opened_at = None
             self._trialing = False
+            self._trial_at = None
 
 
 class Guard:
@@ -342,11 +362,16 @@ class Guard:
         if not self.breaker.allow():
             return "DOWN"
         if not self._slots.acquire(blocking=False):
+            # إذنٌ بلا مقعد: يعود إلى القاطع فلا تضيع التجربة على ضغطةٍ لم تستدعِ شيئاً.
+            self.breaker.cancel_trial()
             return "BUSY"
         return None
 
-    def release(self) -> None:
+    def release(self, *, called: bool = True) -> None:
+        """يعيد المقعد؛ و`called=False` حين لم يصل الاستدعاء إلى المزوّد فيعود إذن التجربة معه."""
         self._slots.release()
+        if not called:
+            self.breaker.cancel_trial()
 
     def record(self, reply: ModelReply) -> None:
         self.breaker.record(reply)

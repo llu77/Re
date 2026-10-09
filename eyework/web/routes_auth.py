@@ -347,6 +347,8 @@ def choices(request: Request) -> dict:
     settings = request.app.state.settings
     return {
         **money.choices(),
+        # يبقى كما في المواصفة §7.11 ويعني «ليس مغلقاً»: التفصيل في registration.mode.
+        "registration_open": settings.registration != "closed",
         "registration": {
             "mode": settings.registration,
             "name_max": auth.NAME_MAX,

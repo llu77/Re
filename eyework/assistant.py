@@ -198,6 +198,7 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
     if reason is not None:
         ai_log.event("assistant_unavailable", reason=reason)
         raise AssistantError("AI_UNAVAILABLE" if reason == "DOWN" else "AI_BUSY", 30)
+    called = False
     try:
         with db.session(user_id) as cursor:
             cursor.execute(_PROFESSION)
@@ -214,9 +215,11 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
         except Exception:
             _fail(db, user_id, request_id, "UPSTREAM_ERROR", None)
             raise
+        called = True
         guard.record(reply)
     finally:
-        guard.release()
+        # شاشةٌ مرفوضة أو سقفٌ أو انهيارٌ قبل الجواب: لم يُسجَّل شيءٌ في القاطع، فيعود إذن التجربة.
+        guard.release(called=called)
 
     if reply.outcome != "OK":
         _fail(db, user_id, request_id, reply.outcome, reply.usage)

@@ -204,7 +204,8 @@ def closed_server(owner, owner_url):
 def test_a_closed_registration_refuses_and_says_so_in_the_choices(closed_server, owner):
     code = issue_code(owner)
     with TestClient(closed_server, base_url=ORIGIN, headers=WRITE_HEADERS) as client:
-        assert client.get("/api/choices").json()["registration"]["mode"] == "closed"
+        choices = client.get("/api/choices").json()
+        assert choices["registration"]["mode"] == "closed" and choices["registration_open"] is False
         assert client.get("/api/auth/registration").status_code == 403
         assert client.post("/api/auth/signup-code", json={"code": code}).status_code == 403
         response = client.post("/api/auth/register", json=_body(code))
@@ -217,7 +218,7 @@ def test_the_choices_list_the_professions_and_name_the_link_only_mode(browser):
     choices = browser().get("/api/choices").json()
     assert choices["registration"]["mode"] == "code"
     assert choices["support_contact"] is None
-    assert "registration_open" not in choices
+    assert choices["registration_open"] is True          # مفتوحٌ برابط: «ليس مغلقاً»
     assert [(p["code"], p["name"]) for p in choices["professions"]] == [
         ("MARKETING", "التسويق"), ("STOREKEEPER", "أمين المخزون"), ("SUPPORT", "الدعم الفني")]
     assert all(p["tagline"] for p in choices["professions"])

@@ -51,7 +51,7 @@ def review(body: ReviewBody, request: Request, user_id: UUID = Depends(require_c
     if feature is not None and auth.profession_of(state.db, user_id) is not feature.profession:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail=dict(_PROFESSION))
     try:
-        return reviewer.review(state.db, state.review_runner, user_id, body.feature, body.kind,
+        return reviewer.review(state.db, state.review_runner, user_id, body.feature, body.subject_kind,
                                body.subject_id, body.expected_row_version)
     except Invalid as exc:
         # الفحص الحتمي لمسار العمل: لا استدعاء ولا صفّ، والحقل يعود ليُفتح.
@@ -63,7 +63,7 @@ def decide(flag_id: UUID, body: DecisionBody, request: Request, user_id: UUID = 
     """«عدّل» أو «تابع رغم ذلك» أو «تراجع». لا يُرسَل شيء، فلا بوّابة موافقة."""
     state = request.app.state
     enforce(state.limiters.mutation, str(user_id))
-    return reviewer.decide(state.db, user_id, flag_id, body.action, body.digest)
+    return reviewer.decide(state.db, user_id, flag_id, body.choice, body.digest)
 
 
 @router.post("/assistant")
