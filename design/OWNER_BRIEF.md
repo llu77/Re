@@ -68,3 +68,14 @@ Earlier the same day: registration must be open, with no invitation. The design,
 - This is being implemented now in eyework/migrations/0007_passkey_hardening. New migrations in these specs start at 0008.
 - Design nothing else around passkeys.
 
+
+## Decisions taken while building parts 2a and 2b — 2026-10-09
+
+The new client is served under `/next/` from part 2a (the owner asked to see progress), and the campaign tool moved onto it in part 2b. Four layout decisions were forced by the gaze contract (ten targets at most, 72 px targets, 24 px gaps, no scrolling in the large size) once the unified shell added its own targets (sections menu, account, tools button) to every screen:
+
+1. **«حسابي» in the large size is an entry of the sections menu, not a header button.** The shell then costs two targets per screen. In the normal size the header button stays.
+2. **Every group of six choices (edit presets, budgets, days) shows three and a fourth button that flips to the other three** in the large size («تعديلاتٌ أخرى», «مبالغ أخرى», «مُدَدٌ أخرى»). The normal size shows all six. The chosen preset is named above the group so a choice on the hidden page is never lost.
+3. **The proposed copy in the large size is pages** (title, description, the warning line, سيمبول's note) with «السابق»/«التالي»; nothing is clipped and the whole text is read before «أوافق على النص». The normal size shows it as one scrolling page. The current client's "note shown alone first" behaviour is replaced by this.
+4. **Slots are fixed by the landing rules**: «النسخة السابقة» in the top end slot, «ملاحظة نصية» in the bottom end slot, «أكثر» before «أقل», «التالي» in the top end slot of the budget and days screens, so nothing that commits or changes a value ever lands under a resting gaze after a press.
+
+**Deferred, said in the pull request:** plan decision D12 («حجم النصّ» in iOS following the system size with a cap). The design's CSS discards the system size (`font-size` after `font: -apple-system-body` wins, and `1em` is the parent's size); a correct version needs the system font on an ancestor and a pass over every text element, and only a WebKit device can measure it. It goes with the switch package and the device gate.
