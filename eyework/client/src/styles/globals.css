@@ -1,0 +1,218 @@
+/*
+ * صياغة — الطبقة البصرية (v2)
+ * ===========================
+ * حجمان، يختار المستخدم أحدهما عند التسجيل ومن «حسابي»، ويُكتب على <html data-size>:
+ *
+ *   compact (الافتراضي)  متنٌ 16px، وأهدافٌ 44–48px، وبين هدفين 12px (8 في الصفوف
+ *                        والألسنة)؛ ولا منطقة إصابةٍ أصغر من 44×44 (حدّ Apple الأدنى).
+ *   gaze                 متنٌ 18px، وأهدافٌ 72px، وبين هدفين 24px، وعن الحافّة 16px؛
+ *                        ولا تمرير داخل خطوة (عقد النظر).
+ *
+ * لا بُعد مكتوبٌ في مكوّن: كل بُعدٍ يتغيّر بين الحجمين متغيّرٌ هنا تقرؤه أدوات Tailwind
+ * (tailwind.config.js): `h-ctl` و`gap-tg` و`px-edge` و`text-body`… فتبديل السمة يبدّل
+ * الواجهة كلّها بلا إعادة رسمٍ من React. الألوان واحدة في الحجمين، ونسب التباين في
+ * التعليقات (WCAG 2.2: 4.5:1 للنصّ، 3:1 لحدود الأهداف) ويقيسها tools/contrast.py.
+ */
+
+@import "./fonts.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── الألوان (HSL بلا غلاف، كما يتوقّعها shadcn) ─────────────────────── */
+    --background: 217.5 57.1% 97.3%;          /* #F4F7FC  الورق */
+    --foreground: 220.5 56.9% 12.7%;          /* #0E1A33  16.1:1 على الورق */
+    --heading: 221.4 82.9% 13.7%;             /* #061840 */
+    --card: 0 0% 100%;
+    --primary: 222.5 70% 47.1%;               /* #2455CC  الأبيض عليه 6.47:1 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 84% 95.1%;               /* #E8EFFD */
+    --secondary-foreground: 222.9 70% 35.3%;  /* #1B3F99  8.2:1 على secondary */
+    --muted: 215 50% 95.3%;                   /* #EDF2F9 */
+    --muted-foreground: 214 16.1% 36.5%;      /* #4E5B6C  6.9:1 أبيض، 6.1:1 muted */
+    --border: 214.3 31.3% 86.9%;              /* #D3DCE8  للبطاقات وحدها: زخرفي */
+    --control: 216 12.8% 54.1%;               /* #7B8799  حدّ كل هدف: 3.6:1 أبيض */
+    --control-strong: 214.8 14.7% 41.4%;      /* #5A6779  5.75:1 */
+    --destructive: 2.8 87.4% 34.1%;           /* #A3120B  7.9:1 */
+    --destructive-tint: 4.3 77.8% 96.5%;      /* #FDF0EF  النصّ الأحمر عليه 7.1:1 */
+    --success: 156.1 76.9% 23.7%;             /* #0E6B46  6.5:1 */
+    --success-tint: 147.7 39.4% 93.5%;        /* #E8F5EE  النصّ الأخضر عليه 5.8:1 */
+    --warning: 33 100% 23.9%;                 /* #7A4300  7.4:1 على warning-tint */
+    --warning-tint: 40 100% 94.1%;            /* #FFF5E1 */
+    --warning-line: 35.9 100% 38%;            /* #C27400  حدٌّ 3.0:1 على الورق */
+    --ai: 222 90.8% 57.5%;                    /* #306BF5  لون سيمبول، زخرفيٌّ لا نصّ عليه */
+    --ai-tint: 222.4 100% 96.7%;              /* #EEF3FF */
+    --ring: 221.4 82.9% 13.7%;                /* إطار التركيز بلون العناوين */
+
+    --shadow-ctl: 0 1px 2px rgb(14 26 51 / 0.08);
+    --shadow-card: 0 1px 2px rgb(14 26 51 / 0.05), 0 4px 14px -6px rgb(14 26 51 / 0.12);
+    --shadow-pop: 0 2px 6px rgb(14 26 51 / 0.08), 0 16px 40px -12px rgb(14 26 51 / 0.28);
+
+    --font-body: "Noto Sans Arabic", "Noto Sans", system-ui, sans-serif;
+    /* الأرقام والبريد: لاتينيةٌ بعرضٍ ثابت للأعمدة. */
+    --font-num: "Noto Sans", "Noto Sans Arabic", system-ui, sans-serif;
+    --content-max: 76rem;
+
+    color-scheme: light;
+  }
+
+  /* ── الحجم العادي: الافتراضي ─────────────────────────────────────────── */
+  :root,
+  :root[data-size="compact"] {
+    --fs-small: 0.875rem;    /* 14 — أصغر نصٍّ في التطبيق */
+    --fs-body: 1rem;         /* 16 — المتن والحقول (iOS لا يكبّر الصفحة عند التركيز) */
+    --fs-lead: 1.0625rem;    /* 17 */
+    --fs-title: 1.25rem;     /* 20 */
+    --fs-display: 1.625rem;  /* 26 */
+    --fs-value: 1.375rem;    /* 22 — أرقام المجاميع */
+    --fs-cap: 1.375rem;      /* 22 — سقف النصّ الجاري مع «حجم النصّ» في iOS */
+    --lh-small: 1.45;
+    --lh-body: 1.6;
+    --lh-lead: 1.5;
+    --lh-title: 1.35;
+    --lh-display: 1.3;
+
+    --ctl: 2.75rem;          /* 44 — كل هدف */
+    --ctl-lg: 3rem;          /* 48 — الزرّ الرئيسي، وزرّ الأدوات العائم */
+    --row: 3.25rem;          /* 52 — صفّ الجدول: الهدف 44 داخله، فبين هدفي صفّين 8 */
+    --tg: 0.75rem;           /* 12 — بين هدفين */
+    --tg-min: 0.5rem;        /* 8 — أقلّ ما يُسمح به (صفوفٌ وألسنة) */
+    --edge: 1rem;            /* 16 — عن حافّة الشاشة */
+    --sec: 1.5rem;           /* 24 — بين الأقسام */
+    --pad: 1rem;             /* 16 — حشو البطاقة */
+    --icon: 1.125rem;        /* 18 */
+    --fab: 3rem;             /* 48 */
+    --fab-w: 7.25rem;        /* 116 — حبّةٌ بأيقونةٍ ونصّ «الأدوات»؛ شريط الإجراءات يحجز عرضها */
+    --bar: 3.5rem;           /* 56 — ارتفاع رأس الصفحة */
+    --radius: 0.625rem;      /* 10 */
+    --radius-card: 0.875rem; /* 14 */
+  }
+
+  /* ── الحجم الكبير: عقد النظر ─────────────────────────────────────────── */
+  :root[data-size="gaze"] {
+    --fs-small: 1rem;        /* 16 */
+    --fs-body: 1.125rem;     /* 18 */
+    --fs-lead: 1.25rem;      /* 20 */
+    --fs-title: 1.375rem;    /* 22 */
+    --fs-display: 1.75rem;   /* 28 */
+    --fs-value: 1.625rem;    /* 26 */
+    --fs-cap: 1.1875rem;     /* 19 — كما اليوم: ما يُختبر بلا تمرير */
+    --lh-small: 1.4;
+    --lh-body: 1.5;
+    --lh-lead: 1.4;
+    --lh-title: 1.3;
+    --lh-display: 1.25;
+
+    --ctl: 4.5rem;           /* 72 */
+    --ctl-lg: 4.5rem;        /* 72 */
+    --row: 6rem;             /* 96 — الصفّ هدفٌ 72 وبعده 24 */
+    --tg: 1.5rem;            /* 24 */
+    --tg-min: 1.5rem;        /* 24 — لا مسافة أقصر في هذا الحجم */
+    --edge: 1rem;            /* 16 */
+    --sec: 1.5rem;           /* 24 */
+    --pad: 1rem;             /* 16 */
+    --icon: 1.5rem;          /* 24 */
+    --fab: 4.5rem;           /* 72 */
+    --fab-w: 4.5rem;         /* 72 — مربّعٌ */
+    --bar: 4.5rem;           /* 72 */
+    --radius: 1rem;          /* 16 */
+    --radius-card: 1.25rem;  /* 20 */
+  }
+
+  /* «زيادة التباين» في iOS: حدودٌ أغمق ونصٌّ ثانويٌّ أقرب إلى المتن؛ لا يتغيّر بُعد. */
+  @media (prefers-contrast: more) {
+    :root {
+      --muted-foreground: 212.1 21.5% 25.5%;  /* #33404F */
+      --border: 213.8 15.5% 50.8%;            /* #6E7F95 */
+      --control: 214.8 14.7% 41.4%;           /* #5A6779 */
+      --shadow-ctl: none;
+      --shadow-card: none;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* الرأس لاصقٌ في الحجم العادي: ما يُركَّز بلوحة المفاتيح لا يختفي تحته. */
+    scroll-padding-block-start: calc(var(--bar) + var(--edge));
+  }
+
+  body {
+    @apply bg-background font-sans text-body text-foreground antialiased;
+    margin: 0;
+  }
+
+  h1, h2, h3 {
+    @apply text-heading;
+  }
+
+  /* التركيز مرئيٌّ دائماً: لوحة المفاتيح والتحكّم بالمفاتيح يحتاجانه. */
+  :focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* السمة hidden تغلب كل عرض: عنصرٌ مخفيّ لا يعترض النظر. */
+  [hidden] {
+    display: none !important;
+  }
+
+  /* <dialog> الأصلي للورقة والحوار: طبقةٌ عليا، وما تحته خاملٌ، وEscape يغلق. */
+  dialog {
+    color: inherit;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+  }
+  dialog::backdrop {
+    background: rgb(6 24 64 / 0.45);
+  }
+  :root[data-size="gaze"] dialog::backdrop {
+    /* في الحجم الكبير تغطّي الورقة الشاشة كلّها: لا شيء يُرى خلفها فيُقصد. */
+    background: hsl(var(--background));
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer utilities {
+  /* الأرقام: لاتينيةٌ بعرضٍ ثابت، فتصطفّ الأعمدة ولا يتحرّك مجموعٌ وهو يتغيّر. */
+  .num {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+  }
+  /* النصّ الجاري يتبع «حجم النصّ» في iOS حتى السقف؛ الأهداف والأشرطة لا تتبعه.
+     `-apple-system-body` لـWebKit وحده؛ وما سواه يُسقطها فيبقى المتن. */
+  .text-flow {
+    font: -apple-system-body;
+    font-family: var(--font-body);
+    font-size: clamp(var(--fs-body), 1em, var(--fs-cap));
+    line-height: var(--lh-body);
+  }
+  /* منطقة إصابةٍ لا تقلّ عن الهدف وإن صغر ما يُرى منه (أيقونةٌ بجانب نصّ). */
+  .hit {
+    min-height: var(--ctl);
+    min-width: var(--ctl);
+  }
+  /* الحافّة الآمنة في iPhone (الشقّ، وشريط الرئيسية). */
+  .pb-safe {
+    padding-bottom: max(var(--edge), env(safe-area-inset-bottom));
+  }
+  .pt-safe {
+    padding-top: max(var(--edge), env(safe-area-inset-top));
+  }
+}

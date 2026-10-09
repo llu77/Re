@@ -1,6 +1,7 @@
 /*
- * ما لا يدخل المكوّنات المكيَّفة من الأصل: محاكاة الطلبات بمؤقّت، والتخزين في المتصفّح،
- * والفتح بالحوم، والصور من خارج الأصل. فحصٌ للنصّ نفسه، فلا يعود شيءٌ منها بنسخٍ جديد.
+ * ما لا يدخل شيفرة الواجهة: المؤقّتات، والتخزين في المتصفّح، ومستمعو الحوم والمؤشّر،
+ * والعناوين الخارجية. فحصٌ للنصّ نفسه، فلا يعود شيءٌ منها بنسخٍ جديد. ويُستثنى من
+ * المؤقّتات ما يُعلَّق بـ«مسموح» مع سببه في السطر نفسه (لا شيء اليوم).
  */
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -16,7 +17,12 @@ function files(dir: string): string[] {
 
 const sources = files(SRC).filter((file) => /\.(ts|tsx|css)$/.test(file))
 
-describe("the adapted components", () => {
+function code(file: string): string {
+  // بلا التعليقات: ما يُشرح فيها ليس استدعاءً.
+  return readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+}
+
+describe("the client's source", () => {
   it.each([
     ["timers", /\b(setTimeout|setInterval|requestIdleCallback)\s*\(/],
     ["browser storage", /\b(localStorage|sessionStorage|indexedDB)\b/],
@@ -24,9 +30,15 @@ describe("the adapted components", () => {
       "hover and pointer handlers",
       /\bon(Mouse|Pointer)(Enter|Leave|Over|Out|Move)\b|\bwhile(Hover|Tap)\b|\bonHover(Start|End)\b|\bonTap\b|addEventListener\(\s*["'](pointer|mouse)/,
     ],
-    ["external URLs", /https?:\/\//],
-  ])("hold no %s", (_, pattern) => {
-    const hits = sources.filter((file) => pattern.test(readFileSync(file, "utf8").replace(/^\s*(\/\/|\*).*$/gm, "")))
+    ["external URLs", /https?:\/\/(?!127\.0\.0\.1|localhost)/],
+    ["work left for later", /\b(TODO|FIXME|XXX|HACK)\b/],
+  ])("holds no %s", (_, pattern) => {
+    const hits = sources.filter((file) => pattern.test(code(file))).map((file) => file.slice(SRC.length + 1))
     expect(hits).toEqual([])
+  })
+
+  it("calls fetch in one place only", () => {
+    const hits = sources.filter((file) => /\bfetch\s*\(/.test(code(file))).map((file) => file.slice(SRC.length + 1))
+    expect(hits).toEqual(["lib/api.ts"])
   })
 })

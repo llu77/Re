@@ -3,10 +3,15 @@ import { fileURLToPath, URL } from "node:url"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
-// واجهة eyework الجديدة: تُبنى ملفّاتٍ ثابتة يخدمها FastAPI تحت سياسة المحتوى نفسها
-// (كل شيءٍ من الأصل: لا خطّ ولا سكربت ولا صورة من خارجه). تُخدم تحت /next/ ما دامت
-// الشاشات تنتقل إليها: ما لم ينتقل بعد شاشةٌ في التطبيق القائم عند «/»، والانتقال
-// إليها تنقّلٌ حقيقي إلى وثيقةٍ أخرى. في التطوير يحوّل Vite طلبات /api إلى الخادم.
+/*
+ * واجهة eyework الجديدة: ملفّاتٌ ثابتة يخدمها FastAPI تحت سياسة المحتوى نفسها (كل شيءٍ من
+ * الأصل: لا خطّ ولا سكربت ولا صورة من خارجه، ولا شيء مضمَّن data:). تُخدم تحت /next/ حتى
+ * حزمة التبديل: العميل الثابت عند «/» كما هو، وهذا يُجرَّب بجانبه على الخادم نفسه.
+ *
+ * قطعتان: `vendor` (React وframer-motion وlucide) و`app` (شيفرة التطبيق). اختبار المؤقّتات
+ * في المتصفّح يعدّ ما تستدعيه قطعة `app` وحدها من setTimeout وأخواته: جدولة React وإطارات
+ * framer-motion في `vendor` مسموحةٌ حين تبدأ بضغطةٍ أو بردّ خادم.
+ */
 export default defineConfig({
   base: "/next/",
   plugins: [react()],
@@ -15,8 +20,17 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    // لا شيء يُضمَّن data: — الخطوط والصور ملفّاتٌ من الأصل.
     assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/app-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        manualChunks(id: string) {
+          if (id.includes("node_modules")) return "vendor"
+          return undefined
+        },
+      },
+    },
   },
   server: {
     proxy: { "/api": "http://127.0.0.1:8000" },
