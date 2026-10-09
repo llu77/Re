@@ -52,8 +52,10 @@ def test_increase_contrast_darkens_lines_and_text_and_keeps_every_target(page_fa
         const line = getComputedStyle(probe).color;
         probe.style.color = 'var(--surface-sunk)';
         const sunk = getComputedStyle(probe).color;
+        probe.style.color = 'var(--line-strong)';
+        const strong = getComputedStyle(probe).color;
         probe.remove();
-        return { border: getComputedStyle(button).borderTopWidth, soft, line, sunk,
+        return { border: getComputedStyle(button).borderTopWidth, soft, line, sunk, strong,
                  box: [button.getBoundingClientRect().width, button.getBoundingClientRect().height] };
     }""")
     assert style["border"] == "3px"
@@ -62,6 +64,9 @@ def test_increase_contrast_darkens_lines_and_text_and_keeps_every_target(page_fa
     # الخطوط تُرسم على الأبيض وعلى السطح الغائر (حقل القيمة، وإطار سطح المكتب).
     assert _contrast(style["line"]) >= 3
     assert _contrast(style["line"], style["sunk"]) >= 3
+    # والخطّ الأقوى: إطار الزرّ المعطّل والمحجوز على السطح الغائر، وحدّ التنبيه والشارة.
+    assert _contrast(style["strong"]) >= 3
+    assert _contrast(style["strong"], style["sunk"]) >= 3
 
 
 def test_without_increase_contrast_nothing_changes(page_factory, server):

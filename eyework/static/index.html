@@ -11,6 +11,10 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon-192.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <!-- الخطّ العربي يُطلب مع الصفحة لا بعد قراءة الأنماط: تقصر مدّة الخطّ البديل، وهو أعرض
+         فقد يفيض به نصٌّ يتّسع بخطّه في أضيق الشاشات. -->
+    <link rel="preload" href="fonts/amiri-arabic-400.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/amiri-arabic-700.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="styles.css">
     <script src="ui.js" defer></script>

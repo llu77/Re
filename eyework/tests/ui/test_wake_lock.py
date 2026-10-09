@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from eyework.tests.ui.flow import Flow, sample_photo
 
 STUB = """
@@ -133,4 +135,26 @@ def test_two_returns_while_waiting_keep_one_lock(page_factory, server):
     held[0].continue_()
     flow.until("!document.querySelector('#proposal-copy').hidden")
     page.wait_for_function("() => window.__wake.locks.every((lock) => lock.released)", timeout=3000)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("refuse", [True, False], ids=["refused", "held"])
+def test_returning_to_a_running_wait_says_whether_the_screen_may_lock(page_factory, server, refuse):
+    """«رجوع» إلى الرئيسية ثم الحملة نفسها والكتابة جارية: السطر يقول ما هو قائم، لا ما كان أول مرة."""
+    page, flow, held = _waiting(page_factory, server, refuse=refuse)
+    if refuse:
+        page.wait_for_selector("#proposal-awake:not([hidden])")
+    else:
+        page.wait_for_function("() => window.__wake.requests === 1 && state.wakeLock !== null")
+        assert page.is_hidden("#proposal-awake")
+    page.click(".screen[data-screen='proposal'] [data-back]")
+    flow.screen("home")
+    flow.until("document.querySelectorAll('#home-list button').length === 1")
+    page.click("#home-list button")
+    flow.screen("proposal")
+    flow.until("!document.querySelector('#proposal-waiting').hidden")
+    assert page.evaluate("() => state.waitingFor") is not None
+    assert page.is_hidden("#proposal-awake") is (not refuse)
+    held[0].continue_()
+    flow.until("!document.querySelector('#proposal-copy').hidden")
     assert not page.errors, page.errors

@@ -385,9 +385,12 @@ async function renderHome() {
     }
     const list = $('home-list');
     list.replaceChildren();
-    // لكل صفٍّ اسمٌ لا يشاركه فيه غيره: «التحكم الصوتي» يضغط بالاسم، و«مسودة مسودة»
-    // مرتين في الشاشة اسمٌ لا يُختار به أحدهما. الحملة بلا عنوان تُرقَّم بموضعها.
+    // لكل صفٍّ اسمٌ لا يشاركه فيه غيره: «التحكم الصوتي» يضغط بالاسم، واسمٌ مكرّر في
+    // الشاشة لا يُختار به أحدهما. الحملة بلا عنوان تُرقَّم بموضعها، وكذلك عنوانٌ يتكرّر
+    // في الصفحة (حملتان لصورة المنتج نفسها قد يُقترح لهما العنوان نفسه).
     const first = (state.page - 1) * state.choices.limits.page_size;
+    const repeated = new Set(result.data.items.map((item) => item.title)
+        .filter((title, index, titles) => title && titles.indexOf(title) !== index));
     result.data.items.forEach((item, index) => {
         const row = document.createElement('li');
         const button = document.createElement('button');
@@ -395,7 +398,9 @@ async function renderHome() {
         button.className = 'btn';
         button.dataset.safe = '';
         const title = document.createElement('span');
-        title.textContent = item.title || `حملة بلا عنوان ${first + index + 1}`;
+        const position = first + index + 1;
+        title.textContent = !item.title ? `حملة بلا عنوان ${position}`
+            : repeated.has(item.title) ? `${item.title} ${position}` : item.title;
         const status = document.createElement('span');
         status.className = 'row-status';
         status.textContent = STATUS_LABELS[item.status] || '';
@@ -490,8 +495,9 @@ function renderWaiting({ reloaded }) {
     $('proposal-waiting').hidden = false;
     $('proposal-copy').hidden = true;
     $('proposal-check').hidden = !reloaded;
-    // انتظارٌ لم تبدأه هذه الصفحة لا قفل له: الشاشة قد تُقفل، ويُقال ذلك.
-    showAwake(!reloaded);
+    // السطر يقول ما هو قائم: انتظارٌ لم تبدأه هذه الصفحة لا قفل له، وعودةٌ إلى انتظارٍ
+    // جارٍ (من الرئيسية) لها القفل الذي مُنح أو لا شيء.
+    showAwake(!reloaded && Boolean(state.wakeLock));
     // الشريط السفلي محجوزٌ معطّل: نتيجةٌ تصل بعد دقائق لا تجد زرّاً تحت النظر.
     UI.setButton($('proposal-start'), { reserved: true });
     UI.setButton($('proposal-end'), { reserved: true });
@@ -834,9 +840,11 @@ function renderEdit() {
         commit: true,
     });
     $('edit-restore').dataset.target = newest ? 'newest' : 'previous';
-    UI.setButton($('edit-submit'), {
+    // بلا نسخٍ متبقية يصير الزرّ السفلي «عُد إلى النص»: الوصول هنا من «نسخةٌ سابقة»
+    // في موضعه، ولو بقي معطّلاً لكان «النسخة السابقة» أقرب ما إلى نظرٍ باقٍ، وهو يعتمد.
+    UI.setButton($('edit-submit'), exhausted ? { label: 'عُد إلى النص' } : {
         label: 'اطلب نسخة جديدة',
-        enabled: !exhausted && edit.armed && (edit.presets.size > 0 || Boolean(edit.note)),
+        enabled: edit.armed && (edit.presets.size > 0 || Boolean(edit.note)),
         commit: true,
     });
     if (exhausted) {
@@ -850,6 +858,10 @@ function renderEdit() {
 
 function onEditSubmit() {
     const campaign = state.campaign;
+    if (campaign.versions_left <= 0) {
+        go(campaignRoute(campaign));
+        return;
+    }
     const edit = editState();
     if (state.busy || !edit.armed || (!edit.presets.size && !edit.note)) {
         return;

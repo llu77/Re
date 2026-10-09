@@ -89,8 +89,9 @@ LANDING = """
 
 #: أقرب عنصرٍ مفعّلٍ إلى كل نقطةٍ من نقاط الضغط في الحالة التالية: إليه ينقل
 #: «الانتقال إلى العنصر» (Snap to Item) مؤشرَ نظرٍ باقٍ. Apple لا تنشر مسافة
-#: الانتقال، فلا عتبة: الأقرب أيّاً كان بُعده لا يعتمد شيئاً. والنظر الباقي يقع
-#: على نحو درجةٍ من موضع الضغط (قرابة 48px على 45 سم)، فتُفحص النقاط الخمس كلّها.
+#: الانتقال، فلا عتبة: الأقرب أيّاً كان بُعده لا يعتمد شيئاً. والنقاط الخمس هي موضع
+#: الضغط نفسه (الوسط وأربع زوايا داخل الهدف بـ8px)، لا تقديرٌ لانحراف النظر الباقي
+#: عنه: لا مصدر يعطي ذلك الانحراف على iPhone.
 NEAREST = """
 (points) => {
     const screen = document.querySelector('.screen:not([hidden])');
@@ -141,7 +142,13 @@ class Flow:
         self.page.wait_for_function(f"() => {predicate}")
 
     # ── الفحوص ──────────────────────────────────────────────────────────
+    def fonts(self) -> None:
+        """يُقاس ما يُرسم بخطّ الصفحة لا بالخطّ البديل قبل وصوله (`font-display: swap`): البديل
+        أعرض، فقياسٌ قبل وصول Amiri تحت الحمل يرى نصّاً يفيض لا يفيض بخطّه."""
+        self.page.evaluate("() => document.fonts.ready.then(() => true)")
+
     def audit(self, label: str) -> dict:
+        self.fonts()
         result = self.page.evaluate(AUDIT)
         result["label"] = label
         self.audits.append(result)
@@ -162,6 +169,7 @@ class Flow:
         ]
         locator.click()
         settle()
+        self.fonts()
         hazards = self.page.evaluate(LANDING, points)
         if hazards:
             self.landings.append(f"{label}: {sorted(set(hazards))}")
