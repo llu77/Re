@@ -1,8 +1,8 @@
 """
 هيكل البوابة: الرئيسية وقائمة الأقسام وزرّ الأدوات
 =================================================
-أزرار الرئيسية روابط آمنة تفتح عملاً (أداة الحملة القائمة في هذه الحزمة)؛ وزرّ الأدوات في
-كل شاشة يفتح «اسأل سيمبول» و«مساعدة» لا غير، والسؤال يصل الخادم ويعود جوابه.
+أزرار الرئيسية روابط آمنة تفتح عملاً (أداة الحملة تحت #/marketing/…)؛ وزرّ الأدوات في كل
+شاشة يفتح «اسأل سيمبول» و«مساعدة» لا غير، والسؤال يصل الخادم ويعود جوابه.
 """
 
 from __future__ import annotations
@@ -21,8 +21,9 @@ def test_the_home_buttons_are_safe_links_that_open_the_campaign_tool(next_page, 
     flow.audit("home")
     links = page.eval_on_selector_all("[aria-label='ابدأ عملاً'] a", "(as) => as.map((a) => [a.getAttribute('href'), a.hasAttribute('data-safe')])")
     assert links == [["#/marketing/new", True], ["#/marketing/campaigns", True]]
-    flow.press("[aria-label='ابدأ عملاً'] a >> nth=0", lambda: page.wait_for_url(lambda url: url.endswith("/#/new")), "حملة جديدة")
-    page.wait_for_selector(".screen[data-screen='photo']:not([hidden])")
+    flow.press("[aria-label='ابدأ عملاً'] a >> nth=0", lambda: flow.screen("#photo-input"), "حملة جديدة")
+    assert page.evaluate("() => location.hash") == "#/marketing/new"
+    flow.audit("photo")
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
 

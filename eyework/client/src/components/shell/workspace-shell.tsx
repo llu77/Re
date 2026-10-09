@@ -73,6 +73,10 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
           ...entries.filter((item) => !creates.some((entry) => entry.id === item.id)),
         ]
       : [home, ...entries]
+  // الحجم الكبير: «حسابي» بندٌ في قائمة الأقسام لا زرٌّ في الرأس، فيبقى في الشاشة هدفان ثابتان
+  // (القائمة وزرّ الأدوات) وعشرة أهدافٍ على الأكثر مع ما في شاشات العمل الأكثر أزراراً.
+  const accountItem: NavItem = { id: "account", label: "حسابي", icon: UserRound, href: "#/account", current: current === null }
+  const switcher = size === "gaze" ? [home, ...entries, accountItem] : [home, ...entries]
   const initial = userName?.trim()?.[0] ?? null
   const currentLabel = current === null ? "حسابي" : current === "home" ? "الرئيسية" : (entries.find((item) => item.current)?.label ?? "الرئيسية")
 
@@ -88,7 +92,7 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
       className={cn(
         "flex min-h-ctl shrink-0 items-center gap-2 rounded-ctl border-2 px-2",
         current === null ? "border-primary bg-secondary" : "border-control bg-card hov:bg-muted",
-        "gaze:w-ctl gaze:flex-col gaze:justify-center gaze:gap-0.5 gaze:px-1",
+        "gaze:hidden",
       )}
     >
       <span className="flex size-7 shrink-0 items-center justify-center rounded-pill bg-primary text-small font-bold text-primary-foreground gaze:size-8">
@@ -139,7 +143,7 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
             label="أعمال البوابة"
             caption={workspace.name}
             currentLabel={currentLabel}
-            items={[home, ...entries]}
+            items={switcher}
             onNavigate={onNavigate}
             onOpenChange={setMenuOpen}
             defaultOpen={navOpen ? "switcher" : null}
