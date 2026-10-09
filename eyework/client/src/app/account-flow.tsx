@@ -75,6 +75,7 @@ function ConfirmScreen({ title, question, text, label, icon, onYes, onBack, busy
   return (
     <Screen
       title={question}
+      fill
       above={<p className="text-small font-semibold text-muted-foreground">{title}</p>}
       actions={
         <div className="grid w-full grid-cols-2 gap-tg">
@@ -181,11 +182,11 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
   ) : (
     // مهنةٌ بلا مساحة عملٍ بعد: «حسابي» هو الرئيسية، بلا قائمة أقسامٍ ولا أدوات.
     <div className="min-h-dvh bg-background">
-      <header className="border-b border-border bg-card pb-1.5 pt-[max(0.375rem,env(safe-area-inset-top))]">
+      <header className="border-b border-border bg-card pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="mx-auto flex max-w-content items-center gap-2.5 px-edge">
           <BrandMark />
           <span className="flex flex-col leading-tight">
-            <span className="font-bold text-heading">صياغة</span>
+            <span className="font-semibold text-heading">صياغة</span>
             <span className="text-small text-muted-foreground">{profession}</span>
           </span>
         </div>

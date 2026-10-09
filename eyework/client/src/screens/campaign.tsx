@@ -99,7 +99,7 @@ function ChoiceGroup({ id, label, items, otherLabel, firstLabel, numeric = false
           data-key={item.key}
           variant={item.pressed ? "secondary" : "outline"}
           onClick={item.onPress}
-          className={cn("chip px-2 gaze:px-2", numeric && "num", item.pressed && "border-primary")}
+          className={cn("chip rounded-pill px-2 gaze:px-2", numeric && "num")}
         >
           {item.label}
         </Button>
@@ -122,9 +122,9 @@ function Headline({ campaign, title, prefix }: { campaign: Campaign; title: stri
         alt=""
         width={56}
         height={56}
-        className="size-14 shrink-0 rounded-ctl border border-border bg-muted object-cover"
+        className="size-12 shrink-0 rounded-ctl border border-border bg-muted object-cover gaze:size-14"
       />
-      <p id={`${prefix}-title`} className="min-w-0 text-lead font-bold leading-snug text-heading">
+      <p id={`${prefix}-title`} className="min-w-0 self-center text-lead font-semibold leading-snug text-heading">
         {title}
       </p>
     </div>
@@ -299,15 +299,17 @@ export function ProposalScreen({ campaign, versionsMax, busy, onStart, onEnd, on
         </div>
       ) : (
         <div id="proposal-copy" className="flex flex-col gap-tg">
-          <Headline campaign={campaign} title={copy.title} prefix="proposal" />
-          <p id="proposal-description" className="text-flow whitespace-pre-line">
-            {copy.description}
-          </p>
-          {warnings ? (
-            <p id="proposal-warnings" className="text-small font-semibold text-warning">
-              {warnings}
+          <div className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card">
+            <Headline campaign={campaign} title={copy.title} prefix="proposal" />
+            <p id="proposal-description" className="text-flow whitespace-pre-line">
+              {copy.description}
             </p>
-          ) : null}
+            {warnings ? (
+              <p id="proposal-warnings" className="text-small font-semibold text-warning">
+                {warnings}
+              </p>
+            ) : null}
+          </div>
           {copy.assistant_note ? (
             <Alert id="proposal-note" tone="info" title={PERSONA}>
               {copy.assistant_note}
@@ -523,14 +525,14 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
       }
     >
       {/* الكلمات بعد العنوان والنقطتين — موضع الرفع — والأرقام بعدها، كما في المراجعة. */}
-      <div id={`${kind}-value`} aria-live="polite" className="flex flex-col gap-1 rounded-card border border-border bg-muted px-pad py-3 gaze:border-0 gaze:bg-transparent gaze:px-0 gaze:py-0">
+      <div id={`${kind}-value`} aria-live="polite" className="flex flex-col gap-1 rounded-card border border-border bg-card px-pad py-3 shadow-card gaze:border-0 gaze:bg-transparent gaze:px-0 gaze:py-0 gaze:shadow-none">
         {/* سطران محجوزان دائماً: اختيار قيمةٍ لا يحرّك الخيارات تحت نظرٍ باقٍ على الضغطة. */}
         <p className="min-h-[3.2em] text-flow gaze:short:text-small">
           {words}
           {short ? (
             <>
               {" ("}
-              <bdi className="num font-bold">{short}</bdi>
+              <bdi className="num font-semibold text-heading">{short}</bdi>
               {")"}
             </>
           ) : null}
@@ -563,6 +565,11 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
 }
 
 /* ── المراجعة والتأكيد ───────────────────────────────────────────── */
+
+/** بطاقة الملخّص (المراجعة والجاهزة): حدٌّ شعرة وظلٌّ خفيف في الحجم العادي، وبلا إطارٍ في الكبير. */
+function SummaryCard({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-0 flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">{children}</div>
+}
 
 function Line({ id, label, words, digits }: { id: string; label: string; words: string; digits: string }) {
   // الكلمات بعد العنوان والنقطتين مباشرةً — موضع الرفع — والأرقام بعدها.
@@ -598,17 +605,19 @@ export function ReviewScreen({ campaign, onContinue, onBack, onCancel }: {
         />
       }
     >
-      <Headline campaign={campaign} title={copy.title} prefix="review" />
-      <p id="review-description" className="text-flow whitespace-pre-line gaze:line-clamp-2">
-        {copy.description}
-      </p>
-      <div className="flex flex-col gap-1">
-        <Line id="review-budget" label="الميزانية الإجمالية" words={campaign.budget.words} digits={campaign.budget.short} />
-        <Line id="review-days" label="المدة" words={campaign.days.words} digits={campaign.days.short} />
-        <p id="review-daily" className="text-flow">
-          {dailyText(campaign)}
+      <SummaryCard>
+        <Headline campaign={campaign} title={copy.title} prefix="review" />
+        <p id="review-description" className="text-flow whitespace-pre-line gaze:line-clamp-2">
+          {copy.description}
         </p>
-      </div>
+        <div className="flex flex-col gap-1 border-t border-border pt-tg">
+          <Line id="review-budget" label="الميزانية الإجمالية" words={campaign.budget.words} digits={campaign.budget.short} />
+          <Line id="review-days" label="المدة" words={campaign.days.words} digits={campaign.days.short} />
+          <p id="review-daily" className="text-flow">
+            {dailyText(campaign)}
+          </p>
+        </div>
+      </SummaryCard>
     </CampaignFrame>
   )
 }
@@ -703,13 +712,15 @@ export function ReadyScreen({ campaign, shareEnabled, status, downloadOffered, o
         />
       }
     >
-      <Headline campaign={campaign} title={copy.title} prefix="ready" />
-      <p id="ready-description" className="text-flow line-clamp-2 whitespace-pre-line gaze:short:line-clamp-1">
-        {copy.description}
-      </p>
-      <p id="ready-summary" className="text-flow">
-        <bdi className="num">{`${campaign.budget.short} · ${campaign.days.short}`}</bdi>
-      </p>
+      <SummaryCard>
+        <Headline campaign={campaign} title={copy.title} prefix="ready" />
+        <p id="ready-description" className="text-flow line-clamp-2 whitespace-pre-line gaze:short:line-clamp-1">
+          {copy.description}
+        </p>
+        <p id="ready-summary" className="text-flow border-t border-border pt-tg">
+          <bdi className="num">{`${campaign.budget.short} · ${campaign.days.short}`}</bdi>
+        </p>
+      </SummaryCard>
       <Slots
         start={
           <Button id="ready-copy-title" onClick={onCopyTitle}>

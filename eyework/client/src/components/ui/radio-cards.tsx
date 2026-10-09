@@ -69,12 +69,12 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
             onClick={() => onValueChange(option.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "flex min-h-ctl min-w-0 flex-col items-stretch gap-2 rounded-card border p-3 text-start",
-              checked ? "border-primary bg-secondary shadow-[inset_0_0_0_1px_hsl(var(--primary))]" : "border-control bg-card hov:bg-muted",
+              "flex min-h-ctl min-w-0 flex-col items-stretch gap-1.5 rounded-card border px-pad py-2.5 text-start",
+              checked ? "border-primary-line bg-secondary" : "border-control bg-card hov:bg-muted",
             )}
           >
             <span className="flex items-start justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-2 font-bold text-foreground">
+              <span className="flex min-w-0 items-center gap-2 font-semibold text-foreground">
                 {Icon ? <Icon aria-hidden="true" className="size-icon shrink-0 text-secondary-foreground" /> : null}
                 {option.title}
               </span>

@@ -13,19 +13,19 @@
  * والزرّ في أسفل بطاقته والبطاقتان فوقه، فما يقع تحت موضعه بعد التبديل جزءٌ من البطاقة
  * نفسها أو نصّ، لا زرٌّ يعتمد (يقيسه tools/shoot.py). والخروج والحذف في آخر الشاشة.
  *
- * الحجم العادي: صفحةٌ واحدة. الحجم الكبير: «حسابي» قائمة أزرار، و«حجم الواجهة» شاشتها
- * (لا تتّسع الثلاث بلا تمرير في 635px)، والشرح فيها فوق البطاقتين: ما يقع تحت موضع زرّ
- * «حجم الواجهة» بعد فتحها نصٌّ لا خيار.
+ * تخطيطٌ واحد للحجمين (الحزمة 2ج): صفّ الملف، ثم بطاقة «طريقة الاستخدام» ببطاقتيها الراديويتين
+ * و«طبّق»، ثم «المصادر»، ثم صفّ الخروج والحذف في أسفل الشاشة. في الحجم الكبير عشرة أهدافٍ مع شريط
+ * التبويب. والشاشة تملأ ما فوق الشريط في الحجم العادي أيضاً (`fill`) فيقع «رجوع» في التأكيد على
+ * الزرّ الذي فُتح به لا على خيارٍ فوقه.
  */
 
 import * as React from "react"
 import { BookOpen, Check, Hand, LogOut, ScanEye, Trash2 } from "lucide-react"
 
-import { Screen, ScreenActions } from "@/components/shell/screen"
+import { Screen } from "@/components/shell/screen"
 import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { BackIcon, Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { RadioCards } from "@/components/ui/radio-cards"
 import { useSize, type SizeMode } from "@/lib/size"
 
@@ -40,20 +40,15 @@ export interface AccountProps {
   onLogout: () => void
   onDelete: () => void
   initialChoice?: SizeMode
-  /** الحجم الكبير: القائمة أو شاشة الحجم. */
-  initialView?: "menu" | "size"
 }
 
-export function AccountScreen({
-  name, profession, sizeNames, saveSize, onSources, onLogout, onDelete, initialChoice, initialView = "menu",
-}: AccountProps) {
+export function AccountScreen({ name, profession, sizeNames, saveSize, onSources, onLogout, onDelete, initialChoice }: AccountProps) {
   const { size, setSize } = useSize()
   const gaze = size === "gaze"
   const [choice, setChoice] = React.useState<SizeMode>(initialChoice ?? size)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [applied, setApplied] = React.useState(false)
-  const [view, setView] = React.useState<"menu" | "size">(initialView)
 
   async function apply() {
     setBusy(true)
@@ -73,11 +68,11 @@ export function AccountScreen({
 
   const profile = (
     <div className="flex items-center gap-3">
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-pill bg-primary text-title font-bold text-primary-foreground gaze:size-14">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-primary text-lead font-semibold text-primary-foreground gaze:size-12">
         {initial ?? "؟"}
       </span>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="truncate text-title font-bold text-heading">{name ?? "بلا اسم"}</p>
+        <p className="truncate text-lead font-semibold text-heading">{name ?? "بلا اسم"}</p>
         <Badge tone="info" className="self-start">
           المهنة: {profession}
         </Badge>
@@ -94,8 +89,8 @@ export function AccountScreen({
         setApplied(false)
       }}
       options={[
-        { value: "compact", title: size === "compact" ? `${SIZE_NAMES.compact} (الحالية)` : SIZE_NAMES.compact, icon: Hand },
-        { value: "gaze", title: size === "gaze" ? `${SIZE_NAMES.gaze} (الحالية)` : SIZE_NAMES.gaze, icon: ScanEye },
+        { value: "compact", title: SIZE_NAMES.compact, icon: Hand },
+        { value: "gaze", title: SIZE_NAMES.gaze, icon: ScanEye },
       ]}
     />
   )
@@ -109,7 +104,6 @@ export function AccountScreen({
       busy={busy}
       disabled={choice === size}
       onClick={() => void apply()}
-      className="gaze:w-full"
     >
       طبّق
     </Button>
@@ -139,62 +133,30 @@ export function AccountScreen({
     </div>
   )
 
-  if (gaze && view === "size") {
-    return (
-      <Screen
-        title="طريقة الاستخدام"
-        actions={
-          <Button icon={BackIcon} onClick={() => setView("menu")}>
-            حسابي
-          </Button>
-        }
-      >
-        <p className="text-flow text-muted-foreground">الحالية: {SIZE_NAMES[size]}. تُحفظ مع حسابك، وتُفتح بها البوابة على كل جهاز.</p>
+  return (
+    <Screen title="حسابي" fill actions={leaving}>
+      {profile}
+      <section aria-labelledby="size-title" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card">
+        <div className="flex flex-col gap-0.5">
+          <h2 id="size-title" className="text-lead font-semibold text-heading">
+            طريقة الاستخدام
+          </h2>
+          <p className="text-small text-muted-foreground">
+            الحالية: {SIZE_NAMES[size]}. تُحفظ مع حسابك{gaze ? "." : "، ولا تُرسَل إلى مزوّد النموذج."}
+          </p>
+        </div>
         {choices}
         {failure}
-        {applyButton}
-      </Screen>
-    )
-  }
-
-  if (gaze) {
-    return (
-      <Screen title="حسابي" actions={leaving}>
-        {profile}
-        <section aria-label="الحساب" className="grid grid-cols-2 gap-tg">
-          <Button id="account-size" icon={ScanEye} onClick={() => setView("size")} className="col-span-2 justify-between">
-            <span>طريقة الاستخدام</span>
-            <span className="font-normal text-muted-foreground">{SIZE_NAMES[size]}</span>
-          </Button>
-          {sources}
-        </section>
-      </Screen>
-    )
-  }
-
-  return (
-    <Screen title="حسابي">
-      {profile}
-      <Card as="section" aria-labelledby="size-title">
-        <CardHeader>
-          <CardTitle id="size-title">طريقة الاستخدام</CardTitle>
-          <CardDescription>الحالية: {SIZE_NAMES[size]}. تُحفظ مع حسابك، ولا تُرسَل إلى مزوّد النموذج.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-tg">
-          {choices}
-          {failure}
-          <div className="flex flex-wrap items-center gap-tg">
-            {applyButton}
-            <p role="status" className="text-small text-muted-foreground">
-              {applied ? "حُفظت في حسابك." : "تُحفظ في حسابك لا في هذا الجهاز."}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      <section aria-label="الحساب" className="grid grid-cols-2 gap-tg tablet:grid-cols-3">
+        <div className="grid grid-cols-2 items-center gap-tg">
+          {applyButton}
+          <p role="status" className="text-small text-muted-foreground">
+            {applied ? "حُفظت في حسابك." : "تُحفظ في حسابك لا في هذا الجهاز."}
+          </p>
+        </div>
+      </section>
+      <section aria-label="الحساب" className="grid grid-cols-2 gap-tg">
         {sources}
       </section>
-      <ScreenActions>{leaving}</ScreenActions>
     </Screen>
   )
 }

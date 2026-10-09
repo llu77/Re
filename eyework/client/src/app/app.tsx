@@ -134,7 +134,7 @@ function Activate({ choices }: { choices: Choices }) {
 
 function StartupFailed({ message }: { message: string }) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col items-center justify-center gap-tg px-edge">
+    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-tg px-edge">
       <p role="alert" className="text-flow text-center font-bold text-destructive">
         {message}
       </p>

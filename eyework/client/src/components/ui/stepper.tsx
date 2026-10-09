@@ -46,15 +46,15 @@ export function Stepper({ steps, current, variant = "auto", className }: Stepper
             <li key={s.id} aria-current={now ? "step" : undefined} className="flex items-center gap-2">
               <span
                 className={cn(
-                  "num flex size-7 shrink-0 items-center justify-center rounded-pill border text-small font-bold",
+                  "num flex size-7 shrink-0 items-center justify-center rounded-pill border text-small font-semibold",
                   done && "border-primary bg-primary text-primary-foreground",
-                  now && "border-primary bg-secondary text-secondary-foreground",
+                  now && "border-primary-line bg-secondary text-secondary-foreground",
                   !done && !now && "border-control bg-card text-muted-foreground",
                 )}
               >
                 {done ? <Check aria-hidden="true" className="size-4" strokeWidth={3} /> : index + 1}
               </span>
-              <span className={cn("text-small", now ? "font-bold text-foreground" : "text-muted-foreground")}>
+              <span className={cn("text-small", now ? "font-semibold text-foreground" : "text-muted-foreground")}>
                 {s.label}
                 {done ? <span className="sr-only"> (تمّت)</span> : null}
               </span>

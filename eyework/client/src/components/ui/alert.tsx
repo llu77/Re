@@ -37,7 +37,7 @@ export function Alert({ tone = "info", title, live = false, icon, actions, class
     <div role={role} className={cn("flex gap-3 rounded-card border p-pad", t.box, className)} {...props}>
       <Icon aria-hidden="true" className={cn("mt-0.5 size-icon shrink-0", t.iconColor)} strokeWidth={2.25} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="font-bold leading-snug text-foreground">{title}</p>
+        <p className="font-semibold leading-snug text-foreground">{title}</p>
         {children ? <div className="text-small text-foreground">{children}</div> : null}
         {actions ? <div className="mt-2 flex flex-wrap gap-tg">{actions}</div> : null}
       </div>

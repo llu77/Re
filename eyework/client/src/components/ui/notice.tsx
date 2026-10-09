@@ -27,7 +27,7 @@ export function Notice({ message, onAck, children }: { message: string | null; o
           <Button id="notice-ack" data-ack="" variant="primary" size="lg" onClick={onAck} className="w-ctl-lg min-w-[6rem]">
             حسناً
           </Button>
-          <p className="text-flow text-center font-bold text-destructive">{message}</p>
+          <p className="text-flow text-center font-semibold text-destructive">{message}</p>
         </div>
       ) : null}
       <div ref={content} data-content="" className={message !== null ? "invisible" : undefined}>

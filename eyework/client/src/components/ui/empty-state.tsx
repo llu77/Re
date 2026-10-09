@@ -25,7 +25,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
         <Icon aria-hidden="true" className="size-6 gaze:size-8" strokeWidth={2} />
       </span>
       <div className="flex max-w-sm flex-col gap-1">
-        <p className="text-lead font-bold text-heading">{title}</p>
+        <p className="text-lead font-semibold text-heading">{title}</p>
         {description ? <p className="text-small text-muted-foreground">{description}</p> : null}
       </div>
       {action ? <div className="mt-1 flex flex-wrap justify-center gap-tg">{action}</div> : null}

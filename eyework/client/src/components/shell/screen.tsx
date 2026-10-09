@@ -29,11 +29,13 @@ export interface ScreenProps {
   aside?: React.ReactNode
   /** شريط الإجراءات. */
   actions?: React.ReactNode
+  /** تملأ الشاشة في الحجم العادي أيضاً فيبقى شريط إجراءاتها في أسفلها («حسابي» وتأكيداه). */
+  fill?: boolean
   children: React.ReactNode
   className?: string
 }
 
-export function Screen({ title, description, back, end, above, aside, actions, children, className }: ScreenProps) {
+export function Screen({ title, description, back, end, above, aside, actions, fill = false, children, className }: ScreenProps) {
   const { size } = useSize()
   const heading = React.useRef<HTMLHeadingElement>(null)
   React.useEffect(() => {
@@ -42,7 +44,7 @@ export function Screen({ title, description, back, end, above, aside, actions, c
 
   const gaze = size === "gaze"
   return (
-    <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", className)}>
+    <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", fill && "fill-screen", className)}>
       <div className="flex flex-col gap-tg-min">
         {back || end ? (
           <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]")}>
@@ -60,7 +62,7 @@ export function Screen({ title, description, back, end, above, aside, actions, c
           {aside ? <div className="hidden flex-wrap gap-tg tablet:flex">{aside}</div> : null}
         </div>
       </div>
-      <div className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg overflow-hidden")}>{children}</div>
+      <div className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg overflow-hidden", fill && "flex-1")}>{children}</div>
       {actions ? <ScreenActions>{actions}</ScreenActions> : null}
     </div>
   )
