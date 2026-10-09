@@ -14,7 +14,7 @@ export function HelpTool({ workspace, screen, contact }: { workspace: Workspace;
     <div className="text-flow flex flex-col gap-tg">
       {help ? (
         <section aria-labelledby="help-section" className="flex flex-col gap-1.5">
-          <h3 id="help-section" className="text-lead font-bold">
+          <h3 id="help-section" className="text-lead font-semibold">
             {help.title}
           </h3>
           <ul className="flex list-disc flex-col gap-1 ps-5">
@@ -24,8 +24,8 @@ export function HelpTool({ workspace, screen, contact }: { workspace: Workspace;
           </ul>
         </section>
       ) : null}
-      <section aria-labelledby="help-symbol" className="flex flex-col gap-1.5 rounded-card bg-ai-tint p-3">
-        <h3 id="help-symbol" className="flex items-center gap-2 text-lead font-bold">
+      <section aria-labelledby="help-symbol" className="flex flex-col gap-1.5 rounded-card border border-primary-line/40 bg-secondary p-pad">
+        <h3 id="help-symbol" className="flex items-center gap-2 text-lead font-semibold">
           <SymbolMark className="size-4" />
           سيمبول يقترح، وأنت تقرّر
         </h3>

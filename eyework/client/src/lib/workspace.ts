@@ -1,12 +1,11 @@
 /*
  * مساحة العمل لكل مهنة
  * ====================
- * بوابةٌ واحدة: الرأس وقائمة الأقسام وزرّ الأدوات واحدٌ للجميع، وما يختلف بين المهن بياناتٌ
+ * بوابةٌ واحدة: شريط التبويب (أو الشريط الجانبي) وورقتا الأقسام والأدوات واحدةٌ للجميع، وما يختلف بين المهن بياناتٌ
  * هنا يملؤها كل مسار مهنة من مواصفته (inventory_spec.md وmarketing_spec.md وsupport_spec.md):
  *
  *   • `home`     أزرار الرئيسية: كل زرٍّ يبدأ عملاً حقيقياً، ولا شيء يُقرأ قبله (تحديث المالك
- *                2026-10-09). وهي نفسها بنود قائمة الأقسام في الرأس، بعد «الرئيسية».
- *   • `tools`    ما تضعه المهنة في زرّ الأدوات العائم، أوّلاً، قبل أدوات البوابة المشتركة.
+ *                2026-10-09). وهي نفسها بنود ورقة الأقسام والشريط الجانبي، بعد «الرئيسية».
  *   • `help`     سطور «مساعدة» لكل شاشة.
  *
  * المهنة من الخادم (/api/me)، لا من العنوان: لا يُفتح قسمٌ لغير مهنته، والخادم يرفض أدواته
@@ -20,7 +19,7 @@ import {
 
 export type ProfessionCode = "STOREKEEPER" | "MARKETING" | "SUPPORT"
 
-/** زرٌّ في الرئيسية وبندٌ في قائمة الأقسام. */
+/** زرٌّ في الرئيسية وبندٌ في ورقة الأقسام والشريط الجانبي. */
 export interface WorkEntry {
   id: string
   label: string
@@ -29,8 +28,6 @@ export interface WorkEntry {
   route: string
   /** الزرّ الأوّل في الرئيسية، بالتعبئة الملوّنة: أكثر ما يبدأ به الموظف يومه. */
   primary?: boolean
-  /** يُنشئ مستنداً: في شريط الحاسوب تجتمع هذه تحت «جديد ▾» إن كانت اثنين فأكثر. */
-  creates?: boolean
 }
 
 export interface SectionHelp {
@@ -55,15 +52,15 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
     base: "#/inventory",
     // أزرار المالك كما كتبها، بأسماء شاشات inventory_spec §3.
     home: [
-      { id: "purchase", label: "فاتورة شراء جديدة", icon: ReceiptText, route: "#/inventory/purchases/new", primary: true, creates: true },
-      { id: "return", label: "مرتجع من فاتورة", icon: Undo2, route: "#/inventory/returns/new", creates: true },
-      { id: "item", label: "صنف جديد", icon: PackagePlus, route: "#/inventory/items/new", creates: true },
+      { id: "purchase", label: "فاتورة شراء جديدة", icon: ReceiptText, route: "#/inventory/purchases/new", primary: true },
+      { id: "return", label: "مرتجع من فاتورة", icon: Undo2, route: "#/inventory/returns/new" },
+      { id: "item", label: "صنف جديد", icon: PackagePlus, route: "#/inventory/items/new" },
       { id: "stock", label: "المخزون", icon: Boxes, route: "#/inventory/stock" },
       { id: "expenses", label: "المصاريف", icon: Wallet, route: "#/inventory/expenses" },
       { id: "totals", label: "المجاميع", icon: BarChart3, route: "#/inventory/totals" },
     ],
     help: {
-      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات في الزرّ العائم في كل شاشة."] },
+      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات («اسأل سيمبول» و«مساعدة») في شريط التبويب أو الشريط الجانبي في كل شاشة."] },
       purchase: {
         title: "فاتورة الشراء",
         lines: [
@@ -85,11 +82,11 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
     // زرّا أداة الحملة القائمة؛ «ما ينتظر الاعتماد» و«أدخل النتائج» و«تقويم المحتوى» مع حزمة
     // التسويق حين تصل شاشاتها، فلا زرٌّ يفتح ما ليس موجوداً.
     home: [
-      { id: "new", label: "حملة جديدة", icon: FilePlus2, route: "#/marketing/new", primary: true, creates: true },
+      { id: "new", label: "حملة جديدة", icon: FilePlus2, route: "#/marketing/new", primary: true },
       { id: "campaigns", label: "حملاتي", icon: Megaphone, route: "#/marketing/campaigns" },
     ],
     help: {
-      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات في الزرّ العائم في كل شاشة."] },
+      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات («اسأل سيمبول» و«مساعدة») في شريط التبويب أو الشريط الجانبي في كل شاشة."] },
       new: {
         title: "حملة جديدة",
         lines: [
@@ -109,12 +106,12 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
     base: "#/support",
     home: [
       { id: "open", label: "التذاكر المفتوحة", icon: Inbox, route: "#/support/tickets", primary: true },
-      { id: "new", label: "تذكرة جديدة", icon: SquarePen, route: "#/support/tickets/new", creates: true },
+      { id: "new", label: "تذكرة جديدة", icon: SquarePen, route: "#/support/tickets/new" },
       { id: "decide", label: "بانتظار قراري", icon: Headset, route: "#/support/tickets?waiting=me" },
       { id: "knowledge", label: "قاعدة المعرفة", icon: LibraryBig, route: "#/support/knowledge" },
     ],
     help: {
-      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات في الزرّ العائم في كل شاشة."] },
+      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات («اسأل سيمبول» و«مساعدة») في شريط التبويب أو الشريط الجانبي في كل شاشة."] },
       open: {
         title: "التذاكر",
         lines: [

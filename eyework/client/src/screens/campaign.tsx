@@ -13,6 +13,7 @@ import * as React from "react"
 import { Check, ChevronsLeftRight, Download, History, House, MessageSquareText, Minus, Plus, RefreshCw, Save, Share2, SquarePen, Trash2, Undo2, XCircle } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
+import { Slots, type TopAction } from "@/components/shell/slots"
 import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { BackIcon, Button, ButtonLink, NextIcon, buttonVariants } from "@/components/ui/button"
@@ -36,47 +37,6 @@ export const STEPS = [
   { id: "review", label: "المراجعة" },
 ]
 
-export interface TopAction {
-  id: string
-  label: string
-  onClick: () => void
-  /** يغادر أو يحذف: حدٌّ أحمر بلا تعبئة (الحذف نفسه في شاشة التأكيد). */
-  danger?: boolean
-  /** يعتمد (النسخة السابقة): `data-commit`. */
-  commit?: boolean
-  disabled?: boolean
-  busy?: boolean
-  icon?: React.ComponentType<{ className?: string }>
-}
-
-/** خانتان ثابتتان: البداية (يمين الصفحة) والنهاية؛ والفارغة تبقى في مكانها. */
-export function Slots({ start, end, actions = false, className }: { start?: React.ReactNode; end?: React.ReactNode; actions?: boolean; className?: string }) {
-  return (
-    // شريط الإجراءات: حشوٌ أقل في الخانتين (كلٌّ نصف العرض بعد خانة زرّ الأدوات)، وفي الحجم الكبير نصٌّ بلا أيقونة.
-    <div className={cn("grid min-h-ctl w-full grid-cols-2 gap-tg", actions && "[&>*]:px-2 gaze:[&_svg]:hidden", className)}>
-      {start ?? <span aria-hidden="true" />}
-      {end ?? <span aria-hidden="true" />}
-    </div>
-  )
-}
-
-function TopButton({ action, back }: { action: TopAction; back: boolean }) {
-  const Icon = action.icon
-  return (
-    <Button
-      id={action.id}
-      icon={back ? BackIcon : (Icon as typeof BackIcon | undefined)}
-      variant={action.danger ? "danger-outline" : action.commit ? "secondary" : "outline"}
-      commit={action.commit}
-      disabled={action.disabled}
-      busy={action.busy}
-      onClick={action.onClick}
-    >
-      {action.label}
-    </Button>
-  )
-}
-
 export function CampaignFrame({ step, title, description, back, end, actions, children }: {
   /** الخطوة من 0، أو null بلا خطوات (التأكيد والإلغاء والجاهزة). */
   step: number | null
@@ -87,18 +47,15 @@ export function CampaignFrame({ step, title, description, back, end, actions, ch
   actions?: React.ReactNode
   children: React.ReactNode
 }) {
-  const top = back || end ? (
-    <Slots start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
-  ) : null
-  const above =
-    top || step !== null ? (
-      <div className="flex flex-col gap-tg-min">
-        {top}
-        {step !== null ? <Stepper steps={STEPS} current={step} variant="brief" /> : null}
-      </div>
-    ) : undefined
   return (
-    <Screen title={title} description={description} above={above} actions={actions}>
+    <Screen
+      title={title}
+      description={description}
+      back={back}
+      end={end}
+      above={step !== null ? <Stepper steps={STEPS} current={step} variant="brief" /> : undefined}
+      actions={actions}
+    >
       {children}
     </Screen>
   )
@@ -113,7 +70,7 @@ export interface Choice {
 }
 
 /**
- * مجموعة خياراتٍ تُبدَّل في مكانها. في الحجم الكبير لا تزيد الشاشة على عشرة أهداف، فما زاد على
+ * مجموعة خياراتٍ تُبدَّل في مكانها. في الحجم الكبير لا تزيد الشاشة على اثني عشر هدفاً، فما زاد على
  * أربعة خياراتٍ يُعرض ثلاثةً ثلاثةً وزرٌّ رابع يقلّب بينها («خياراتٌ أخرى» ثم «الخيارات الأولى»)؛
  * وفي الحجم العادي تُعرض كلّها.
  */
@@ -142,7 +99,7 @@ function ChoiceGroup({ id, label, items, otherLabel, firstLabel, numeric = false
           data-key={item.key}
           variant={item.pressed ? "secondary" : "outline"}
           onClick={item.onPress}
-          className={cn("chip px-2 gaze:px-2", numeric && "num", item.pressed && "border-primary")}
+          className={cn("chip rounded-pill px-2 gaze:px-2", numeric && "num")}
         >
           {item.label}
         </Button>
@@ -165,9 +122,9 @@ function Headline({ campaign, title, prefix }: { campaign: Campaign; title: stri
         alt=""
         width={56}
         height={56}
-        className="size-14 shrink-0 rounded-ctl border border-border bg-muted object-cover"
+        className="size-12 shrink-0 rounded-ctl border border-border bg-muted object-cover gaze:size-14"
       />
-      <p id={`${prefix}-title`} className="min-w-0 text-lead font-bold leading-snug text-heading">
+      <p id={`${prefix}-title`} className="min-w-0 self-center text-lead font-semibold leading-snug text-heading">
         {title}
       </p>
     </div>
@@ -215,7 +172,7 @@ export function PhotoScreen({ campaign, uploading, onFile, onGenerate, onBack, o
         id="photo-input"
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        className="sr-only"
+        className="sr-only text-input"
         disabled={uploading}
         onChange={(event) => {
           const file = event.currentTarget.files?.[0]
@@ -229,14 +186,15 @@ export function PhotoScreen({ campaign, uploading, onFile, onGenerate, onBack, o
             id="photo-preview"
             src={imageUrl(campaign)}
             alt="صورة المنتج"
-            className="max-h-64 w-auto max-w-full rounded-card border border-border object-contain gaze:max-h-full"
+            className="max-h-44 w-auto max-w-full rounded-card border border-border object-contain tablet:max-h-80 gaze:max-h-full"
           />
         </div>
       ) : null}
       <p id="photo-status" role="status" className="text-small text-muted-foreground empty:hidden">
         {uploading ? "تُرفع الصورة…" : ""}
       </p>
-      <p className={cn("text-small text-muted-foreground", hasImage && "gaze:short:hidden")}>
+      {/* بعد اختيار الصورة يُخفى الشرح في الهاتف (قُرئ قبلها) لتتّسع الشاشة بلا تمرير، وفي الكبير القصير. */}
+      <p className={cn("text-small text-muted-foreground", hasImage && "compact:hidden compact:tablet:block gaze:short:hidden")}>
         تُرسل صورة المنتج وحدها إلى خدمة ذكاءٍ اصطناعي لتكتب العنوان والوصف، بلا اسمك ولا أيّ معلومةٍ عنك. صوّر المنتج وحده، دون أشخاصٍ أو أوراق.
       </p>
     </CampaignFrame>
@@ -332,6 +290,8 @@ export function ProposalScreen({ campaign, versionsMax, busy, onStart, onEnd, on
       {size === "gaze" ? (
         // الحجم الكبير: العنوان والوصف والتنبيه والملاحظة صفحاتٌ تُقرأ كلّها؛ والصورة اختارها صاحبها للتوّ.
         <div id="proposal-copy" className="flex min-h-0 flex-col">
+          {/* 260 حرفاً في الصفحة تتّسع في 320×635 و375×635 بالحجم الكبير بلا قصٍّ بأطول نصٍّ تقبله القواعد
+              (test_the_longest_valid_copy_is_read_whole_before_approval)، و110 في الشاشة القصيرة. */}
           <PagedText
             key={copy.version_id}
             label="النصّ المقترح"
@@ -341,15 +301,17 @@ export function ProposalScreen({ campaign, versionsMax, busy, onStart, onEnd, on
         </div>
       ) : (
         <div id="proposal-copy" className="flex flex-col gap-tg">
-          <Headline campaign={campaign} title={copy.title} prefix="proposal" />
-          <p id="proposal-description" className="text-flow whitespace-pre-line">
-            {copy.description}
-          </p>
-          {warnings ? (
-            <p id="proposal-warnings" className="text-small font-semibold text-warning">
-              {warnings}
+          <div className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card">
+            <Headline campaign={campaign} title={copy.title} prefix="proposal" />
+            <p id="proposal-description" className="text-flow whitespace-pre-line">
+              {copy.description}
             </p>
-          ) : null}
+            {warnings ? (
+              <p id="proposal-warnings" className="text-small font-semibold text-warning">
+                {warnings}
+              </p>
+            ) : null}
+          </div>
           {copy.assistant_note ? (
             <Alert id="proposal-note" tone="info" title={PERSONA}>
               {copy.assistant_note}
@@ -544,7 +506,7 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
       end={{
         id: `${kind}-next`,
         label: budget ? "التالي: عدد الأيام" : "التالي: المراجعة",
-        icon: NextIcon,
+        iconEnd: NextIcon,
         disabled: current === null,
         onClick: onNext,
       }}
@@ -565,14 +527,14 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
       }
     >
       {/* الكلمات بعد العنوان والنقطتين — موضع الرفع — والأرقام بعدها، كما في المراجعة. */}
-      <div id={`${kind}-value`} aria-live="polite" className="flex flex-col gap-1 rounded-card border-2 border-border bg-muted px-pad py-3 gaze:border-0 gaze:bg-transparent gaze:px-0 gaze:py-0">
+      <div id={`${kind}-value`} aria-live="polite" className="flex flex-col gap-1 rounded-card border border-border bg-card px-pad py-3 shadow-card gaze:border-0 gaze:bg-transparent gaze:px-0 gaze:py-0 gaze:shadow-none">
         {/* سطران محجوزان دائماً: اختيار قيمةٍ لا يحرّك الخيارات تحت نظرٍ باقٍ على الضغطة. */}
         <p className="min-h-[3.2em] text-flow gaze:short:text-small">
           {words}
           {short ? (
             <>
               {" ("}
-              <bdi className="num font-bold">{short}</bdi>
+              <bdi className="num font-semibold text-heading">{short}</bdi>
               {")"}
             </>
           ) : null}
@@ -605,6 +567,11 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
 }
 
 /* ── المراجعة والتأكيد ───────────────────────────────────────────── */
+
+/** بطاقة الملخّص (المراجعة والجاهزة): حدٌّ شعرة وظلٌّ خفيف في الحجم العادي، وبلا إطارٍ في الكبير. */
+function SummaryCard({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-0 flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">{children}</div>
+}
 
 function Line({ id, label, words, digits }: { id: string; label: string; words: string; digits: string }) {
   // الكلمات بعد العنوان والنقطتين مباشرةً — موضع الرفع — والأرقام بعدها.
@@ -640,17 +607,19 @@ export function ReviewScreen({ campaign, onContinue, onBack, onCancel }: {
         />
       }
     >
-      <Headline campaign={campaign} title={copy.title} prefix="review" />
-      <p id="review-description" className="text-flow whitespace-pre-line gaze:line-clamp-2">
-        {copy.description}
-      </p>
-      <div className="flex flex-col gap-1">
-        <Line id="review-budget" label="الميزانية الإجمالية" words={campaign.budget.words} digits={campaign.budget.short} />
-        <Line id="review-days" label="المدة" words={campaign.days.words} digits={campaign.days.short} />
-        <p id="review-daily" className="text-flow">
-          {dailyText(campaign)}
+      <SummaryCard>
+        <Headline campaign={campaign} title={copy.title} prefix="review" />
+        <p id="review-description" className="text-flow whitespace-pre-line gaze:line-clamp-2">
+          {copy.description}
         </p>
-      </div>
+        <div className="flex flex-col gap-1 border-t border-border pt-tg">
+          <Line id="review-budget" label="الميزانية الإجمالية" words={campaign.budget.words} digits={campaign.budget.short} />
+          <Line id="review-days" label="المدة" words={campaign.days.words} digits={campaign.days.short} />
+          <p id="review-daily" className="text-flow">
+            {dailyText(campaign)}
+          </p>
+        </div>
+      </SummaryCard>
     </CampaignFrame>
   )
 }
@@ -745,13 +714,15 @@ export function ReadyScreen({ campaign, shareEnabled, status, downloadOffered, o
         />
       }
     >
-      <Headline campaign={campaign} title={copy.title} prefix="ready" />
-      <p id="ready-description" className="text-flow line-clamp-2 whitespace-pre-line gaze:short:line-clamp-1">
-        {copy.description}
-      </p>
-      <p id="ready-summary" className="text-flow">
-        <bdi className="num">{`${campaign.budget.short} · ${campaign.days.short}`}</bdi>
-      </p>
+      <SummaryCard>
+        <Headline campaign={campaign} title={copy.title} prefix="ready" />
+        <p id="ready-description" className="text-flow line-clamp-2 whitespace-pre-line gaze:short:line-clamp-1">
+          {copy.description}
+        </p>
+        <p id="ready-summary" className="text-flow border-t border-border pt-tg">
+          <bdi className="num">{`${campaign.budget.short} · ${campaign.days.short}`}</bdi>
+        </p>
+      </SummaryCard>
       <Slots
         start={
           <Button id="ready-copy-title" onClick={onCopyTitle}>
@@ -773,6 +744,61 @@ export function ReadyScreen({ campaign, shareEnabled, status, downloadOffered, o
 
 /* ── حملاتي ──────────────────────────────────────────────────────── */
 
+/** صفوف «حملاتي»: زرٌّ من جزأين يُصاب كلّه (ما تحت المؤشر هو الزرّ لا جزؤه)؛ العنوان سطرٌ أو أكثر
+ *  بعرض الزرّ والحالة تحته، فلا يضيق العنوان بجانب الشارة في أضيق إطار. والحملة المفتوحة (في
+ *  القائمة بجانب الحملة) بالتدرّج الثانوي و`aria-current`. */
+export function CampaignRows({ items, names, currentId = null, onOpen }: {
+  items: CampaignListItem[]
+  names: string[]
+  currentId?: string | null
+  onOpen: (item: CampaignListItem) => void
+}) {
+  return (
+    <ul id="campaigns-list" aria-label="حملاتي" className="flex flex-col gap-tg">
+      {items.map((item, index) => {
+        const current = item.id === currentId
+        return (
+          <li key={item.id}>
+            <button
+              type="button"
+              data-safe=""
+              aria-current={current ? "true" : undefined}
+              onClick={() => onOpen(item)}
+              className={cn(
+                "flex min-h-ctl w-full flex-col items-start justify-center gap-1 rounded-card border px-pad py-2 text-start font-semibold",
+                current ? "border-primary-line bg-secondary text-secondary-foreground" : "border-control bg-card text-foreground hov:bg-muted",
+              )}
+            >
+              <span className="min-w-0 leading-snug">{names[index]}</span>
+              <Badge tone={item.status === "READY" ? "success" : item.status === "COPY_APPROVED" ? "info" : "neutral"} className="row-status pointer-events-none">
+                {STATUS_LABELS[item.status] ?? ""}
+              </Badge>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** «حملاتي» بجانب الحملة في العريض بحجم اللمس: الصفحة الأولى، والقائمة كلّها من «حملاتي» في الشريط الجانبي. */
+export function CampaignsPane({ items, currentId, onOpen }: {
+  items: CampaignListItem[]
+  currentId: string
+  onOpen: (item: CampaignListItem) => void
+}) {
+  return (
+    <section aria-labelledby="campaigns-pane-title" className="flex flex-col gap-tg">
+      <h2 id="campaigns-pane-title" className="flex min-h-ctl items-center text-lead font-semibold">
+        حملاتي
+      </h2>
+      {items.length ? <CampaignRows items={items} names={rowNames(items, 0)} currentId={currentId} onOpen={onOpen} /> : null}
+    </section>
+  )
+}
+
+/* ── حملاتي ──────────────────────────────────────────────────────── */
+
 export function CampaignsScreen({ items, page, pageSize, hasMore, installHint, onOpen, onOlder, onNewer, onNew }: {
   items: CampaignListItem[] | null
   page: number
@@ -789,7 +815,6 @@ export function CampaignsScreen({ items, page, pageSize, hasMore, installHint, o
   return (
     <Screen
       title="حملاتي"
-      quietTitle
       actions={
         <Slots
           actions
@@ -817,25 +842,7 @@ export function CampaignsScreen({ items, page, pageSize, hasMore, installHint, o
           }
         />
       ) : (
-        <ul id="campaigns-list" aria-label="حملاتي" className="flex flex-col gap-tg">
-          {items.map((item, index) => (
-            <li key={item.id}>
-              {/* زرٌّ من جزأين يُصاب كلّه: ما تحت المؤشر هو الزرّ لا جزؤه. العنوان سطرٌ أو أكثر بعرض
-                  الزرّ كلّه والحالة تحته، فلا يضيق العنوان بجانب الشارة في أضيق إطار. */}
-              <button
-                type="button"
-                data-safe=""
-                onClick={() => onOpen(item)}
-                className="flex min-h-ctl w-full flex-col items-start justify-center gap-1 rounded-ctl border-2 border-control bg-card px-4 py-2 text-start font-semibold text-foreground hov:bg-muted"
-              >
-                <span className="min-w-0 leading-snug">{names[index]}</span>
-                <Badge tone={item.status === "READY" ? "success" : item.status === "COPY_APPROVED" ? "info" : "neutral"} className="row-status pointer-events-none">
-                  {STATUS_LABELS[item.status] ?? ""}
-                </Badge>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <CampaignRows items={items} names={names} onOpen={onOpen} />
       )}
       {installHint ? (
         <p id="campaigns-install" className="text-small text-muted-foreground">

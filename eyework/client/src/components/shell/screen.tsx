@@ -1,41 +1,41 @@
 /*
  * Screen — إطار كل شاشة عمل
  * =========================
- * العنوان (h1، يُركَّز عند الوصول فيُعلَن ما تغيّر)، و«رجوع» إن وُجد، ثم المحتوى، ثم شريط
- * الإجراءات.
+ * بنمط iOS: صفٌّ علويٌّ بخانتين ثابتتين («رجوع» في البداية، وفي النهاية ما يغادر أو يتقدّم) حين
+ * تحتاجه الشاشة، ثم ما فوق العنوان (الخطوات)، ثم العنوان الكبير (h1، يُركَّز عند الوصول فيُعلَن ما
+ * تغيّر)، ثم المحتوى، ثم شريط الإجراءات بخانتين ثابتتين.
  *
- *   • الحجم العادي: الصفحة تمرّ، وشريط الإجراءات في آخر المحتوى.
- *   • الحجم الكبير: لا تمرير. الشاشة تملأ ما تحت الرأس، والمحتوى يأخذ الباقي ويُقصّ لا
- *     يمرّ (والاختبار يرفض ما يُقصّ)، وشريط الإجراءات في الأسفل وخانته الأخيرة محجوزةٌ
- *     لزرّ الأدوات العائم: لا يقع زرٌّ تحته.
- *   • شريط الإجراءات: الأوّل في البداية (يمين الصفحة)، وما يعتمد آخر ما قبل خانة الأدوات،
- *     بعيداً عن «رجوع» أعلى الشاشة.
+ *   • الحجم العادي: الصفحة تمرّ، والصفّ العلوي لاصقٌ بزجاجٍ خفيف، وشريط الإجراءات في آخر المحتوى.
+ *   • الحجم الكبير: لا تمرير. الشاشة تملأ ما بين الرأس وشريط التبويب، والمحتوى يأخذ الباقي ويُقصّ
+ *     لا يمرّ (والاختبار يرفض ما يُقصّ)، وشريط الإجراءات في الأسفل.
  */
 
 import * as React from "react"
 
-import { Button, BackIcon } from "@/components/ui/button"
+import { Slots, TopButton, type TopAction } from "@/components/shell/slots"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 export interface ScreenProps {
   title: string
   description?: React.ReactNode
-  /** «رجوع إلى الفواتير». */
-  back?: { label: string; onBack: () => void }
+  /** «رجوع» في خانة البداية من الصفّ العلوي. */
+  back?: TopAction
+  /** خانة النهاية من الصفّ العلوي: «ألغِ الحملة»، «التالي»، «النسخة السابقة». */
+  end?: TopAction
   /** فوق العنوان: الخطوات أو شارة الحالة. */
   above?: React.ReactNode
-  /** بجانب العنوان في الحاسوب: إجراءٌ ثانٍ («مصروفٌ جديد»). */
+  /** بجانب العنوان في الآيباد والحاسوب: إجراءٌ ثانٍ. */
   aside?: React.ReactNode
   /** شريط الإجراءات. */
   actions?: React.ReactNode
-  /** العنوان اسم القسم نفسه الظاهر في زرّ الأقسام: في الحجم الكبير يُقرأ ولا يُرسم. */
-  quietTitle?: boolean
+  /** تملأ الشاشة في الحجم العادي أيضاً فيبقى شريط إجراءاتها في أسفلها («حسابي» وتأكيداه). */
+  fill?: boolean
   children: React.ReactNode
   className?: string
 }
 
-export function Screen({ title, description, back, above, aside, actions, quietTitle = false, children, className }: ScreenProps) {
+export function Screen({ title, description, back, end, above, aside, actions, fill = false, children, className }: ScreenProps) {
   const { size } = useSize()
   const heading = React.useRef<HTMLHeadingElement>(null)
   React.useEffect(() => {
@@ -43,52 +43,32 @@ export function Screen({ title, description, back, above, aside, actions, quietT
   }, [title])
 
   const gaze = size === "gaze"
-  // عنوانٌ هادئ بلا ما يرافقه: يُقرأ ولا يأخذ مكاناً (ولا المسافة بعده).
-  const silent = quietTitle && gaze && !back && !above && !aside && !description
   return (
-    <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", className)}>
-      <div className={cn("flex flex-col gap-tg-min", silent && "sr-only")}>
-        {back ? (
-          <div>
-            <Button icon={BackIcon} onClick={back.onBack}>
-              {back.label}
-            </Button>
-          </div>
-        ) : null}
+    <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", fill && "fill-screen", className)}>
+      {/* الصفّ العلوي ابنٌ مباشر لجذر الشاشة: اللصق (sticky) يبقى ما بقيت الشاشة، لا مجموعة العنوان وحدها. */}
+      {back || end ? (
+        <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mb-sec -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]", gaze && "-mb-tg")}>
+          <Slots start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-tg-min">
         {above}
         <div className="flex flex-wrap items-end justify-between gap-tg">
           <div className="flex min-w-0 flex-col gap-1">
-            <h1
-              ref={heading}
-              tabIndex={-1}
-              className={cn("text-display font-bold leading-tight focus-visible:outline-none", quietTitle && gaze && "sr-only")}
-            >
+            <h1 ref={heading} tabIndex={-1} className="text-display font-semibold leading-tight tracking-tight focus-visible:outline-none">
               {title}
             </h1>
             {description ? <div className="text-flow text-muted-foreground gaze:text-small">{description}</div> : null}
           </div>
-          {aside ? <div className="flex flex-wrap gap-tg">{aside}</div> : null}
+          {aside ? <div className="hidden flex-wrap gap-tg tablet:flex">{aside}</div> : null}
         </div>
       </div>
-      <div className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg overflow-hidden")}>{children}</div>
+      <div className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg overflow-hidden", fill && "flex-1")}>{children}</div>
       {actions ? <ScreenActions>{actions}</ScreenActions> : null}
     </div>
   )
 }
 
 export function ScreenActions({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-tg",
-        // خانة زرّ الأدوات العائم: عرضه وبعده مسافة، في طرف الشريط، في الحجمين: الزرّ ثابتٌ فوق
-        // الصفحة، وشريط الإجراءات آخر ما في الشاشة فيقع تحته في صفحةٍ قصيرة.
-        "pe-[calc(var(--fab-w)+var(--tg))]",
-        "gaze:shrink-0 gaze:flex-nowrap gaze:[&>*]:flex-1",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
+  return <div className={cn("flex flex-wrap items-center gap-tg", "gaze:shrink-0 gaze:flex-nowrap gaze:[&>*]:flex-1", className)}>{children}</div>
 }

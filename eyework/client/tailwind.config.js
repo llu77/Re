@@ -3,17 +3,20 @@ import plugin from "tailwindcss/plugin"
 
 /*
  * كل بُعدٍ يتغيّر بين الحجمين متغيّرٌ في CSS (src/styles/globals.css)، والأداة تقرؤه:
- *   h-ctl / min-h-ctl / size-ctl   الهدف (44 أو 72)
- *   gap-tg / gap-tg-min            بين هدفين (12 أو 24) وأقلّه (8 أو 24)
+ *   h-ctl / min-h-ctl / size-ctl   الهدف (40 أو 48)
+ *   gap-tg / gap-tg-min            بين هدفين (8 أو 12)
  *   px-edge                        الحافّة (16)
  *   p-pad / gap-sec                حشو البطاقة وبين الأقسام
- *   size-icon / size-fab / h-bar   الأيقونة والزرّ العائم والرأس
- *   text-small … text-display      درجات الخطّ
+ *   size-icon / h-bar / h-tab      الأيقونة والصفّ العلوي وشريط التبويب
+ *   w-side                         الشريط الجانبي
+ *   text-small … text-display      درجات الخطّ، وtext-input للحقول (16px على الأقل)
+ *   border                         شعرة (var(--line)) على كل عنصر تحكّم
  * فتبديل `data-size` على <html> يبدّل الواجهة كلّها بلا إعادة رسمٍ من React.
  *
- * والمتغيّرات `gaze:` و`compact:` لما يختلف شكلاً لا قياساً (جدولٌ أو قائمة).
- * و`hov:` بدل `hover:`: لونٌ يتغيّر تحت فأرةٍ في الحجم العادي وحده، لا تحت النظر ولا
- * اللمس، ولا يُظهر شيئاً لا يظهر بغيره (اختبار المصدر يرفض `hover:`).
+ * الإطارات: `tablet:` (744px: iPad mini عمودياً فأوسع) يعرض الشريط الجانبي، و`lg:` (1024)
+ * القائمة والتفصيل معاً، و`xl:` الحاسوب. لا `sm:` ولا `md:` (اختبار المصدر يرفضهما).
+ * والمتغيّرات `gaze:` و`compact:` لما يختلف شكلاً لا قياساً، و`short:` للشاشة القصيرة (الهاتف
+ * أفقياً أو لوحة المفاتيح)، و`kb:` وحقلٌ مركَّز (شريط التبويب يختفي)، و`hov:` بدل `hover:`.
  */
 const hsl = (name) => `hsl(var(--${name}) / <alpha-value>)`
 
@@ -26,16 +29,22 @@ const sizes = {
   sec: "var(--sec)",
   pad: "var(--pad)",
   icon: "var(--icon)",
-  fab: "var(--fab)",
   row: "var(--row)",
   bar: "var(--bar)",
+  tab: "var(--tab)",
+  side: "var(--side)",
 }
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./demo.html", "./src/**/*.{ts,tsx}"],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   future: { hoverOnlyWhenSupported: true },
   theme: {
+    screens: {
+      tablet: "744px",
+      lg: "1024px",
+      xl: "1280px",
+    },
     extend: {
       fontFamily: {
         sans: ["var(--font-body)"],
@@ -44,6 +53,7 @@ export default {
       fontSize: {
         small: ["var(--fs-small)", { lineHeight: "var(--lh-small)" }],
         body: ["var(--fs-body)", { lineHeight: "var(--lh-body)" }],
+        input: ["var(--fs-input)", { lineHeight: "var(--lh-body)" }],
         lead: ["var(--fs-lead)", { lineHeight: "var(--lh-lead)" }],
         title: ["var(--fs-title)", { lineHeight: "var(--lh-title)" }],
         display: ["var(--fs-display)", { lineHeight: "var(--lh-display)" }],
@@ -53,6 +63,7 @@ export default {
       minHeight: sizes,
       minWidth: sizes,
       maxWidth: { content: "var(--content-max)" },
+      borderWidth: { DEFAULT: "var(--line)" },
       borderRadius: {
         ctl: "var(--radius)",
         card: "var(--radius-card)",
@@ -61,14 +72,13 @@ export default {
       boxShadow: {
         card: "var(--shadow-card)",
         pop: "var(--shadow-pop)",
-        ctl: "var(--shadow-ctl)",
       },
       colors: {
         background: hsl("background"),
         foreground: hsl("foreground"),
         heading: hsl("heading"),
         card: { DEFAULT: hsl("card"), foreground: hsl("foreground") },
-        primary: { DEFAULT: hsl("primary"), foreground: hsl("primary-foreground") },
+        primary: { DEFAULT: hsl("primary"), foreground: hsl("primary-foreground"), line: hsl("primary-line") },
         secondary: { DEFAULT: hsl("secondary"), foreground: hsl("secondary-foreground") },
         muted: { DEFAULT: hsl("muted"), foreground: hsl("muted-foreground") },
         destructive: { DEFAULT: hsl("destructive"), foreground: hsl("primary-foreground"), tint: hsl("destructive-tint") },
@@ -86,7 +96,11 @@ export default {
     plugin(({ addVariant }) => {
       addVariant("gaze", ':root[data-size="gaze"] &')
       addVariant("compact", ':root:not([data-size="gaze"]) &')
-      addVariant("short", "@media (max-height: 43.75rem)")
+      addVariant("short", "@media (max-height: 30rem)")
+      // لوحة المفاتيح مفتوحة (حقلٌ مركَّز): في الحجم العادي وحده، حيث الشريط السفلي ثابتٌ فوق الصفحة
+      // فيركب لوحة المفاتيح؛ في الكبير الشريط في التدفّق ولا يركب شيئاً، وإخفاؤه يحرّك الأهداف تحت
+      // نظرٍ باقٍ (ضغطةٌ تبدأ فوق زرٍّ وتنتهي فوق غيره).
+      addVariant("kb", ':root[data-keyboard="open"]:not([data-size="gaze"]) &')
       addVariant("hov", '@media (hover: hover) and (pointer: fine) { :root:not([data-size="gaze"]) &:hover }')
     }),
   ],

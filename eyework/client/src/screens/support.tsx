@@ -70,7 +70,6 @@ export function SupportQueue({ tab, tabs, onTabChange, tickets, now, onNext, onO
   return (
     <Screen
       title="التذاكر المفتوحة"
-      quietTitle
       description={gaze ? undefined : "سيمبول كتب مسودةً لكل رسالة، ولا يصل العميلَ شيءٌ قبل قرارك."}
       aside={gaze ? undefined : next}
       actions={gaze ? next : undefined}
@@ -173,7 +172,7 @@ export function SupportTicket({ ticket, messages, draft, now, onDecide, onBack, 
   )
 
   const draftCard = draft ? (
-    <Card as="section" aria-labelledby="draft-title" className="border-2 border-ai/40 bg-ai-tint shadow-none">
+    <Card as="section" aria-labelledby="draft-title" className="border border-ai/40 bg-ai-tint shadow-none">
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle as="h2" id="draft-title" className="flex items-center gap-2 text-lead">
           <SymbolMark className="size-4" />
@@ -246,8 +245,8 @@ export function SupportTicket({ ticket, messages, draft, now, onDecide, onBack, 
   // في موضع «التالي» نفسه؛ والتصعيد والإغلاق يسألان قبل أن يفعلا.
   const decisions =
     mode === "read" ? (
-      <section aria-label="قرارك" className="grid grid-cols-2 gap-tg md:grid-cols-4">
-        <Button variant="primary" commit icon={Send} disabled={!draft} onClick={() => draft && onDecide({ kind: "send", text: draft.text, edited: false, ownWords: false })} className="col-span-2 md:col-span-1">
+      <section aria-label="قرارك" className="grid grid-cols-2 gap-tg tablet:grid-cols-4">
+        <Button variant="primary" commit icon={Send} disabled={!draft} onClick={() => draft && onDecide({ kind: "send", text: draft.text, edited: false, ownWords: false })} className="col-span-2 tablet:col-span-1">
           أرسل المسودة كما هي
         </Button>
         <Button variant="secondary" icon={PencilLine} disabled={!draft} onClick={() => setMode("edit")}>
@@ -352,7 +351,7 @@ export function SupportTicket({ ticket, messages, draft, now, onDecide, onBack, 
   return (
     <Screen
       title={ticket.subject}
-      back={{ label: "التذاكر", onBack }}
+      back={{ id: "ticket-back", label: "التذاكر", onClick: onBack }}
       above={
         <p className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
           <span className="num font-semibold text-foreground">#{ticket.number}</span>

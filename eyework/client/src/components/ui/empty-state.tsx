@@ -20,12 +20,12 @@ export interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className={cn("flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-border px-pad py-sec text-center", className)}>
+    <div className={cn("flex flex-col items-center gap-3 rounded-card border border-dashed border-border px-pad py-sec text-center", className)}>
       <span className="flex size-12 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground gaze:size-16">
         <Icon aria-hidden="true" className="size-6 gaze:size-8" strokeWidth={2} />
       </span>
       <div className="flex max-w-sm flex-col gap-1">
-        <p className="text-lead font-bold text-heading">{title}</p>
+        <p className="text-lead font-semibold text-heading">{title}</p>
         {description ? <p className="text-small text-muted-foreground">{description}</p> : null}
       </div>
       {action ? <div className="mt-1 flex flex-wrap justify-center gap-tg">{action}</div> : null}

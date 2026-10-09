@@ -4,7 +4,7 @@
  * الأصل: shadcn/ui input وfield وlabel (MIT). والتكييف:
  *   • التسمية ظاهرةٌ فوق الحقل دائماً، ولا `placeholder` بدلها: نصٌّ يختفي مع أول
  *     حرف لا يُعاد قراءته، ومن يكتب بالنظر يكتب ببطء.
- *   • الخطّ 16px على الأقل في الحجمين: iOS لا يكبّر الصفحة عند التركيز.
+ *   • الخطّ `text-input` (16px على الأقل) في الحجمين: iOS لا يكبّر الصفحة عند التركيز.
  *   • `Field` يربط التسمية والمساعدة والخطأ بالحقل (`aria-describedby` و`aria-invalid`)
  *     بالسياق، فلا يُنسى ربطٌ في شاشة.
  *   • الخطأ تحت الحقل نصٌّ وأيقونة، لا لونٌ وحده؛ ومكانه محجوزٌ إن طُلب (`reserve`)
@@ -65,7 +65,7 @@ export function Field({ label, hint, error, required = false, reserve = false, i
   }
   return (
     <FieldContext.Provider value={value}>
-      <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+      <div className={cn("flex min-w-0 flex-col gap-1", className)}>
         <Label htmlFor={controlId}>
           {label}
           {required ? <span className="text-muted-foreground"> (مطلوب)</span> : null}
@@ -96,7 +96,7 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 }
 
 export const fieldClass = [
-  "w-full min-w-0 rounded-ctl border-2 border-control bg-card px-3 text-body text-foreground shadow-ctl",
+  "w-full min-w-0 rounded-ctl border border-control bg-card px-3 text-input text-foreground",
   "min-h-ctl",
   "focus-visible:border-primary focus-visible:outline-offset-1",
   "aria-[invalid=true]:border-destructive",

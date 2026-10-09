@@ -13,16 +13,7 @@ import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { PagedText } from "@/components/ui/paged-text"
 import { useSize } from "@/lib/size"
 import type { Notice } from "@/lib/store"
-
-function Frame({ end, children }: { end?: React.ReactNode; children: React.ReactNode }) {
-  const { size } = useSize()
-  return (
-    <div className={`mx-auto flex w-full max-w-lg flex-col px-edge pb-safe pt-safe ${size === "gaze" ? "h-dvh overflow-hidden" : "min-h-dvh"}`}>
-      <header className="flex items-start justify-end gap-tg">{end}</header>
-      {children}
-    </div>
-  )
-}
+import { AuthFrame } from "@/screens/auth"
 
 function Lines({ lines, label }: { lines: string[]; label: string }) {
   const { size } = useSize()
@@ -38,7 +29,8 @@ function Lines({ lines, label }: { lines: string[]; label: string }) {
 
 export function NoticeKeptScreen({ notice, onNext, onBack }: { notice: Notice; onNext: () => void; onBack: () => void }) {
   return (
-    <Frame
+    <AuthFrame
+      toggle={false}
       end={
         <Button id="notice-back" icon={BackIcon} onClick={onBack}>
           رجوع
@@ -48,7 +40,7 @@ export function NoticeKeptScreen({ notice, onNext, onBack }: { notice: Notice; o
       <main className="flex min-h-0 flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
         <div className="flex flex-col gap-1">
           <p className="text-small font-semibold text-muted-foreground">قبل أن تبدأ · 1 من 2</p>
-          <h1 className="flex items-center gap-2 text-display font-bold leading-tight">
+          <h1 className="flex items-center gap-2 text-display font-semibold leading-tight tracking-tight">
             <ShieldCheck aria-hidden="true" className="size-7 text-primary" />
             ما يُحفظ في هذا التطبيق
           </h1>
@@ -60,7 +52,7 @@ export function NoticeKeptScreen({ notice, onNext, onBack }: { notice: Notice; o
           </Button>
         </div>
       </main>
-    </Frame>
+    </AuthFrame>
   )
 }
 
@@ -73,7 +65,8 @@ export function NoticeSentScreen({ notice, scope, onAgree, onBack }: {
 }) {
   const items = notice.sent.items.filter((item) => item.scope === "ALL" || scope === null || item.scope === scope)
   return (
-    <Frame
+    <AuthFrame
+      toggle={false}
       end={
         <Button id="notice-back" icon={BackIcon} onClick={onBack}>
           رجوع
@@ -83,7 +76,7 @@ export function NoticeSentScreen({ notice, scope, onAgree, onBack }: {
       <main className="flex min-h-0 flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
         <div className="flex flex-col gap-1">
           <p className="text-small font-semibold text-muted-foreground">قبل أن تبدأ · 2 من 2</p>
-          <h1 className="text-display font-bold leading-tight">ما يُرسَل إلى مزوّد النموذج</h1>
+          <h1 className="text-display font-semibold leading-tight tracking-tight">ما يُرسَل إلى مزوّد النموذج</h1>
         </div>
         <Lines lines={[notice.sent.intro, ...items.map((item) => item.text), notice.sent.outro]} label="ما يُرسَل" />
         <div className="mt-auto">
@@ -92,6 +85,6 @@ export function NoticeSentScreen({ notice, scope, onAgree, onBack }: {
           </Button>
         </div>
       </main>
-    </Frame>
+    </AuthFrame>
   )
 }

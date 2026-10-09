@@ -4,7 +4,7 @@
 الخادم نفسه الذي تختبره واجهة «/» (`server` في tests/ui/conftest.py) يقدّم الواجهة
 الجديدة مبنيةً تحت /next/؛ بلا بناءٍ لا اختبار هنا، وفي CI فشلٌ لا تجاوز. المراقبة
 (INSTRUMENT) تعدّ ما تستدعيه قطعة التطبيق `assets/app-*.js` وحدها من المؤقّتات والمستمعين:
-جدولة React وإطارات framer-motion في `vendor` مسموحةٌ حين تبدأ بضغطةٍ أو بردّ خادم.
+جدولة React في `vendor` مسموحةٌ حين تبدأ بضغطةٍ أو بردّ خادم.
 """
 
 from __future__ import annotations
@@ -20,6 +20,27 @@ from eyework.web.app import CLIENT_DIST
 
 LOGIN = "ali@example.sa"
 NAME = "علي"
+
+#: إطارات الواجهة الجديدة. قائمة الواجهة القائمة (tests/ui/conftest.py) لا تُمسّ: اختباراتها تفهرسها
+#: بالموضع. الهواتف: Safari بشريطيه على iPhone 12 mini و12–14، و15/16 (393) و15/16 Plus (430)؛
+#: وإطار إجهادٍ 320 (تكبير الشاشة)؛ والآيباد: mini عمودياً (744)، والعاشر (820)، وPro 12.9 (1024)،
+#: وأفقياً (1180×820)؛ والحاسوب. لم تُقَس على جهاز (بوابة الإصدار 0 تطبع الإطار الحقيقي).
+PHONES = [(375, 635), (390, 664), (393, 700), (430, 800)]
+STRESS = (320, 635)
+HANDHELD = [*PHONES, STRESS]
+TABLETS = [(744, 1133), (820, 1180), (1024, 1366)]
+LANDSCAPE = (1180, 820)
+DESKTOP = (1280, 800)
+#: ما يمشي عليه المسار الكامل: كل الهواتف، وأصغر الآيباد وأكبره، والأفقي، والحاسوب.
+FRAMES = [*HANDHELD, TABLETS[0], TABLETS[2], LANDSCAPE, DESKTOP]
+#: أضيق إطارين: لا يتّسع نصٌّ فيهما إلا اتّسع في كل إطارٍ أعرض وأطول.
+TIGHTEST = [PHONES[0], STRESS]
+#: ما يعرض الشريط الجانبي.
+WIDE = [TABLETS[0], TABLETS[1], LANDSCAPE, DESKTOP]
+
+
+def frame_ids(frames) -> list[str]:
+    return [f"{w}x{h}" for w, h in frames]
 
 INSTRUMENT = r"""
 (() => {

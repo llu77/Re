@@ -3,26 +3,25 @@
  * ====================================
  * تطبيقٌ واحد ودخولٌ واحد وبوابةٌ واحدة؛ والمهنة تحدّد ما فيها (lib/workspace.ts):
  *
- *   ┌ الرأس ───────────────────────────────────────────────────────────┐
- *   │ الهاتف والكبير: [المهنة · الشاشة الحالية ▾]                [حسابي] │
- *   │ الحاسوب:  [صياغة | أمين المخزون] [الرئيسية · جديد ▾ · المخزون…] [سارة] │
- *   └──────────────────────────────────────────────────────────────────┘
- *   الشاشة
- *                                              [الأدوات] ← عائمٌ في الطرف الأسفل
+ *   الهاتف:            الشاشة، وتحتها شريط التبويب [الرئيسية · الأقسام · الأدوات · حسابي]
+ *   الآيباد والحاسوب:  شريطٌ جانبي [العلامة · الرئيسية · البنود · اسأل سيمبول · مساعدة · حسابي]
+ *                      والشاشة بجانبه؛ وفي العريض بحجم اللمس قائمةٌ وتفصيلٌ معاً (`pane`).
+ *   الحجم الكبير:      الشريط الجانبي سكّةٌ بالبنود الأربعة نفسها؛ لا تمرير: الغلاف بارتفاع الشاشة.
  *
- * قائمة الرأس هي أزرار الرئيسية نفسها بعد «الرئيسية»: من أيّ شاشةٍ إلى أيّ عمل بضغطتين.
- * في الحجم العادي تمرّ الصفحة والرأس لاصقٌ في أعلاها؛ وفي الكبير لا تمرير: الغلاف بارتفاع
- * الشاشة، والشاشة تأخذ ما بقي (Screen)، وخانة زرّ الأدوات محجوزةٌ في شريط الإجراءات.
- * حين تُفتح القائمة يصير المحتوى خاملاً وغير مرئي، فلا يُصاب من حوافّها.
+ * «الأقسام» و«الأدوات» ورقتان على <dialog>: ما خلفهما خاملٌ من المتصفّح نفسه. ولا شيء هنا
+ * يعتمد: كل بندٍ رابطٌ أو زرٌّ آمن. ويُكتب `data-keyboard` على <html> ما دام حقلٌ مركَّزاً
+ * (lib/keyboard.ts) فيختفي شريط التبويب تحت لوحة المفاتيح.
  */
 
 import * as React from "react"
-import { House, PlusCircle, UserRound } from "lucide-react"
+import { CircleHelp, House, LayoutGrid, UserRound, Wrench } from "lucide-react"
 
-import { BrandMark } from "@/components/brand/marks"
-import { ToolsFab, type ToolsProps } from "@/components/shell/tools-fab"
-import { DropdownNavigation, type NavItem } from "@/components/ui/dropdown-navigation"
-import { useSize } from "@/lib/size"
+import { SectionsSheet } from "@/components/shell/sections-sheet"
+import { Sidebar } from "@/components/shell/sidebar"
+import { TabBar, type NavEntry } from "@/components/shell/tab-bar"
+import { ToolsSheet, type ToolsProps } from "@/components/shell/tools-sheet"
+import { useKeyboardFlag } from "@/lib/keyboard"
+import { TABLET_QUERY, WIDE_QUERY, useMatch, useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 import type { Workspace } from "@/lib/workspace"
 
@@ -33,140 +32,91 @@ export interface WorkspaceShellProps {
   userName: string | null
   onNavigate: (href: string) => void
   tools: Omit<ToolsProps, "workspace" | "screen" | "onNavigate">
+  /** قائمةٌ تُعرض بجانب الشاشة في العريض بحجم اللمس («حملاتي» بجانب الحملة). */
+  pane?: React.ReactNode
   children: React.ReactNode
-  /** صفحة العرض: قائمة الأقسام مفتوحة. */
-  navOpen?: boolean
 }
 
-export function WorkspaceShell({ workspace, current, userName, onNavigate, tools, children, navOpen = false }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, current, userName, onNavigate, tools, pane, children }: WorkspaceShellProps) {
   const { size } = useSize()
-  const [menuOpen, setMenuOpen] = React.useState(navOpen)
-  const content = React.useRef<HTMLElement>(null)
+  const gaze = size === "gaze"
+  const tablet = useMatch(TABLET_QUERY)
+  const wide = useMatch(WIDE_QUERY)
+  const [sections, setSections] = React.useState(false)
+  // `gen` يزيد مع كل فتح فتُرسم الورقة من جديد (key) بحالةٍ نظيفة.
+  const [tool, setTool] = React.useState<{ open: boolean; initial: string | null; gen: number }>({ open: false, initial: null, gen: 0 })
+  const openTool = (initial: string | null) => setTool((t) => ({ open: true, initial, gen: t.gen + 1 }))
+  const main = React.useRef<HTMLElement>(null)
+  useKeyboardFlag(main)
 
-  // React 18 لا يعرف الخاصيّة `inert`، فتُكتب على العنصر نفسه.
-  React.useEffect(() => {
-    if (content.current) content.current.inert = menuOpen
-  }, [menuOpen])
+  const home: NavEntry = { id: "nav-home", label: "الرئيسية", icon: House, href: workspace.base, current: current === "home" }
+  const account: NavEntry = { id: "nav-account", label: "حسابي", icon: UserRound, href: "#/account", current: current === null }
+  const sectionsEntry: NavEntry = { id: "nav-sections", label: "الأقسام", icon: LayoutGrid, onClick: () => setSections(true) }
+  const toolsEntry: NavEntry = { id: "nav-tools", label: "الأدوات", icon: Wrench, onClick: () => openTool(null) }
+  const four = [home, sectionsEntry, toolsEntry, account]
 
-  const home: NavItem = { id: "home", label: "الرئيسية", icon: House, href: workspace.base, current: current === "home" }
-  const entries: NavItem[] = workspace.home.map((entry) => ({
-    id: entry.id,
+  const entries: NavEntry[] = workspace.home.map((entry) => ({
+    id: `nav-entry-${entry.id}`,
     label: entry.label,
     icon: entry.icon,
     href: entry.route,
     current: entry.id === current,
   }))
-  // الحاسوب: ما يُنشئ مستنداً تحت «جديد ▾» حين يكون اثنين فأكثر (نمط القائمة الفرعية في الأصل).
-  const creates = workspace.home.filter((entry) => entry.creates)
-  const bar: NavItem[] =
-    creates.length > 1
-      ? [
-          home,
-          {
-            id: "new",
-            label: "جديد",
-            icon: PlusCircle,
-            href: creates[0].route,
-            current: creates.some((entry) => entry.id === current),
-            subMenus: [{ title: "ابدأ مستنداً", items: entries.filter((item) => creates.some((entry) => entry.id === item.id)) }],
-          },
-          ...entries.filter((item) => !creates.some((entry) => entry.id === item.id)),
-        ]
-      : [home, ...entries]
-  // الحجم الكبير: «حسابي» بندٌ في قائمة الأقسام لا زرٌّ في الرأس، فيبقى في الشاشة هدفان ثابتان
-  // (القائمة وزرّ الأدوات) وعشرة أهدافٍ على الأكثر مع ما في شاشات العمل الأكثر أزراراً.
-  const accountItem: NavItem = { id: "account", label: "حسابي", icon: UserRound, href: "#/account", current: current === null }
-  const switcher = size === "gaze" ? [home, ...entries, accountItem] : [home, ...entries]
-  const initial = userName?.trim()?.[0] ?? null
-  const currentLabel = current === null ? "حسابي" : current === "home" ? "الرئيسية" : (entries.find((item) => item.current)?.label ?? "الرئيسية")
+  const sidebarGroups: NavEntry[][] = gaze
+    ? [[home, sectionsEntry], [toolsEntry], [account]]
+    : [
+        [home, ...entries],
+        [
+          { id: "nav-assistant", label: "اسأل سيمبول", icon: "symbol", onClick: () => openTool("assistant") },
+          { id: "nav-help", label: "مساعدة", icon: CircleHelp, onClick: () => openTool("help") },
+        ],
+        [account],
+      ]
 
-  const account = (
-    <a
-      href="#/account"
-      data-safe=""
-      aria-current={current === null ? "page" : undefined}
-      onClick={(event) => {
-        event.preventDefault()
-        onNavigate("#/account")
-      }}
-      className={cn(
-        "flex min-h-ctl shrink-0 items-center gap-2 rounded-ctl border-2 px-2",
-        current === null ? "border-primary bg-secondary" : "border-control bg-card hov:bg-muted",
-        "gaze:hidden",
-      )}
-    >
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-pill bg-primary text-small font-bold text-primary-foreground gaze:size-8">
-        {initial ?? <UserRound aria-hidden="true" className="size-4" />}
-      </span>
-      <span className="flex min-w-0 flex-col leading-tight gaze:items-center">
-        <span className="max-w-[7rem] truncate text-small font-bold text-foreground gaze:hidden">{userName ?? "حسابي"}</span>
-        <span className="text-small text-muted-foreground gaze:text-[0.8125rem] gaze:font-semibold gaze:text-foreground">حسابي</span>
-      </span>
-    </a>
-  )
-
+  const twoPanes = Boolean(pane) && wide && !gaze
   return (
-    <div className={cn("bg-background", size === "gaze" ? "flex h-dvh flex-col overflow-hidden" : "min-h-dvh")}>
+    <div className={cn("bg-background", gaze ? "flex h-dvh flex-col overflow-hidden" : "min-h-dvh")}>
       <a
         href="#content"
         className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-edge focus-visible:top-edge focus-visible:z-50 focus-visible:rounded-ctl focus-visible:bg-card focus-visible:p-3"
       >
         تخطَّ إلى المحتوى
       </a>
-      <header
-        className={cn(
-          "z-20 shrink-0 border-b border-border bg-card pb-1.5 pt-[max(0.375rem,env(safe-area-inset-top))]",
-          size === "compact" && "sticky top-0",
-          "gaze:border-b-0 gaze:bg-background gaze:pb-0 gaze:pt-safe",
-        )}
-      >
-        <div className="relative mx-auto flex max-w-content items-center gap-tg px-edge gaze:max-w-3xl">
-          {/* الحاسوب، الحجم العادي */}
-          <div className="hidden shrink-0 items-center gap-2.5 lg:flex gaze:hidden">
-            <BrandMark />
-            <span className="flex flex-col leading-tight">
-              <span className="font-bold text-heading">صياغة</span>
-              <span className="text-small text-muted-foreground">{workspace.name}</span>
-            </span>
-          </div>
-          <DropdownNavigation
-            variant="bar"
-            label="أعمال البوابة"
-            items={bar}
-            onNavigate={onNavigate}
-            onOpenChange={setMenuOpen}
-            className="hidden flex-1 lg:block gaze:hidden"
-          />
-          {/* الهاتف، والحجم الكبير في كل شاشة */}
-          <DropdownNavigation
-            variant="switcher"
-            label="أعمال البوابة"
-            caption={workspace.name}
-            currentLabel={currentLabel}
-            items={switcher}
-            onNavigate={onNavigate}
-            onOpenChange={setMenuOpen}
-            defaultOpen={navOpen ? "switcher" : null}
-            className="flex-1 lg:hidden gaze:block"
-          />
-          {account}
-        </div>
-      </header>
-
-      <main
-        ref={content}
-        id="content"
-        tabIndex={-1}
-        className={cn(
-          "mx-auto w-full max-w-content px-edge focus-visible:outline-none gaze:max-w-3xl",
-          size === "gaze" ? "flex min-h-0 flex-1 flex-col pb-safe pt-tg" : "pb-[calc(var(--fab)+2*var(--edge)+env(safe-area-inset-bottom))] pt-sec",
-          menuOpen && "invisible",
-        )}
-      >
-        {children}
-      </main>
-
-      <ToolsFab workspace={workspace} screen={current} onNavigate={onNavigate} {...tools} hidden={menuOpen} />
+      <div className={cn("flex", gaze && "min-h-0 flex-1")}>
+        {tablet ? <Sidebar workspaceName={workspace.name} userName={userName} groups={sidebarGroups} onNavigate={onNavigate} /> : null}
+        <main
+          ref={main}
+          id="content"
+          tabIndex={-1}
+          className={cn(
+            "chrome-portal mx-auto w-full px-edge focus-visible:outline-none",
+            twoPanes ? "max-w-[72rem]" : "max-w-content",
+            gaze ? "flex min-h-0 flex-1 flex-col pb-safe pt-tg" : "pt-sec",
+            !gaze && (tablet ? "pb-safe" : "pb-tab"),
+          )}
+        >
+          {twoPanes ? (
+            <div className="grid grid-cols-[20rem_minmax(0,1fr)] gap-sec">
+              <div className="min-w-0">{pane}</div>
+              <div className="min-w-0">{children}</div>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
+      </div>
+      {tablet ? null : <TabBar items={four} onNavigate={onNavigate} />}
+      <SectionsSheet open={sections} workspace={workspace} current={current} onClose={() => setSections(false)} onNavigate={onNavigate} />
+      <ToolsSheet
+        key={tool.gen}
+        open={tool.open}
+        initialTool={tool.initial}
+        onClose={() => setTool((t) => ({ ...t, open: false }))}
+        workspace={workspace}
+        screen={current}
+        onNavigate={onNavigate}
+        {...tools}
+      />
     </div>
   )
 }

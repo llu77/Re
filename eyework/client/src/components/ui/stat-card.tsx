@@ -65,7 +65,7 @@ export function StatCard({ label, value, unit, icon: Icon, delta, hint, tone = "
   )
   if (onSelect) {
     return (
-      <button type="button" data-safe="" onClick={onSelect} className={cn(box, "min-h-ctl border-2 hov:bg-muted")}>
+      <button type="button" data-safe="" onClick={onSelect} className={cn(box, "min-h-ctl border hov:bg-muted")}>
         {body}
       </button>
     )

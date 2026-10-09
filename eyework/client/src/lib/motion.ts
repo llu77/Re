@@ -1,21 +1,18 @@
 /*
  * الحركة
  * ======
- * framer-motion يحرّك على إطارات الشاشة (requestAnimationFrame) — وهذا مسموحٌ حين
- * يبدأ بضغطةٍ أو بردّ خادم، ويقصر (150ms)، ولا يحرّك إلا الشفافية والانزلاق الأول
- * للورقة. وفي الحجم الكبير أو مع «تقليل الحركة» لا حركة إطلاقاً: ما يتحرّك تحت نظرٍ
- * باقٍ قد يُضغط وهو يتحرّك. كل مكوّنٍ يسأل هنا ولا يقرّر بنفسه.
+ * لا مكتبة حركة: ما يتحرّك يتحرّك بـ`tailwindcss-animate` (CSS وحده) في الحجم العادي، ويقصر
+ * (150ms)، ولا يحرّك إلا الشفافية والانزلاق الأول للورقة. وفي الحجم الكبير أو مع «تقليل الحركة»
+ * لا حركة إطلاقاً: ما يتحرّك تحت نظرٍ باقٍ قد يُضغط وهو يتحرّك. كل مكوّنٍ يسأل هنا ولا يقرّر
+ * بنفسه.
  */
 
-import { useReducedMotion, type Transition } from "framer-motion"
+import { useMatch, useSize } from "@/lib/size"
 
-import { useSize } from "@/lib/size"
-
-export const QUICK: Transition = { duration: 0.15, ease: "easeOut" }
-export const NONE: Transition = { duration: 0 }
+export const REDUCED_QUERY = "(prefers-reduced-motion: reduce)"
 
 export function useMotionAllowed(): boolean {
   const { size } = useSize()
-  const reduce = useReducedMotion()
+  const reduce = useMatch(REDUCED_QUERY)
   return size === "compact" && !reduce
 }

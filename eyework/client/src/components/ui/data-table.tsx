@@ -76,7 +76,7 @@ export function DataTable<T>({
   if (count === 0) return <>{empty}</>
 
   const list = (
-    <ul aria-label={caption} className={cn("flex flex-col gap-tg-min", size === "compact" && "md:hidden")}>
+    <ul aria-label={caption} className={cn("flex flex-col gap-tg-min", size === "compact" && "tablet:hidden")}>
       {visible.map((row) => {
         const body = (
           <>
@@ -88,7 +88,7 @@ export function DataTable<T>({
             {onOpen ? <NextIcon aria-hidden="true" className="size-icon shrink-0 text-muted-foreground" /> : null}
           </>
         )
-        const box = "flex min-h-ctl w-full items-center gap-3 rounded-card border-2 bg-card px-3 py-2 gaze:py-3"
+        const box = "flex min-h-ctl w-full items-center gap-3 rounded-card border bg-card px-3 py-2 gaze:py-3"
         return (
           <li key={rowKey(row)}>
             {onOpen ? (
@@ -112,7 +112,7 @@ export function DataTable<T>({
 
   const table =
     size === "compact" ? (
-      <div className="hidden overflow-hidden rounded-card border border-border bg-card shadow-card md:block">
+      <div className="hidden overflow-hidden rounded-card border border-border bg-card shadow-card tablet:block">
         <table className="w-full border-collapse text-body">
           <caption className="sr-only">{caption}</caption>
           <thead className="bg-muted text-small text-muted-foreground">

@@ -27,8 +27,7 @@ import {
 } from "@/lib/signup"
 import { toServer, useSize, writeSizeToUrl } from "@/lib/size"
 import { getState, setState, useStore, type Choices } from "@/lib/store"
-import { cn } from "@/lib/utils"
-import { SignupSizeStep } from "@/screens/auth"
+import { AuthFrame, SignupSizeStep } from "@/screens/auth"
 import { NoticeKeptScreen, NoticeSentScreen } from "@/screens/notice"
 
 const STEPS = SIGNUP_STEPS.map((id) => ({ id, label: STEP_LABELS[id] }))
@@ -52,24 +51,25 @@ function StepFrame({ screen, title, hint, onBack, next, children }: {
   next: React.ReactNode
   children: React.ReactNode
 }) {
-  const { size } = useSize()
   return (
-    <div className={cn("mx-auto flex w-full max-w-lg flex-col px-edge pb-safe pt-safe", size === "gaze" ? "h-dvh overflow-hidden" : "min-h-dvh")}>
-      <header className="flex items-start justify-end gap-tg">
+    <AuthFrame
+      toggle={false}
+      end={
         <Button id="signup-back" icon={BackIcon} onClick={onBack}>
           رجوع
         </Button>
-      </header>
+      }
+    >
       <main className="flex min-h-0 flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
         <div className="flex flex-col gap-tg-min">
           <Stepper steps={STEPS} current={stepNumber(screen) - 1} variant="brief" />
-          <h1 className="text-display font-bold leading-tight">{title}</h1>
+          <h1 className="text-display font-semibold leading-tight tracking-tight">{title}</h1>
           {hint ? <p className="text-flow text-muted-foreground gaze:short:hidden">{hint}</p> : null}
         </div>
         {children}
         <div className="mt-auto flex flex-col gap-tg">{next}</div>
       </main>
-    </div>
+    </AuthFrame>
   )
 }
 
@@ -139,7 +139,7 @@ function DateStep({ s, kind, earliest, onBack }: { s: SignupState; kind: "year" 
       onBack={onBack}
       next={<NextButton id={`signup-${kind}-next`} disabled={value === null || future} onClick={() => go(screenRoute(nextScreen))} />}
     >
-      <p id={`signup-${kind}-value`} aria-live="polite" className="num text-display font-bold text-heading">
+      <p id={`signup-${kind}-value`} aria-live="polite" className="num text-display font-semibold text-heading">
         {value === null ? "—" : words(value)}
       </p>
       <div role="group" aria-label={kind === "year" ? "سنواتٌ جاهزة" : kind === "month" ? "أشهرٌ جاهزة" : "أيامٌ جاهزة"} id={`signup-${kind}-presets`} className="grid grid-cols-3 gap-tg">
@@ -164,7 +164,6 @@ function DateStep({ s, kind, earliest, onBack }: { s: SignupState; kind: "year" 
 /* ── المهنة ──────────────────────────────────────────────────────── */
 
 function ProfessionStep({ s, choices, onBack }: { s: SignupState; choices: Choices; onBack: () => void }) {
-  const { size } = useSize()
   const open = s.code === null
   const contact = choices.support_contact
   return (
@@ -193,8 +192,8 @@ function ProfessionStep({ s, choices, onBack }: { s: SignupState; choices: Choic
         onValueChange={(profession) => update({ profession })}
         columns={1}
         ids={Object.fromEntries(choices.professions.map((p) => [p.code, `signup-profession-${p.code}`]))}
-        // في الحجم الكبير الاسم وحده: ثلاث بطاقاتٍ بسطريها لا تتّسع مع «التالي» في أقصر إطار.
-        options={choices.professions.map((p) => ({ value: p.code, title: p.name, description: size === "compact" ? p.tagline : undefined }))}
+        // الاسم وسطره في الحجمين: ثلاث بطاقاتٍ بالحجم الجديد تتّسع مع «التالي» في أقصر إطار.
+        options={choices.professions.map((p) => ({ value: p.code, title: p.name, description: p.tagline }))}
       />
     </StepFrame>
   )
@@ -234,10 +233,10 @@ function ReviewStep({ s, choices, onBack }: { s: SignupState; choices: Choices; 
   return (
     <StepFrame screen="review" title="راجِع قبل كلمة المرور" onBack={onBack} next={<NextButton id="signup-review-next" label="التالي: كلمة المرور" onClick={() => go(screenRoute("password"))} />}>
       <dl className="flex flex-col gap-tg-min text-flow">
-        <div className="flex gap-2"><dt className="text-muted-foreground">الاسم:</dt><dd id="signup-review-name" className="font-bold">{s.name}</dd></div>
-        <div className="flex gap-2"><dt className="text-muted-foreground">تاريخ الميلاد:</dt><dd id="signup-review-birth" className="num font-bold">{birthWords(s)}</dd></div>
-        <div className="flex gap-2"><dt className="text-muted-foreground">المهنة:</dt><dd id="signup-review-profession" className="font-bold">{profession}</dd></div>
-        <div className="flex gap-2"><dt className="text-muted-foreground">اسم الدخول:</dt><dd><bdi id="signup-review-email" dir="ltr" className="num font-bold">{s.email}</bdi></dd></div>
+        <div className="flex gap-2"><dt className="text-muted-foreground">الاسم:</dt><dd id="signup-review-name" className="font-semibold">{s.name}</dd></div>
+        <div className="flex gap-2"><dt className="text-muted-foreground">تاريخ الميلاد:</dt><dd id="signup-review-birth" className="num font-semibold">{birthWords(s)}</dd></div>
+        <div className="flex gap-2"><dt className="text-muted-foreground">المهنة:</dt><dd id="signup-review-profession" className="font-semibold">{profession}</dd></div>
+        <div className="flex gap-2"><dt className="text-muted-foreground">اسم الدخول:</dt><dd><bdi id="signup-review-email" dir="ltr" className="num font-semibold">{s.email}</bdi></dd></div>
       </dl>
       <p id="signup-email-help" className="text-small text-muted-foreground gaze:short:hidden">
         {open ? (

@@ -10,7 +10,7 @@
  *   • المختار يُرى بالإطار والخطّ والعلامة تحته، لا باللون وحده.
  *   • في الحجم الكبير: لسانان يبقيان لسانين؛ وثلاثةٌ أو أكثر تصير زرّاً واحداً «الحالة: جديدة ▾»
  *     يفتح الخيارات مكان المحتوى، ثم يعود المحتوى بعد الاختيار. أربعة ألسنةٍ أربعة أهداف من
- *     عشرة، وزرٌّ واحدٌ هدفٌ واحد؛ ولا يُقصّ شيءٌ ولا تمرّ الشاشة.
+ *     اثني عشر، وزرٌّ واحدٌ هدفٌ واحد؛ ولا يُقصّ شيءٌ ولا تمرّ الشاشة.
  *   • الألسنة قيم (`data-value`): أثرها ظاهرٌ في مكانها ويُعكس بضغطة.
  */
 
@@ -63,13 +63,13 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
         aria-controls={regionId}
         onClick={() => setOpen((shown) => !shown)}
         className={cn(
-          "flex min-h-ctl w-full items-center justify-between gap-3 rounded-ctl border-2 px-4 text-start",
-          open ? "border-primary bg-secondary" : "border-control bg-card",
+          "flex min-h-ctl w-full items-center justify-between gap-3 rounded-ctl border px-4 text-start",
+          open ? "border-primary-line bg-secondary" : "border-control bg-card",
         )}
       >
         <span className="flex min-w-0 flex-col leading-tight">
           <span className="text-small text-muted-foreground">{label}</span>
-          <span className="truncate font-bold">
+          <span className="truncate font-semibold">
             {current.label}
             {current.count !== undefined ? <span className="num font-semibold text-muted-foreground"> · {current.count}</span> : null}
           </span>
@@ -94,8 +94,8 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
                     toggle.current?.focus()
                   }}
                   className={cn(
-                    "flex min-h-ctl items-center justify-between gap-2 rounded-ctl border-2 px-3 text-start",
-                    checked ? "border-primary bg-secondary font-bold" : "border-control bg-card",
+                    "flex min-h-ctl items-center justify-between gap-2 rounded-ctl border px-3 text-start",
+                    checked ? "border-primary-line bg-secondary font-semibold" : "border-control bg-card",
                   )}
                 >
                   <span>
@@ -179,10 +179,10 @@ function TabList({ items, value, onValueChange, label, children, className, stre
               onClick={() => onValueChange(item.id)}
               onKeyDown={(event) => onKeyDown(event, item.id)}
               className={cn(
-                "relative inline-flex min-h-ctl min-w-ctl items-center justify-center gap-2 rounded-ctl border-2 px-3.5 text-body",
+                "relative inline-flex min-h-ctl min-w-ctl items-center justify-center gap-2 rounded-ctl border px-3.5 text-body",
                 "[&_svg]:size-icon [&_svg]:shrink-0",
                 selected
-                  ? "border-primary bg-secondary font-bold text-secondary-foreground shadow-[inset_0_-3px_0_hsl(var(--primary))]"
+                  ? "border-primary-line bg-secondary font-semibold text-secondary-foreground"
                   : "border-control bg-card font-medium text-foreground hov:bg-muted",
               )}
             >
@@ -191,7 +191,7 @@ function TabList({ items, value, onValueChange, label, children, className, stre
               {item.count !== undefined ? (
                 <span
                   className={cn(
-                    "num min-w-6 rounded-pill px-1.5 text-small font-bold",
+                    "num min-w-6 rounded-pill px-1.5 text-small font-semibold",
                     selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
                   )}
                 >

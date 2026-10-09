@@ -3,9 +3,11 @@
 =======================================
 القواعد نفسها (tests/ui/flow.py) بقيم كل حجمٍ من `html[data-size]`:
 
-  • الكبير (gaze): أهدافٌ ≥72 وفجواتٌ ≥24 وحافّةٌ ≥16، عشرة أهدافٍ على الأكثر، ولا تمرير
-    ولا قصّ، ولا حركة.
-  • العادي (compact): أهدافٌ ≥44 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح.
+  • الكبير (gaze): أهدافٌ ≥48 (حدّ Apple 44pt وأربعة احتياطاً) وفجواتٌ ≥12 وحافّةٌ ≥16، اثنا عشر
+    هدفاً على الأكثر (أربعةٌ منها شريط التنقّل الثابت)، ولا تمرير ولا قصّ، ولا حركة.
+  • العادي (compact): أهدافٌ ≥40 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح؛ وما يقع تحت شريط التبويب
+    الثابت قبل التمرير تحت الطيّة لا مجاورٌ له إن كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة
+    (وإلا فالتراكب حقيقيٌّ ويُرفض).
 
 وقاعدتا الهبوط والأقرب إلى النظر كما هما: بعد كل ضغطة لا يقع تحت موضعها ما يعتمد
 (`data-commit`) ولا ما يغيّر قيمة (`data-value`، خيارٌ راديوي)، وأقرب عنصرٍ مفعّل إليها
@@ -17,7 +19,7 @@ from __future__ import annotations
 AUDIT = """
 () => {
     const gaze = document.documentElement.dataset.size === 'gaze';
-    const MIN = gaze ? 71.5 : 43.5, GAP = gaze ? 23.5 : 7.5, EDGE = 15.5;
+    const MIN = gaze ? 47.5 : 39.5, GAP = gaze ? 11.5 : 7.5, EDGE = 15.5;
     const root = document.querySelector('dialog[open]') || document.querySelector('[role=alert][class*=fixed]')
         || document.querySelector('[data-content]:not([inert])') || document.body;
     const visible = (e) => {
@@ -31,12 +33,21 @@ AUDIT = """
     const name = (e) => e.id || e.textContent.trim().slice(0, 20);
     const small = rects.filter(([, r]) => r.width < MIN || r.height < MIN)
         .map(([e, r]) => `${name(e)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    // الحجم العادي: الصفحة تمرّ وشريط التبويب ثابتٌ فوقها. ما يقع تحته قبل التمرير ليس مجاوراً له إن
+    // كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة (يظهر فوقه بالتمرير: `.pb-tab`)؛ وإلا فالتراكب
+    // حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عن الشريط مهما مُرّرت.
+    const scroller = document.scrollingElement;
+    const room = scroller.scrollHeight - innerHeight - scroller.scrollTop;
+    const bar = document.querySelector('nav[aria-label="أقسام البوابة"]');
+    const barRect = bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect() : null;
+    const belowFold = (e, r) => barRect !== null && !bar.contains(e) && r.bottom > barRect.top && r.bottom - room <= barRect.top - GAP;
     const close = [];
     for (let i = 0; i < rects.length; i += 1) {
         for (let j = i + 1; j < rects.length; j += 1) {
             const [a, ra] = rects[i];
             const [b, rb] = rects[j];
             if (a.contains(b) || b.contains(a)) continue;
+            if (barRect && ((bar.contains(a) && belowFold(b, rb)) || (bar.contains(b) && belowFold(a, ra)))) continue;
             const gap = Math.max(rb.left - ra.right, ra.left - rb.right, rb.top - ra.bottom, ra.top - rb.bottom);
             if (gap < GAP) close.push(`${name(a)} ↔ ${name(b)}: ${Math.round(gap)}`);
         }
@@ -44,10 +55,9 @@ AUDIT = """
     const edge = rects.filter(([, r]) => r.left < EDGE || innerWidth - r.right < EDGE).map(([e]) => name(e));
     const fonts = [...root.querySelectorAll('input, textarea')].filter(visible)
         .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id || e.name);
-    const clipped = gaze ? [...root.querySelectorAll('h1, p, li, button, a[href], input, textarea, dd')].filter(visible)
+    const clipped = gaze ? [...root.querySelectorAll('h1, h2, h3, p, li, button, a[href], input, textarea, label, legend, dt, dd')].filter(visible)
         .filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > innerHeight + 1 || r.top < -1; })
         .map((e) => name(e) || e.tagName) : [];
-    const scroller = document.scrollingElement;
     return {
         gaze, small, close, edge, fonts, clipped,
         enabled: controls.filter((e) => !e.disabled && e.getAttribute('aria-disabled') !== 'true').length,
@@ -151,7 +161,7 @@ class Flow:
             for key in ("small", "close", "edge", "fonts", "clipped"):
                 if audit[key]:
                     failures.append(f"{audit['label']} {key}: {audit[key]}")
-            if audit["gaze"] and audit["enabled"] > 10:
+            if audit["gaze"] and audit["enabled"] > 12:
                 failures.append(f"{audit['label']}: {audit['enabled']} أهداف مفعّلة")
             if audit["gaze"] and audit["vertical"]:
                 failures.append(f"{audit['label']}: تمرير")

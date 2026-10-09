@@ -80,11 +80,11 @@ export function AssistantTool({ userName, screen, workspace, api }: {
     return (
       <div className="flex flex-col gap-tg">
         <p className="rounded-card bg-muted p-3 text-small text-foreground gaze:short:hidden">
-          <span className="font-bold">سؤالك: </span>
+          <span className="font-semibold">سؤالك: </span>
           {question}
         </p>
-        <section aria-label="جواب سيمبول" className="flex flex-col gap-2 rounded-card border-2 border-ai/40 bg-ai-tint p-pad">
-          <p className="flex items-center gap-2 text-small font-bold text-secondary-foreground">
+        <section aria-label="جواب سيمبول" className="flex flex-col gap-2 rounded-card border border-primary-line/40 bg-secondary p-pad">
+          <p className="flex items-center gap-2 text-small font-semibold text-secondary-foreground">
             <SymbolMark className="size-4" />
             جواب سيمبول · اقتراحٌ تتحقّق منه
           </p>
