@@ -11,8 +11,8 @@
  *   • تاريخ الميلاد بأزرارٍ لا بكتابة: سنواتٌ وأشهرٌ وأيامٌ جاهزة، وخطوة «أقدم/أحدث».
  *   • البوابة لمهنة صاحب الحساب وحدها، والمهامّ والمهارات بندٌ واحد في كل شاشة:
  *     لا تمرير، ولا نصٌّ مقصوص.
- *   • مفتاح المرور: «ادخل بمفتاح المرور» في شاشة الدخول و«أضف مفتاح مرور» في
- *     الحساب، وكلمة المرور باقيةٌ بجانبه.
+ *   • مفتاح المرور: «ادخل بمفتاح المرور» في شاشة الدخول، وكلمة المرور باقيةٌ بجانبه.
+ *     ولا زرّ لإضافته: يُنشئه المتصفّح بعد الدخول بكلمة المرور، حيث يدعم ذلك.
  */
 
 'use strict';
@@ -401,9 +401,6 @@ async function renderAccount(nav) {
     $('account-name').textContent = state.displayName ? `الاسم: ${state.displayName}` : 'بلا اسم';
     const profession = (portal) => (portal ? `المهنة: ${portal.name}` : '\u00a0');
     $('account-profession').textContent = profession(state.portal);
-    $('account-passkey-status').textContent = '';
-    $('account-passkey-help').hidden = !passkeysAvailable();
-    offerPasskey('add', $('account-passkey'));
     const portal = await loadPortal({ fresh: true });
     if (nav !== state.nav) {
         return;
@@ -457,24 +454,25 @@ async function onAccountDelete() {
 /* ── مفاتيح المرور ──────────────────────────────────────────────────── */
 
 /*
- * الخيارات — وفيها التحدّي — تُجلب حين تُعرض الشاشة، لا داخل الضغطة: WebKit قد
- * يشترط لهذا الطلب تفعيلاً من المستخدم، ومهلة التفعيل فيه خمس ثوانٍ، فجلبٌ داخل
- * الضغطة قد يستنفدها. فالضغطة تستدعي الجهاز قبل أيّ انتظار، ولا حقل يُركَّز:
- * نافذة النظام تعرض المفاتيح، ثم يؤكّد صاحب الجهاز بـFace ID أو Touch ID أو رمزه.
+ * الدخول: «ادخل بمفتاح المرور». الخيارات — وفيها التحدّي — تُجلب حين تُعرض الشاشة،
+ * لا داخل الضغطة: WebKit قد يشترط لهذا الطلب تفعيلاً من المستخدم، ومهلة التفعيل فيه
+ * خمس ثوانٍ، فجلبٌ داخل الضغطة قد يستنفدها. فالضغطة تستدعي الجهاز قبل أيّ انتظار،
+ * ولا حقل يُركَّز: نافذة النظام تعرض المفاتيح، ثم يؤكّد صاحب الجهاز بـFace ID أو
+ * Touch ID أو رمزه.
  *
- * والتحدّي لمرةٍ واحدة ومهلته في الخادم: بعد كل محاولةٍ — نجحت أو فشلت — تُجلب
- * خياراتٌ جديدة. والبايتات بين الخادم والمتصفّح base64url بلا حشو.
+ * والتحدّي لمرةٍ واحدة، ومهلته خمس دقائق في الخادم: بعد كل محاولةٍ — نجحت أو فشلت —
+ * تُجلب خياراتٌ جديدة، وكلما عادت الصفحة ظاهرةً على شاشة الدخول (app.js). وخياراتٌ
+ * جُلبت قبل أكثر من أربع دقائق لا تُعطى للجهاز: تُجلب غيرها ويُقال «لم يجهز بعد»،
+ * فلا يؤكّد أحدٌ بوجهه ثم يُرفض تحدٍّ انتهى. و`Date.now()` قراءةٌ للساعة لا مؤقّت.
+ * والبايتات بين الخادم والمتصفّح base64url بلا حشو.
  */
 
-const PASSKEY_OPTIONS = { login: '/api/auth/passkey/options', add: '/api/me/passkeys/options' };
+const PASSKEY_OPTIONS = '/api/auth/passkey/options';
+const PASSKEY_OPTIONS_MAX_AGE = 4 * 60 * 1000;
 const PASSKEY_NOT_READY = 'لم يجهز مفتاح المرور بعد. حاول مرة أخرى.';
 // الجهاز لا يقول لماذا: إلغاءٌ، أو لا مفتاح لهذا الموقع، أو انتهاء المهلة — جوابٌ واحد عمداً.
-const PASSKEY_NOT_SIGNED_IN = 'لم يكتمل الدخول بمفتاح المرور. إن لم يُضَف لحسابك مفتاحٌ بعد، '
-    + 'فادخل بكلمة المرور، ثم أضفه من «حسابي».';
-const PASSKEY_NOT_SAVED = 'لم يُحفظ مفتاح المرور. يحتاج سلسلة مفاتيح iCloud والمصادقة بخطوتين مفعّلتين، '
-    + 'ثم تأكيداً بـFace ID أو Touch ID أو رمز الجهاز.';
-const PASSKEY_ALREADY_HERE = 'في هذا الجهاز مفتاح مرورٍ لهذا الحساب من قبل.';
-const PASSKEY_SAVED = 'حُفظ مفتاح المرور. ادخل به في المرة القادمة من شاشة الدخول.';
+const PASSKEY_NOT_SIGNED_IN = 'لم يكتمل الدخول بمفتاح المرور. ادخل بكلمة المرور؛ '
+    + 'وإن ملأها جهازك من سلسلة المفاتيح فقد يُنشئ لك مفتاح مرورٍ بعدها.';
 
 function passkeysAvailable() {
     return Boolean(window.PublicKeyCredential && navigator.credentials);
@@ -538,13 +536,13 @@ function attestationJson(credential) {
 }
 
 /*
- * يجلب خياراتٍ جديدة لـ`kind` ويحفظها في `state.passkey`. ما يصل لطلبٍ أقدم
- * يُترك: الخيارات لآخر عرضٍ للشاشة.
+ * يجلب خيارات دخولٍ جديدة ويحفظها في `state.passkey` مع وقت طلبها. ما يصل لطلبٍ
+ * أقدم يُترك: الخيارات لآخر طلب.
  */
-function preparePasskey(kind) {
-    const ticket = { options: null, error: null };
-    state.passkey[kind] = ticket;
-    api('POST', PASSKEY_OPTIONS[kind]).then((result) => {
+function preparePasskey() {
+    const ticket = { options: null, error: null, fetchedAt: Date.now() };
+    state.passkey = ticket;
+    api('POST', PASSKEY_OPTIONS).then((result) => {
         if (result.status === 200) {
             ticket.options = publicKeyOptions(result.data);
         } else {
@@ -554,39 +552,48 @@ function preparePasskey(kind) {
 }
 
 /* الزرّ حيث يعمل مفتاح المرور، وخياراته تُجلب الآن؛ وإلا يبقى مكانه محجوزاً. */
-function offerPasskey(kind, button) {
+function offerPasskey(button) {
     const offered = passkeysAvailable();
     UI.setButton(button, { reserved: !offered });
     if (offered) {
-        preparePasskey(kind);
+        preparePasskey();
     } else {
-        state.passkey[kind] = null;
+        state.passkey = null;
+    }
+}
+
+/* عادت الصفحة ظاهرةً وشاشة الدخول معروضة: خياراتٌ جديدة قبل الضغطة التالية. */
+function refreshPasskeyOnReturn() {
+    if (passkeysAvailable() && !state.busy && !UI.screen('login').hidden) {
+        preparePasskey();
     }
 }
 
 /*
- * خيارات الضغطة، لمرةٍ واحدة. وإن لم تصل بعد أو فشل جلبها يُقال ذلك — وتُطلب من
- * جديد إن فشلت — فلا ضغطةٌ بلا أثر، ولا جلبٌ داخلها.
+ * خيارات الضغطة، لمرةٍ واحدة. وإن لم تصل بعد، أو فشل جلبها، أو قدمت، يُقال ذلك —
+ * وتُطلب من جديد إن فشلت أو قدمت — فلا ضغطةٌ بلا أثر، ولا جلبٌ داخلها، ولا تحدٍّ
+ * منتهٍ يُعطى للجهاز.
  */
-function takePasskeyOptions(kind, section) {
-    const ticket = state.passkey[kind];
+function takePasskeyOptions(section) {
+    const ticket = state.passkey;
     if (!ticket || state.busy || UI.alertOpen(section)) {
         return null;
     }
-    if (!ticket.options) {
+    const stale = Date.now() - ticket.fetchedAt > PASSKEY_OPTIONS_MAX_AGE;
+    if (!ticket.options || stale) {
         UI.showAlert(section, ticket.error || PASSKEY_NOT_READY);
-        if (ticket.error) {
-            preparePasskey(kind);
+        if (ticket.error || stale) {
+            preparePasskey();
         }
         return null;
     }
-    state.passkey[kind] = null;
+    state.passkey = null;
     return ticket.options;
 }
 
 async function onPasskeyLogin() {
     const section = UI.screen('login');
-    const options = takePasskeyOptions('login', section);
+    const options = takePasskeyOptions(section);
     if (!options) {
         return;
     }
@@ -599,40 +606,62 @@ async function onPasskeyLogin() {
         location.replace('/');
         return;
     }
-    preparePasskey('login');
+    preparePasskey();
     if (!section.hidden) {
         UI.showAlert(section, result ? detail(result) : PASSKEY_NOT_SIGNED_IN);
     }
 }
 
-async function onPasskeyAdd() {
-    const section = UI.screen('account');
-    const options = takePasskeyOptions('add', section);
-    if (!options) {
+/*
+ * الإنشاء: لا زرّ ولا شاشة. بعد الدخول بكلمة المرور مباشرةً يُطلب من المتصفّح أن
+ * يُنشئ مفتاح مرورٍ بلا نافذة (`mediation: 'conditional'`) — «الترقية التلقائية إلى
+ * مفتاح المرور» كما تفعلها التطبيقات — وحيث يدعمه وحده.
+ *
+ *   • Safari 18 يدعمه: «Safari 18.0 adds support for using mediation=conditional for
+ *     web authentication credential creation. This allows websites to automatically
+ *     upgrade existing password-based accounts to use passkeys.»
+ *     https://webkit.org/blog/15865/webkit-features-in-safari-18-0/
+ *   • والدعم يُعرف بـ`PublicKeyCredential.getClientCapabilities()` و`conditionalCreate`
+ *     قبل الطلب (Apple، WWDC24 «Streamline sign-in with passkey upgrades and credential
+ *     managers»: https://developer.apple.com/videos/play/wwdc2024/10125/ ؛ وMDN:
+ *     https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential/getClientCapabilities_static
+ *     ، وفي جدول توافقها Safari 17.4؛ وWebAuthn Level 3: https://w3c.github.io/webauthn/#enum-clientCapability).
+ *   • **ولا يعمل إلا إن ملأ مديرُ كلمات المرور كلمةَ المرور للتوّ**: «The most important
+ *     condition is whether it was just used to fill a username and password for the same
+ *     account. That is, an account with the same username as the passkey being registered.»
+ *     (WWDC24 أعلاه) — فاسم المفتاح (`user.name`) اسم الدخول كما كُتب. وكلمة مرورٍ
+ *     كُتبت بالنظر حرفاً حرفاً لا تُنشئ مفتاحاً؛ وكذلك نافذة التصفّح الخاص. وChrome
+ *     مثله: كلمة مرورٍ محفوظة استُعملت للتوّ
+ *     (https://developer.chrome.com/docs/identity/webauthn-conditional-create).
+ *   • وما لم تتحقّق الشروط يرفض المتصفّح بلا واجهة (`NotAllowedError`،
+ *     https://w3c.github.io/webauthn/#sctn-createCredential)؛ ويُعلم النظام صاحبه
+ *     بإشعارٍ حين يُنشأ.
+ *
+ * فالرفض والغياب صامتان: لا تنبيه، ولا يتغيّر شيءٌ في الشاشة، والدخول يمضي إلى
+ * الرئيسية كما كان. ويُنتظر قبل الانتقال لأن الانتقال يقطعه.
+ */
+async function upgradeToPasskey(username) {
+    if (!(await conditionalCreateAvailable())) {
         return;
     }
-    state.busy = true;
-    $('account-passkey-status').textContent = '';
-    let failure = PASSKEY_NOT_SAVED;
-    const credential = await navigator.credentials.create({ publicKey: options }).catch((error) => {
-        // أحد مفاتيح الحساب المسمّاة في الخيارات (excludeCredentials) على هذا الجهاز.
-        if (error && error.name === 'InvalidStateError') {
-            failure = PASSKEY_ALREADY_HERE;
-        }
-        return null;
-    });
-    const result = credential ? await api('POST', '/api/me/passkeys', { json: attestationJson(credential) }) : null;
-    state.busy = false;
-    // انتهت الجلسة (`api()` نقل إلى الدخول) أو غادر الشاشة: خياراتها تُجلب حين تُعرض.
-    if ((result && result.status === 401) || section.hidden) {
+    const result = await api('POST', '/api/me/passkeys/options', { json: { username } });
+    if (result.status !== 200) {
         return;
     }
-    preparePasskey('add');
-    if (result && result.status === 204) {
-        $('account-passkey-status').textContent = PASSKEY_SAVED;
-    } else {
-        UI.showAlert(section, result ? detail(result) : failure);
+    const credential = await navigator.credentials.create({
+        publicKey: publicKeyOptions(result.data), mediation: 'conditional',
+    }).catch(() => null);
+    if (credential) {
+        await api('POST', '/api/me/passkeys', { json: attestationJson(credential) });
     }
+}
+
+async function conditionalCreateAvailable() {
+    if (!passkeysAvailable() || typeof PublicKeyCredential.getClientCapabilities !== 'function') {
+        return false;
+    }
+    const capabilities = await PublicKeyCredential.getClientCapabilities().catch(() => null);
+    return Boolean(capabilities && capabilities.conditionalCreate);
 }
 
 /* ── البوابة ────────────────────────────────────────────────────────── */
@@ -745,7 +774,6 @@ function wirePortal() {
     $('home-tasks').addEventListener('click', () => go('#/tasks/1'));
     $('home-skills').addEventListener('click', () => go('#/skills/1'));
     $('login-passkey').addEventListener('click', onPasskeyLogin);
-    $('account-passkey').addEventListener('click', onPasskeyAdd);
     $('account-logout').addEventListener('click', () => go('#/account/logout'));
     $('account-logout-back').addEventListener('click', () => go('#/account'));
     $('account-logout-yes').addEventListener('click', onLogout);

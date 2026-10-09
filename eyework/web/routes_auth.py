@@ -6,7 +6,8 @@
 أخطأ؛ أما التسجيل فيقول أيّ حقلٍ يُصلَح، لأن صاحبه هو من كتبه.
 
 ومفتاح المرور طريقٌ ثانٍ إلى الجلسة نفسها: بلا اسمٍ ولا كلمة، وكل فشلٍ فيه
-برسالةٍ واحدة كذلك. يُضاف من حسابٍ دخله صاحبه، ولا يحلّ محلّ كلمة المرور.
+برسالةٍ واحدة كذلك. يُنشئه المتصفّح بعد الدخول بكلمة المرور مباشرةً، لا من زرّ،
+ولا يحلّ محلّ كلمة المرور.
 """
 
 from __future__ import annotations
@@ -20,12 +21,21 @@ from fastapi.responses import JSONResponse
 from eyework import auth, campaigns, money, passkeys
 from eyework.copy_rules import EDIT_NOTE_MAX, MAX_PRESETS, PRESET_CONFLICTS, EditPreset
 from eyework.professions import NAMES, TAGLINES, Profession
-from eyework.web.deps import COOKIE, COOKIE_MAX_AGE, client_ip, enforce, require_user, session_token
+from eyework.web.deps import (
+    COOKIE,
+    COOKIE_MAX_AGE,
+    client_ip,
+    client_network,
+    enforce,
+    require_user,
+    session_token,
+)
 from eyework.web.errors import REGISTRATION
 from eyework.web.schemas import (
     ActivateBody,
     LoginBody,
     PasskeyAddBody,
+    PasskeyAddOptionsBody,
     PasskeyLoginBody,
     RegisterBody,
     SignupCodeBody,
@@ -79,14 +89,14 @@ async def passkey_login_options(request: Request) -> dict:
     قد يستنفد مهلة التفعيل في WebKit (خمس ثوانٍ).
     """
     state = request.app.state
-    enforce(state.limiters.passkey_ip, client_ip(request))
+    enforce(state.limiters.passkey_ip, client_network(request))
     return await run_in_threadpool(passkeys.login_options, state.db, state.settings.public_origin)
 
 
 @router.post("/auth/passkey", status_code=status.HTTP_204_NO_CONTENT)
 async def passkey_login(body: PasskeyLoginBody, request: Request) -> Response:
     state = request.app.state
-    enforce(state.limiters.passkey_ip, client_ip(request))
+    enforce(state.limiters.passkey_ip, client_network(request))
     try:
         token = await run_in_threadpool(
             passkeys.sign_in, state.db, state.settings.login_key, state.settings.public_origin,
@@ -191,23 +201,30 @@ def delete_me(request: Request, user_id: UUID = Depends(require_user)) -> Respon
 
 
 @router.post("/me/passkeys/options")
-def add_passkey_options(request: Request, user_id: UUID = Depends(require_user)) -> dict:
-    """خيارات إضافة مفتاح مرورٍ لصاحب الجلسة. 409 إن بلغ سقف المفاتيح."""
+def add_passkey_options(body: PasskeyAddOptionsBody, request: Request,
+                        user_id: UUID = Depends(require_user)) -> dict:
+    """
+    خيارات الإنشاء المشروط بعد الدخول بكلمة المرور: لجلسة هذا الطلب وحدها، ما دامت
+    فُتحت بكلمة المرور قبل خمس دقائق على الأكثر (403 بعدها)، وباسم الدخول نفسه.
+    409 إن بلغ الحساب سقف المفاتيح.
+    """
     state = request.app.state
     enforce(state.limiters.passkey_add, str(user_id))
-    return passkeys.add_options(state.db, state.settings.login_key, state.settings.public_origin, user_id)
+    return passkeys.add_options(state.db, state.settings.login_key, state.settings.public_origin, user_id,
+                                auth.hash_token(session_token(request)), body.username)
 
 
 @router.post("/me/passkeys", status_code=status.HTTP_204_NO_CONTENT)
 def add_passkey(body: PasskeyAddBody, request: Request, user_id: UUID = Depends(require_user)) -> Response:
     """
     يحفظ مفتاحاً تحقّق منه الخادم. المفتاح لصاحب الجلسة دائماً: الجسم لا يسمّي
-    حساباً، والتحدّي صدر له وحده.
+    حساباً، والتحدّي صدر له وحده؛ والقاعدة تفحص جلسة الطلب ثانيةً في معاملة الحفظ.
     """
     state = request.app.state
     enforce(state.limiters.passkey_add, str(user_id))
     try:
-        passkeys.add(state.db, state.settings.public_origin, user_id, body.model_dump(exclude_none=True))
+        passkeys.add(state.db, state.settings.public_origin, user_id, auth.hash_token(session_token(request)),
+                     body.model_dump(exclude_none=True))
     except passkeys.PasskeyRejected:
         return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=_PASSKEY_NOT_ADDED)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

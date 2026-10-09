@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from dataclasses import dataclass
 from uuid import UUID
@@ -22,7 +23,8 @@ from eyework import auth
 from eyework.professions import Profession
 from eyework.rate_limit import RateLimit, RateLimiter, RateLimitExceeded
 
-__all__ = ["COOKIE", "Limiters", "client_ip", "enforce", "require_profession", "require_user", "session_token"]
+__all__ = ["COOKIE", "Limiters", "client_ip", "client_network", "enforce", "require_profession", "require_user",
+           "session_token"]
 
 COOKIE = "__Host-ew"
 COOKIE_MAX_AGE = 30 * 24 * 3600
@@ -41,9 +43,10 @@ class Limiters:
     activate_ip: RateLimiter
     signup_code_ip: RateLimiter
     register_ip: RateLimiter
-    #: خيارات الدخول بمفتاح المرور والتحقّق منه، لكل عنوان: كل طلب خياراتٍ صفٌّ في القاعدة.
+    #: خيارات الدخول بمفتاح المرور والتحقّق منه، لكل شبكة (`client_network`): كل طلب
+    #: خياراتٍ صفٌّ في القاعدة، وللقاعدة سقفها فوقه (passkey_login_ceiling).
     passkey_ip: RateLimiter
-    #: خيارات إضافة مفتاحٍ وحفظه، لكل حساب.
+    #: خيارات إنشاء المفتاح بعد الدخول بكلمة المرور وحفظه، لكل حساب.
     passkey_add: RateLimiter
     upload: RateLimiter
     mutation: RateLimiter
@@ -73,6 +76,24 @@ class Limiters:
 def client_ip(request: Request) -> str:
     """عنوان العميل كما يراه uvicorn — بعد `--proxy-headers` من الوكيل الموثوق وحده."""
     return request.client.host if request.client else "unknown"
+
+
+def client_network(request: Request) -> str:
+    """
+    مفتاح حدٍّ لكل مشترك: عنوان IPv4 كما هو، وIPv6 بشبكته /64 — يُعطى المشترك
+    الواحد عادةً /64 كاملة، فعنوانٌ جديد منها لكل طلبٍ يتجاوز حدّاً على العنوان.
+    وعنوان IPv4 بصيغة IPv6 (`::ffff:a.b.c.d`) عنوانُ IPv4.
+    """
+    host = client_ip(request)
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return str(address.ipv4_mapped)
+        return str(ipaddress.IPv6Network((address, 64), strict=False))
+    return host
 
 
 def enforce(limiter: RateLimiter, key: str) -> None:

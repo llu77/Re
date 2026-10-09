@@ -519,20 +519,26 @@ BIDI = """
 
 
 @pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
-def test_the_sources_screen_gives_the_full_onet_notice(page_factory, server, owner, width, height):
-    """نسبة O*NET كاملةً كما يطلبها ترخيصه، في شاشةٍ يصلها كل حساب من «حسابي»، ومصادر بوابته."""
-    _set_profession(owner, "STOREKEEPER")
+@pytest.mark.parametrize("profession", list(professions.Profession), ids=lambda p: p.value)
+def test_the_sources_screen_gives_the_full_onet_notice(page_factory, server, owner, profession, width, height):
+    """
+    نسبة O*NET كاملةً كما يطلبها ترخيصه، في شاشةٍ يصلها كل حساب من «حسابي»، ومصادر بوابته
+    كلّها: للتسويق سطران (ISCO-08 للمهامّ وO*NET للمهارات)، ولغيره سطرٌ واحد.
+    """
+    _set_profession(owner, profession.value)
+    portal = professions.view(profession)
     page = page_factory(width, height)
     flow = Flow(page, server["base"])
     page.goto(server["base"] + "/#/")
-    flow.until("document.querySelector('#home-portal').textContent === 'بوابة أمين المخزون'")
+    flow.until(f"document.querySelector('#home-portal').textContent === 'بوابة {portal['name']}'")
     flow.press("#home-account", lambda: flow.screen("account"), "حسابي")
     flow.press("#account-sources", lambda: flow.until(
         "document.querySelector('#account-attribution').textContent !== ''"), "المصادر")
     flow.audit("account-sources")
     assert page.text_content("#account-attribution") == professions.ATTRIBUTION
-    portal = professions.view(professions.Profession.STOREKEEPER)
-    assert page.locator("#account-source-lines p").all_text_contents() == [portal["sources"]["tasks"]]
+    lines = list(dict.fromkeys([portal["sources"]["tasks"], portal["sources"]["skills"]]))
+    assert page.locator("#account-source-lines p").all_text_contents() == lines
+    assert len(lines) == (2 if profession is professions.Profession.MARKETING else 1)
     misplaced = [g for g in page.evaluate(BIDI, "#account-attribution") if g[1] > 3]
     assert not misplaced, misplaced
     flow.press(".screen[data-screen='account-sources'] [data-back]", lambda: flow.screen("account"), "رجوع")

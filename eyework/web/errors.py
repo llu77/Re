@@ -39,6 +39,12 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
     "open_campaign_cap": ErrorSpec(409, "OPEN_CAP", "لديك عشرون حملةً مفتوحة. أكمل بعضها أو ألغِه أولاً."),
     "campaign_needs_marketing": ErrorSpec(403, "PROFESSION", "هذه الأداة لبوابة مهنةٍ أخرى."),
     "passkey_cap": ErrorSpec(409, "PASSKEY_CAP", "لهذا الحساب عشرة مفاتيح مرور، وهو الحدّ."),
+    # الواجهة لا تعرض هذا: الإنشاء بعد الدخول بكلمة المرور صامتٌ نجح أو لم ينجح.
+    "passkey_needs_password_sign_in": ErrorSpec(403, "PASSKEY_UPGRADE",
+                                                "يُنشأ مفتاح المرور بعد الدخول بكلمة المرور مباشرةً."),
+    "passkey_login_ceiling": ErrorSpec(503, "PASSKEY_BUSY",
+                                       "الدخول بمفتاح المرور مشغولٌ الآن. ادخل بكلمة المرور، أو حاول بعد قليل.",
+                                       60),
     "registration_daily_cap": ErrorSpec(503, "REGISTER_FULL",
                                         "اكتمل عدد الحسابات الجديدة لهذا اليوم. حاول غداً.", 3600),
     "campaign_is_final": ErrorSpec(409, "FINAL", "الحملة معتمدة أو ملغاة ولا تتغيّر."),

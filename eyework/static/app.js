@@ -58,9 +58,9 @@ const state = {
     nav: 0,
     // النسخة التي عُرضت ملاحظتها وحدها لأن الشاشة لم تتّسع لها مع النصّ.
     noteShownFor: null,
-    // خيارات مفتاح المرور لشاشة الدخول (login) وشاشة الحساب (add)، تُجلب حين تُعرض
-    // الشاشة وتُؤخذ لضغطةٍ واحدة (portal.js).
-    passkey: { login: null, add: null },
+    // خيارات الدخول بمفتاح المرور ووقت طلبها، تُجلب حين تُعرض شاشة الدخول وتُؤخذ
+    // لضغطةٍ واحدة (portal.js).
+    passkey: null,
 };
 
 /* ── الشبكة: موضعٌ واحد ─────────────────────────────────────────────── */
@@ -253,7 +253,7 @@ async function route() {
 /* كل عرضٍ لشاشة الدخول من هنا: زرّ مفتاح المرور وخياراته معها، ولو عُرضت بتنبيه. */
 function renderLogin() {
     const section = UI.show('login');
-    offerPasskey('login', $('login-passkey'));
+    offerPasskey($('login-passkey'));
     return section;
 }
 
@@ -264,18 +264,22 @@ async function onLogin(event) {
         return;
     }
     state.busy = true;
+    const username = $('login-username').value;
     const result = await api('POST', '/api/auth/login', {
-        json: { username: $('login-username').value, password: $('login-password').value },
+        json: { username, password: $('login-password').value },
     });
-    state.busy = false;
     if (result.status === 204) {
+        // مفتاح مرورٍ يُنشئه المتصفّح الآن إن دعمه، بصمت (portal.js): ولا خطأٌ فيه
+        // يوقف الدخول.
+        await upgradeToPasskey(username).catch(() => null);
         $('login-password').value = '';
         // انتقالٌ كامل: لا يبقى في الذاكرة شيءٌ لحسابٍ سابق (الاسم والصفحة)،
         // ويعرض Safari حفظ كلمة المرور.
         location.replace('/');
-    } else {
-        UI.showAlert(section, detail(result));
+        return;
     }
+    state.busy = false;
+    UI.showAlert(section, detail(result));
 }
 
 // رابط الدعوة يُقرأ إلى الذاكرة ويُمحى من شريط العنوان فوراً: لا يبقى في
@@ -1256,9 +1260,14 @@ function wire() {
     });
     wirePortal();
     window.addEventListener('hashchange', route);
-    // عادت الصفحة والكتابة جارية: يُطلب القفل من جديد، فقد أسقطه النظام حين أُخفيت.
+    // عادت الصفحة: خيارات مفتاح المرور في شاشة الدخول من جديد (قد يكون تحدّيها انتهى)،
+    // والكتابة إن كانت جارية يُطلب قفلها من جديد، فقد أسقطه النظام حين أُخفيت.
     document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState !== 'visible' || !state.waitingFor || state.wakeLock) {
+        if (document.visibilityState !== 'visible') {
+            return;
+        }
+        refreshPasskeyOnReturn();
+        if (!state.waitingFor || state.wakeLock) {
             return;
         }
         const held = Boolean(await keepAwake());

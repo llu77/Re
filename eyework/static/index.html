@@ -34,7 +34,7 @@
     <!-- ── الدخول ─────────────────────────────────────────────────── -->
     <section class="screen" data-screen="login" hidden>
         <header class="bar bar--top"><div class="slot"></div><p class="step"></p><div class="slot"></div></header>
-        <form class="content" id="login-form" novalidate>
+        <form class="content dense" id="login-form" novalidate>
             <h2 tabindex="-1">تسجيل الدخول</h2>
             <div class="field-group">
                 <label class="label" for="login-username">اسم الدخول</label>
@@ -312,14 +312,9 @@
             <h2 tabindex="-1">حسابي</h2>
             <p class="line" id="account-name"></p>
             <p class="line" id="account-profession">&nbsp;</p>
-            <!-- المصادر ومفتاح المرور في المحتوى لا في الشريط: موضع «حسابي» في الرئيسية يبقى هنا
-                 فارغاً، فلا يقع تحت نظرٍ باقٍ زرٌّ ينقل أو يعتمد. -->
-            <div class="grid grid--2 spaced">
-                <button class="btn" type="button" id="account-passkey" data-safe>أضف مفتاح مرور</button>
-                <button class="btn" type="button" id="account-sources" data-safe>المصادر</button>
-            </div>
-            <p class="help" id="account-passkey-help">مفتاح المرور دخولٌ بلا كتابة: ضغطةٌ، ثم يؤكّد الجهاز بـFace ID أو Touch ID أو رمزه. ويحتاج سلسلة مفاتيح iCloud والمصادقة بخطوتين.</p>
-            <p class="status" id="account-passkey-status" role="status"></p>
+            <!-- في بداية السطر لا في الشريط: موضع «حسابي» في الرئيسية يبقى هنا فارغاً، فأقرب ما إليه «رجوع».
+                 ولا شيء لمفتاح المرور هنا: يُنشئه الجهاز بعد الدخول بكلمة المرور. -->
+            <button class="btn btn--start spaced" type="button" id="account-sources" data-safe>المصادر</button>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <!-- «حسابي» في الطرف الأعلى الأيسر من الرئيسية؛ والخروج (والدخول من جديد بالنظر أغلى
@@ -358,7 +353,7 @@
             <p class="step">المصادر</p>
             <div class="slot"></div>
         </header>
-        <div class="content">
+        <div class="content dense">
             <h2 tabindex="-1">مصادر المحتوى</h2>
             <p class="line" id="account-attribution"></p>
             <div id="account-source-lines"></div>
