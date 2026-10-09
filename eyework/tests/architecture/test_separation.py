@@ -147,6 +147,6 @@ def test_user_visible_names_reveal_nothing():
         data = json.loads(manifest.read_text(encoding="utf-8"))
         for key in ("name", "short_name"):
             assert not revealing.search(data[key]), f"{manifest.name}:{key} = {data[key]}"
-    for page in (APP / "static" / "index.html", APP / "static" / "probe" / "index.html"):
+    for page in (APP / "static" / "index.html", APP / "static" / "probe" / "index.html", APP / "client" / "index.html"):
         title = re.search(r"<title>(.*?)</title>", page.read_text(encoding="utf-8")).group(1)
         assert not revealing.search(title), f"{page.name}: {title}"
