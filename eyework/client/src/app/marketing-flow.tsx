@@ -27,12 +27,13 @@ import {
   type Campaign, type CampaignListItem, type CampaignPage, type GenerationResult,
 } from "@/lib/campaigns"
 import { currentHash, go, route } from "@/lib/router"
+import { WIDE_QUERY, useMatch, useSize } from "@/lib/size"
 import { EMPTY_EDIT, getState, setState, useStore, type Choices, type EditState, type Me } from "@/lib/store"
 import { keepAwake, letSleep } from "@/lib/wake-lock"
 import type { Workspace } from "@/lib/workspace"
 import {
-  CampaignsScreen, CancelScreen, ConfirmScreen, EditScreen, NoteScreen, PhotoScreen, ProposalScreen, ReadyScreen, ReviewScreen, ValueScreen,
-  WaitingScreen,
+  CampaignsPane, CampaignsScreen, CancelScreen, ConfirmScreen, EditScreen, NoteScreen, PhotoScreen, ProposalScreen, ReadyScreen, ReviewScreen,
+  ValueScreen, WaitingScreen,
 } from "@/screens/campaign"
 
 const NEW = "#/marketing/new"
@@ -171,6 +172,28 @@ function ListContainer({ pageSize, setNotice, onOpen, onNew }: {
   )
 }
 
+
+/* ── «حملاتي» بجانب الحملة (العريض بحجم اللمس) ──────────────────── */
+
+function PaneContainer({ campaignId, status, setNotice }: { campaignId: string; status: string | null; setNotice: (message: string) => void }) {
+  const [data, setData] = React.useState<CampaignPage | null>(null)
+  // الصفحة الأولى، وتُقرأ من جديد حين تتغيّر الحملة المفتوحة (من المسار، فلا تختفي القائمة وهي تُقرأ)
+  // أو حالتها (الشارة في صفّها).
+  React.useEffect(() => {
+    let current = true
+    void listCampaigns(1).then((result) => {
+      if (!current) return
+      if (result.status === 200 && result.data) setData(result.data)
+      else if (result.status !== 401) setNotice(detail(result))
+    })
+    return () => {
+      current = false
+    }
+  }, [campaignId, status, setNotice])
+  if (!data) return null
+  return <CampaignsPane items={data.items} currentId={campaignId} onOpen={(item) => go(campaignRoute(item.id))} />
+}
+
 /* ── المسار ──────────────────────────────────────────────────────── */
 
 export function MarketingFlow({ path, choices, me, workspace }: { path: string; choices: Choices; me: Me; workspace: Workspace }) {
@@ -185,6 +208,8 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
   const mayLock = useStore((s) => s.wakeLock === null)
   const edit = useStore((s) => s.edit)
   const base = workspace.base
+  const { size } = useSize()
+  const wide = useMatch(WIDE_QUERY)
 
   const match = path.match(CAMPAIGN)
   const id = match?.[1] ?? null
@@ -530,6 +555,8 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
     }
   }
 
+  // «حملاتي» بجانب الحملة المفتوحة في العريض بحجم اللمس وحده؛ ولا تُقرأ القائمة في غيره.
+  const pane = wide && size === "compact" && id ? <PaneContainer campaignId={id} status={loaded?.status ?? null} setNotice={setNotice} /> : undefined
   return (
     <Notice message={notice} onAck={() => setNoticeState(null)}>
       <WorkspaceShell
@@ -542,6 +569,7 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
           assistant: assistantApi(me, choices, id ? "CAMPAIGN" : "HOME", id),
           supportContact: choices.support_contact,
         }}
+        pane={pane}
       >
         {content}
       </WorkspaceShell>

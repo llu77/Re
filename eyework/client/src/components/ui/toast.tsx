@@ -72,7 +72,7 @@ function Toaster({ current, onDismiss }: { current: { key: number; message: Toas
         <div
           key={current.key}
           className={cn(
-            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-card border-2 bg-card p-pad shadow-pop",
+            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-card border bg-card p-pad shadow-pop",
             tone === "danger" ? "border-destructive" : tone === "info" ? "border-primary" : "border-success",
           )}
         >
@@ -81,14 +81,14 @@ function Toaster({ current, onDismiss }: { current: { key: number; message: Toas
             className={cn("mt-0.5 size-icon shrink-0", tone === "danger" ? "text-destructive" : tone === "info" ? "text-primary" : "text-success")}
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p className="font-bold leading-snug">{current.message.title}</p>
+            <p className="font-semibold leading-snug">{current.message.title}</p>
             {current.message.description ? <p className="text-small text-muted-foreground">{current.message.description}</p> : null}
           </div>
           <button
             type="button"
             data-safe=""
             onClick={onDismiss}
-            className="-my-1 inline-flex min-h-ctl min-w-ctl shrink-0 items-center justify-center gap-1.5 rounded-ctl border-2 border-control px-2.5 text-small font-semibold hov:bg-muted"
+            className="-my-1 inline-flex min-h-ctl min-w-ctl shrink-0 items-center justify-center gap-1.5 rounded-ctl border border-control px-2.5 text-small font-semibold hov:bg-muted"
           >
             <X aria-hidden="true" className="size-4 gaze:size-5" />
             إغلاق

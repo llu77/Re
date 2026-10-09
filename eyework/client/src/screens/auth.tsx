@@ -8,7 +8,8 @@
  *
  * الترحيب (registration_spec §8.3): «أنشئ حساباً» و«ادخل» آمنان، تحت العنوان لا في
  * الطرف الأسفل حيث يظهر «أوافق وأتابع» في الإشعار. «أنشئ حساباً» في الوضع المفتوح وحده.
- * الدخول (21st.dev AuthForm، premium-auth.tsx): «أنشئ حساباً» زرٌّ في الطرف الأعلى، لا
+ * الدخول (AuthForm من 21st.dev، ملفّ premium-auth.tsx الذي ألصقه المالك؛ صفحته ورخصتها كما في
+ * 21st.dev): «أنشئ حساباً» زرٌّ في الطرف الأعلى، لا
  * رابطٌ صغير في سطر؛ وإظهار كلمة المرور زرٌّ بنصّه؛ والخطأ من الخادم كما هو. ومفتاح المرور
  * زرّ دخولٍ وحده «ادخل بمفتاح المرور» (قرار المالك 2026-10-09)، ولا شيء عنه في «حسابي».
  * «كيف تستخدم الجهاز؟» (registration_spec §8.5، الخطوة use): بعد الإشعار وقبل الاسم، فما
@@ -21,6 +22,7 @@ import {
 } from "lucide-react"
 
 import { BrandMark, SymbolMark } from "@/components/brand/marks"
+import { Slots } from "@/components/shell/slots"
 import { Badge } from "@/components/ui/badge"
 import { Button, NextIcon, BackIcon } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -49,7 +51,12 @@ export function SizeToggle() {
   )
 }
 
-function AuthFrame({ end, toggle = true, children, className }: {
+/**
+ * إطار ما قبل الدخول: عمودٌ واحد بعرض `max-w-md`، في أعلاه صفٌّ بخانتين ثابتتين كصفّ شاشات
+ * البوابة («حجمٌ أكبر» في البداية، وفي النهاية ما يغادر أو يعود)، ثم المحتوى. في الحجم الكبير
+ * بارتفاع الشاشة بلا تمرير.
+ */
+export function AuthFrame({ end, toggle = true, children, className }: {
   end?: React.ReactNode
   toggle?: boolean
   children: React.ReactNode
@@ -57,10 +64,9 @@ function AuthFrame({ end, toggle = true, children, className }: {
 }) {
   const { size } = useSize()
   return (
-    <div className={cn("mx-auto flex w-full max-w-lg flex-col px-edge pb-safe pt-safe", size === "gaze" ? "h-dvh overflow-hidden" : "min-h-dvh", className)}>
-      <header className="flex items-start justify-between gap-tg">
-        {toggle ? <SizeToggle /> : <span />}
-        {end}
+    <div className={cn("mx-auto flex w-full max-w-md flex-col px-edge pb-safe pt-safe", size === "gaze" ? "h-dvh overflow-hidden" : "min-h-dvh", className)}>
+      <header>
+        <Slots start={toggle ? <SizeToggle /> : undefined} end={end} />
       </header>
       {children}
     </div>
@@ -83,7 +89,7 @@ export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationM
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
         <div className="flex items-center gap-2.5">
           <BrandMark className="size-10 gaze:size-12" />
-          <span className="text-title font-bold text-heading">صياغة</span>
+          <span className="text-title font-semibold text-heading">صياغة</span>
         </div>
         {/* في الحجم الكبير الزرّان بعد العنوان مباشرةً والشرح بعدهما: «ادخل» في أعلى الشاشة يقع
             بعد الانتقال على حقول الدخول، و«ادخل» الذي يعتمد في أسفل شاشة الدخول. */}
@@ -91,7 +97,7 @@ export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationM
           <Badge tone="info" className="self-start gaze:hidden">
             بوابة عملٍ لمهنتك
           </Badge>
-          <h1 className="text-display font-bold leading-tight">عملك اليومي في بوابةٍ واحدة</h1>
+          <h1 className="text-display font-semibold leading-tight tracking-tight">عملك اليومي في بوابةٍ واحدة</h1>
           <p className="text-flow text-muted-foreground gaze:hidden">
             مخزونٌ وتسويقٌ ودعمٌ فني، لكل مهنةٍ أدواتها. وسيمبول يراجع معك ويقترح، والقرار لك.
           </p>
@@ -112,12 +118,12 @@ export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationM
         </div>
         <ul aria-label="المهن" className="flex flex-col gap-2 gaze:hidden">
           {PROFESSIONS.map((p) => (
-            <li key={p.name} className="flex items-center gap-3 rounded-card border border-border bg-card p-3 shadow-card">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground">
-                <p.icon aria-hidden="true" className="size-5" strokeWidth={2.25} />
+            <li key={p.name} className="flex items-center gap-3 rounded-card border border-border bg-card px-pad py-2.5 shadow-card">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground">
+                <p.icon aria-hidden="true" className="size-icon" strokeWidth={2.25} />
               </span>
               <span className="flex min-w-0 flex-col">
-                <span className="font-bold">{p.name}</span>
+                <span className="font-semibold">{p.name}</span>
                 <span className="text-small text-muted-foreground">{p.line}</span>
               </span>
             </li>
@@ -192,7 +198,7 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
       <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
         <div className="flex flex-col gap-2">
           <BrandMark className="size-10 gaze:hidden" />
-          <h1 className="text-display font-bold leading-tight">ادخل إلى بوابتك</h1>
+          <h1 className="text-display font-semibold leading-tight tracking-tight">ادخل إلى بوابتك</h1>
           <p className="text-flow text-muted-foreground gaze:short:hidden">بالبريد وكلمة المرور، أو بمفتاح المرور.</p>
         </div>
         <div className="flex flex-col gap-tg">
@@ -311,7 +317,7 @@ export function SignupSizeStep({ step, steps, value, choices, onNext, onBack }: 
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
         <div className="flex flex-col gap-tg-min">
           <Stepper steps={steps} current={step} variant="brief" />
-          <h1 className="text-display font-bold leading-tight">كيف تستخدم الجهاز؟</h1>
+          <h1 className="text-display font-semibold leading-tight tracking-tight">كيف تستخدم الجهاز؟</h1>
           <p className="text-flow text-muted-foreground">
             تُحفظ مع حسابك لتُفتح بوابتك بحجمها، ولا تُرسَل إلى مزوّد النموذج. وتغيّرها متى شئت من «حسابي».
           </p>

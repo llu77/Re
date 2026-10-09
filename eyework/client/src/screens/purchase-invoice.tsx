@@ -144,7 +144,7 @@ function CreateItemCard({ name: initialName, units, onCreate, onCancel }: {
   }
 
   return (
-    <Card as="div" className="border-2 border-primary/50 bg-secondary/40 shadow-none gaze:border-0 gaze:bg-transparent">
+    <Card as="div" className="border border-primary/50 bg-secondary/40 shadow-none gaze:border-0 gaze:bg-transparent">
       <CardHeader className="gaze:hidden">
         <CardTitle as="h3" className="flex items-center gap-2 text-lead">
           <PackagePlus aria-hidden="true" className="size-icon text-primary" />
@@ -212,7 +212,7 @@ function LineEditor({ line, index, count, rateBp, options, open, creating, error
   return (
     <li className="flex flex-col gap-tg">
       <div className={cn("flex flex-col gap-tg rounded-card border border-border bg-card p-pad", size === "gaze" && creating && "!hidden",
-        " md:grid md:grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-start gaze:flex gaze:border-0 gaze:bg-transparent gaze:p-0")}>
+        " tablet:grid tablet:grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto] tablet:items-start gaze:flex gaze:border-0 gaze:bg-transparent gaze:p-0")}>
         <Field label={`الصنف (السطر ${index + 1} من ${count})`} id={fieldId(line.key, "item")} error={error?.field === "item" ? error.message : null}>
           <Combobox
             listLabel="الأصناف المطابقة"
@@ -235,7 +235,7 @@ function LineEditor({ line, index, count, rateBp, options, open, creating, error
             }}
           />
         </Field>
-        <div className={cn("grid grid-cols-2 gap-tg md:contents", hideRest && "!hidden")}>
+        <div className={cn("grid grid-cols-2 gap-tg tablet:contents", hideRest && "!hidden")}>
           <Field label="الكمية" id={fieldId(line.key, "quantity")} error={error?.field === "quantity" ? error.message : null}>
             <Input numeric inputMode="numeric" value={line.quantity} onChange={(event) => onChange({ quantity: event.target.value })} />
           </Field>
@@ -243,14 +243,14 @@ function LineEditor({ line, index, count, rateBp, options, open, creating, error
             <Input numeric unit="ر.س" inputMode="decimal" value={line.unitCost} onChange={(event) => onChange({ unitCost: event.target.value })} />
           </Field>
         </div>
-        <div className="flex items-center justify-between gap-tg md:flex-col md:items-stretch md:justify-start md:gap-1.5 gaze:hidden">
-          <span className="text-small font-semibold text-muted-foreground md:block">الإجمالي مع الضريبة</span>
-          <span className="num flex min-h-ctl items-center font-bold md:justify-end" dir="ltr">
+        <div className="flex items-center justify-between gap-tg tablet:flex-col tablet:items-stretch tablet:justify-start tablet:gap-1.5 gaze:hidden">
+          <span className="text-small font-semibold text-muted-foreground tablet:block">الإجمالي مع الضريبة</span>
+          <span className="num flex min-h-ctl items-center font-bold tablet:justify-end" dir="ltr">
             {total ? formatAmount(total.gross) : "—"}
           </span>
         </div>
         {onRemove ? (
-          <div className="flex justify-end md:pt-[1.9rem] gaze:hidden">
+          <div className="flex justify-end tablet:pt-[1.9rem] gaze:hidden">
             <Button variant="danger-outline" icon={Trash2} onClick={onRemove}>
               احذف
             </Button>
@@ -481,7 +481,6 @@ export function PurchaseInvoice({ userName, vatRateBp, units, today, api, onDone
       return (
         <Screen
           title={flags.length > 1 ? `تنبيه ${flagStep + 1} من ${flags.length}` : "قبل التسجيل"}
-          quietTitle={flags.length === 1}
           above={<Stepper steps={STEPS} current={2} />}
           actions={
             <>
@@ -590,7 +589,7 @@ export function PurchaseInvoice({ userName, vatRateBp, units, today, api, onDone
                       <li key={p.line.key} className="flex flex-col gap-tg-min">
                         <div
                           className={cn(
-                            "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-tg gap-y-0.5 rounded-ctl border-2 px-3 py-2",
+                            "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-tg gap-y-0.5 rounded-ctl border px-3 py-2",
                             flag && !acknowledged.includes(flag.id) ? "border-warning-line" : "border-transparent bg-muted",
                           )}
                         >
@@ -649,7 +648,6 @@ export function PurchaseInvoice({ userName, vatRateBp, units, today, api, onDone
     return (
       <Screen
         title={gazeStep === 0 ? "فاتورة المورّد" : creating ? `صنفٌ جديد للسطر ${index + 1}` : `السطر ${index + 1} من ${lines.length}`}
-        quietTitle={choosing}
         above={choosing || creating ? undefined : <Stepper steps={STEPS} current={gazeStep} />}
         actions={
           creating ? (
@@ -738,7 +736,7 @@ export function PurchaseInvoice({ userName, vatRateBp, units, today, api, onDone
   return (
     <Screen
       title="فاتورة شراء جديدة"
-      back={{ label: "الرئيسية", onBack: onCancel }}
+      back={{ id: "invoice-home", label: "الرئيسية", onClick: onCancel }}
       description="تزيد المخزون وتُضاف إلى المصاريف حين تسجّلها بعد المراجعة."
       actions={
         <>
@@ -755,7 +753,7 @@ export function PurchaseInvoice({ userName, vatRateBp, units, today, api, onDone
         <CardHeader>
           <CardTitle>فاتورة المورّد</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-tg md:grid-cols-3 [&>*:first-child]:col-span-2 md:[&>*:first-child]:col-span-1">
+        <CardContent className="grid grid-cols-2 gap-tg tablet:grid-cols-3 [&>*:first-child]:col-span-2 tablet:[&>*:first-child]:col-span-1">
           <Field label="المورّد" error={problem?.field === "supplier" ? problem.message : null}>
             <Combobox
               listLabel="المورّدون المطابقون"

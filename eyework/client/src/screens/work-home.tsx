@@ -17,7 +17,7 @@ import type { Workspace } from "@/lib/workspace"
 export function WorkHome({ workspace, userName, onNavigate }: { workspace: Workspace; userName: string | null; onNavigate: (href: string) => void }) {
   const name = userName?.trim()
   return (
-    <Screen title={name ? `أهلاً، ${name}` : "الرئيسية"} quietTitle>
+    <Screen title={name ? `أهلاً، ${name}` : "الرئيسية"}>
       <ul aria-label="ابدأ عملاً" className="grid grid-cols-2 gap-tg lg:grid-cols-3">
         {workspace.home.map((entry) => {
           const Icon = entry.icon
@@ -32,10 +32,10 @@ export function WorkHome({ workspace, userName, onNavigate }: { workspace: Works
                   onNavigate(entry.route)
                 }}
                 className={cn(
-                  "flex h-full min-h-ctl w-full items-center gap-3 rounded-card border-2 px-4 py-3 font-bold",
+                  "flex h-full min-h-ctl w-full items-center gap-3 rounded-card border px-4 py-3 font-bold",
                   "compact:min-h-[5.5rem] compact:flex-col compact:items-start compact:justify-between",
                   entry.primary
-                    ? "border-primary bg-primary text-primary-foreground shadow-ctl compact:min-h-ctl-lg compact:flex-row compact:items-center compact:justify-start hov:bg-primary/90"
+                    ? "border-primary bg-primary text-primary-foreground compact:min-h-ctl-lg compact:flex-row compact:items-center compact:justify-start hov:bg-primary/90"
                     : "border-control bg-card text-foreground hov:bg-muted",
                   "gaze:justify-start",
                 )}

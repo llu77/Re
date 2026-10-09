@@ -59,20 +59,28 @@ export function SizeProvider({ initial, children }: { initial: SizeMode; childre
   return <SizeContext.Provider value={value}>{children}</SizeContext.Provider>
 }
 
-/** شاشةٌ قصيرة (ارتفاعها 700px أو أقل): الحجم الكبير يعرض فيها أقلّ في الصفحة الواحدة. */
-export const SHORT_QUERY = "(max-height: 43.75rem)"
+/** استعلامُ وسائطٍ كحالة React: يتغيّر بفعل المستخدم (تدوير، شريط Safari، لوحة المفاتيح) لا من تلقاء الواجهة. */
+export function useMatch(query: string): boolean {
+  const subscribe = React.useCallback(
+    (listener: () => void) => {
+      const list = window.matchMedia(query)
+      list.addEventListener("change", listener)
+      return () => list.removeEventListener("change", listener)
+    },
+    [query],
+  )
+  return React.useSyncExternalStore(subscribe, () => window.matchMedia(query).matches)
+}
+
+/** شاشةٌ قصيرة (480px أو أقل: الهاتف أفقياً، أو لوحة المفاتيح): الحجم الكبير يعرض فيها أقلّ في الصفحة. */
+export const SHORT_QUERY = "(max-height: 30rem)"
+/** الآيباد فأوسع (744px: iPad mini عمودياً): شريطٌ جانبي بدل شريط التبويب. */
+export const TABLET_QUERY = "(min-width: 46.5rem)"
+/** عريضٌ (1024px): القائمة والتفصيل معاً في الحجم العادي. */
+export const WIDE_QUERY = "(min-width: 64rem)"
 
 export function useShortScreen(): boolean {
-  const [short, setShort] = React.useState(() => window.matchMedia(SHORT_QUERY).matches)
-  React.useEffect(() => {
-    const query = window.matchMedia(SHORT_QUERY)
-    const update = () => setShort(query.matches)
-    update()
-    // تغيّر الارتفاع (تدوير، أو شريط Safari) فعلٌ من المستخدم لا تغيّرٌ من تلقاء الواجهة.
-    query.addEventListener("change", update)
-    return () => query.removeEventListener("change", update)
-  }, [])
-  return short
+  return useMatch(SHORT_QUERY)
 }
 
 /** عدد الصفوف في صفحةٍ بحسب الحجم وطول الشاشة. */

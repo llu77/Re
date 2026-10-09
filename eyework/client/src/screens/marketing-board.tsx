@@ -96,7 +96,6 @@ export function CampaignBoard({ campaigns, now, imageUrl, onNew, onOpen }: Campa
   return (
     <Screen
       title="حملاتي"
-      quietTitle
       description={gaze ? undefined : "لا يُنشر شيءٌ ولا يُدفع أيّ مبلغٍ تلقائياً: كل خطوةٍ بقرارك."}
       aside={gaze ? undefined : newButton}
       actions={gaze ? newButton : undefined}
@@ -123,7 +122,7 @@ export function CampaignBoard({ campaigns, now, imageUrl, onNew, onOpen }: Campa
                       type="button"
                       data-safe=""
                       onClick={() => onOpen(c)}
-                      className="flex w-full min-h-ctl items-start gap-3 rounded-card border-2 border-control bg-card p-2.5 text-start hov:bg-secondary/50"
+                      className="flex w-full min-h-ctl items-start gap-3 rounded-card border border-control bg-card p-2.5 text-start hov:bg-secondary/50"
                     >
                       <Thumb campaign={c} imageUrl={imageUrl} />
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">

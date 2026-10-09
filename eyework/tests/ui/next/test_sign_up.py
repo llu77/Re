@@ -10,10 +10,12 @@ from __future__ import annotations
 import pytest
 
 from eyework import auth, terms
-from eyework.tests.ui.conftest import DESKTOP, LOGIN_KEY, VIEWPORTS
+from eyework.tests.ui.conftest import LOGIN_KEY
+from eyework.tests.ui.next.conftest import DESKTOP, PHONES, STRESS, TABLETS, frame_ids
 from eyework.tests.ui.next.flow import Flow
 
-IDS = [f"{w}x{h}" for w, h in VIEWPORTS]
+#: أضيق هاتف، وهاتفٌ حديث، وأصغر آيباد، والحاسوب.
+SIGNUP_FRAMES = [STRESS, PHONES[0], TABLETS[0], DESKTOP]
 
 
 def walk_sign_up(flow: Flow, page, *, size: str, profession: str = "MARKETING", email: str = "Sara.Worker@Example.SA") -> None:
@@ -68,7 +70,7 @@ def _posts(page, base: str) -> list[str]:
     return [url.removeprefix(base) for method, url in page.requests if method != "GET"]
 
 
-@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+@pytest.mark.parametrize(("width", "height"), SIGNUP_FRAMES, ids=frame_ids(SIGNUP_FRAMES))
 @pytest.mark.parametrize("size", ["compact", "gaze"])
 def test_signing_up_without_a_link_reaches_the_home_at_each_size(next_page, server, owner, width, height, size):
     page = next_page(width, height, size=size)

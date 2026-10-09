@@ -7,8 +7,9 @@
 الكتابة، والردود التي تصل بعد المغادرة، والتنبيهات والمسارات المنقطعة، وأطول نصٍّ مقبول،
 وكلمة سيمبول، و«حملاتي» بصفحاتها، واللمس، و«زيادة التباين».
 
-في الحجم الكبير لا تزيد الشاشة على عشرة أهداف، فالخيارات الستّ (التعديلات، والمبالغ،
-والمُدَد) ثلاثةٌ وزرٌّ يقلّب إلى الثلاثة الأخرى؛ والاختبارات تصل الخيار بمفتاحه أينما كان.
+في الحجم الكبير لا تزيد الشاشة على اثني عشر هدفاً (أربعةٌ منها شريط التنقّل)، فالخيارات الستّ
+(التعديلات، والمبالغ، والمُدَد) ثلاثةٌ وزرٌّ يقلّب إلى الثلاثة الأخرى؛ والاختبارات تصل الخيار بمفتاحه
+أينما كان. المسار الكامل يمشي على إطارات الآيفون والآيباد والحاسوب (conftest.FRAMES).
 """
 
 from __future__ import annotations
@@ -21,9 +22,8 @@ from eyework import campaigns
 from eyework.copy_rules import DESCRIPTION_MAX, NOTE_TO_USER_MAX, TITLE_MAX, check_copy, check_note_to_user
 from eyework.tests.conftest import add_version, create_campaign
 from eyework.tests.fakes import NOTE, ok
-from eyework.tests.ui.conftest import DESKTOP, HANDHELD, PHONES, STRESS, VIEWPORTS
 from eyework.tests.ui.flow import sample_photo
-from eyework.tests.ui.next.conftest import LOGIN, member
+from eyework.tests.ui.next.conftest import DESKTOP, FRAMES, LOGIN, PHONES, STRESS, TIGHTEST, frame_ids, member
 from eyework.tests.ui.next.flow import Flow
 
 SIZES = ["compact", "gaze"]
@@ -154,7 +154,7 @@ def _notice(page) -> str:
 
 # ── المسار الكامل بعقد النظر ──────────────────────────────────────────────
 @pytest.mark.parametrize("size", SIZES)
-@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=[f"{w}x{h}" for w, h in VIEWPORTS])
+@pytest.mark.parametrize(("width", "height"), FRAMES, ids=frame_ids(FRAMES))
 def test_every_screen_honours_the_gaze_contract(next_page, server, owner, size, width, height):
     page = _page(next_page, owner, server, size, width, height)
     flow = Flow(page)
@@ -627,7 +627,6 @@ WASTEFUL = "\n".join([SHORT, SHORT, SHORT, (WORDS * 4)[:DESCRIPTION_MAX - 3 * (l
 EVEN = "\n".join([(WORDS * 2)[:59].strip()] * 4)
 LONG_NOTE = ("أبرزتُ الخامة واللون والحزام، ولم أذكر المقاس ولا السعة لأنهما لا يظهران في الصورة بوضوح. " * 2)
 LONG_NOTE = LONG_NOTE[:NOTE_TO_USER_MAX].strip()
-TIGHTEST = [PHONES[0], STRESS]
 
 
 def _squash(text: str) -> str:

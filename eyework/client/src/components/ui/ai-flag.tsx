@@ -102,7 +102,7 @@ export function AIFlag({
       aria-labelledby={titleId}
       data-flag-status={status}
       className={cn(
-        "flex flex-col gap-3 rounded-card border-2 p-pad",
+        "flex flex-col gap-3 rounded-card border p-pad",
         done ? "border-border bg-muted" : "border-warning-line bg-warning-tint",
         className,
       )}

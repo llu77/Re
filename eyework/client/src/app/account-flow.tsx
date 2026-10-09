@@ -34,7 +34,7 @@ function SourcesScreen({ onBack }: { onBack: () => void }) {
   }, [])
   const lines = portal ? [...new Set([portal.sources.tasks, portal.sources.skills])] : []
   return (
-    <Screen title="مصادر المحتوى" back={{ label: "رجوع", onBack }}>
+    <Screen title="مصادر المحتوى" back={{ id: "sources-back", label: "رجوع", onClick: onBack }}>
       {portal === undefined ? null : portal === null ? (
         <p role="alert" className="text-flow font-bold text-destructive">
           تعذّرت قراءة المصادر. حاول مرة أخرى.
@@ -75,6 +75,7 @@ function ConfirmScreen({ title, question, text, label, icon, onYes, onBack, busy
   return (
     <Screen
       title={question}
+      fill
       above={<p className="text-small font-semibold text-muted-foreground">{title}</p>}
       actions={
         <div className="grid w-full grid-cols-2 gap-tg">
@@ -180,17 +181,18 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
     </WorkspaceShell>
   ) : (
     // مهنةٌ بلا مساحة عملٍ بعد: «حسابي» هو الرئيسية، بلا قائمة أقسامٍ ولا أدوات.
-    <div className="min-h-dvh bg-background">
-      <header className="border-b border-border bg-card pb-1.5 pt-[max(0.375rem,env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-content items-center gap-2.5 px-edge">
+    <div className="min-h-dvh bg-background pt-[env(safe-area-inset-top)]">
+      {/* رأسٌ بارتفاعٍ ثابت (3.5rem + الحدّ): تحسبه `.chrome-bare` لتملأ الشاشة ما تحته. */}
+      <header className="h-14 border-b border-border bg-card">
+        <div className="mx-auto flex h-full max-w-content items-center gap-2.5 px-edge">
           <BrandMark />
           <span className="flex flex-col leading-tight">
-            <span className="font-bold text-heading">صياغة</span>
+            <span className="font-semibold text-heading">صياغة</span>
             <span className="text-small text-muted-foreground">{profession}</span>
           </span>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-content px-edge pb-safe pt-sec">{content}</main>
+      <main className="chrome-bare mx-auto w-full max-w-content px-edge pb-safe pt-sec">{content}</main>
     </div>
   )
   return (
