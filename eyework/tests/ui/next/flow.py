@@ -6,8 +6,8 @@
   • الكبير (gaze): أهدافٌ ≥48 (حدّ Apple 44pt وأربعة احتياطاً) وفجواتٌ ≥12 وحافّةٌ ≥16، اثنا عشر
     هدفاً على الأكثر (أربعةٌ منها شريط التنقّل الثابت)، ولا تمرير ولا قصّ، ولا حركة.
   • العادي (compact): أهدافٌ ≥40 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح؛ وما يقع تحت شريط التبويب
-    الثابت قبل التمرير تحت الطيّة لا مجاورٌ له إن كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة
-    (وإلا فالتراكب حقيقيٌّ ويُرفض).
+    الثابت أو في فجوته قبل التمرير تحت الطيّة لا مجاورٌ له إن كان التمرير المتبقّي يرفعه فوق الشريط
+    بالفجوة كاملة (وإلا فالتراكب حقيقيٌّ ويُرفض).
 
 وقاعدتا الهبوط والأقرب إلى النظر كما هما: بعد كل ضغطة لا يقع تحت موضعها ما يعتمد
 (`data-commit`) ولا ما يغيّر قيمة (`data-value`، خيارٌ راديوي)، وأقرب عنصرٍ مفعّل إليها
@@ -33,14 +33,14 @@ AUDIT = """
     const name = (e) => e.id || e.textContent.trim().slice(0, 20);
     const small = rects.filter(([, r]) => r.width < MIN || r.height < MIN)
         .map(([e, r]) => `${name(e)} ${Math.round(r.width)}x${Math.round(r.height)}`);
-    // الحجم العادي: الصفحة تمرّ وشريط التبويب ثابتٌ فوقها. ما يقع تحته قبل التمرير ليس مجاوراً له إن
-    // كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة (يظهر فوقه بالتمرير: `.pb-tab`)؛ وإلا فالتراكب
-    // حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عن الشريط مهما مُرّرت.
+    // الحجم العادي: الصفحة تمرّ وشريط التبويب ثابتٌ فوقها. ما يقع تحته أو في فجوته قبل التمرير ليس مجاوراً
+    // له إن كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة (يظهر فوقه بالتمرير: `.pb-tab`)؛ وإلا
+    // فالتراكب حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عن الشريط مهما مُرّرت.
     const scroller = document.scrollingElement;
     const room = scroller.scrollHeight - innerHeight - scroller.scrollTop;
     const bar = document.querySelector('nav[aria-label="أقسام البوابة"]');
     const barRect = bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect() : null;
-    const belowFold = (e, r) => barRect !== null && !bar.contains(e) && r.bottom > barRect.top && r.bottom - room <= barRect.top - GAP;
+    const belowFold = (e, r) => barRect !== null && !bar.contains(e) && r.bottom > barRect.top - GAP && r.bottom - room <= barRect.top - GAP;
     const close = [];
     for (let i = 0; i < rects.length; i += 1) {
         for (let j = i + 1; j < rects.length; j += 1) {
@@ -123,6 +123,8 @@ class Flow:
 
     def fonts(self) -> None:
         self.page.evaluate("() => document.fonts.ready.then(() => true)")
+        # وتنتهي حركات الظهور قبل القياس: حوارٌ يُكبَّر من 0.98 تقيس أزراره أصغر ممّا هي.
+        self.page.evaluate("() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))).then(() => true)")
 
     def audit(self, label: str) -> dict:
         self.fonts()

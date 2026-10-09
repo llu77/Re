@@ -100,12 +100,12 @@ def test_signing_up_without_a_link_reaches_the_home_at_each_size(next_page, serv
         assert cursor.fetchall() == [("OPEN", "OK")]
 
 
-def test_a_storekeeper_lands_on_the_account_until_the_inventory_package(next_page, server, owner):
-    """مهنةٌ بلا مساحة عملٍ في هذه الحزمة: «حسابي» هو الرئيسية، ولا زرٌّ يفتح ما ليس موجوداً."""
+def test_support_lands_on_the_account_until_the_support_package(next_page, server, owner):
+    """مهنةٌ بلا مساحة عملٍ بعد (الدعم الفني حتى حزمته): «حسابي» هو الرئيسية، ولا زرٌّ يفتح ما ليس موجوداً."""
     page = next_page(size="compact")
     flow = Flow(page)
     page.goto(page.next)
-    walk_sign_up(flow, page, size="compact", profession="STOREKEEPER")
+    walk_sign_up(flow, page, size="compact", profession="SUPPORT")
     flow.press("#signup-create", lambda: flow.screen("#account-ui-size-apply"), "أنشئ حسابي")
     flow.audit("account-home")
     assert page.locator("[aria-label='ابدأ عملاً']").count() == 0

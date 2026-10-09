@@ -70,5 +70,9 @@ export function Screen({ title, description, back, end, above, aside, actions, f
 }
 
 export function ScreenActions({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("flex flex-wrap items-center gap-tg", "gaze:shrink-0 gaze:flex-nowrap gaze:[&>*]:flex-1", className)}>{children}</div>
+  return (
+    <div data-screen-actions="" className={cn("flex flex-wrap items-center gap-tg", "gaze:shrink-0 gaze:flex-nowrap gaze:[&>*]:flex-1", className)}>
+      {children}
+    </div>
+  )
 }

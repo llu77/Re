@@ -37,12 +37,14 @@ from fastapi.staticfiles import StaticFiles
 from psycopg import errors as pg_errors
 
 from eyework import assistant, campaigns, config, images, service_errors
+# استيراد خدمة المخزون يسجّل أداة مراجعتها وشاشات مساعدها قبل أن تُبنى المسارات.
+from eyework import inventory  # noqa: F401
 from eyework.copywriter import AnthropicCopywriter, Copywriter
 from eyework.db import Database
 from eyework.model_gateway import AnthropicGateway, Guard
 from eyework.prompt_kit import Gateway
 from eyework.reviewer import ReviewRunner
-from eyework.web import routes_ai, routes_auth, routes_campaigns, routes_portal
+from eyework.web import routes_ai, routes_auth, routes_campaigns, routes_inventory, routes_portal
 from eyework.web.deps import Limiters
 from eyework.web.errors import (
     AI_ASSISTANT,
@@ -51,6 +53,7 @@ from eyework.web.errors import (
     EDIT_REQUEST,
     GENERIC,
     IMAGE,
+    INVENTORY_INVALID,
     REGISTRATION,
     REGISTRATION_CONSTRAINTS,
     ErrorSpec,
@@ -229,7 +232,8 @@ def create_app(
 
     @app.exception_handler(pg_errors.NoDataFound)
     def no_data(request: Request, exc: pg_errors.NoDataFound) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "detail": "الحملة غير موجودة."})
+        detail = "لم يُعثر على المستند." if request.url.path.startswith("/api/inventory") else "الحملة غير موجودة."
+        return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "detail": detail})
 
     # أصناف الخدمات المشتركة (service_errors؛ والحملات تعيد تصديرها): الحملة تكتفي
     # بالرسالة الافتراضية، والملاحظة والشاشة تسمّيان نفسيهما.
@@ -246,7 +250,7 @@ def create_app(
 
     @app.exception_handler(service_errors.Invalid)
     def invalid(request: Request, exc: service_errors.Invalid) -> JSONResponse:
-        return _error(EDIT_REQUEST.get(exc.code, GENERIC), exc.field)
+        return _error(EDIT_REQUEST.get(exc.code) or INVENTORY_INVALID.get(exc.code, GENERIC), exc.field)
 
     @app.exception_handler(assistant.AssistantError)
     def assistant_error(request: Request, exc: assistant.AssistantError) -> JSONResponse:
@@ -289,6 +293,7 @@ def create_app(
 
     app.include_router(routes_auth.router)
     app.include_router(routes_campaigns.router)
+    app.include_router(routes_inventory.router)
     app.include_router(routes_portal.router)
     app.include_router(routes_ai.router)
     # الواجهة الجديدة تحت /next/ قبل الجذر: المسارات تُطابَق بترتيبها، وسياسة المحتوى نفسها.

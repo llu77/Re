@@ -36,6 +36,11 @@ RLS_TABLES = (
     "public.registration_ledger",
     # 0009: أدوات النموذج وسقوفها، ودفتر استدعاءاته، وتنبيهات المراجِع وقراراتها.
     "public.ai_features", "public.ai_requests", "public.ai_flags", "public.ai_flag_decisions",
+    # 0010: المخزون كلّه، وعدّاداته للمالك وحده.
+    "public.inv_settings", "public.inv_counters", "public.inv_suppliers", "public.inv_supplier_reps", "public.inv_categories",
+    "public.inv_items", "public.inv_purchases", "public.inv_purchase_lines", "public.inv_returns", "public.inv_return_lines",
+    "public.inv_count_sessions", "public.inv_vouchers", "public.inv_count_lines", "public.inv_movements", "public.inv_ledger",
+    "public.inv_review_flags",
 )
 OWNERS_PER_TABLE = [
     "SELECT DISTINCT user_id FROM campaigns",

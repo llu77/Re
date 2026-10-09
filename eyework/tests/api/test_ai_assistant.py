@@ -256,9 +256,10 @@ def test_screens_follow_the_profession_and_inputs_are_checked_before_any_call(ow
     keeper, _ = _signed_in(owner, browser, KEEPER, profession="STOREKEEPER")
     foreign = _ask(keeper, "CAMPAIGN", screen_id=str(uuid4()))
     assert (foreign.status_code, foreign.json()["code"]) == (404, "SCREEN")
+    # لأمين المخزون في الرئيسية بيانات مخزنه وأزرار بوابته السبعة (الحزمة الثالثة).
     assert expect(_ask(keeper, "HOME"))["status"] == "ANSWER"
-    assert "لا أدوات عملٍ في هذه الشاشة بعد." in gateway.calls[-1].user
-    assert gateway.calls[-1].user.count("<label>") == 1
+    assert "الأصناف النشطة: 0" in gateway.calls[-1].user
+    assert gateway.calls[-1].user.count("<label>") == 8
 
 
 def test_the_consent_gate_refuses_an_account_on_an_older_notice(owner, browser, gateway):

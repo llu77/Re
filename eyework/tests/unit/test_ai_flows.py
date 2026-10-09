@@ -113,6 +113,8 @@ def _flag_row(**overrides) -> dict:
 @pytest.fixture
 def db(monkeypatch) -> FakeDatabase:
     monkeypatch.setitem(reviewer.FEATURES, "STOCK_REVIEW", FEATURE)
+    # الأداة البديلة وحدها: ما تسجّله مساحة المخزون لنوع المرتجع لا يُرى هنا.
+    monkeypatch.setattr(reviewer, "KIND_FEATURES", {})
     fake = FakeDatabase()
     fake.handlers[reviewer._STORED_REVIEW] = lambda params: []
     fake.handlers[reviewer._DISPLAY_NAME] = lambda params: [{"name": NAME}]
