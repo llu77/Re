@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from eyework import auth, campaigns, professions, terms
@@ -147,6 +149,10 @@ def test_signing_up_without_a_link_from_the_sign_in_screen(page_factory, server,
     """الوضع المفتوح (إعداد خادم الاختبارات): «حساب جديد» في شاشة الدخول يفتح الخطوات نفسها بلا رمز."""
     page = page_factory(width, height, session=False)
     flow = Flow(page, server["base"])
+    # جسم طلب التسجيل كما يرسله العميل: الحجم الكبير ونسخة الإشعار المعروضة، وبلا رمز.
+    bodies: list[str] = []
+    page.on("request", lambda request: bodies.append(request.post_data)
+            if request.url.endswith("/api/auth/register") else None)
     page.goto(f"{server['base']}/")
     flow.screen("login")
     # سطر المساعدة يسمّي بريد المشغّل: بلا رابطٍ لا «مَن أعطاك الرابط».
@@ -169,6 +175,9 @@ def test_signing_up_without_a_link_from_the_sign_in_screen(page_factory, server,
     flow.audit("home-storekeeper")
     assert _posts(page, server["base"]) == ["/api/auth/passkey/options", "/api/auth/register"]
     _gaze_safe(page)
+    (sent,) = [json.loads(body) for body in bodies]
+    assert "code" not in sent
+    assert (sent["ui_size"], sent["terms_version"]) == ("GAZE", terms.TERMS_VERSION)
 
     assert not _failures(flow), "\n".join(_failures(flow))
     if (width, height) != DESKTOP:
