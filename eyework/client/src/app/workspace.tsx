@@ -28,7 +28,7 @@ interface AssistantAnswer {
   usage: { per_day: number; used_today: number }
 }
 
-/** «اسأل سيمبول» من الزرّ العائم: سؤالٌ واحد بسياق الشاشة (نوعها ومعرّفها لا بياناتها)، والجواب كما يردّه الخادم. */
+/** «اسأل سيمبول» من ورقة الأدوات: سؤالٌ واحد بسياق الشاشة (نوعها ومعرّفها لا بياناتها)، والجواب كما يردّه الخادم. */
 export function assistantApi(me: Me, choices: Choices, screen: "HOME" | "CAMPAIGN", id: string | null = null): AssistantApi {
   return {
     remaining: Math.max(0, me.ai.assistant.per_day - me.ai.assistant.used_today),

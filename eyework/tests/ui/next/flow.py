@@ -5,7 +5,8 @@
 
   • الكبير (gaze): أهدافٌ ≥48 (حدّ Apple 44pt وأربعة احتياطاً) وفجواتٌ ≥12 وحافّةٌ ≥16، اثنا عشر
     هدفاً على الأكثر (أربعةٌ منها شريط التنقّل الثابت)، ولا تمرير ولا قصّ، ولا حركة.
-  • العادي (compact): أهدافٌ ≥40 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح.
+  • العادي (compact): أهدافٌ ≥40 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح؛ وما يقع تحت شريط التبويب
+    الثابت قبل التمرير تحت الطيّة لا مجاورٌ له (وإن لم تمرّ الصفحة فالتراكب حقيقيٌّ ويُرفض).
 
 وقاعدتا الهبوط والأقرب إلى النظر كما هما: بعد كل ضغطة لا يقع تحت موضعها ما يعتمد
 (`data-commit`) ولا ما يغيّر قيمة (`data-value`، خيارٌ راديوي)، وأقرب عنصرٍ مفعّل إليها
@@ -31,12 +32,20 @@ AUDIT = """
     const name = (e) => e.id || e.textContent.trim().slice(0, 20);
     const small = rects.filter(([, r]) => r.width < MIN || r.height < MIN)
         .map(([e, r]) => `${name(e)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    // الحجم العادي: الصفحة تمرّ وشريط التبويب ثابتٌ فوقها، فما يقع تحته قبل التمرير تحت الطيّة لا
+    // مجاورٌ له (يظهر فوقه بالتمرير: `.pb-tab`). وإن لم تمرّ الصفحة فالتراكب حقيقي ويُرفض.
+    const scroller = document.scrollingElement;
+    const bar = document.querySelector('nav[aria-label="أقسام البوابة"]');
+    const barRect = bar && getComputedStyle(bar).position === 'fixed' && scroller.scrollHeight > innerHeight + 1
+        ? bar.getBoundingClientRect() : null;
+    const belowFold = (e, r) => barRect !== null && !bar.contains(e) && r.bottom > barRect.top;
     const close = [];
     for (let i = 0; i < rects.length; i += 1) {
         for (let j = i + 1; j < rects.length; j += 1) {
             const [a, ra] = rects[i];
             const [b, rb] = rects[j];
             if (a.contains(b) || b.contains(a)) continue;
+            if (barRect && ((bar.contains(a) && belowFold(b, rb)) || (bar.contains(b) && belowFold(a, ra)))) continue;
             const gap = Math.max(rb.left - ra.right, ra.left - rb.right, rb.top - ra.bottom, ra.top - rb.bottom);
             if (gap < GAP) close.push(`${name(a)} ↔ ${name(b)}: ${Math.round(gap)}`);
         }
@@ -47,7 +56,6 @@ AUDIT = """
     const clipped = gaze ? [...root.querySelectorAll('h1, p, li, button, a[href], input, textarea, dd')].filter(visible)
         .filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > innerHeight + 1 || r.top < -1; })
         .map((e) => name(e) || e.tagName) : [];
-    const scroller = document.scrollingElement;
     return {
         gaze, small, close, edge, fonts, clipped,
         enabled: controls.filter((e) => !e.disabled && e.getAttribute('aria-disabled') !== 'true').length,

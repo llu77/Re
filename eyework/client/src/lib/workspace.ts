@@ -6,7 +6,7 @@
  *
  *   • `home`     أزرار الرئيسية: كل زرٍّ يبدأ عملاً حقيقياً، ولا شيء يُقرأ قبله (تحديث المالك
  *                2026-10-09). وهي نفسها بنود قائمة الأقسام في الرأس، بعد «الرئيسية».
- *   • `tools`    ما تضعه المهنة في زرّ الأدوات العائم، أوّلاً، قبل أدوات البوابة المشتركة.
+ *   • `tools`    ما تضعه المهنة في ورقة «الأدوات»، أوّلاً، قبل أدوات البوابة المشتركة.
  *   • `help`     سطور «مساعدة» لكل شاشة.
  *
  * المهنة من الخادم (/api/me)، لا من العنوان: لا يُفتح قسمٌ لغير مهنته، والخادم يرفض أدواته
@@ -63,7 +63,7 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
       { id: "totals", label: "المجاميع", icon: BarChart3, route: "#/inventory/totals" },
     ],
     help: {
-      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات في الزرّ العائم في كل شاشة."] },
+      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. و«الأدوات» في شريط التبويب أو الشريط الجانبي في كل شاشة."] },
       purchase: {
         title: "فاتورة الشراء",
         lines: [
@@ -89,7 +89,7 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
       { id: "campaigns", label: "حملاتي", icon: Megaphone, route: "#/marketing/campaigns" },
     ],
     help: {
-      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات في الزرّ العائم في كل شاشة."] },
+      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. و«الأدوات» في شريط التبويب أو الشريط الجانبي في كل شاشة."] },
       new: {
         title: "حملة جديدة",
         lines: [
@@ -114,7 +114,7 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
       { id: "knowledge", label: "قاعدة المعرفة", icon: LibraryBig, route: "#/support/knowledge" },
     ],
     help: {
-      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات في الزرّ العائم في كل شاشة."] },
+      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. و«الأدوات» في شريط التبويب أو الشريط الجانبي في كل شاشة."] },
       open: {
         title: "التذاكر",
         lines: [
