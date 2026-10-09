@@ -9,6 +9,8 @@
 
 import * as React from "react"
 
+import type { LucideIcon } from "lucide-react"
+
 import { BackIcon, Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -22,7 +24,10 @@ export interface TopAction {
   commit?: boolean
   disabled?: boolean
   busy?: boolean
-  icon?: React.ComponentType<{ className?: string }>
+  /** أيقونةٌ في البداية («رجوع» بلا أيقونةٍ يأخذ سهم الرجوع). */
+  icon?: LucideIcon
+  /** أيقونةٌ في النهاية («التالي»). */
+  iconEnd?: LucideIcon
 }
 
 export function Slots({ start, end, actions = false, className }: { start?: React.ReactNode; end?: React.ReactNode; actions?: boolean; className?: string }) {
@@ -36,11 +41,11 @@ export function Slots({ start, end, actions = false, className }: { start?: Reac
 }
 
 export function TopButton({ action, back }: { action: TopAction; back: boolean }) {
-  const Icon = action.icon
   return (
     <Button
       id={action.id}
-      icon={back ? BackIcon : (Icon as typeof BackIcon | undefined)}
+      icon={back ? (action.icon ?? BackIcon) : action.icon}
+      iconEnd={action.iconEnd}
       variant={action.danger ? "danger-outline" : action.commit ? "secondary" : "outline"}
       commit={action.commit}
       disabled={action.disabled}

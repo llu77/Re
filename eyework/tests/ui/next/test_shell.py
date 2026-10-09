@@ -153,18 +153,21 @@ def test_the_list_and_the_campaign_share_the_wide_screen_by_touch_only(next_page
     assert not page.errors, page.errors
 
 
-def test_the_tab_bar_hides_while_a_field_has_focus(next_page, server, owner, app):
-    user = member(owner)
+@pytest.mark.parametrize("size", ["compact", "gaze"])
+def test_the_tab_bar_hides_while_a_field_has_focus_in_the_touch_size_only(next_page, server, owner, app, size):
+    """في الحجم العادي الشريط ثابتٌ فوق الصفحة فيختفي تحت لوحة المفاتيح؛ وفي الكبير في التدفّق ولا يختفي:
+    إخفاؤه يحرّك الأهداف تحت نظرٍ باقٍ."""
+    user = member(owner, size="GAZE" if size == "gaze" else "COMPACT")
     campaign = create_campaign(app, user)
     add_version(app, user, campaign)
-    page = next_page(*PHONES[1], login=LOGIN)
+    page = next_page(*PHONES[1], login=LOGIN, size=size)
     flow = Flow(page)
     page.goto(page.next + f"#/marketing/c/{campaign}/note")
     flow.screen("#note-text")
     assert page.is_visible("#nav-home")
     page.focus("#note-text")
     flow.until("document.documentElement.dataset.keyboard === 'open'")
-    assert page.is_hidden("#nav-home")
+    assert page.is_hidden("#nav-home") == (size == "compact")
     page.evaluate("() => document.activeElement.blur()")
     flow.until("document.documentElement.dataset.keyboard === undefined")
     assert page.is_visible("#nav-home")

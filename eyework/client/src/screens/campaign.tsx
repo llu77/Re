@@ -506,7 +506,7 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
       end={{
         id: `${kind}-next`,
         label: budget ? "التالي: عدد الأيام" : "التالي: المراجعة",
-        icon: NextIcon,
+        iconEnd: NextIcon,
         disabled: current === null,
         onClick: onNext,
       }}

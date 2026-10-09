@@ -45,12 +45,13 @@ export function Screen({ title, description, back, end, above, aside, actions, f
   const gaze = size === "gaze"
   return (
     <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", fill && "fill-screen", className)}>
+      {/* الصفّ العلوي ابنٌ مباشر لجذر الشاشة: اللصق (sticky) يبقى ما بقيت الشاشة، لا مجموعة العنوان وحدها. */}
+      {back || end ? (
+        <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mb-sec -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]", gaze && "-mb-tg")}>
+          <Slots start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-tg-min">
-        {back || end ? (
-          <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]")}>
-            <Slots start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
-          </div>
-        ) : null}
         {above}
         <div className="flex flex-wrap items-end justify-between gap-tg">
           <div className="flex min-w-0 flex-col gap-1">

@@ -181,7 +181,7 @@ export function Sheet({ open, onClose, title, eyebrow, description, children, fo
           from="bottom"
           className={cn(
             "flex max-h-[88dvh] flex-col gap-sec rounded-t-[calc(var(--radius-card)+0.25rem)] border border-border bg-card px-edge pb-safe pt-pad shadow-pop",
-            "tablet:max-h-[min(40rem,calc(100dvh-2*var(--edge)))] tablet:rounded-card tablet:p-pad",
+            "tablet:max-h-[min(40rem,calc(100dvh-2*var(--edge)))] tablet:rounded-card tablet:px-pad tablet:pt-pad",
             "gaze:h-dvh gaze:max-h-none gaze:rounded-none gaze:border-0 gaze:bg-background gaze:px-edge gaze:pt-safe gaze:shadow-none",
             className,
           )}

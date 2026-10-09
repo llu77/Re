@@ -86,7 +86,7 @@ cd eyework/client && npm ci --no-fund --no-audit && npm run build   # يكتب c
 إطارٍ بالحجمين للمالك:
 
 ```bash
-EYEWORK_OWNER_DATABASE_URL=… EYEWORK_SHOTS=/tmp/shots python -m eyework.tests.ui.next.shots   # أو size:WxH …
+EYEWORK_TEST_DATABASE_URL=…_test EYEWORK_SHOTS=/tmp/shots python -m eyework.tests.ui.next.shots   # أو size:WxH …
 ```
 
 ## التسجيل

@@ -6,7 +6,8 @@
   • الكبير (gaze): أهدافٌ ≥48 (حدّ Apple 44pt وأربعة احتياطاً) وفجواتٌ ≥12 وحافّةٌ ≥16، اثنا عشر
     هدفاً على الأكثر (أربعةٌ منها شريط التنقّل الثابت)، ولا تمرير ولا قصّ، ولا حركة.
   • العادي (compact): أهدافٌ ≥40 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح؛ وما يقع تحت شريط التبويب
-    الثابت قبل التمرير تحت الطيّة لا مجاورٌ له (وإن لم تمرّ الصفحة فالتراكب حقيقيٌّ ويُرفض).
+    الثابت قبل التمرير تحت الطيّة لا مجاورٌ له إن كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة
+    (وإلا فالتراكب حقيقيٌّ ويُرفض).
 
 وقاعدتا الهبوط والأقرب إلى النظر كما هما: بعد كل ضغطة لا يقع تحت موضعها ما يعتمد
 (`data-commit`) ولا ما يغيّر قيمة (`data-value`، خيارٌ راديوي)، وأقرب عنصرٍ مفعّل إليها
@@ -32,13 +33,14 @@ AUDIT = """
     const name = (e) => e.id || e.textContent.trim().slice(0, 20);
     const small = rects.filter(([, r]) => r.width < MIN || r.height < MIN)
         .map(([e, r]) => `${name(e)} ${Math.round(r.width)}x${Math.round(r.height)}`);
-    // الحجم العادي: الصفحة تمرّ وشريط التبويب ثابتٌ فوقها، فما يقع تحته قبل التمرير تحت الطيّة لا
-    // مجاورٌ له (يظهر فوقه بالتمرير: `.pb-tab`). وإن لم تمرّ الصفحة فالتراكب حقيقي ويُرفض.
+    // الحجم العادي: الصفحة تمرّ وشريط التبويب ثابتٌ فوقها. ما يقع تحته قبل التمرير ليس مجاوراً له إن
+    // كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة (يظهر فوقه بالتمرير: `.pb-tab`)؛ وإلا فالتراكب
+    // حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عن الشريط مهما مُرّرت.
     const scroller = document.scrollingElement;
+    const room = scroller.scrollHeight - innerHeight - scroller.scrollTop;
     const bar = document.querySelector('nav[aria-label="أقسام البوابة"]');
-    const barRect = bar && getComputedStyle(bar).position === 'fixed' && scroller.scrollHeight > innerHeight + 1
-        ? bar.getBoundingClientRect() : null;
-    const belowFold = (e, r) => barRect !== null && !bar.contains(e) && r.bottom > barRect.top;
+    const barRect = bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect() : null;
+    const belowFold = (e, r) => barRect !== null && !bar.contains(e) && r.bottom > barRect.top && r.bottom - room <= barRect.top - GAP;
     const close = [];
     for (let i = 0; i < rects.length; i += 1) {
         for (let j = i + 1; j < rects.length; j += 1) {
@@ -53,7 +55,7 @@ AUDIT = """
     const edge = rects.filter(([, r]) => r.left < EDGE || innerWidth - r.right < EDGE).map(([e]) => name(e));
     const fonts = [...root.querySelectorAll('input, textarea')].filter(visible)
         .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id || e.name);
-    const clipped = gaze ? [...root.querySelectorAll('h1, p, li, button, a[href], input, textarea, dd')].filter(visible)
+    const clipped = gaze ? [...root.querySelectorAll('h1, h2, h3, p, li, button, a[href], input, textarea, label, legend, dt, dd')].filter(visible)
         .filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > innerHeight + 1 || r.top < -1; })
         .map((e) => name(e) || e.tagName) : [];
     return {

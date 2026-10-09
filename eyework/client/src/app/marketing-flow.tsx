@@ -175,9 +175,10 @@ function ListContainer({ pageSize, setNotice, onOpen, onNew }: {
 
 /* ── «حملاتي» بجانب الحملة (العريض بحجم اللمس) ──────────────────── */
 
-function PaneContainer({ campaign, setNotice }: { campaign: Campaign; setNotice: (message: string) => void }) {
+function PaneContainer({ campaignId, status, setNotice }: { campaignId: string; status: string | null; setNotice: (message: string) => void }) {
   const [data, setData] = React.useState<CampaignPage | null>(null)
-  // الصفحة الأولى، وتُقرأ من جديد حين تتغيّر الحملة المفتوحة أو حالتها (الشارة في صفّها).
+  // الصفحة الأولى، وتُقرأ من جديد حين تتغيّر الحملة المفتوحة (من المسار، فلا تختفي القائمة وهي تُقرأ)
+  // أو حالتها (الشارة في صفّها).
   React.useEffect(() => {
     let current = true
     void listCampaigns(1).then((result) => {
@@ -188,9 +189,9 @@ function PaneContainer({ campaign, setNotice }: { campaign: Campaign; setNotice:
     return () => {
       current = false
     }
-  }, [campaign.id, campaign.status, setNotice])
+  }, [campaignId, status, setNotice])
   if (!data) return null
-  return <CampaignsPane items={data.items} currentId={campaign.id} onOpen={(item) => go(campaignRoute(item.id))} />
+  return <CampaignsPane items={data.items} currentId={campaignId} onOpen={(item) => go(campaignRoute(item.id))} />
 }
 
 /* ── المسار ──────────────────────────────────────────────────────── */
@@ -555,7 +556,7 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
   }
 
   // «حملاتي» بجانب الحملة المفتوحة في العريض بحجم اللمس وحده؛ ولا تُقرأ القائمة في غيره.
-  const pane = wide && size === "compact" && loaded && loaded.status !== "CANCELLED" ? <PaneContainer campaign={loaded} setNotice={setNotice} /> : undefined
+  const pane = wide && size === "compact" && id ? <PaneContainer campaignId={id} status={loaded?.status ?? null} setNotice={setNotice} /> : undefined
   return (
     <Notice message={notice} onAck={() => setNoticeState(null)}>
       <WorkspaceShell

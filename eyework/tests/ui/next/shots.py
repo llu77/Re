@@ -4,10 +4,11 @@
 يشغّل الخادم بالبديل الوهمي للنموذج ويمشي في الشاشات الرئيسة (ما قبل الدخول، والتسجيل، والبوابة،
 وأداة الحملة، و«حسابي») على كل إطارٍ بالحجمين، ويحفظ لقطةً لكل شاشة ويطبع تدقيق عقد النظر لها.
 
-    EYEWORK_OWNER_DATABASE_URL=… EYEWORK_SHOTS=/tmp/shots python -m eyework.tests.ui.next.shots [size:WxH …]
+    EYEWORK_TEST_DATABASE_URL=… EYEWORK_SHOTS=/tmp/shots python -m eyework.tests.ui.next.shots [size:WxH …]
 
-بلا وسائط: كل الإطارات (`FRAMES`) × الحجمين. يحتاج العميل مبنيّاً (`npm run build`) وقاعدةً مهاجَرة
-تُمحى حساباتها. ليس اختباراً: لا يجمعه pytest، وما يطبعه يُقرأ بالعين.
+بلا وسائط: كل الإطارات (`FRAMES`) × الحجمين. يحتاج العميل مبنيّاً (`npm run build`) وقاعدةً مهاجَرةً
+ينتهي اسمها بـ`_test` (تُمحى حساباتها؛ غيرها يُرفض كما في الاختبارات). ليس اختباراً: لا يجمعه pytest،
+وما يطبعه يُقرأ بالعين.
 """
 
 from __future__ import annotations
@@ -93,10 +94,11 @@ def portal(page, flow, base: str, size: str, shot, photo: dict) -> None:
     if page.locator("#nav-sections").count():
         flow.press("#nav-sections", lambda: flow.screen("dialog[open]"), "الأقسام"); flow.audit("sections"); shot("12-sections")
         flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
-    tools = "#nav-tools" if page.locator("#nav-tools").count() else "#nav-assistant"
-    flow.press(tools, lambda: flow.screen("dialog[open]"), "الأدوات"); flow.audit("tools"); shot("13-tools")
-    if tools == "#nav-tools":
+    if page.locator("#nav-tools").count():
+        flow.press("#nav-tools", lambda: flow.screen("dialog[open]"), "الأدوات"); flow.audit("tools"); shot("13-tools")
         flow.press("dialog[open] >> text=اسأل سيمبول", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
+    else:
+        flow.press("#nav-assistant", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
     flow.audit("assistant"); shot("14-assistant")
     flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
     flow.press("#home-new", lambda: flow.screen("#photo-input"), "حملة جديدة"); flow.audit("photo"); shot("15-photo")
@@ -168,7 +170,10 @@ def run(owner_url: str, app, base: str, out: str, label: str, size: str, width: 
 
 
 def main(argv: list[str]) -> None:
-    owner_url = os.environ["EYEWORK_OWNER_DATABASE_URL"]
+    owner_url = os.environ["EYEWORK_TEST_DATABASE_URL"]
+    name = psycopg.conninfo.conninfo_to_dict(owner_url).get("dbname") or ""
+    if not name.endswith("_test"):
+        raise SystemExit(f"قاعدة اللقطات يجب أن ينتهي اسمها بـ_test (لا {name!r}): حساباتها تُمحى.")
     out = os.environ["EYEWORK_SHOTS"]
     os.makedirs(out, exist_ok=True)
     runs = argv or [f"{size}:{frame}" for frame in frame_ids(FRAMES) for size in ("compact", "gaze")]

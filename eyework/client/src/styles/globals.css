@@ -218,16 +218,23 @@
   .pb-tab {
     padding-bottom: calc(var(--tab) + var(--edge) + env(safe-area-inset-bottom));
   }
-  /* شاشةٌ تملأ ما بين رأس الصفحة وشريط التبويب في الحجم العادي («حسابي» وتأكيداه): شريط إجراءاتها
-     في أسفل الشاشة دائماً، فما يقع تحت «رجوع» في التأكيد هو الزرّ الذي فُتح به، لا خيارٌ فوقه.
-     في الحجم الكبير الشاشة بارتفاع الشاشة أصلاً. */
+  /* شاشةٌ تملأ ما بين رأس الصفحة وأسفلها في الحجم العادي («حسابي» وتأكيداه): شريط إجراءاتها في أسفل
+     الشاشة دائماً، فما يقع تحت «رجوع» في التأكيد هو الزرّ الذي فُتح به، لا خيارٌ فوقه. ما يحيط بها
+     (`--chrome`) يعلنه إطارها: البوابة فوقها `--sec` وتحتها شريط التبويب أو الحافّة الآمنة؛ والإطار
+     المجرّد («حسابي» لمهنةٍ بلا مساحة عمل) رأسٌ بارتفاعٍ ثابت. في الحجم الكبير الشاشة بارتفاع الشاشة أصلاً. */
   :root:not([data-size="gaze"]) .fill-screen {
-    min-height: calc(100dvh - var(--sec) - var(--tab) - var(--edge) - env(safe-area-inset-bottom));
+    min-height: calc(100dvh - var(--chrome, 0px));
+  }
+  .chrome-portal {
+    --chrome: calc(var(--sec) + var(--tab) + var(--edge) + env(safe-area-inset-bottom));
   }
   @media (min-width: 46.5rem) {
-    :root:not([data-size="gaze"]) .fill-screen {
-      min-height: calc(100dvh - var(--sec) - max(var(--edge), env(safe-area-inset-bottom)));
+    .chrome-portal {
+      --chrome: calc(var(--sec) + max(var(--edge), env(safe-area-inset-bottom)));
     }
+  }
+  .chrome-bare {
+    --chrome: calc(env(safe-area-inset-top) + 3.5rem + var(--line) + var(--sec) + max(var(--edge), env(safe-area-inset-bottom)));
   }
   /* خلفية الأشرطة الثابتة: زجاجٌ خفيف فوق المحتوى، وبلا ضبابيةٍ تُحسب في الحجم الكبير. */
   .bar-glass {

@@ -36,7 +36,7 @@ FRAMES = [*HANDHELD, TABLETS[0], TABLETS[2], LANDSCAPE, DESKTOP]
 #: أضيق إطارين: لا يتّسع نصٌّ فيهما إلا اتّسع في كل إطارٍ أعرض وأطول.
 TIGHTEST = [PHONES[0], STRESS]
 #: ما يعرض الشريط الجانبي.
-WIDE = [TABLETS[0], LANDSCAPE, DESKTOP]
+WIDE = [TABLETS[0], TABLETS[1], LANDSCAPE, DESKTOP]
 
 
 def frame_ids(frames) -> list[str]:

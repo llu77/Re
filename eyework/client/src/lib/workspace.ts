@@ -6,7 +6,6 @@
  *
  *   • `home`     أزرار الرئيسية: كل زرٍّ يبدأ عملاً حقيقياً، ولا شيء يُقرأ قبله (تحديث المالك
  *                2026-10-09). وهي نفسها بنود ورقة الأقسام والشريط الجانبي، بعد «الرئيسية».
- *   • `tools`    ما تضعه المهنة في ورقة «الأدوات»، أوّلاً، قبل أدوات البوابة المشتركة.
  *   • `help`     سطور «مساعدة» لكل شاشة.
  *
  * المهنة من الخادم (/api/me)، لا من العنوان: لا يُفتح قسمٌ لغير مهنته، والخادم يرفض أدواته
@@ -29,8 +28,6 @@ export interface WorkEntry {
   route: string
   /** الزرّ الأوّل في الرئيسية، بالتعبئة الملوّنة: أكثر ما يبدأ به الموظف يومه. */
   primary?: boolean
-  /** يُنشئ مستنداً: في شريط الحاسوب تجتمع هذه تحت «جديد ▾» إن كانت اثنين فأكثر. */
-  creates?: boolean
 }
 
 export interface SectionHelp {
@@ -55,9 +52,9 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
     base: "#/inventory",
     // أزرار المالك كما كتبها، بأسماء شاشات inventory_spec §3.
     home: [
-      { id: "purchase", label: "فاتورة شراء جديدة", icon: ReceiptText, route: "#/inventory/purchases/new", primary: true, creates: true },
-      { id: "return", label: "مرتجع من فاتورة", icon: Undo2, route: "#/inventory/returns/new", creates: true },
-      { id: "item", label: "صنف جديد", icon: PackagePlus, route: "#/inventory/items/new", creates: true },
+      { id: "purchase", label: "فاتورة شراء جديدة", icon: ReceiptText, route: "#/inventory/purchases/new", primary: true },
+      { id: "return", label: "مرتجع من فاتورة", icon: Undo2, route: "#/inventory/returns/new" },
+      { id: "item", label: "صنف جديد", icon: PackagePlus, route: "#/inventory/items/new" },
       { id: "stock", label: "المخزون", icon: Boxes, route: "#/inventory/stock" },
       { id: "expenses", label: "المصاريف", icon: Wallet, route: "#/inventory/expenses" },
       { id: "totals", label: "المجاميع", icon: BarChart3, route: "#/inventory/totals" },
@@ -85,7 +82,7 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
     // زرّا أداة الحملة القائمة؛ «ما ينتظر الاعتماد» و«أدخل النتائج» و«تقويم المحتوى» مع حزمة
     // التسويق حين تصل شاشاتها، فلا زرٌّ يفتح ما ليس موجوداً.
     home: [
-      { id: "new", label: "حملة جديدة", icon: FilePlus2, route: "#/marketing/new", primary: true, creates: true },
+      { id: "new", label: "حملة جديدة", icon: FilePlus2, route: "#/marketing/new", primary: true },
       { id: "campaigns", label: "حملاتي", icon: Megaphone, route: "#/marketing/campaigns" },
     ],
     help: {
@@ -109,7 +106,7 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
     base: "#/support",
     home: [
       { id: "open", label: "التذاكر المفتوحة", icon: Inbox, route: "#/support/tickets", primary: true },
-      { id: "new", label: "تذكرة جديدة", icon: SquarePen, route: "#/support/tickets/new", creates: true },
+      { id: "new", label: "تذكرة جديدة", icon: SquarePen, route: "#/support/tickets/new" },
       { id: "decide", label: "بانتظار قراري", icon: Headset, route: "#/support/tickets?waiting=me" },
       { id: "knowledge", label: "قاعدة المعرفة", icon: LibraryBig, route: "#/support/knowledge" },
     ],

@@ -40,7 +40,7 @@ export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (
     const className = cn(
       "flex min-h-tab w-full flex-col items-center justify-center gap-0.5 rounded-ctl text-small font-semibold leading-none text-muted-foreground",
       "gaze:gap-1",
-      "[&[aria-current]]:text-primary [&[aria-expanded=true]]:text-primary",
+      "[&[aria-current]]:text-primary",
     )
     const content = (
       <>

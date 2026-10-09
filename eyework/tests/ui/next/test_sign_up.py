@@ -11,11 +11,11 @@ import pytest
 
 from eyework import auth, terms
 from eyework.tests.ui.conftest import LOGIN_KEY
-from eyework.tests.ui.next.conftest import DESKTOP, PHONES, TABLETS, frame_ids
+from eyework.tests.ui.next.conftest import DESKTOP, PHONES, STRESS, TABLETS, frame_ids
 from eyework.tests.ui.next.flow import Flow
 
 #: أضيق هاتف، وهاتفٌ حديث، وأصغر آيباد، والحاسوب.
-SIGNUP_FRAMES = [PHONES[0], PHONES[2], TABLETS[0], DESKTOP]
+SIGNUP_FRAMES = [STRESS, PHONES[0], TABLETS[0], DESKTOP]
 
 
 def walk_sign_up(flow: Flow, page, *, size: str, profession: str = "MARKETING", email: str = "Sara.Worker@Example.SA") -> None:

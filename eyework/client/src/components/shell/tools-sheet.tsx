@@ -55,15 +55,9 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, user
   onClose: () => void
 }) {
   const { size } = useSize()
+  // كل فتحٍ نسخةٌ جديدة (المضيف يغيّر `key`): تبدأ من الأداة المطلوبة أو الشبكة، لا ممّا بقي من الفتح السابق.
   const [toolId, setToolId] = React.useState<string | null>(initialTool)
   const [page, setPage] = React.useState(0)
-  // فتحٌ جديد يبدأ من الأداة المطلوبة (أو الشبكة)، لا ممّا بقي من الفتح السابق.
-  React.useEffect(() => {
-    if (open) {
-      setToolId(initialTool)
-      setPage(0)
-    }
-  }, [open, initialTool])
 
   const shared: ToolEntry[] = [
     {

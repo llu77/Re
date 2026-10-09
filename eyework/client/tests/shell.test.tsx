@@ -62,6 +62,7 @@ describe("the workspace shell", () => {
     expect(ids(sidebar)).toEqual(["nav-home", "nav-entry-new", "nav-entry-campaigns", "nav-assistant", "nav-help", "nav-account"])
     expect(sidebar.querySelector("#nav-entry-new")?.getAttribute("aria-current")).toBe("page")
     expect(sidebar.querySelector("#nav-entry-new")?.getAttribute("href")).toBe("#/marketing/new")
+    expect([...sidebar.querySelectorAll("a, button")].every((e) => e.hasAttribute("data-safe"))).toBe(true)
     expect(document.querySelector("#nav-sections")).toBeNull()
     expect(document.querySelectorAll("nav[aria-label='أقسام البوابة']")).toHaveLength(1)
   })
@@ -75,6 +76,16 @@ describe("the workspace shell", () => {
   })
 
   it("renders the list pane beside the screen only on a wide touch frame", () => {
+    viewport(744)
+    const tablet = render(
+      <AppProviders size="compact">
+        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} pane={<p>القائمة</p>}>
+          <p>الحملة</p>
+        </WorkspaceShell>
+      </AppProviders>,
+    )
+    expect(tablet.queryByText("القائمة")).toBeNull()
+    tablet.unmount()
     viewport(1280)
     const wide = render(
       <AppProviders size="compact">

@@ -43,14 +43,16 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
   const tablet = useMatch(TABLET_QUERY)
   const wide = useMatch(WIDE_QUERY)
   const [sections, setSections] = React.useState(false)
-  const [tool, setTool] = React.useState<{ open: boolean; initial: string | null }>({ open: false, initial: null })
+  // `gen` يزيد مع كل فتح فتُرسم الورقة من جديد (key) بحالةٍ نظيفة.
+  const [tool, setTool] = React.useState<{ open: boolean; initial: string | null; gen: number }>({ open: false, initial: null, gen: 0 })
+  const openTool = (initial: string | null) => setTool((t) => ({ open: true, initial, gen: t.gen + 1 }))
   const main = React.useRef<HTMLElement>(null)
   useKeyboardFlag(main)
 
   const home: NavEntry = { id: "nav-home", label: "الرئيسية", icon: House, href: workspace.base, current: current === "home" }
   const account: NavEntry = { id: "nav-account", label: "حسابي", icon: UserRound, href: "#/account", current: current === null }
   const sectionsEntry: NavEntry = { id: "nav-sections", label: "الأقسام", icon: LayoutGrid, onClick: () => setSections(true) }
-  const toolsEntry: NavEntry = { id: "nav-tools", label: "الأدوات", icon: Wrench, onClick: () => setTool({ open: true, initial: null }) }
+  const toolsEntry: NavEntry = { id: "nav-tools", label: "الأدوات", icon: Wrench, onClick: () => openTool(null) }
   const four = [home, sectionsEntry, toolsEntry, account]
 
   const entries: NavEntry[] = workspace.home.map((entry) => ({
@@ -65,8 +67,8 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
     : [
         [home, ...entries],
         [
-          { id: "nav-assistant", label: "اسأل سيمبول", icon: "symbol", onClick: () => setTool({ open: true, initial: "assistant" }) },
-          { id: "nav-help", label: "مساعدة", icon: CircleHelp, onClick: () => setTool({ open: true, initial: "help" }) },
+          { id: "nav-assistant", label: "اسأل سيمبول", icon: "symbol", onClick: () => openTool("assistant") },
+          { id: "nav-help", label: "مساعدة", icon: CircleHelp, onClick: () => openTool("help") },
         ],
         [account],
       ]
@@ -87,7 +89,7 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
           id="content"
           tabIndex={-1}
           className={cn(
-            "mx-auto w-full px-edge focus-visible:outline-none",
+            "chrome-portal mx-auto w-full px-edge focus-visible:outline-none",
             twoPanes ? "max-w-[72rem]" : "max-w-content",
             gaze ? "flex min-h-0 flex-1 flex-col pb-safe pt-tg" : "pt-sec",
             !gaze && (tablet ? "pb-safe" : "pb-tab"),
@@ -106,9 +108,10 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
       {tablet ? null : <TabBar items={four} onNavigate={onNavigate} />}
       <SectionsSheet open={sections} workspace={workspace} current={current} onClose={() => setSections(false)} onNavigate={onNavigate} />
       <ToolsSheet
+        key={tool.gen}
         open={tool.open}
         initialTool={tool.initial}
-        onClose={() => setTool({ open: false, initial: null })}
+        onClose={() => setTool((t) => ({ ...t, open: false }))}
         workspace={workspace}
         screen={current}
         onNavigate={onNavigate}
