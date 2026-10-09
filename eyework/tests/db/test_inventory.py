@@ -33,8 +33,9 @@ from eyework.tests.db.test_ai_layer import owner_scalar, query, scalar
 from eyework.tests.db.test_state_machine import blocked_on_a_lock
 
 MIGRATIONS = pathlib.Path(__file__).resolve().parents[2] / "migrations"
-INV_TABLES = ("inv_settings", "inv_suppliers", "inv_items", "inv_purchases", "inv_purchase_lines", "inv_returns",
-              "inv_return_lines", "inv_vouchers", "inv_movements", "inv_ledger", "inv_review_flags")
+INV_TABLES = ("inv_settings", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases",
+              "inv_purchase_lines", "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines",
+              "inv_movements", "inv_ledger", "inv_review_flags")
 FLAG = ('[{"check": "PRICE_IMPLAUSIBLE", "severity": "MEDIUM", "field": "unit_price", "line": 1, '
         '"reason": "سعر الكرتونة يبدو أعلى من المعتاد لماءٍ معبّأ.", "suggestion": "قارنه بآخر شراءٍ لهذا الصنف.", "evidence": []}]')
 USAGE = '{"input": 1000, "output": 200, "model": "claude-opus-5-5", "prompt_version": "inv-2026-10-09.1", "api_request_id": "req_1"}'
@@ -117,6 +118,30 @@ def rline(app, user, return_id, line_no, qty) -> None:
 def post_return(app, user, return_id) -> int:
     keys = scalar(app, user, "SELECT ew_inv_flag_keys(NULL, %s)", (return_id,))
     return scalar(app, user, "SELECT ew_inv_post_return(%s, %s, %s)", (return_id, rv(app, user, "inv_returns", return_id), keys))
+
+
+def category(app, user, name) -> UUID:
+    return scalar(app, user, "INSERT INTO inv_categories (user_id, name) VALUES (ew_current_user(), %s) RETURNING id", (name,))
+
+
+def rep(app, user, supplier, name, mobile=None, default=False) -> UUID:
+    return scalar(app, user, "INSERT INTO inv_supplier_reps (user_id, supplier_id, name, mobile, is_default)"
+                             " VALUES (ew_current_user(), %s, %s, %s, %s) RETURNING id", (supplier, name, mobile, default))
+
+
+def count_open(app, user, scope="ALL", cat=None, items=None, blind=True, token=None):
+    return query(app, user, "SELECT * FROM ew_inv_count_open(%s, %s, %s, %s, %s, NULL)",
+                 (token or uuid.uuid4(), scope, cat, items, blind))[0]
+
+
+def count_line(app, user, session, itm, counted, reason=None, note=None, cost=None) -> None:
+    query(app, user, "UPDATE inv_count_lines SET counted_milli = %s, reason = %s, note = %s, unit_cost_halalas = %s"
+                     " WHERE session_id = %s AND item_id = %s", (counted, reason, note, cost, session, itm))
+
+
+def count_post(app, user, session, day):
+    return query(app, user, "SELECT * FROM ew_inv_count_post(%s, %s, %s)",
+                 (session, rv(app, user, "inv_count_sessions", session), day))[0]
 
 
 def ai_flags(app, user, subject) -> list[tuple]:
@@ -230,7 +255,7 @@ def test_posting_needs_every_flag_acknowledged_and_the_row_version_the_user_saw(
     keys = flags(app, s.keeper, p1)
     assert "TOTAL_MISMATCH" in keys
     assert refused(app, s.keeper, "SELECT ew_inv_post_purchase(%s, %s, '{}')", (p1, rv(app, s.keeper, "inv_purchases", p1)), constraint="inv_flags_unacknowledged")
-    assert owner_scalar(owner, "SELECT count(*) FROM inv_counters") == 0
+    assert owner_scalar(owner, "SELECT count(*) FROM inv_counters WHERE kind <> 'ITEM'") == 0
     assert refused(app, s.keeper, "SELECT ew_inv_post_purchase(%s, %s, %s)", (p1, rv(app, s.keeper, "inv_purchases", p1) - 1, keys), constraint="inv_stale_row_version")
     assert post(app, s.keeper, p1) == 1
     assert query(app, s.keeper, "SELECT status, subtotal_halalas, vat_halalas, total_halalas, supplier_name FROM inv_purchases WHERE id = %s", (p1,))[0] \
@@ -315,7 +340,12 @@ def test_the_moving_average_follows_ifrs_for_smes_example_44_and_vouchers_are_id
                    (uuid.uuid4(), cable, s.today), constraint="inv_negative_stock")
     assert refused(app, s.keeper, "SELECT * FROM ew_inv_stock_voucher(%s, 'COUNT', %s, 480000, NULL, NULL, NULL, %s, 400000)",
                    (uuid.uuid4(), cable, s.today), constraint="inv_count_stale")
-    voucher(app, s.keeper, "COUNT", cable, 480000, day=s.today, before=500000)
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_stock_voucher(%s, 'COUNT', %s, 480000, NULL, NULL, NULL, %s, 500000)",
+                   (uuid.uuid4(), cable, s.today), constraint="inv_count_needs_reason")
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_stock_voucher(%s, 'COUNT', %s, 480000, NULL, 'FOUND', NULL, %s, 500000)",
+                   (uuid.uuid4(), cable, s.today), constraint="inv_count_reason_direction")
+    voucher(app, s.keeper, "COUNT", cable, 480000, reason="DAMAGE", day=s.today, before=500000)
+    assert scalar(app, s.keeper, "SELECT last_counted_on FROM inv_items WHERE id = %s", (cable,)) == s.today
     assert query(app, s.keeper, "SELECT kind, quantity_milli FROM inv_movements WHERE item_id = %s ORDER BY seq DESC LIMIT 1", (cable,))[0] == ("COUNT_OUT", 20000)
     assert refused(app, s.keeper, "SELECT * FROM ew_inv_stock_voucher(%s, 'ISSUE', %s, 1000, NULL, 'USE', NULL, %s, NULL)",
                    (uuid.uuid4(), cable, s.today - datetime.timedelta(days=31)), constraint="inv_voucher_date")
@@ -563,3 +593,170 @@ def test_the_down_migration_refuses_while_posted_records_exist(owner, app, scene
         with owner.transaction(), owner.cursor() as cursor:
             cursor.execute(down)
     assert owner_scalar(owner, "SELECT count(*) FROM pg_tables WHERE tablename = 'inv_ledger'") == 1
+
+
+# ── ما أضافه بحث المهن: الأصناف والمندوبون والتسليم وجلسات الجرد ────────
+def test_items_take_their_numbers_from_the_account_counter_and_their_identifiers_are_checked(owner, app, scene):
+    s = scene
+    assert query(app, s.keeper, "SELECT number FROM inv_items ORDER BY number") == [(1,), (2,), (3,)]
+    sugar = item(app, s.keeper, "سكّر")
+    assert scalar(app, s.keeper, "SELECT number FROM inv_items WHERE id = %s", (sugar,)) == 4
+    assert scalar(app, s.other, "SELECT number FROM inv_items WHERE id = %s", (item(app, s.other, "سكّر"),)) == 1
+    assert refused(app, s.keeper, "UPDATE inv_items SET number = 9 WHERE id = %s", (sugar,), cls=errors.InsufficientPrivilege)
+    assert owner_refused(owner, "UPDATE inv_items SET number = 9 WHERE id = %s", (sugar,), constraint="inv_managed_columns")
+    # الباركود بشكل GTIN وفريدٌ في الحساب، ورمز المورّد اختياري بشكله.
+    query(app, s.keeper, "UPDATE inv_items SET barcode = '6281001234567', supplier_code = 'SUG-1' WHERE id = %s", (sugar,))
+    assert refused(app, s.keeper, "UPDATE inv_items SET barcode = '12345' WHERE id = %s", (s.water,), constraint="inv_item_barcode_shape")
+    assert refused(app, s.keeper, "UPDATE inv_items SET barcode = '6281001234567' WHERE id = %s", (s.water,), constraint="inv_items_barcode")
+    assert refused(app, s.keeper, "UPDATE inv_items SET supplier_code = '-x' WHERE id = %s", (s.water,), constraint="inv_item_code_shape")
+    assert refused(app, s.keeper, "UPDATE inv_items SET barcode = '62810012' WHERE id = %s", (s.ship,), constraint="inv_item_service_has_no_stock")
+    # التصنيف والمورّد المفضّل غير مؤرشفين، وسبب الإعفاء لغير الفئة S، والمستهدف فوق حدّ الطلب.
+    drinks = category(app, s.keeper, "مشروبات")
+    query(app, s.keeper, "UPDATE inv_items SET category_id = %s, preferred_supplier_id = %s WHERE id = %s", (drinks, s.sup, s.water))
+    assert refused(app, s.keeper, "INSERT INTO inv_categories (user_id, name) VALUES (ew_current_user(), 'مشروبات')", constraint="inv_categories_name")
+    query(app, s.keeper, "UPDATE inv_categories SET is_active = false WHERE id = %s", (drinks,))
+    assert refused(app, s.keeper, "UPDATE inv_items SET category_id = %s WHERE id = %s", (drinks, sugar), constraint="inv_category_archived")
+    assert refused(app, s.other, "UPDATE inv_items SET category_id = %s WHERE name = 'سكّر'", (drinks,), constraint="inv_category_archived")
+    query(app, s.keeper, "UPDATE inv_suppliers SET is_active = false WHERE id = %s", (s.sup_novat,))
+    assert refused(app, s.keeper, "UPDATE inv_items SET preferred_supplier_id = %s WHERE id = %s", (s.sup_novat, sugar), constraint="inv_supplier_archived")
+    assert refused(app, s.keeper, "UPDATE inv_items SET vat_exemption_reason = 'دواء' WHERE id = %s", (sugar,), constraint="inv_item_exemption_needs_category")
+    query(app, s.keeper, "UPDATE inv_items SET vat_category = 'Z', vat_exemption_reason = 'دواء مؤهّل' WHERE id = %s", (sugar,))
+    assert refused(app, s.keeper, "UPDATE inv_items SET target_level_milli = 10000 WHERE id = %s", (s.water,), constraint="inv_item_target_shape")
+    query(app, s.keeper, "UPDATE inv_items SET target_level_milli = 60000, selling_price_halalas = 1500 WHERE id = %s", (s.water,))
+    assert query(app, s.keeper, "SELECT target_level_milli, selling_price_includes_vat, last_counted_on FROM inv_items WHERE id = %s",
+                 (s.water,))[0] == (60000, True, None)
+    assert query(app, s.keeper, "SELECT store_name, store_location FROM inv_settings")[0] == ("المخزن الرئيسي", None)
+    query(app, s.keeper, "UPDATE inv_settings SET store_name = 'مستودع الدمام', store_location = 'حي الفيصلية'")
+    assert refused(app, s.keeper, "UPDATE inv_settings SET store_name = ''", constraint="inv_store_name_shape")
+
+
+def test_representatives_belong_to_their_supplier_and_are_snapshotted_on_posting(app, scene):
+    s = scene
+    assert refused(app, s.keeper, "UPDATE inv_suppliers SET cr_number = '12' WHERE id = %s", (s.sup,), constraint="inv_supplier_cr_shape")
+    assert refused(app, s.keeper, "UPDATE inv_suppliers SET phone = '555' WHERE id = %s", (s.sup,), constraint="inv_supplier_phone_shape")
+    query(app, s.keeper, "UPDATE inv_suppliers SET cr_number = '1010123456', phone = '0112345678' WHERE id = %s", (s.sup,))
+    ahmad = rep(app, s.keeper, s.sup, "أحمد", "0501234567", default=True)
+    assert refused(app, s.keeper, "INSERT INTO inv_supplier_reps (user_id, supplier_id, name, mobile) VALUES (ew_current_user(), %s, 'خالد', '12')",
+                   (s.sup,), constraint="inv_rep_mobile_shape")
+    assert refused(app, s.keeper, "INSERT INTO inv_supplier_reps (user_id, supplier_id, name) VALUES (ew_current_user(), %s, 'أحمد')",
+                   (s.sup,), constraint="inv_supplier_reps_name")
+    assert refused(app, s.other, "INSERT INTO inv_supplier_reps (user_id, supplier_id, name) VALUES (ew_current_user(), %s, 'أحمد')",
+                   (s.sup,), constraint="inv_supplier_archived")
+    khalid = rep(app, s.keeper, s.sup, "خالد", default=True)
+    assert query(app, s.keeper, "SELECT name FROM inv_supplier_reps WHERE is_default ORDER BY name") == [("خالد",)]
+    corner = rep(app, s.keeper, s.sup_novat, "سعد", "0559876543")
+    # على الفاتورة: مندوبٌ من مورّدها فقط، ويُنزع حين يتغيّر المورّد، ويُحفظ اسمه وجواله عند التسجيل.
+    assert refused(app, s.keeper, "INSERT INTO inv_purchases (user_id, supplier_id, rep_id) VALUES (ew_current_user(), %s, %s)",
+                   (s.sup, corner), constraint="inv_rep_not_of_supplier")
+    p = draft(app, s.keeper, s.sup, "REP-1", s.today, 115000)
+    query(app, s.keeper, "UPDATE inv_purchases SET rep_id = %s, delivery_note_no = 'DN-7', received_on = %s WHERE id = %s", (ahmad, s.today, p))
+    assert refused(app, s.keeper, "UPDATE inv_purchases SET rep_id = %s WHERE id = %s", (corner, p), constraint="inv_rep_not_of_supplier")
+    query(app, s.keeper, "UPDATE inv_purchases SET supplier_id = %s WHERE id = %s", (s.sup_novat, p))
+    assert scalar(app, s.keeper, "SELECT rep_id FROM inv_purchases WHERE id = %s", (p,)) is None
+    query(app, s.keeper, "UPDATE inv_purchases SET supplier_id = %s, rep_id = %s WHERE id = %s", (s.sup, khalid, p))
+    line(app, s.keeper, p, s.water, 10000, 10000)
+    post(app, s.keeper, p)
+    query(app, s.keeper, "UPDATE inv_supplier_reps SET name = 'خالد العمري', mobile = '0500000000' WHERE id = %s", (khalid,))
+    assert query(app, s.keeper, "SELECT rep_name, rep_mobile, delivery_note_no FROM inv_purchases WHERE id = %s", (p,))[0] == ("خالد", None, "DN-7")
+    assert refused(app, s.keeper, "UPDATE inv_purchases SET rep_id = %s WHERE id = %s", (ahmad, p), constraint="inv_document_is_final")
+    # وعلى المرتجع من مندوبي مورّد الفاتورة، بسبب نقص التسليم، ويُحفظ كذلك.
+    assert refused(app, s.keeper, "INSERT INTO inv_returns (user_id, purchase_id, rep_id) VALUES (ew_current_user(), %s, %s)",
+                   (p, corner), constraint="inv_rep_not_of_supplier")
+    r = ret(app, s.keeper, p, reason="SHORT_DELIVERY")
+    query(app, s.keeper, "UPDATE inv_returns SET rep_id = %s WHERE id = %s", (ahmad, r))
+    rline(app, s.keeper, r, 1, 2000)
+    post_return(app, s.keeper, r)
+    assert query(app, s.keeper, "SELECT rep_name, rep_mobile FROM inv_returns WHERE id = %s", (r,))[0] == ("أحمد", "0501234567")
+
+
+def test_a_short_delivery_raises_its_flag_and_is_part_of_what_the_reviewer_sees(app, scene):
+    s = scene
+    p = draft(app, s.keeper, s.sup, "SD-1", s.today, 115000)
+    line(app, s.keeper, p, s.water, 10000, 10000)
+    before = scalar(app, s.keeper, "SELECT ew_inv_purchase_digest(%s)", (p,))
+    assert refused(app, s.keeper, "UPDATE inv_purchase_lines SET received_quantity_milli = 11000 WHERE purchase_id = %s", (p,),
+                   constraint="inv_line_received_range")
+    assert refused(app, s.keeper, "UPDATE inv_purchase_lines SET received_quantity_milli = 500 WHERE purchase_id = %s", (p,),
+                   constraint="inv_quantity_unit")
+    version = rv(app, s.keeper, "inv_purchases", p)
+    query(app, s.keeper, "UPDATE inv_purchase_lines SET received_quantity_milli = 8000 WHERE purchase_id = %s", (p,))
+    assert rv(app, s.keeper, "inv_purchases", p) == version + 1
+    assert "SHORT_DELIVERY:1" in flags(app, s.keeper, p)
+    assert scalar(app, s.keeper, "SELECT ew_inv_purchase_digest(%s)", (p,)) != before
+    assert scalar(app, s.keeper, "SELECT detail FROM ew_inv_purchase_flags(%s) WHERE code = 'SHORT_DELIVERY'", (p,)) == {"invoiced": 10000, "received": 8000}
+    query(app, s.keeper, "UPDATE inv_purchase_lines SET received_quantity_milli = 10000 WHERE purchase_id = %s", (p,))
+    assert "SHORT_DELIVERY:1" not in flags(app, s.keeper, p)
+    query(app, s.keeper, "UPDATE inv_purchases SET received_on = %s WHERE id = %s", (s.today + datetime.timedelta(days=1), p))
+    assert refused(app, s.keeper, "SELECT ew_inv_post_purchase(%s, %s, %s)", (p, rv(app, s.keeper, "inv_purchases", p), flags(app, s.keeper, p)),
+                   constraint="inv_purchase_future_date")
+
+
+def test_a_count_session_snapshots_the_books_counts_blind_and_posts_one_voucher_per_counted_line(owner, app, scene):
+    s = scene
+    voucher(app, s.keeper, "OPENING", s.water, 50000, cost=4550, day=s.today)
+    voucher(app, s.keeper, "OPENING", s.rice, 20500, cost=900, day=s.today)
+    tea = item(app, s.keeper, "شاي")
+    token = uuid.uuid4()
+    session, number, replayed = count_open(app, s.keeper, token=token)
+    assert (number, replayed) == (1, False)
+    assert count_open(app, s.keeper, token=token) == (session, 1, True)
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_open(%s, 'ALL', NULL, NULL, true, NULL)", (uuid.uuid4(),),
+                   constraint="inv_count_session_open")
+    assert refused(app, s.other, "SELECT * FROM ew_inv_count_open(%s, 'ALL', NULL, NULL, true, NULL)", (uuid.uuid4(),),
+                   constraint="inv_count_no_items")
+    assert query(app, s.keeper, "SELECT scope, blind, items_total, last_purchase_number, last_voucher_number, status"
+                                " FROM inv_count_sessions WHERE id = %s", (session,))[0] == ("ALL", True, 3, None, 2, "OPEN")
+    assert query(app, s.keeper, "SELECT item_id, book_milli, counted_milli FROM inv_count_lines WHERE session_id = %s ORDER BY line_no",
+                 (session,)) == [(s.rice, 20500, None), (tea, 0, None), (s.water, 50000, None)]
+    assert scalar(app, s.other, "SELECT count(*) FROM inv_count_lines") == 0
+    # المعدود بشكل الوحدة، والفرق بسببٍ في اتجاهه، ولا سبب بلا فرق.
+    assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 500 WHERE session_id = %s AND item_id = %s", (session, s.water),
+                   constraint="inv_quantity_unit")
+    assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 48000 WHERE session_id = %s AND item_id = %s", (session, s.water),
+                   constraint="inv_count_line_reason_needed")
+    assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 48000, reason = 'FOUND' WHERE session_id = %s AND item_id = %s",
+                   (session, s.water), constraint="inv_count_line_reason_needed")
+    count_line(app, s.keeper, session, s.water, 48000, reason="DAMAGE")
+    count_line(app, s.keeper, session, s.rice, 20500)
+    count_line(app, s.keeper, session, tea, 3000, reason="FOUND")
+    assert scalar(app, s.keeper, "SELECT count(*) FROM inv_count_lines WHERE session_id = %s AND counted_at IS NOT NULL", (session,)) == 3
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_post(%s, %s, %s)", (session, rv(app, s.keeper, "inv_count_sessions", session), s.today),
+                   constraint="inv_count_needs_cost")
+    count_line(app, s.keeper, session, tea, 3000, reason="FOUND", cost=2000)
+    # رصيدٌ تحرّك بعد اللقطة: يوقف الترحيل حتى يُحدَّث ويُعاد عدّه.
+    voucher(app, s.keeper, "ISSUE", s.rice, 500, reason="SALE", day=s.today)
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_post(%s, %s, %s)", (session, rv(app, s.keeper, "inv_count_sessions", session), s.today),
+                   constraint="inv_count_stale")
+    assert scalar(app, s.keeper, "SELECT ew_inv_count_refresh(%s)", (session,)) == 1
+    assert query(app, s.keeper, "SELECT book_milli, counted_milli, reason FROM inv_count_lines WHERE session_id = %s AND item_id = %s",
+                 (session, s.rice))[0] == (20000, None, None)
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_post(%s, %s, %s)", (session, rv(app, s.keeper, "inv_count_sessions", session),
+                   s.today + datetime.timedelta(days=1)), constraint="inv_voucher_date")
+    assert count_post(app, s.keeper, session, s.today) == (1, 2, 0)
+    assert query(app, s.keeper, "SELECT status, items_counted, items_matched FROM inv_count_sessions WHERE id = %s", (session,))[0] == ("POSTED", 2, 0)
+    assert query(app, s.keeper, "SELECT i.on_hand_milli, i.stock_value_halalas, i.last_counted_on FROM inv_items i WHERE i.id IN (%s, %s) ORDER BY i.number",
+                 (s.water, tea)) == [(48000, 218400, s.today), (3000, 6000, s.today)]
+    assert query(app, s.keeper, "SELECT v.kind, v.quantity_milli, v.on_hand_before_milli, v.reason, v.session_id = %s"
+                                " FROM inv_count_lines l JOIN inv_vouchers v ON v.id = l.voucher_id WHERE l.session_id = %s ORDER BY l.line_no",
+                 (session, session)) == [("COUNT", 3000, 0, "FOUND", True), ("COUNT", 48000, 50000, "DAMAGE", True)]
+    assert scalar(app, s.keeper, "SELECT last_counted_on FROM inv_items WHERE id = %s", (s.rice,)) is None
+    assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 1000 WHERE session_id = %s AND item_id = %s", (session, s.rice),
+                   constraint="inv_count_not_open")
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_post(%s, 99, %s)", (session, s.today), constraint="inv_count_not_open")
+    assert owner_refused(owner, "DELETE FROM inv_count_sessions WHERE id = %s", (session,), constraint="inv_record_is_permanent")
+    # جلسةٌ على أصنافٍ مختارة، يُضاف إليها صنفٌ لم يكن في الكشف، ثم تُلغى وتحتفظ برقمها.
+    session2 = count_open(app, s.keeper, scope="SELECTED", items=[s.water])[0]
+    assert refused(app, s.keeper, "SELECT ew_inv_count_add_item(%s, %s)", (session2, s.ship), constraint="inv_movement_needs_stock_item")
+    assert refused(app, s.keeper, "SELECT ew_inv_count_add_item(%s, %s)", (session2, s.water), constraint="inv_count_line_exists")
+    assert scalar(app, s.keeper, "SELECT ew_inv_count_add_item(%s, %s)", (session2, tea)) == 2
+    assert query(app, s.keeper, "SELECT number, items_total FROM inv_count_sessions WHERE id = %s", (session2,))[0] == (2, 2)
+    assert scalar(app, s.keeper, "SELECT added_during_count FROM inv_count_lines WHERE session_id = %s AND item_id = %s", (session2, tea)) is True
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_post(%s, %s, %s)", (session2, rv(app, s.keeper, "inv_count_sessions", session2), s.today),
+                   constraint="inv_count_nothing_counted")
+    query(app, s.keeper, "SELECT ew_inv_count_cancel(%s, %s)", (session2, rv(app, s.keeper, "inv_count_sessions", session2)))
+    assert query(app, s.keeper, "SELECT status, cancelled_at IS NOT NULL FROM inv_count_sessions WHERE id = %s", (session2,))[0] == ("CANCELLED", True)
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_open(%s, 'CATEGORY', NULL, NULL, true, NULL)", (uuid.uuid4(),),
+                   constraint="inv_count_scope")
+    query(app, s.keeper, "UPDATE inv_items SET reorder_level_milli = 50000 WHERE id = %s", (s.water,))
+    assert count_open(app, s.keeper, scope="LOW")[1] == 3
+    assert scalar(app, s.keeper, "SELECT items_total FROM inv_count_sessions WHERE number = 3") == 1

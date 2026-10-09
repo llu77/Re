@@ -45,16 +45,18 @@ ALL_TABLES = frozenset({
     "ai_features", "ai_requests", "ai_flags", "ai_flag_decisions",
     # 0010: المخزون — الإعداد والعدّادات (للمالك وحده) والموردون والأصناف والفواتير وأسطرها
     # والمرتجعات وأسطرها والسندات والحركات ودفتر المشتريات وتنبيهات القواعد.
-    "inv_settings", "inv_counters", "inv_suppliers", "inv_items", "inv_purchases", "inv_purchase_lines",
-    "inv_returns", "inv_return_lines", "inv_vouchers", "inv_movements", "inv_ledger", "inv_review_flags",
+    "inv_settings", "inv_counters", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases",
+    "inv_purchase_lines", "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines",
+    "inv_movements", "inv_ledger", "inv_review_flags",
 })
 READABLE = frozenset({
     "campaign_transition", "campaigns", "generation_attempts", "copy_versions", "campaign_images",
     # 0009: القراءة بالجدول كلّه تحت عزل الصفّ؛ لا سياسة كتابةٍ لدور الويب عليها.
     "ai_requests", "ai_flags", "ai_flag_decisions",
     # 0010: القراءة بالجدول كلّه تحت عزل الصفّ، والكتابة بالأعمدة المسمّاة أو بالدوالّ وحدها.
-    "inv_settings", "inv_suppliers", "inv_items", "inv_purchases", "inv_purchase_lines", "inv_returns",
-    "inv_return_lines", "inv_vouchers", "inv_movements", "inv_ledger", "inv_review_flags",
+    "inv_settings", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases", "inv_purchase_lines",
+    "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines", "inv_movements", "inv_ledger",
+    "inv_review_flags",
 })
 IDENTITY_TABLES = ("public.users", "public.sessions", "public.activation_tokens",
                    "public.passkeys", "public.passkey_challenges")
@@ -71,20 +73,32 @@ COLUMN_WRITES = {
     ("campaign_images", "INSERT"): {"campaign_id", "user_id", "jpeg", "width", "height", "sha256"},
     ("campaign_images", "UPDATE"): {"jpeg", "width", "height", "sha256"},
     # 0010: ما يكتبه الويب في المخزون؛ الأرقام والأرصدة والحالات والمجاميع تكتبها الدوالّ والمحفّزات.
-    ("inv_settings", "INSERT"): {"user_id", "cost_includes_vat"},
-    ("inv_settings", "UPDATE"): {"cost_includes_vat"},
-    ("inv_suppliers", "INSERT"): {"user_id", "name", "vat_number"},
-    ("inv_suppliers", "UPDATE"): {"name", "vat_number", "is_active"},
-    ("inv_items", "INSERT"): {"user_id", "name", "code", "kind", "unit", "vat_category", "price_halalas", "reorder_level_milli"},
-    ("inv_items", "UPDATE"): {"name", "code", "kind", "unit", "vat_category", "price_halalas", "reorder_level_milli", "is_active"},
+    ("inv_settings", "INSERT"): {"user_id", "cost_includes_vat", "store_name", "store_location"},
+    ("inv_settings", "UPDATE"): {"cost_includes_vat", "store_name", "store_location"},
+    ("inv_suppliers", "INSERT"): {"user_id", "name", "vat_number", "cr_number", "phone", "note"},
+    ("inv_suppliers", "UPDATE"): {"name", "vat_number", "cr_number", "phone", "note", "is_active"},
+    ("inv_supplier_reps", "INSERT"): {"user_id", "supplier_id", "name", "mobile", "is_default"},
+    ("inv_supplier_reps", "UPDATE"): {"name", "mobile", "is_default", "is_active"},
+    ("inv_categories", "INSERT"): {"user_id", "name"},
+    ("inv_categories", "UPDATE"): {"name", "is_active"},
+    ("inv_items", "INSERT"): {"user_id", "name", "supplier_code", "barcode", "kind", "unit", "category_id", "vat_category",
+                              "vat_exemption_reason", "price_halalas", "selling_price_halalas", "selling_price_includes_vat",
+                              "reorder_level_milli", "target_level_milli", "preferred_supplier_id", "note"},
+    ("inv_items", "UPDATE"): {"name", "supplier_code", "barcode", "kind", "unit", "category_id", "vat_category",
+                              "vat_exemption_reason", "price_halalas", "selling_price_halalas", "selling_price_includes_vat",
+                              "reorder_level_milli", "target_level_milli", "preferred_supplier_id", "note", "is_active"},
     ("inv_purchases", "INSERT"): {"user_id", "supplier_id", "supplier_invoice_no", "invoice_date", "prices_include_vat",
-                                  "printed_total_halalas", "printed_vat_halalas", "note"},
+                                  "printed_total_halalas", "printed_vat_halalas", "note", "rep_id", "delivery_note_no", "received_on"},
     ("inv_purchases", "UPDATE"): {"supplier_id", "supplier_invoice_no", "invoice_date", "prices_include_vat",
-                                  "printed_total_halalas", "printed_vat_halalas", "note"},
-    ("inv_purchase_lines", "INSERT"): {"purchase_id", "user_id", "item_id", "quantity_milli", "unit_price_halalas", "discount_halalas", "vat_category"},
-    ("inv_purchase_lines", "UPDATE"): {"item_id", "quantity_milli", "unit_price_halalas", "discount_halalas", "vat_category"},
-    ("inv_returns", "INSERT"): {"user_id", "purchase_id", "return_date", "reason", "note"},
-    ("inv_returns", "UPDATE"): {"return_date", "reason", "note", "credit_note_no", "credit_note_date"},
+                                  "printed_total_halalas", "printed_vat_halalas", "note", "rep_id", "delivery_note_no", "received_on"},
+    ("inv_purchase_lines", "INSERT"): {"purchase_id", "user_id", "item_id", "quantity_milli", "unit_price_halalas", "discount_halalas",
+                                       "vat_category", "received_quantity_milli"},
+    ("inv_purchase_lines", "UPDATE"): {"item_id", "quantity_milli", "unit_price_halalas", "discount_halalas", "vat_category",
+                                       "received_quantity_milli"},
+    ("inv_returns", "INSERT"): {"user_id", "purchase_id", "return_date", "reason", "note", "rep_id"},
+    ("inv_returns", "UPDATE"): {"return_date", "reason", "note", "rep_id", "credit_note_no", "credit_note_date"},
+    ("inv_count_sessions", "UPDATE"): {"blind", "note"},
+    ("inv_count_lines", "UPDATE"): {"counted_milli", "unit_cost_halalas", "reason", "note"},
     ("inv_return_lines", "INSERT"): {"return_id", "user_id", "line_no", "quantity_milli"},
     ("inv_return_lines", "UPDATE"): {"quantity_milli"},
 }
@@ -112,7 +126,8 @@ APP_FUNCTIONS = frozenset({
     "ew_inv_post_purchase", "ew_inv_post_return", "ew_inv_reverse_purchase", "ew_inv_stock_voucher",
     "ew_inv_remove_purchase_line", "ew_inv_remove_return_line", "ew_inv_discard_draft",
     "ew_inv_review_begin", "ew_inv_review_record",
-    "ew_inv_text_ok", "ew_inv_qty_ok", "ew_inv_vat_bp", "ew_inv_doc_no_ok", "ew_inv_doc_key", "ew_inv_name_key",
+    "ew_inv_count_open", "ew_inv_count_add_item", "ew_inv_count_refresh", "ew_inv_count_post", "ew_inv_count_cancel",
+    "ew_inv_text_ok", "ew_inv_qty_ok", "ew_inv_vat_bp", "ew_inv_doc_no_ok", "ew_inv_doc_key", "ew_inv_name_key", "ew_inv_phone_ok",
     "ew_inv_purchase_calc", "ew_inv_purchase_digest", "ew_inv_return_digest", "ew_inv_purchase_flags",
     "ew_inv_return_flags", "ew_inv_flag_keys", "ew_riyadh_today",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
@@ -136,10 +151,11 @@ INTERNAL_FUNCTIONS = frozenset({
     "ew_ai_request_settle", "ew_ai_lock_subject", "ew_ai_flags_put", "ew_ai_gate", "ew_ai_forget_subject",
     "ew_ai_erase_subject",
     # 0010: المهنة، والرقم التالي، وقفل الأصناف، وفحص الإقرار، وحرّاس الجداول ومحفّزات الثبات.
-    "ew_inv_require_storekeeper", "ew_inv_next_no", "ew_inv_lock_items", "ew_inv_check_ack",
-    "ew_inv_settings_guard", "ew_inv_supplier_guard", "ew_inv_item_guard", "ew_inv_purchase_insert_guard",
-    "ew_inv_purchase_guard", "ew_inv_purchase_line_guard", "ew_inv_return_insert_guard", "ew_inv_return_guard",
-    "ew_inv_return_line_guard", "ew_inv_movement_insert", "ew_inv_keep_record", "ew_inv_keep_posted_lines",
+    "ew_inv_require_storekeeper", "ew_inv_next_no", "ew_inv_lock_items", "ew_inv_check_ack", "ew_inv_rep_ok", "ew_inv_count_voucher",
+    "ew_inv_settings_guard", "ew_inv_supplier_guard", "ew_inv_supplier_rep_guard", "ew_inv_category_guard", "ew_inv_item_guard",
+    "ew_inv_purchase_insert_guard", "ew_inv_purchase_guard", "ew_inv_purchase_line_guard", "ew_inv_return_insert_guard",
+    "ew_inv_return_guard", "ew_inv_return_line_guard", "ew_inv_count_session_guard", "ew_inv_count_line_guard",
+    "ew_inv_movement_insert", "ew_inv_keep_record", "ew_inv_keep_posted_lines",
 })
 
 
@@ -257,8 +273,9 @@ def test_app_holds_no_delete_or_truncate_on_any_table(owner):
     "TRUNCATE ai_flags",
     "TRUNCATE ai_flag_decisions",
     *[f"{verb} {table}" for verb in ("DELETE FROM", "TRUNCATE") for table in (
-        "inv_settings", "inv_counters", "inv_suppliers", "inv_items", "inv_purchases", "inv_purchase_lines",
-        "inv_returns", "inv_return_lines", "inv_vouchers", "inv_movements", "inv_ledger", "inv_review_flags")],
+        "inv_settings", "inv_counters", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases",
+        "inv_purchase_lines", "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines",
+        "inv_movements", "inv_ledger", "inv_review_flags")],
 ])
 def test_app_delete_and_truncate_are_refused(app, two_users, statement):
     """المنح في الكتالوج قد يغيب ويبقى الحذف ممكناً بطريقٍ آخر؛ المحاولة نفسها تُرفض."""

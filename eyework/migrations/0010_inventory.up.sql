@@ -19,6 +19,13 @@
 --     بقرار صاحبها، وبوّابتها ew_ai_gate عند التسجيل.
 --   • مراجعة سيمبول استدعاءٌ في الدفتر الواحد (ai_requests، الميزة STOCK_REVIEW) بسقوفه
 --     هناك؛ لا دفتر هنا ولا تفعيلٌ ولا إشعارٌ لها: إشعار التسجيل يغطّيها.
+--   • الصنف يأخذ رقمه من عدّاد الحساب عند إنشائه (يُعرض «ص-00012») ولا يتغيّر؛ ورمز
+--     المورّد وباركود العبوة اختياريان. ومندوب المورّد اسمٌ وجوالٌ تحت مورّده، يُختار
+--     على الفاتورة والمرتجع ويُحفظ كما كان يوم التسجيل.
+--   • الجرد جلسةٌ برقم: لقطةٌ من الرصيد الدفتري وآخر رقمي فاتورةٍ وسند، وعدٌّ صنفاً
+--     صنفاً بسببٍ لكل فرق، ولا يتغيّر رصيدٌ حتى الترحيل: سند جردٍ لكل سطرٍ معدود.
+--     ورصيدٌ تحرّك بعد اللقطة يُعاد عدّه. جلسةٌ مفتوحة واحدة لكل حساب، والملغاة تحتفظ
+--     برقمها.
 --   • العزل بالصفّ على eyework.user_id، مفروضٌ على المالك أيضاً (FORCE)، والمنح
 --     بالأعمدة، ولا DELETE ولا TRUNCATE لدور الويب.
 -- ════════════════════════════════════════════════════════════════════════
@@ -71,12 +78,22 @@ LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
        AND ew_inv_doc_key(p) <> ''
 $$;
 
+-- رقم هاتفٍ كما يُكتب في السعودية: 05xxxxxxxx أو 01xxxxxxxx، أو بالصيغة الدولية +966….
+CREATE FUNCTION ew_inv_phone_ok(p text) RETURNS boolean
+LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
+    SELECT p ~ '^(0[1-9][0-9]{8}|\+966[1-9][0-9]{8})$'
+$$;
+
 -- ── الإعدادات ───────────────────────────────────────────────────────────
 -- سؤالٌ واحد قبل أول تسجيل: هل تدخل ضريبة المشتريات في تكلفة الصنف؟ (تدخل حين لا
 -- تستردّها المنشأة.) يُقفل بعد أول حركة: تغييره يغيّر معنى كل متوسطٍ سابق.
 CREATE TABLE inv_settings (
     user_id               uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
     cost_includes_vat     boolean NOT NULL,
+    -- المخزن الواحد: اسمه وموقعه، يظهران في رأس البوابة وعلى المستندات وكشف الجرد.
+    store_name            text NOT NULL DEFAULT 'المخزن الرئيسي'
+                              CONSTRAINT inv_store_name_shape CHECK (ew_inv_text_ok(store_name, 60)),
+    store_location        text CONSTRAINT inv_store_location_shape CHECK (store_location IS NULL OR ew_inv_text_ok(store_location, 120)),
     row_version           integer NOT NULL DEFAULT 1,
     created_at            timestamptz NOT NULL DEFAULT now(),
     updated_at            timestamptz NOT NULL DEFAULT now()
@@ -85,7 +102,7 @@ CREATE TABLE inv_settings (
 -- عدّادات الترقيم. لا يقرؤها دور الويب ولا يكتبها: تأخذ منها دوالّ التسجيل وحدها.
 CREATE TABLE inv_counters (
     user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    kind    text NOT NULL CONSTRAINT inv_counter_kind CHECK (kind IN ('PURCHASE', 'RETURN', 'REVERSAL', 'VOUCHER')),
+    kind    text NOT NULL CONSTRAINT inv_counter_kind CHECK (kind IN ('PURCHASE', 'RETURN', 'REVERSAL', 'VOUCHER', 'ITEM', 'COUNT')),
     last_no integer NOT NULL CONSTRAINT inv_counter_range CHECK (last_no BETWEEN 1 AND 999999),
     PRIMARY KEY (user_id, kind)
 );
@@ -99,6 +116,10 @@ CREATE TABLE inv_suppliers (
     name_key    text NOT NULL DEFAULT '',
     -- الرقم الضريبي كما في معيار ZATCA (BR-KSA-40): خمس عشرة خانة، أولها وآخرها 3.
     vat_number  text CONSTRAINT inv_supplier_vat_shape CHECK (vat_number IS NULL OR vat_number ~ '^3[0-9]{13}3$'),
+    -- رقم السجل التجاري (الرقم الموحّد) عشر خانات، والجوال، وملاحظة: اختيارية كلّها.
+    cr_number   text CONSTRAINT inv_supplier_cr_shape CHECK (cr_number IS NULL OR cr_number ~ '^[0-9]{10}$'),
+    phone       text CONSTRAINT inv_supplier_phone_shape CHECK (phone IS NULL OR ew_inv_phone_ok(phone)),
+    note        text CONSTRAINT inv_supplier_note_shape CHECK (note IS NULL OR ew_inv_text_ok(note, 200)),
     is_active   boolean NOT NULL DEFAULT true,
     row_version integer NOT NULL DEFAULT 1,
     created_at  timestamptz NOT NULL DEFAULT now(),
@@ -108,40 +129,105 @@ CREATE TABLE inv_suppliers (
 CREATE UNIQUE INDEX inv_suppliers_name ON inv_suppliers (user_id, name_key) WHERE is_active;
 CREATE INDEX inv_suppliers_user ON inv_suppliers (user_id, is_active, name_key);
 
+-- مندوب المورّد: من يزور المحلّ ويأتي بالفاتورة ويؤخذ منه المرتجع. اسمٌ وجوال، ولكل
+-- مورّدٍ مندوبٌ افتراضي يُقترح على فاتورته ومرتجعه.
+CREATE TABLE inv_supplier_reps (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    supplier_id uuid NOT NULL,
+    name        text NOT NULL CONSTRAINT inv_rep_name_shape CHECK (ew_inv_text_ok(name, 60)),
+    name_key    text NOT NULL DEFAULT '',
+    mobile      text CONSTRAINT inv_rep_mobile_shape CHECK (mobile IS NULL OR ew_inv_phone_ok(mobile)),
+    is_default  boolean NOT NULL DEFAULT false,
+    is_active   boolean NOT NULL DEFAULT true,
+    row_version integer NOT NULL DEFAULT 1,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (id, user_id),
+    FOREIGN KEY (supplier_id, user_id) REFERENCES inv_suppliers (id, user_id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX inv_supplier_reps_name ON inv_supplier_reps (supplier_id, name_key) WHERE is_active;
+CREATE UNIQUE INDEX inv_supplier_reps_default ON inv_supplier_reps (supplier_id) WHERE is_default AND is_active;
+CREATE INDEX inv_supplier_reps_supplier ON inv_supplier_reps (supplier_id, is_active, name_key);
+
+-- تصنيف الصنف: قائمةٌ مسطّحة يكتبها صاحبها للتصفية والجرد والمجاميع؛ لا أثر له في الحساب.
+CREATE TABLE inv_categories (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    name        text NOT NULL CONSTRAINT inv_category_name_shape CHECK (ew_inv_text_ok(name, 40)),
+    name_key    text NOT NULL DEFAULT '',
+    is_active   boolean NOT NULL DEFAULT true,
+    row_version integer NOT NULL DEFAULT 1,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (id, user_id)
+);
+CREATE UNIQUE INDEX inv_categories_name ON inv_categories (user_id, name_key) WHERE is_active;
+CREATE INDEX inv_categories_user ON inv_categories (user_id, is_active, name_key);
+
+-- الصنف: اسمه ورقمه من عدّاد الحساب (يُعرض «ص-00012»، ولا يُكتب ولا يتغيّر)، ونوعه
+-- ووحدته وفئة ضريبته وسعر شرائه، وما يُعرَف به عند المورّد (رمزه) وعلى عبوته (باركود
+-- GTIN يكتبه قارئٌ أو يد)، وتصنيفه وسعر بيعه وحدّ طلبه ومستهدفه ومورّده المفضّل.
 CREATE TABLE inv_items (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    -- يكتبه المحفّز من العدّاد ITEM عند الإنشاء.
+    number              integer NOT NULL,
     name                text NOT NULL CONSTRAINT inv_item_name_shape CHECK (ew_inv_text_ok(name, 60)),
     name_key            text NOT NULL DEFAULT '',
-    code                text CONSTRAINT inv_item_code_shape CHECK (code IS NULL OR code ~ '^[A-Za-z0-9][A-Za-z0-9._/-]{0,19}$'),
+    -- رمز الصنف عند المورّد كما على فاتورته (اختياري)، وباركود العبوة: 8 أو 12–14 رقماً.
+    supplier_code       text CONSTRAINT inv_item_code_shape CHECK (supplier_code IS NULL OR supplier_code ~ '^[A-Za-z0-9][A-Za-z0-9._/-]{0,19}$'),
+    barcode             text CONSTRAINT inv_item_barcode_shape CHECK (barcode IS NULL OR barcode ~ '^([0-9]{8}|[0-9]{12,14})$'),
     -- STOCK يُخزَّن ويُعدّ؛ SERVICE مصروفٌ بلا رصيد (شحن، تركيب).
     kind                text NOT NULL CONSTRAINT inv_item_kind CHECK (kind IN ('STOCK', 'SERVICE')),
     unit                text NOT NULL CONSTRAINT inv_item_unit
                             CHECK (unit IN ('PIECE', 'BOX', 'CARTON', 'PACK', 'PALLET', 'KG', 'LITRE', 'METRE', 'SERVICE')),
+    category_id         uuid,
     vat_category        text NOT NULL DEFAULT 'S' CONSTRAINT inv_item_vat_category CHECK (vat_category IN ('S', 'Z', 'E', 'O')),
+    -- سبب الإعفاء أو الصفر كما على فاتورة المورّد؛ لا معنى له في الفئة S.
+    vat_exemption_reason text CONSTRAINT inv_item_exemption_shape CHECK (vat_exemption_reason IS NULL OR ew_inv_text_ok(vat_exemption_reason, 80)),
     -- سعر الشراء المعتاد للوحدة قبل الضريبة، يُحدَّد عند الإنشاء ويُقترح في كل سطرٍ جديد.
     price_halalas       bigint NOT NULL CONSTRAINT inv_item_price_range CHECK (price_halalas BETWEEN 1 AND 1000000000),
+    -- سعر البيع للوحدة (اختياري؛ للرفّ وقائمة أسعار صاحب العمل، لا للفوترة)، شاملاً الضريبة أو قبلها.
+    selling_price_halalas bigint CONSTRAINT inv_item_selling_range CHECK (selling_price_halalas IS NULL OR selling_price_halalas BETWEEN 0 AND 1000000000),
+    selling_price_includes_vat boolean NOT NULL DEFAULT true,
     reorder_level_milli bigint,
+    -- الكمية المستهدفة بعد الطلب: المقترح طلبه = المستهدف − الرصيد.
+    target_level_milli  bigint,
+    preferred_supplier_id uuid,
+    note                text CONSTRAINT inv_item_note_shape CHECK (note IS NULL OR ew_inv_text_ok(note, 200)),
     -- يكتبها محفّز الحركات وحده.
     on_hand_milli       bigint NOT NULL DEFAULT 0 CONSTRAINT inv_item_on_hand_range CHECK (on_hand_milli BETWEEN 0 AND 1000000000000),
     stock_value_halalas bigint NOT NULL DEFAULT 0 CONSTRAINT inv_item_value_range CHECK (stock_value_halalas >= 0),
     last_movement_at    timestamptz,
+    -- يكتبها ترحيل الجرد وحده.
+    last_counted_on     date,
     is_active           boolean NOT NULL DEFAULT true,
     row_version         integer NOT NULL DEFAULT 1,
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, user_id),
+    UNIQUE (user_id, number),
+    FOREIGN KEY (category_id, user_id) REFERENCES inv_categories (id, user_id),
+    FOREIGN KEY (preferred_supplier_id, user_id) REFERENCES inv_suppliers (id, user_id),
     CONSTRAINT inv_item_unit_matches_kind CHECK ((kind = 'SERVICE') = (unit = 'SERVICE')),
     CONSTRAINT inv_item_service_has_no_stock
-        CHECK (kind = 'STOCK' OR (on_hand_milli = 0 AND stock_value_halalas = 0 AND reorder_level_milli IS NULL)),
+        CHECK (kind = 'STOCK' OR (on_hand_milli = 0 AND stock_value_halalas = 0 AND reorder_level_milli IS NULL
+                                  AND target_level_milli IS NULL AND barcode IS NULL AND last_counted_on IS NULL)),
     CONSTRAINT inv_item_empty_has_no_value CHECK (on_hand_milli > 0 OR stock_value_halalas = 0),
     CONSTRAINT inv_item_on_hand_shape CHECK (unit IN ('KG', 'LITRE', 'METRE') OR on_hand_milli % 1000 = 0),
     CONSTRAINT inv_item_reorder_shape
-        CHECK (reorder_level_milli IS NULL OR reorder_level_milli = 0 OR ew_inv_qty_ok(unit, reorder_level_milli))
+        CHECK (reorder_level_milli IS NULL OR reorder_level_milli = 0 OR ew_inv_qty_ok(unit, reorder_level_milli)),
+    CONSTRAINT inv_item_target_shape
+        CHECK (target_level_milli IS NULL OR (ew_inv_qty_ok(unit, target_level_milli)
+                                              AND target_level_milli >= coalesce(reorder_level_milli, 0))),
+    CONSTRAINT inv_item_exemption_needs_category CHECK (vat_category <> 'S' OR vat_exemption_reason IS NULL)
 );
 CREATE UNIQUE INDEX inv_items_name ON inv_items (user_id, name_key) WHERE is_active;
-CREATE UNIQUE INDEX inv_items_code ON inv_items (user_id, upper(code)) WHERE code IS NOT NULL AND is_active;
+CREATE UNIQUE INDEX inv_items_barcode ON inv_items (user_id, barcode) WHERE barcode IS NOT NULL AND is_active;
+CREATE INDEX inv_items_supplier_code ON inv_items (user_id, upper(supplier_code)) WHERE supplier_code IS NOT NULL;
 CREATE INDEX inv_items_user ON inv_items (user_id, is_active, name_key);
+CREATE INDEX inv_items_category ON inv_items (category_id) WHERE category_id IS NOT NULL;
 CREATE INDEX inv_items_low ON inv_items (user_id)
     WHERE is_active AND reorder_level_milli IS NOT NULL AND on_hand_milli <= reorder_level_milli;
 
@@ -164,11 +250,17 @@ CREATE TABLE inv_purchases (
     printed_total_halalas bigint CONSTRAINT inv_purchase_printed_total CHECK (printed_total_halalas BETWEEN 0 AND 100000000000000),
     printed_vat_halalas   bigint CONSTRAINT inv_purchase_printed_vat CHECK (printed_vat_halalas BETWEEN 0 AND 100000000000000),
     note                  text CONSTRAINT inv_purchase_note_shape CHECK (note IS NULL OR ew_inv_text_ok(note, 200)),
+    -- مندوب المورّد الذي جاء بها، ورقم سند التسليم الذي تركه السائق، ويوم الاستلام.
+    rep_id                uuid,
+    delivery_note_no      text CONSTRAINT inv_purchase_delivery_note_shape CHECK (delivery_note_no IS NULL OR ew_inv_doc_no_ok(delivery_note_no)),
+    received_on           date CONSTRAINT inv_purchase_received_floor CHECK (received_on IS NULL OR received_on >= DATE '2000-01-01'),
     -- تكتبها دالّة التسجيل.
     number                integer,
     posted_at             timestamptz,
     supplier_name         text,
     supplier_vat_number   text,
+    rep_name              text,
+    rep_mobile            text,
     subtotal_halalas      bigint,
     vat_halalas           bigint,
     total_halalas         bigint,
@@ -182,9 +274,12 @@ CREATE TABLE inv_purchases (
     updated_at            timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, user_id),
     FOREIGN KEY (supplier_id, user_id) REFERENCES inv_suppliers (id, user_id) ON DELETE CASCADE,
+    FOREIGN KEY (rep_id, user_id) REFERENCES inv_supplier_reps (id, user_id) ON DELETE CASCADE,
     CONSTRAINT inv_purchase_draft_unposted CHECK (status <> 'DRAFT' OR (
         number IS NULL AND posted_at IS NULL AND supplier_name IS NULL AND supplier_vat_number IS NULL
+        AND rep_name IS NULL AND rep_mobile IS NULL
         AND subtotal_halalas IS NULL AND vat_halalas IS NULL AND total_halalas IS NULL)),
+    CONSTRAINT inv_purchase_rep_snapshot CHECK (status = 'DRAFT' OR (rep_id IS NULL) = (rep_name IS NULL)),
     CONSTRAINT inv_purchase_posted_complete CHECK (status = 'DRAFT' OR (
         supplier_id IS NOT NULL AND supplier_invoice_no IS NOT NULL AND invoice_date IS NOT NULL
         AND printed_total_halalas IS NOT NULL AND number IS NOT NULL AND posted_at IS NOT NULL
@@ -212,6 +307,9 @@ CREATE TABLE inv_purchase_lines (
     unit_price_halalas bigint NOT NULL CONSTRAINT inv_line_price_range CHECK (unit_price_halalas BETWEEN 0 AND 1000000000),
     discount_halalas   bigint NOT NULL DEFAULT 0 CONSTRAINT inv_line_discount_range CHECK (discount_halalas >= 0),
     vat_category       text NOT NULL CONSTRAINT inv_line_vat_category CHECK (vat_category IN ('S', 'Z', 'E', 'O')),
+    -- ما وصل فعلاً (فارغٌ = كما في الفاتورة)؛ الأقلّ يرفع تنبيه SHORT_DELIVERY ويُسجَّل مرتجعاً بعدها.
+    received_quantity_milli bigint CONSTRAINT inv_line_received_range
+                           CHECK (received_quantity_milli IS NULL OR received_quantity_milli BETWEEN 0 AND quantity_milli),
     -- تكتبها دالّة التسجيل: ما حُسب، واسم الصنف ووحدته يومها.
     vat_rate_bp        integer,
     amount_halalas     bigint,
@@ -244,10 +342,15 @@ CREATE TABLE inv_returns (
     purchase_id      uuid NOT NULL,
     return_date      date,
     reason           text CONSTRAINT inv_return_reason
-                         CHECK (reason IS NULL OR reason IN ('DAMAGED', 'WRONG_ITEM', 'NOT_AS_SPECIFIED', 'EXCESS', 'EXPIRED', 'OTHER')),
+                         CHECK (reason IS NULL OR reason IN ('DAMAGED', 'WRONG_ITEM', 'NOT_AS_SPECIFIED', 'EXCESS', 'EXPIRED',
+                                                              'SHORT_DELIVERY', 'PRICE_ERROR', 'OTHER')),
     note             text CONSTRAINT inv_return_note_shape CHECK (note IS NULL OR ew_inv_text_ok(note, 200)),
+    -- مندوب المورّد الذي أُخذ منه المرتجع (من مندوبي مورّد الفاتورة).
+    rep_id           uuid,
     number           integer,
     posted_at        timestamptz,
+    rep_name         text,
+    rep_mobile       text,
     net_halalas      bigint,
     vat_halalas      bigint,
     total_halalas    bigint,
@@ -258,8 +361,11 @@ CREATE TABLE inv_returns (
     updated_at       timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, user_id),
     FOREIGN KEY (purchase_id, user_id) REFERENCES inv_purchases (id, user_id) ON DELETE CASCADE,
+    FOREIGN KEY (rep_id, user_id) REFERENCES inv_supplier_reps (id, user_id) ON DELETE CASCADE,
     CONSTRAINT inv_return_draft_unposted CHECK (status <> 'DRAFT' OR (
-        number IS NULL AND posted_at IS NULL AND net_halalas IS NULL AND vat_halalas IS NULL AND total_halalas IS NULL)),
+        number IS NULL AND posted_at IS NULL AND net_halalas IS NULL AND vat_halalas IS NULL AND total_halalas IS NULL
+        AND rep_name IS NULL AND rep_mobile IS NULL)),
+    CONSTRAINT inv_return_rep_snapshot CHECK (status = 'DRAFT' OR (rep_id IS NULL) = (rep_name IS NULL)),
     CONSTRAINT inv_return_posted_complete CHECK (status = 'DRAFT' OR (
         return_date IS NOT NULL AND reason IS NOT NULL AND (reason <> 'OTHER' OR note IS NOT NULL)
         AND number IS NOT NULL AND posted_at IS NOT NULL AND net_halalas >= 0 AND vat_halalas >= 0
@@ -292,6 +398,48 @@ CREATE TABLE inv_return_lines (
 );
 CREATE INDEX inv_return_lines_purchase ON inv_return_lines (purchase_id, line_no);
 
+-- ── جلسة الجرد ──────────────────────────────────────────────────────────
+-- الجرد مستندٌ لا تعديلاتٌ متفرّقة: تُفتح الجلسة على نطاقٍ (الكلّ، أو تصنيف، أو ما تحت
+-- حدّ الطلب، أو أصنافٌ مختارة) فتأخذ لقطةً من الرصيد الدفتري وآخر رقمي فاتورةٍ وسند
+-- (شاهد القطع)، ثم يُعدّ صنفاً صنفاً دون إظهار الرصيد (عدٌّ مغلق) ما لم يُطلب، ولكل
+-- فرقٍ سبب. ولا يتغيّر رصيدٌ حتى الترحيل: سند جردٍ لكل سطرٍ معدود تحت رقم الجلسة.
+-- جلسةٌ مفتوحة واحدة لكل حساب، والملغاة تحتفظ برقمها فلا فجوة في التسلسل.
+CREATE TABLE inv_count_sessions (
+    id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id              uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    number               integer NOT NULL,
+    status               text NOT NULL DEFAULT 'OPEN' CONSTRAINT inv_count_status CHECK (status IN ('OPEN', 'POSTED', 'CANCELLED')),
+    scope                text NOT NULL CONSTRAINT inv_count_scope CHECK (scope IN ('ALL', 'CATEGORY', 'LOW', 'SELECTED')),
+    category_id          uuid,
+    -- عدٌّ مغلق: لا يُعرض الرصيد الدفتري قبل كتابة المعدود.
+    blind                boolean NOT NULL DEFAULT true,
+    note                 text CONSTRAINT inv_count_note_shape CHECK (note IS NULL OR ew_inv_text_ok(note, 200)),
+    snapshot_at          timestamptz NOT NULL DEFAULT now(),
+    last_purchase_number integer,
+    last_voucher_number  integer,
+    items_total          integer NOT NULL DEFAULT 0,
+    -- تكتبها دالّة الترحيل: المعدود، والمطابق منه.
+    items_counted        integer,
+    items_matched        integer,
+    posted_at            timestamptz,
+    cancelled_at         timestamptz,
+    client_token         uuid NOT NULL,
+    row_version          integer NOT NULL DEFAULT 1,
+    created_at           timestamptz NOT NULL DEFAULT now(),
+    updated_at           timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (id, user_id),
+    UNIQUE (user_id, number),
+    UNIQUE (user_id, client_token),
+    FOREIGN KEY (category_id, user_id) REFERENCES inv_categories (id, user_id),
+    CONSTRAINT inv_count_scope_category CHECK ((scope = 'CATEGORY') = (category_id IS NOT NULL)),
+    CONSTRAINT inv_count_closed CHECK (CASE status
+        WHEN 'OPEN'   THEN posted_at IS NULL AND cancelled_at IS NULL AND items_counted IS NULL AND items_matched IS NULL
+        WHEN 'POSTED' THEN posted_at IS NOT NULL AND cancelled_at IS NULL AND items_counted IS NOT NULL AND items_matched IS NOT NULL
+        ELSE cancelled_at IS NOT NULL AND posted_at IS NULL AND items_counted IS NULL END)
+);
+CREATE UNIQUE INDEX inv_count_sessions_open ON inv_count_sessions (user_id) WHERE status = 'OPEN';
+CREATE INDEX inv_count_sessions_user_recent ON inv_count_sessions (user_id, created_at DESC);
+
 -- ── سند المخزون: رصيدٌ افتتاحي، وصرف، وجرد ──────────────────────────────
 -- يُسجَّل بضغطةٍ واحدة بلا مسودة. client_token يولّده العميل عند فتح الخطوة، فالضغطة
 -- المكرّرة تعيد السند نفسه ولا تكتب حركةً ثانية.
@@ -303,10 +451,14 @@ CREATE TABLE inv_vouchers (
     item_id           uuid NOT NULL,
     -- OPENING وISSUE: الكمية الواردة أو المصروفة. COUNT: المعدود فعلاً (صفرٌ ممكن).
     quantity_milli    bigint NOT NULL CONSTRAINT inv_voucher_quantity_range CHECK (quantity_milli BETWEEN 0 AND 1000000000000),
-    -- COUNT: الرصيد قبل الجرد كما رآه صاحبه.
+    -- COUNT: الرصيد قبل الجرد كما رآه صاحبه، وجلسته إن كان من جلسة.
     on_hand_before_milli bigint,
+    session_id        uuid,
     unit_cost_halalas bigint CONSTRAINT inv_voucher_cost_range CHECK (unit_cost_halalas IS NULL OR unit_cost_halalas BETWEEN 0 AND 1000000000),
-    reason            text CONSTRAINT inv_voucher_reason CHECK (reason IS NULL OR reason IN ('SALE', 'USE', 'DAMAGE', 'OTHER')),
+    -- ISSUE: سبب الصرف. COUNT: سبب الفرق (عجزٌ: تالف، منتهي الصلاحية، فقدٌ أو سرقة، خطأ
+    -- تسجيل؛ زيادةٌ: عُثر عليه، خطأ تسجيل)، ولا سبب حين لا فرق.
+    reason            text CONSTRAINT inv_voucher_reason CHECK (reason IS NULL OR reason IN (
+                          'SALE', 'USE', 'DAMAGE', 'OTHER', 'EXPIRED', 'THEFT_LOSS', 'RECORDING_ERROR', 'FOUND')),
     note              text CONSTRAINT inv_voucher_note_shape CHECK (note IS NULL OR ew_inv_text_ok(note, 200)),
     occurred_on       date NOT NULL,
     client_token      uuid NOT NULL,
@@ -315,13 +467,53 @@ CREATE TABLE inv_vouchers (
     UNIQUE (user_id, client_token),
     UNIQUE (user_id, number),
     FOREIGN KEY (item_id, user_id) REFERENCES inv_items (id, user_id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id, user_id) REFERENCES inv_count_sessions (id, user_id) ON DELETE CASCADE,
     CONSTRAINT inv_voucher_fields CHECK (CASE kind
         WHEN 'OPENING' THEN quantity_milli > 0 AND unit_cost_halalas IS NOT NULL AND reason IS NULL AND on_hand_before_milli IS NULL
-        WHEN 'ISSUE'   THEN quantity_milli > 0 AND unit_cost_halalas IS NULL AND reason IS NOT NULL AND on_hand_before_milli IS NULL
-                            AND (reason <> 'OTHER' OR note IS NOT NULL)
-        WHEN 'COUNT'   THEN reason IS NULL AND on_hand_before_milli IS NOT NULL END)
+                            AND session_id IS NULL
+        WHEN 'ISSUE'   THEN quantity_milli > 0 AND unit_cost_halalas IS NULL AND on_hand_before_milli IS NULL AND session_id IS NULL
+                            AND reason IN ('SALE', 'USE', 'DAMAGE', 'OTHER') AND (reason <> 'OTHER' OR note IS NOT NULL)
+        WHEN 'COUNT'   THEN on_hand_before_milli IS NOT NULL
+                            AND ((quantity_milli = on_hand_before_milli) = (reason IS NULL))
+                            AND (quantity_milli >= on_hand_before_milli
+                                 OR reason IN ('DAMAGE', 'EXPIRED', 'THEFT_LOSS', 'RECORDING_ERROR', 'OTHER'))
+                            AND (quantity_milli <= on_hand_before_milli OR reason IN ('FOUND', 'RECORDING_ERROR', 'OTHER'))
+                            AND (reason IS DISTINCT FROM 'OTHER' OR note IS NOT NULL) END)
 );
 CREATE INDEX inv_vouchers_user_recent ON inv_vouchers (user_id, created_at DESC);
+CREATE INDEX inv_vouchers_session ON inv_vouchers (session_id) WHERE session_id IS NOT NULL;
+
+-- سطر الجلسة: صنفٌ ورصيده الدفتري يوم اللقطة، وما عُدّ (فارغٌ: لم يُعدّ بعد؛ صفرٌ عدٌّ
+-- صريح)، وسبب الفرق، وتكلفة الوحدة حين يُعدّ رصيدٌ لصنفٍ بلا رصيد، والسند الذي رحّله.
+CREATE TABLE inv_count_lines (
+    session_id         uuid NOT NULL,
+    user_id            uuid NOT NULL,
+    item_id            uuid NOT NULL,
+    line_no            smallint NOT NULL CONSTRAINT inv_count_line_no_range CHECK (line_no BETWEEN 1 AND 5000),
+    book_milli         bigint NOT NULL CONSTRAINT inv_count_line_book_range CHECK (book_milli BETWEEN 0 AND 1000000000000),
+    counted_milli      bigint CONSTRAINT inv_count_line_counted_range CHECK (counted_milli IS NULL OR counted_milli BETWEEN 0 AND 1000000000000),
+    unit_cost_halalas  bigint CONSTRAINT inv_count_line_cost_range CHECK (unit_cost_halalas IS NULL OR unit_cost_halalas BETWEEN 0 AND 1000000000),
+    reason             text CONSTRAINT inv_count_line_reason
+                           CHECK (reason IS NULL OR reason IN ('DAMAGE', 'EXPIRED', 'THEFT_LOSS', 'RECORDING_ERROR', 'FOUND', 'OTHER')),
+    note               text CONSTRAINT inv_count_line_note_shape CHECK (note IS NULL OR ew_inv_text_ok(note, 200)),
+    added_during_count boolean NOT NULL DEFAULT false,
+    counted_at         timestamptz,
+    voucher_id         uuid,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    updated_at         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (session_id, item_id),
+    UNIQUE (session_id, line_no),
+    FOREIGN KEY (session_id, user_id) REFERENCES inv_count_sessions (id, user_id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id, user_id) REFERENCES inv_items (id, user_id) ON DELETE CASCADE,
+    FOREIGN KEY (voucher_id, user_id) REFERENCES inv_vouchers (id, user_id) ON DELETE CASCADE,
+    CONSTRAINT inv_count_line_reason_needed CHECK (counted_milli IS NULL OR (
+        ((counted_milli = book_milli) = (reason IS NULL))
+        AND (counted_milli >= book_milli OR reason IN ('DAMAGE', 'EXPIRED', 'THEFT_LOSS', 'RECORDING_ERROR', 'OTHER'))
+        AND (counted_milli <= book_milli OR reason IN ('FOUND', 'RECORDING_ERROR', 'OTHER'))
+        AND (reason IS DISTINCT FROM 'OTHER' OR note IS NOT NULL))),
+    CONSTRAINT inv_count_line_uncounted CHECK (counted_milli IS NOT NULL OR (reason IS NULL AND counted_at IS NULL AND voucher_id IS NULL))
+);
+CREATE INDEX inv_count_lines_item ON inv_count_lines (item_id);
 
 -- ── حركات المخزون ───────────────────────────────────────────────────────
 -- الكمية والقيمة بلا إشارة؛ النوع يقول الاتجاه. القيمة الصادرة يكتبها المحفّز من
@@ -451,6 +643,13 @@ $$;
 CREATE TRIGGER trg_inv_settings BEFORE INSERT OR UPDATE ON inv_settings
     FOR EACH ROW EXECUTE FUNCTION ew_inv_settings_guard();
 
+-- المندوب (إن ذُكر) من مندوبي هذا المورّد وغير مؤرشف. تستدعيها المحفّزات وحدها.
+CREATE FUNCTION ew_inv_rep_ok(p_rep uuid, p_supplier uuid, p_user uuid) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
+    SELECT p_rep IS NULL OR EXISTS (SELECT 1 FROM inv_supplier_reps r
+                                     WHERE r.id = p_rep AND r.user_id = p_user AND r.supplier_id = p_supplier AND r.is_active)
+$$;
+
 -- المورّد: لأمين المخزون، وألفان لكل حساب، ومفتاح اسمه من المحفّز.
 CREATE FUNCTION ew_inv_supplier_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -483,9 +682,81 @@ $$;
 CREATE TRIGGER trg_inv_supplier BEFORE INSERT OR UPDATE ON inv_suppliers
     FOR EACH ROW EXECUTE FUNCTION ew_inv_supplier_guard();
 
--- الصنف: لأمين المخزون، وخمسة آلاف لكل حساب، ويبدأ بلا رصيد. وحدته ونوعه يتغيّران
--- ما لم يُستعمل في سطرٍ أو حركة؛ ولا يُؤرشف وفيه رصيد. الرصيد والقيمة من الحركات وحدها
--- (لا منح لدور الويب عليهما).
+-- التصنيف: لأمين المخزون، وخمسون لكل حساب، ومفتاح اسمه من المحفّز.
+CREATE FUNCTION ew_inv_category_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        PERFORM ew_inv_require_storekeeper(NEW.user_id);
+        PERFORM pg_advisory_xact_lock(hashtextextended('eyework.inv_categories:' || NEW.user_id::text, 0));
+        IF (SELECT count(*) FROM inv_categories WHERE user_id = NEW.user_id) >= 50 THEN
+            RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_category_cap';
+        END IF;
+        IF NEW.row_version <> 1 OR NOT NEW.is_active THEN
+            RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
+        END IF;
+        NEW.created_at := now();
+    ELSE
+        IF NEW.id <> OLD.id OR NEW.user_id <> OLD.user_id OR NEW.row_version <> OLD.row_version
+           OR NEW.created_at <> OLD.created_at THEN
+            RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
+        END IF;
+        NEW.row_version := OLD.row_version + 1;
+    END IF;
+    NEW.name_key := ew_inv_name_key(NEW.name);
+    IF NEW.name_key = '' THEN
+        RAISE EXCEPTION 'name' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_category_name_shape';
+    END IF;
+    NEW.updated_at := now();
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER trg_inv_category BEFORE INSERT OR UPDATE ON inv_categories
+    FOR EACH ROW EXECUTE FUNCTION ew_inv_category_guard();
+
+-- المندوب: لأمين المخزون، تحت مورّدٍ غير مؤرشف، وعشرون لكل مورّد، ومفتاح اسمه من المحفّز.
+-- والافتراضي واحد: جعل مندوبٍ افتراضياً ينزع الصفة عمّن كان قبله.
+CREATE FUNCTION ew_inv_supplier_rep_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        PERFORM ew_inv_require_storekeeper(NEW.user_id);
+        IF NOT EXISTS (SELECT 1 FROM inv_suppliers WHERE id = NEW.supplier_id AND user_id = NEW.user_id AND is_active) THEN
+            RAISE EXCEPTION 'supplier' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_supplier_archived';
+        END IF;
+        PERFORM pg_advisory_xact_lock(hashtextextended('eyework.inv_supplier_reps:' || NEW.supplier_id::text, 0));
+        IF (SELECT count(*) FROM inv_supplier_reps WHERE supplier_id = NEW.supplier_id) >= 20 THEN
+            RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_rep_cap';
+        END IF;
+        IF NEW.row_version <> 1 OR NOT NEW.is_active THEN
+            RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
+        END IF;
+        NEW.created_at := now();
+    ELSE
+        IF NEW.id <> OLD.id OR NEW.user_id <> OLD.user_id OR NEW.supplier_id <> OLD.supplier_id
+           OR NEW.row_version <> OLD.row_version OR NEW.created_at <> OLD.created_at THEN
+            RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
+        END IF;
+        NEW.row_version := OLD.row_version + 1;
+    END IF;
+    NEW.name_key := ew_inv_name_key(NEW.name);
+    IF NEW.name_key = '' THEN
+        RAISE EXCEPTION 'name' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_rep_name_shape';
+    END IF;
+    IF NEW.is_default AND NEW.is_active AND (TG_OP = 'INSERT' OR NOT (OLD.is_default AND OLD.is_active)) THEN
+        UPDATE inv_supplier_reps SET is_default = false WHERE supplier_id = NEW.supplier_id AND is_default AND id <> NEW.id;
+    END IF;
+    NEW.updated_at := now();
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER trg_inv_supplier_rep BEFORE INSERT OR UPDATE ON inv_supplier_reps
+    FOR EACH ROW EXECUTE FUNCTION ew_inv_supplier_rep_guard();
+
+-- الصنف: لأمين المخزون، وخمسة آلاف لكل حساب، ورقمه من العدّاد، ويبدأ بلا رصيد. وحدته
+-- ونوعه يتغيّران ما لم يُستعمل في سطرٍ أو حركة؛ ولا يُؤرشف وفيه رصيد. تصنيفه ومورّده
+-- المفضّل غير مؤرشفين حين يُختاران. الرصيد والقيمة وآخر جردٍ من الحركات والترحيل وحدها
+-- (لا منح لدور الويب عليها).
 CREATE FUNCTION ew_inv_item_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
@@ -496,12 +767,13 @@ BEGIN
             RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_item_cap';
         END IF;
         IF NEW.row_version <> 1 OR NOT NEW.is_active OR NEW.on_hand_milli <> 0 OR NEW.stock_value_halalas <> 0
-           OR NEW.last_movement_at IS NOT NULL THEN
+           OR NEW.last_movement_at IS NOT NULL OR NEW.last_counted_on IS NOT NULL THEN
             RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
         END IF;
+        NEW.number := ew_inv_next_no(NEW.user_id, 'ITEM');
         NEW.created_at := now();
     ELSE
-        IF NEW.id <> OLD.id OR NEW.user_id <> OLD.user_id OR NEW.row_version <> OLD.row_version
+        IF NEW.id <> OLD.id OR NEW.user_id <> OLD.user_id OR NEW.number <> OLD.number OR NEW.row_version <> OLD.row_version
            OR NEW.created_at <> OLD.created_at THEN
             RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
         END IF;
@@ -515,6 +787,15 @@ BEGIN
             RAISE EXCEPTION 'stock' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_item_has_stock';
         END IF;
         NEW.row_version := OLD.row_version + 1;
+    END IF;
+    IF NEW.category_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.category_id IS DISTINCT FROM OLD.category_id)
+       AND NOT EXISTS (SELECT 1 FROM inv_categories WHERE id = NEW.category_id AND user_id = NEW.user_id AND is_active) THEN
+        RAISE EXCEPTION 'category' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_category_archived';
+    END IF;
+    IF NEW.preferred_supplier_id IS NOT NULL
+       AND (TG_OP = 'INSERT' OR NEW.preferred_supplier_id IS DISTINCT FROM OLD.preferred_supplier_id)
+       AND NOT EXISTS (SELECT 1 FROM inv_suppliers WHERE id = NEW.preferred_supplier_id AND user_id = NEW.user_id AND is_active) THEN
+        RAISE EXCEPTION 'supplier' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_supplier_archived';
     END IF;
     NEW.name_key := ew_inv_name_key(NEW.name);
     IF NEW.name_key = '' THEN
@@ -543,6 +824,9 @@ BEGIN
        AND NOT EXISTS (SELECT 1 FROM inv_suppliers WHERE id = NEW.supplier_id AND user_id = NEW.user_id AND is_active) THEN
         RAISE EXCEPTION 'supplier' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_supplier_archived';
     END IF;
+    IF NOT ew_inv_rep_ok(NEW.rep_id, NEW.supplier_id, NEW.user_id) THEN
+        RAISE EXCEPTION 'rep' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_rep_not_of_supplier';
+    END IF;
     NEW.supplier_invoice_key := ew_inv_doc_key(NEW.supplier_invoice_no);
     NEW.created_at := now();
     NEW.updated_at := now();
@@ -567,11 +851,13 @@ BEGIN
         IF NEW.status <> 'REVERSED'
            OR ROW(NEW.supplier_id, NEW.supplier_invoice_no, NEW.supplier_invoice_key, NEW.invoice_date,
                   NEW.prices_include_vat, NEW.printed_total_halalas, NEW.printed_vat_halalas, NEW.note,
+                  NEW.rep_id, NEW.delivery_note_no, NEW.received_on, NEW.rep_name, NEW.rep_mobile,
                   NEW.number, NEW.posted_at, NEW.supplier_name, NEW.supplier_vat_number,
                   NEW.subtotal_halalas, NEW.vat_halalas, NEW.total_halalas)
               IS DISTINCT FROM
               ROW(OLD.supplier_id, OLD.supplier_invoice_no, OLD.supplier_invoice_key, OLD.invoice_date,
                   OLD.prices_include_vat, OLD.printed_total_halalas, OLD.printed_vat_halalas, OLD.note,
+                  OLD.rep_id, OLD.delivery_note_no, OLD.received_on, OLD.rep_name, OLD.rep_mobile,
                   OLD.number, OLD.posted_at, OLD.supplier_name, OLD.supplier_vat_number,
                   OLD.subtotal_halalas, OLD.vat_halalas, OLD.total_halalas) THEN
             RAISE EXCEPTION 'final' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_document_is_final';
@@ -583,6 +869,15 @@ BEGIN
         IF NEW.supplier_id IS DISTINCT FROM OLD.supplier_id AND NEW.supplier_id IS NOT NULL
            AND NOT EXISTS (SELECT 1 FROM inv_suppliers WHERE id = NEW.supplier_id AND user_id = NEW.user_id AND is_active) THEN
             RAISE EXCEPTION 'supplier' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_supplier_archived';
+        END IF;
+        -- تغيّر المورّد وبقي مندوبُ القديم: يُنزع؛ ومندوبٌ لا يتبع المورّد: يُرفض.
+        IF NEW.supplier_id IS DISTINCT FROM OLD.supplier_id AND NEW.rep_id IS NOT DISTINCT FROM OLD.rep_id
+           AND NOT ew_inv_rep_ok(NEW.rep_id, NEW.supplier_id, NEW.user_id) THEN
+            NEW.rep_id := NULL;
+        END IF;
+        IF (NEW.rep_id, NEW.supplier_id) IS DISTINCT FROM (OLD.rep_id, OLD.supplier_id)
+           AND NOT ew_inv_rep_ok(NEW.rep_id, NEW.supplier_id, NEW.user_id) THEN
+            RAISE EXCEPTION 'rep' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_rep_not_of_supplier';
         END IF;
         NEW.supplier_invoice_key := ew_inv_doc_key(NEW.supplier_invoice_no);
     END IF;
@@ -617,9 +912,11 @@ BEGIN
         RAISE EXCEPTION 'draft' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_document_not_draft';
     END IF;
     -- ما تكتبه دالّة التسجيل وحده (الأرقام المحسوبة) لا يُفحص ولا يمسّ الرأس.
-    IF TG_OP = 'UPDATE' AND ROW(NEW.item_id, NEW.quantity_milli, NEW.unit_price_halalas, NEW.discount_halalas, NEW.vat_category)
+    IF TG_OP = 'UPDATE' AND ROW(NEW.item_id, NEW.quantity_milli, NEW.unit_price_halalas, NEW.discount_halalas, NEW.vat_category,
+                                NEW.received_quantity_milli)
                             IS NOT DISTINCT FROM
-                            ROW(OLD.item_id, OLD.quantity_milli, OLD.unit_price_halalas, OLD.discount_halalas, OLD.vat_category) THEN
+                            ROW(OLD.item_id, OLD.quantity_milli, OLD.unit_price_halalas, OLD.discount_halalas, OLD.vat_category,
+                                OLD.received_quantity_milli) THEN
         RETURN NEW;
     END IF;
     IF TG_OP = 'INSERT' THEN
@@ -636,7 +933,9 @@ BEGIN
     IF NOT item.is_active THEN
         RAISE EXCEPTION 'item' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_item_archived';
     END IF;
-    IF NOT ew_inv_qty_ok(item.unit, NEW.quantity_milli) THEN
+    IF NOT ew_inv_qty_ok(item.unit, NEW.quantity_milli)
+       OR (NEW.received_quantity_milli IS NOT NULL AND NEW.received_quantity_milli <> 0
+           AND NOT ew_inv_qty_ok(item.unit, NEW.received_quantity_milli)) THEN
         RAISE EXCEPTION 'quantity' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_quantity_unit';
     END IF;
     IF NEW.discount_halalas > round(NEW.quantity_milli::numeric * NEW.unit_price_halalas / 1000) THEN
@@ -665,6 +964,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM inv_purchases WHERE id = NEW.purchase_id AND user_id = NEW.user_id AND status = 'POSTED') THEN
         RAISE EXCEPTION 'purchase' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_return_needs_posted_purchase';
     END IF;
+    IF NOT ew_inv_rep_ok(NEW.rep_id, (SELECT supplier_id FROM inv_purchases WHERE id = NEW.purchase_id), NEW.user_id) THEN
+        RAISE EXCEPTION 'rep' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_rep_not_of_supplier';
+    END IF;
     NEW.return_date := coalesce(NEW.return_date, ew_riyadh_today());
     IF NEW.credit_note_no IS NOT NULL THEN
         NEW.credit_note_at := now();
@@ -689,13 +991,16 @@ BEGIN
     END IF;
     IF OLD.status = 'POSTED' THEN
         IF ROW(NEW.status, NEW.return_date, NEW.reason, NEW.note, NEW.number, NEW.posted_at,
-               NEW.net_halalas, NEW.vat_halalas, NEW.total_halalas)
+               NEW.rep_id, NEW.rep_name, NEW.rep_mobile, NEW.net_halalas, NEW.vat_halalas, NEW.total_halalas)
            IS DISTINCT FROM
            ROW(OLD.status, OLD.return_date, OLD.reason, OLD.note, OLD.number, OLD.posted_at,
-               OLD.net_halalas, OLD.vat_halalas, OLD.total_halalas)
+               OLD.rep_id, OLD.rep_name, OLD.rep_mobile, OLD.net_halalas, OLD.vat_halalas, OLD.total_halalas)
            OR OLD.credit_note_no IS NOT NULL OR NEW.credit_note_no IS NULL THEN
             RAISE EXCEPTION 'final' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_document_is_final';
         END IF;
+    ELSIF NEW.rep_id IS DISTINCT FROM OLD.rep_id
+          AND NOT ew_inv_rep_ok(NEW.rep_id, (SELECT supplier_id FROM inv_purchases WHERE id = NEW.purchase_id), NEW.user_id) THEN
+        RAISE EXCEPTION 'rep' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_rep_not_of_supplier';
     END IF;
     IF NEW.credit_note_no IS DISTINCT FROM OLD.credit_note_no OR NEW.credit_note_date IS DISTINCT FROM OLD.credit_note_date THEN
         SELECT p.invoice_date INTO invoice_date FROM inv_purchases p WHERE p.id = NEW.purchase_id;
@@ -775,6 +1080,74 @@ CREATE TRIGGER trg_inv_return_line BEFORE INSERT OR UPDATE ON inv_return_lines
 
 -- الحركة تكتب أثرها في رصيد الصنف وقيمته تحت قفل صفّه. الصادر بالمتوسط الحالي:
 -- قيمته نصيبه من القيمة مقرّباً، وكلّها إن خرج الرصيد كلّه، فلا تبقى قيمةٌ بلا كمية.
+-- جلسة الجرد: تُفتح وتُرحَّل وتُلغى بالدوالّ؛ وما يُعدَّل مباشرةً (العدّ المغلق والملاحظة)
+-- يُعدَّل وهي مفتوحة فقط، وكل تعديلٍ فيها أو في سطورها يزيد رقم صفّها.
+CREATE FUNCTION ew_inv_count_session_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        PERFORM ew_inv_require_storekeeper(NEW.user_id);
+        NEW.created_at := now();
+        NEW.updated_at := now();
+        RETURN NEW;
+    END IF;
+    IF ROW(NEW.id, NEW.user_id, NEW.number, NEW.scope, NEW.category_id, NEW.snapshot_at, NEW.client_token, NEW.created_at)
+       IS DISTINCT FROM
+       ROW(OLD.id, OLD.user_id, OLD.number, OLD.scope, OLD.category_id, OLD.snapshot_at, OLD.client_token, OLD.created_at)
+       OR NEW.row_version <> OLD.row_version THEN
+        RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
+    END IF;
+    IF OLD.status <> 'OPEN' THEN
+        RAISE EXCEPTION 'closed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_not_open';
+    END IF;
+    NEW.row_version := OLD.row_version + 1;
+    NEW.updated_at := now();
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER trg_inv_count_session BEFORE INSERT OR UPDATE ON inv_count_sessions
+    FOR EACH ROW EXECUTE FUNCTION ew_inv_count_session_guard();
+
+-- سطر الجلسة: يُعدّ وهي مفتوحة، والمعدود بشكل وحدة الصنف، ووقت العدّ من المحفّز. ما
+-- تكتبه الدوالّ (الرصيد الدفتري والسند) لا يُفحص.
+CREATE FUNCTION ew_inv_count_line_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    session_status text;
+    item_unit      text;
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        NEW.created_at := now();
+        NEW.updated_at := now();
+        RETURN NEW;
+    END IF;
+    IF ROW(NEW.session_id, NEW.user_id, NEW.item_id, NEW.line_no, NEW.created_at)
+       IS DISTINCT FROM ROW(OLD.session_id, OLD.user_id, OLD.item_id, OLD.line_no, OLD.created_at) THEN
+        RAISE EXCEPTION 'managed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_managed_columns';
+    END IF;
+    IF ROW(NEW.counted_milli, NEW.unit_cost_halalas, NEW.reason, NEW.note)
+       IS NOT DISTINCT FROM ROW(OLD.counted_milli, OLD.unit_cost_halalas, OLD.reason, OLD.note) THEN
+        RETURN NEW;
+    END IF;
+    SELECT status INTO session_status FROM inv_count_sessions WHERE id = NEW.session_id FOR UPDATE;
+    IF session_status <> 'OPEN' THEN
+        RAISE EXCEPTION 'closed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_not_open';
+    END IF;
+    SELECT unit INTO item_unit FROM inv_items WHERE id = NEW.item_id;
+    IF NEW.counted_milli IS NOT NULL AND NEW.counted_milli <> 0 AND NOT ew_inv_qty_ok(item_unit, NEW.counted_milli) THEN
+        RAISE EXCEPTION 'quantity' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_quantity_unit';
+    END IF;
+    NEW.counted_at := CASE WHEN NEW.counted_milli IS NULL THEN NULL
+                           WHEN NEW.counted_milli IS DISTINCT FROM OLD.counted_milli THEN now()
+                           ELSE coalesce(OLD.counted_at, now()) END;
+    NEW.updated_at := now();
+    UPDATE inv_count_sessions SET updated_at = now() WHERE id = NEW.session_id;
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER trg_inv_count_line BEFORE INSERT OR UPDATE ON inv_count_lines
+    FOR EACH ROW EXECUTE FUNCTION ew_inv_count_line_guard();
+
 CREATE FUNCTION ew_inv_movement_insert() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
@@ -843,6 +1216,10 @@ CREATE TRIGGER trg_inv_vouchers_keep BEFORE DELETE ON inv_vouchers
 CREATE TRIGGER trg_inv_items_keep BEFORE DELETE ON inv_items
     FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
 CREATE TRIGGER trg_inv_suppliers_keep BEFORE DELETE ON inv_suppliers
+    FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
+CREATE TRIGGER trg_inv_count_sessions_keep BEFORE DELETE ON inv_count_sessions
+    FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
+CREATE TRIGGER trg_inv_count_lines_keep BEFORE DELETE ON inv_count_lines
     FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
 CREATE TRIGGER trg_inv_purchases_keep BEFORE DELETE ON inv_purchases
     FOR EACH ROW WHEN (OLD.status <> 'DRAFT') EXECUTE FUNCTION ew_inv_keep_record();
@@ -923,7 +1300,8 @@ CREATE FUNCTION ew_inv_purchase_digest(p_purchase uuid) RETURNS bytea
 LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
     SELECT sha256(convert_to(p.prices_include_vat::text || '#' || coalesce((
                SELECT string_agg(ROW(l.line_no, l.item_id, i.name_key, i.unit, l.quantity_milli,
-                                     l.unit_price_halalas, l.discount_halalas, l.vat_category)::text, ';' ORDER BY l.line_no)
+                                     l.unit_price_halalas, l.discount_halalas, l.vat_category,
+                                     l.received_quantity_milli)::text, ';' ORDER BY l.line_no)
                  FROM inv_purchase_lines l JOIN inv_items i ON i.id = l.item_id
                 WHERE l.purchase_id = p.id), ''), 'UTF8'))
       FROM inv_purchases p WHERE p.id = p_purchase
@@ -1044,6 +1422,12 @@ LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
     SELECT 'CATEGORY_CHANGED', priced.line_no,
            jsonb_build_object('category', priced.vat_category, 'usual', priced.item_category)
       FROM priced WHERE priced.vat_category <> priced.item_category
+    UNION ALL
+    -- وصل أقلّ ممّا في الفاتورة: يُسجَّل كما هي، ثم مرتجعٌ بسبب نقص التسليم.
+    SELECT 'SHORT_DELIVERY', l.line_no,
+           jsonb_build_object('invoiced', l.quantity_milli, 'received', l.received_quantity_milli)
+      FROM inv_purchase_lines l
+     WHERE l.purchase_id = p_purchase AND l.received_quantity_milli IS NOT NULL AND l.received_quantity_milli < l.quantity_milli
 $$;
 
 -- تنبيهات القواعد للمرتجع: إرجاع الفاتورة كلّها (لعلّ القيد العكسي أصحّ)، وفاتورةٌ قديمة.
@@ -1115,6 +1499,7 @@ $$;
 -- الدفتر، وإقرارٌ بكل تنبيهٍ قائم. يُرجع رقم الفاتورة.
 CREATE FUNCTION ew_inv_post_purchase(p_purchase uuid, p_expected_row_version integer, p_ack text[]) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+<<post>>
 DECLARE
     uid    uuid := ew_current_user();
     p      inv_purchases%ROWTYPE;
@@ -1124,6 +1509,8 @@ DECLARE
     n      integer;
     t_net  bigint;
     t_vat  bigint;
+    rep_name   text;
+    rep_mobile text;
 BEGIN
     PERFORM ew_inv_require_storekeeper(uid);
     SELECT * INTO p FROM inv_purchases WHERE id = p_purchase AND user_id = uid FOR UPDATE;
@@ -1143,10 +1530,11 @@ BEGIN
     IF p.supplier_id IS NULL OR p.supplier_invoice_no IS NULL OR p.invoice_date IS NULL OR p.printed_total_halalas IS NULL THEN
         RAISE EXCEPTION 'incomplete' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_purchase_incomplete';
     END IF;
-    IF p.invoice_date > ew_riyadh_today() THEN
+    IF p.invoice_date > ew_riyadh_today() OR p.received_on > ew_riyadh_today() THEN
         RAISE EXCEPTION 'date' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_purchase_future_date';
     END IF;
     SELECT * INTO sup FROM inv_suppliers WHERE id = p.supplier_id AND user_id = uid;
+    SELECT r.name, r.mobile INTO rep_name, rep_mobile FROM inv_supplier_reps r WHERE r.id = p.rep_id;
     IF NOT sup.is_active THEN
         RAISE EXCEPTION 'supplier' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_supplier_archived';
     END IF;
@@ -1175,8 +1563,8 @@ BEGIN
     n := ew_inv_next_no(uid, 'PURCHASE');
     UPDATE inv_purchases
        SET status = 'POSTED', number = n, posted_at = now(), supplier_name = sup.name,
-           supplier_vat_number = sup.vat_number, subtotal_halalas = t_net, vat_halalas = t_vat,
-           total_halalas = t_net + t_vat
+           supplier_vat_number = sup.vat_number, rep_name = post.rep_name, rep_mobile = post.rep_mobile,
+           subtotal_halalas = t_net, vat_halalas = t_vat, total_halalas = t_net + t_vat
      WHERE id = p.id;
 
     INSERT INTO inv_movements (user_id, item_id, kind, quantity_milli, value_halalas, purchase_id, purchase_line_no, occurred_on)
@@ -1201,6 +1589,7 @@ $$;
 -- يأخذ الباقي بالهللة)، وخروجٌ من المخزون بالمتوسط، وقيدٌ سالب في الدفتر.
 CREATE FUNCTION ew_inv_post_return(p_return uuid, p_expected_row_version integer, p_ack text[]) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+<<post>>
 DECLARE
     uid     uuid := ew_current_user();
     r       inv_returns%ROWTYPE;
@@ -1214,6 +1603,8 @@ DECLARE
     v_cost  bigint;
     t_net   bigint := 0;
     t_vat   bigint := 0;
+    rep_name   text;
+    rep_mobile text;
 BEGIN
     PERFORM ew_inv_require_storekeeper(uid);
     SELECT * INTO r FROM inv_returns WHERE id = p_return AND user_id = uid FOR UPDATE;
@@ -1286,10 +1677,11 @@ BEGIN
         t_net := t_net + v_net;
         t_vat := t_vat + v_vat;
     END LOOP;
+    SELECT x.name, x.mobile INTO rep_name, rep_mobile FROM inv_supplier_reps x WHERE x.id = r.rep_id;
     n := ew_inv_next_no(uid, 'RETURN');
     UPDATE inv_returns
        SET status = 'POSTED', number = n, posted_at = now(), net_halalas = t_net, vat_halalas = t_vat,
-           total_halalas = t_net + t_vat
+           total_halalas = t_net + t_vat, rep_name = post.rep_name, rep_mobile = post.rep_mobile
      WHERE id = r.id;
     INSERT INTO inv_ledger (user_id, kind, entry_date, net_halalas, vat_halalas, gross_halalas, purchase_id, return_id, supplier_id)
     VALUES (uid, 'RETURN', r.return_date, -t_net, -t_vat, -(t_net + t_vat), p.id, r.id, p.supplier_id);
@@ -1352,6 +1744,56 @@ $$;
 -- سند المخزون بضغطةٍ واحدة. OPENING: رصيدٌ افتتاحي لصنفٍ بلا حركة، بتكلفة وحدته.
 -- ISSUE: صرفٌ بسبب. COUNT: المعدود فعلاً أمام الرصيد الذي رآه صاحبه؛ الفرق حركة،
 -- والزيادة على رصيدٍ صفرٍ تحتاج تكلفة وحدة. التاريخ في الثلاثين يوماً الأخيرة.
+-- سند الجرد لصنفٍ مقفول (FOR UPDATE عند من يستدعي): المعدود مقابل الرصيد الآن، وسببٌ
+-- للفرق في اتجاهه، وتكلفة الوحدة حين يُعدّ رصيدٌ لصنفٍ بلا رصيد. يكتب السند والحركة
+-- (إن كان فرق) وآخر جردٍ على الصنف. تستدعيها دوالّ المالك وحدها.
+CREATE FUNCTION ew_inv_count_voucher(
+    p_user uuid, p_item inv_items, p_counted_milli bigint, p_unit_cost_halalas bigint, p_reason text, p_note text,
+    p_occurred_on date, p_client_token uuid, p_session uuid
+) RETURNS inv_vouchers
+LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE
+    v     inv_vouchers%ROWTYPE;
+    delta bigint;
+BEGIN
+    IF p_counted_milli IS NULL OR (p_counted_milli <> 0 AND NOT ew_inv_qty_ok(p_item.unit, p_counted_milli)) THEN
+        RAISE EXCEPTION 'quantity' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_quantity_unit';
+    END IF;
+    delta := p_counted_milli - p_item.on_hand_milli;
+    IF (delta <> 0) <> (p_reason IS NOT NULL) THEN
+        RAISE EXCEPTION 'reason' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_needs_reason';
+    END IF;
+    IF (delta < 0 AND p_reason NOT IN ('DAMAGE', 'EXPIRED', 'THEFT_LOSS', 'RECORDING_ERROR', 'OTHER'))
+       OR (delta > 0 AND p_reason NOT IN ('FOUND', 'RECORDING_ERROR', 'OTHER')) THEN
+        RAISE EXCEPTION 'reason' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_reason_direction';
+    END IF;
+    IF p_reason = 'OTHER' AND p_note IS NULL THEN
+        RAISE EXCEPTION 'note' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_needs_note';
+    END IF;
+    IF delta > 0 AND p_item.on_hand_milli = 0 AND p_unit_cost_halalas IS NULL THEN
+        RAISE EXCEPTION 'cost' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_needs_cost';
+    END IF;
+    INSERT INTO inv_vouchers (user_id, number, kind, item_id, quantity_milli, on_hand_before_milli, session_id, unit_cost_halalas,
+                              reason, note, occurred_on, client_token)
+    VALUES (p_user, ew_inv_next_no(p_user, 'VOUCHER'), 'COUNT', p_item.id, p_counted_milli, p_item.on_hand_milli, p_session,
+            CASE WHEN delta > 0 AND p_item.on_hand_milli = 0 THEN p_unit_cost_halalas END, p_reason, p_note, p_occurred_on, p_client_token)
+    RETURNING * INTO v;
+    IF delta > 0 THEN
+        -- الزيادة بالمتوسط الحالي، أو بتكلفة الوحدة المعطاة حين لا رصيد يُشتقّ منه متوسط.
+        INSERT INTO inv_movements (user_id, item_id, kind, quantity_milli, value_halalas, voucher_id, occurred_on)
+        VALUES (p_user, p_item.id, 'COUNT_IN', delta,
+                CASE WHEN p_item.on_hand_milli = 0 THEN round(delta::numeric * p_unit_cost_halalas / 1000)::bigint
+                     ELSE round(p_item.stock_value_halalas::numeric * delta / p_item.on_hand_milli)::bigint END,
+                v.id, p_occurred_on);
+    ELSIF delta < 0 THEN
+        INSERT INTO inv_movements (user_id, item_id, kind, quantity_milli, value_halalas, voucher_id, occurred_on)
+        VALUES (p_user, p_item.id, 'COUNT_OUT', -delta, 0, v.id, p_occurred_on);
+    END IF;
+    UPDATE inv_items SET last_counted_on = p_occurred_on WHERE id = p_item.id;
+    RETURN v;
+END
+$$;
+
 CREATE FUNCTION ew_inv_stock_voucher(
     p_client_token uuid, p_kind text, p_item uuid, p_quantity_milli bigint, p_unit_cost_halalas bigint,
     p_reason text, p_note text, p_occurred_on date, p_expected_on_hand_milli bigint
@@ -1362,7 +1804,6 @@ DECLARE
     item  inv_items%ROWTYPE;
     v     inv_vouchers%ROWTYPE;
     today date := ew_riyadh_today();
-    delta bigint;
     n     integer;
 BEGIN
     PERFORM ew_inv_require_storekeeper(uid);
@@ -1388,13 +1829,9 @@ BEGIN
         IF p_expected_on_hand_milli IS DISTINCT FROM item.on_hand_milli THEN
             RAISE EXCEPTION 'stale' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_stale';
         END IF;
-        IF p_quantity_milli IS NULL OR (p_quantity_milli <> 0 AND NOT ew_inv_qty_ok(item.unit, p_quantity_milli)) THEN
-            RAISE EXCEPTION 'quantity' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_quantity_unit';
-        END IF;
-        delta := p_quantity_milli - item.on_hand_milli;
-        IF delta > 0 AND item.on_hand_milli = 0 AND p_unit_cost_halalas IS NULL THEN
-            RAISE EXCEPTION 'cost' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_needs_cost';
-        END IF;
+        v := ew_inv_count_voucher(uid, item, p_quantity_milli, p_unit_cost_halalas, p_reason, p_note, p_occurred_on, p_client_token, NULL);
+        RETURN QUERY SELECT v.id, v.number, false;
+        RETURN;
     ELSIF p_kind IN ('OPENING', 'ISSUE') THEN
         IF p_quantity_milli IS NULL OR NOT ew_inv_qty_ok(item.unit, p_quantity_milli) THEN
             RAISE EXCEPTION 'quantity' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_quantity_unit';
@@ -1406,32 +1843,227 @@ BEGIN
         RAISE EXCEPTION 'kind' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_voucher_kind';
     END IF;
     n := ew_inv_next_no(uid, 'VOUCHER');
-    INSERT INTO inv_vouchers (user_id, number, kind, item_id, quantity_milli, on_hand_before_milli, unit_cost_halalas,
-                              reason, note, occurred_on, client_token)
+    INSERT INTO inv_vouchers (user_id, number, kind, item_id, quantity_milli, unit_cost_halalas, reason, note, occurred_on, client_token)
     VALUES (uid, n, p_kind, item.id, p_quantity_milli,
-            CASE WHEN p_kind = 'COUNT' THEN item.on_hand_milli END,
-            CASE WHEN p_kind = 'OPENING' OR (p_kind = 'COUNT' AND delta > 0 AND item.on_hand_milli = 0) THEN p_unit_cost_halalas END,
+            CASE WHEN p_kind = 'OPENING' THEN p_unit_cost_halalas END,
             CASE WHEN p_kind = 'ISSUE' THEN p_reason END, p_note, p_occurred_on, p_client_token)
     RETURNING * INTO v;
     IF p_kind = 'OPENING' THEN
         INSERT INTO inv_movements (user_id, item_id, kind, quantity_milli, value_halalas, voucher_id, occurred_on)
         VALUES (uid, item.id, 'OPENING_IN', p_quantity_milli,
                 round(p_quantity_milli::numeric * p_unit_cost_halalas / 1000)::bigint, v.id, p_occurred_on);
-    ELSIF p_kind = 'ISSUE' THEN
+    ELSE
         INSERT INTO inv_movements (user_id, item_id, kind, quantity_milli, value_halalas, voucher_id, occurred_on)
         VALUES (uid, item.id, 'ISSUE_OUT', p_quantity_milli, 0, v.id, p_occurred_on);
-    ELSIF delta > 0 THEN
-        -- الزيادة بالمتوسط الحالي، أو بتكلفة الوحدة المعطاة حين لا رصيد يُشتقّ منه متوسط.
-        INSERT INTO inv_movements (user_id, item_id, kind, quantity_milli, value_halalas, voucher_id, occurred_on)
-        VALUES (uid, item.id, 'COUNT_IN', delta,
-                CASE WHEN item.on_hand_milli = 0 THEN round(delta::numeric * p_unit_cost_halalas / 1000)::bigint
-                     ELSE round(item.stock_value_halalas::numeric * delta / item.on_hand_milli)::bigint END,
-                v.id, p_occurred_on);
-    ELSIF delta < 0 THEN
-        INSERT INTO inv_movements (user_id, item_id, kind, quantity_milli, value_halalas, voucher_id, occurred_on)
-        VALUES (uid, item.id, 'COUNT_OUT', -delta, 0, v.id, p_occurred_on);
     END IF;
     RETURN QUERY SELECT v.id, v.number, false;
+END
+$$;
+
+-- ── جلسة الجرد ──────────────────────────────────────────────────────────
+-- تُفتح بلقطة: سطرٌ لكل صنفٍ في النطاق برصيده الآن، وآخر رقمي فاتورةٍ وسند. الضغطة
+-- المكرّرة (client_token نفسه) تعيد الجلسة نفسها. جلسةٌ مفتوحة واحدة لكل حساب.
+CREATE FUNCTION ew_inv_count_open(
+    p_client_token uuid, p_scope text, p_category uuid, p_items uuid[], p_blind boolean, p_note text
+) RETURNS TABLE (session_id uuid, session_number integer, replayed boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    uid uuid := ew_current_user();
+    cs  inv_count_sessions%ROWTYPE;
+    n   integer;
+BEGIN
+    PERFORM ew_inv_require_storekeeper(uid);
+    SELECT * INTO cs FROM inv_count_sessions WHERE user_id = uid AND client_token = p_client_token;
+    IF FOUND THEN
+        RETURN QUERY SELECT cs.id, cs.number, true;
+        RETURN;
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtextextended('eyework.inv_count_sessions:' || uid::text, 0));
+    IF EXISTS (SELECT 1 FROM inv_count_sessions WHERE user_id = uid AND status = 'OPEN') THEN
+        RAISE EXCEPTION 'open' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_session_open';
+    END IF;
+    IF p_scope NOT IN ('ALL', 'CATEGORY', 'LOW', 'SELECTED') OR (p_scope = 'CATEGORY') <> (p_category IS NOT NULL)
+       OR (p_scope = 'SELECTED') <> (cardinality(coalesce(p_items, '{}')) > 0) THEN
+        RAISE EXCEPTION 'scope' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_scope';
+    END IF;
+    IF p_category IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM inv_categories WHERE id = p_category AND user_id = uid AND is_active) THEN
+        RAISE EXCEPTION 'category' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_category_archived';
+    END IF;
+    CREATE TEMPORARY TABLE pg_temp.inv_count_pick ON COMMIT DROP AS
+        SELECT i.id, i.on_hand_milli, i.name_key
+          FROM inv_items i
+         WHERE i.user_id = uid AND i.is_active AND i.kind = 'STOCK'
+           AND CASE p_scope
+                   WHEN 'CATEGORY' THEN i.category_id = p_category
+                   WHEN 'LOW'      THEN i.reorder_level_milli IS NOT NULL AND i.on_hand_milli <= i.reorder_level_milli
+                   WHEN 'SELECTED' THEN i.id = ANY (p_items)
+                   ELSE true END;
+    IF NOT EXISTS (SELECT 1 FROM pg_temp.inv_count_pick) THEN
+        RAISE EXCEPTION 'items' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_no_items';
+    END IF;
+    n := ew_inv_next_no(uid, 'COUNT');
+    INSERT INTO inv_count_sessions (user_id, number, scope, category_id, blind, note, last_purchase_number, last_voucher_number,
+                                    items_total, client_token)
+    VALUES (uid, n, p_scope, p_category, coalesce(p_blind, true), p_note,
+            (SELECT max(number) FROM inv_purchases WHERE user_id = uid),
+            (SELECT max(number) FROM inv_vouchers WHERE user_id = uid),
+            (SELECT count(*) FROM pg_temp.inv_count_pick), p_client_token)
+    RETURNING * INTO cs;
+    INSERT INTO inv_count_lines (session_id, user_id, item_id, line_no, book_milli)
+    SELECT cs.id, uid, k.id, row_number() OVER (ORDER BY k.name_key, k.id), k.on_hand_milli FROM pg_temp.inv_count_pick k;
+    RETURN QUERY SELECT cs.id, cs.number, false;
+END
+$$;
+
+-- صنفٌ لم يكن في الكشف: يُضاف إلى الجلسة المفتوحة برصيده الآن. يُرجع رقم سطره.
+CREATE FUNCTION ew_inv_count_add_item(p_session uuid, p_item uuid) RETURNS smallint
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    uid  uuid := ew_current_user();
+    cs   inv_count_sessions%ROWTYPE;
+    item inv_items%ROWTYPE;
+    no   smallint;
+BEGIN
+    PERFORM ew_inv_require_storekeeper(uid);
+    SELECT * INTO cs FROM inv_count_sessions WHERE id = p_session AND user_id = uid FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'session' USING ERRCODE = 'no_data_found';
+    END IF;
+    IF cs.status <> 'OPEN' THEN
+        RAISE EXCEPTION 'closed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_not_open';
+    END IF;
+    SELECT * INTO item FROM inv_items WHERE id = p_item AND user_id = uid;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'item' USING ERRCODE = 'no_data_found';
+    END IF;
+    IF item.kind <> 'STOCK' THEN
+        RAISE EXCEPTION 'kind' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_movement_needs_stock_item';
+    END IF;
+    IF NOT item.is_active THEN
+        RAISE EXCEPTION 'item' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_item_archived';
+    END IF;
+    IF EXISTS (SELECT 1 FROM inv_count_lines WHERE session_id = cs.id AND item_id = item.id) THEN
+        RAISE EXCEPTION 'line' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_line_exists';
+    END IF;
+    no := coalesce((SELECT max(line_no) FROM inv_count_lines WHERE session_id = cs.id), 0) + 1;
+    INSERT INTO inv_count_lines (session_id, user_id, item_id, line_no, book_milli, added_during_count)
+    VALUES (cs.id, uid, item.id, no, item.on_hand_milli, true);
+    UPDATE inv_count_sessions SET items_total = items_total + 1 WHERE id = cs.id;
+    RETURN no;
+END
+$$;
+
+-- رصيدٌ تحرّك بعد اللقطة: يُحدَّث رصيده الدفتري في السطر ويُمحى عدّه ليُعاد. يُرجع عدد
+-- السطور التي تغيّرت.
+CREATE FUNCTION ew_inv_count_refresh(p_session uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    uid uuid := ew_current_user();
+    cs  inv_count_sessions%ROWTYPE;
+    n   integer;
+BEGIN
+    PERFORM ew_inv_require_storekeeper(uid);
+    SELECT * INTO cs FROM inv_count_sessions WHERE id = p_session AND user_id = uid FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'session' USING ERRCODE = 'no_data_found';
+    END IF;
+    IF cs.status <> 'OPEN' THEN
+        RAISE EXCEPTION 'closed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_not_open';
+    END IF;
+    UPDATE inv_count_lines l
+       SET book_milli = i.on_hand_milli, counted_milli = NULL, reason = NULL, counted_at = NULL, updated_at = now()
+      FROM inv_items i
+     WHERE l.session_id = cs.id AND i.id = l.item_id AND i.on_hand_milli <> l.book_milli;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    IF n > 0 THEN
+        UPDATE inv_count_sessions SET updated_at = now() WHERE id = cs.id;
+    END IF;
+    RETURN n;
+END
+$$;
+
+-- الترحيل: سند جردٍ لكل سطرٍ معدود، بالرصيد الآن (سطرٌ تحرّك رصيده بعد اللقطة يوقف
+-- الترحيل حتى يُحدَّث ويُعاد عدّه)، ثم تُغلق الجلسة بعدد المعدود والمطابق. ما لم يُعدّ
+-- يبقى كما هو. التاريخ يوم الرياض أو قبله بثلاثين يوماً على الأكثر.
+CREATE FUNCTION ew_inv_count_post(p_session uuid, p_expected_row_version integer, p_occurred_on date)
+RETURNS TABLE (session_number integer, items_counted integer, items_matched integer)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    uid     uuid := ew_current_user();
+    cs      inv_count_sessions%ROWTYPE;
+    item    inv_items%ROWTYPE;
+    v       inv_vouchers%ROWTYPE;
+    today   date := ew_riyadh_today();
+    cl      record;
+    counted integer := 0;
+    matched integer := 0;
+BEGIN
+    PERFORM ew_inv_require_storekeeper(uid);
+    SELECT * INTO cs FROM inv_count_sessions WHERE id = p_session AND user_id = uid FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'session' USING ERRCODE = 'no_data_found';
+    END IF;
+    IF cs.status <> 'OPEN' THEN
+        RAISE EXCEPTION 'closed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_not_open';
+    END IF;
+    IF cs.row_version <> p_expected_row_version THEN
+        RAISE EXCEPTION 'stale' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_stale_row_version';
+    END IF;
+    IF p_occurred_on IS NULL OR p_occurred_on > today OR p_occurred_on < today - 30 THEN
+        RAISE EXCEPTION 'date' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_voucher_date';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM inv_count_lines WHERE session_id = cs.id AND counted_milli IS NOT NULL) THEN
+        RAISE EXCEPTION 'lines' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_nothing_counted';
+    END IF;
+    PERFORM ew_inv_lock_items(ARRAY(SELECT item_id FROM inv_count_lines WHERE session_id = cs.id AND counted_milli IS NOT NULL));
+    IF EXISTS (SELECT 1 FROM inv_count_lines l JOIN inv_items i ON i.id = l.item_id
+                WHERE l.session_id = cs.id AND l.counted_milli IS NOT NULL AND i.on_hand_milli <> l.book_milli) THEN
+        RAISE EXCEPTION 'stale' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_stale';
+    END IF;
+    IF EXISTS (SELECT 1 FROM inv_count_lines l JOIN inv_items i ON i.id = l.item_id
+                WHERE l.session_id = cs.id AND l.counted_milli IS NOT NULL AND NOT i.is_active) THEN
+        RAISE EXCEPTION 'item' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_item_archived';
+    END IF;
+    FOR cl IN
+        SELECT l.item_id, l.counted_milli, l.unit_cost_halalas, l.reason, l.note
+          FROM inv_count_lines l WHERE l.session_id = cs.id AND l.counted_milli IS NOT NULL ORDER BY l.line_no
+    LOOP
+        SELECT * INTO item FROM inv_items WHERE id = cl.item_id;
+        v := ew_inv_count_voucher(uid, item, cl.counted_milli, cl.unit_cost_halalas, cl.reason, cl.note, p_occurred_on,
+                                  gen_random_uuid(), cs.id);
+        UPDATE inv_count_lines SET voucher_id = v.id, updated_at = now() WHERE session_id = cs.id AND item_id = cl.item_id;
+        counted := counted + 1;
+        IF cl.counted_milli = item.on_hand_milli THEN
+            matched := matched + 1;
+        END IF;
+    END LOOP;
+    UPDATE inv_count_sessions
+       SET status = 'POSTED', posted_at = now(), items_counted = counted, items_matched = matched
+     WHERE id = cs.id;
+    RETURN QUERY SELECT cs.number, counted, matched;
+END
+$$;
+
+-- الإلغاء: تبقى الجلسة برقمها معلَّمةً «ملغاة»، ولا يتغيّر رصيد.
+CREATE FUNCTION ew_inv_count_cancel(p_session uuid, p_expected_row_version integer) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    uid uuid := ew_current_user();
+    cs  inv_count_sessions%ROWTYPE;
+BEGIN
+    PERFORM ew_inv_require_storekeeper(uid);
+    SELECT * INTO cs FROM inv_count_sessions WHERE id = p_session AND user_id = uid FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'session' USING ERRCODE = 'no_data_found';
+    END IF;
+    IF cs.status <> 'OPEN' THEN
+        RAISE EXCEPTION 'closed' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_not_open';
+    END IF;
+    IF cs.row_version <> p_expected_row_version THEN
+        RAISE EXCEPTION 'stale' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_stale_row_version';
+    END IF;
+    UPDATE inv_count_sessions SET status = 'CANCELLED', cancelled_at = now() WHERE id = cs.id;
 END
 $$;
 
@@ -1610,6 +2242,14 @@ ALTER TABLE inv_ledger         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_ledger         FORCE  ROW LEVEL SECURITY;
 ALTER TABLE inv_review_flags   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_review_flags   FORCE  ROW LEVEL SECURITY;
+ALTER TABLE inv_categories     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_categories     FORCE  ROW LEVEL SECURITY;
+ALTER TABLE inv_supplier_reps  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_supplier_reps  FORCE  ROW LEVEL SECURITY;
+ALTER TABLE inv_count_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_count_sessions FORCE  ROW LEVEL SECURITY;
+ALTER TABLE inv_count_lines    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_count_lines    FORCE  ROW LEVEL SECURITY;
 
 CREATE POLICY inv_settings_own       ON inv_settings       FOR ALL TO eyework_app
     USING (user_id = ew_current_user()) WITH CHECK (user_id = ew_current_user());
@@ -1633,6 +2273,14 @@ CREATE POLICY inv_ledger_own         ON inv_ledger         FOR SELECT TO eyework
     USING (user_id = ew_current_user());
 CREATE POLICY inv_review_flags_own   ON inv_review_flags   FOR SELECT TO eyework_app
     USING (user_id = ew_current_user());
+CREATE POLICY inv_categories_own     ON inv_categories     FOR ALL TO eyework_app
+    USING (user_id = ew_current_user()) WITH CHECK (user_id = ew_current_user());
+CREATE POLICY inv_supplier_reps_own  ON inv_supplier_reps  FOR ALL TO eyework_app
+    USING (user_id = ew_current_user()) WITH CHECK (user_id = ew_current_user());
+CREATE POLICY inv_count_sessions_own ON inv_count_sessions FOR ALL TO eyework_app
+    USING (user_id = ew_current_user()) WITH CHECK (user_id = ew_current_user());
+CREATE POLICY inv_count_lines_own    ON inv_count_lines    FOR ALL TO eyework_app
+    USING (user_id = ew_current_user()) WITH CHECK (user_id = ew_current_user());
 
 CREATE POLICY inv_settings_owner_access       ON inv_settings       FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
 CREATE POLICY inv_counters_owner_access       ON inv_counters       FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
@@ -1646,36 +2294,59 @@ CREATE POLICY inv_vouchers_owner_access       ON inv_vouchers       FOR ALL TO C
 CREATE POLICY inv_movements_owner_access      ON inv_movements      FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
 CREATE POLICY inv_ledger_owner_access         ON inv_ledger         FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
 CREATE POLICY inv_review_flags_owner_access   ON inv_review_flags   FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
+CREATE POLICY inv_categories_owner_access     ON inv_categories     FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
+CREATE POLICY inv_supplier_reps_owner_access  ON inv_supplier_reps  FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
+CREATE POLICY inv_count_sessions_owner_access ON inv_count_sessions FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
+CREATE POLICY inv_count_lines_owner_access    ON inv_count_lines    FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
 
 -- ════════════════════════════════════════════════════════════════════════
 -- المنح: بالأعمدة، بلا DELETE ولا TRUNCATE. ما يُحسب أو يُسجَّل تكتبه الدوالّ وحدها.
 -- ════════════════════════════════════════════════════════════════════════
 GRANT SELECT ON inv_settings TO eyework_app;
-GRANT INSERT (user_id, cost_includes_vat) ON inv_settings TO eyework_app;
-GRANT UPDATE (cost_includes_vat) ON inv_settings TO eyework_app;
+GRANT INSERT (user_id, cost_includes_vat, store_name, store_location) ON inv_settings TO eyework_app;
+GRANT UPDATE (cost_includes_vat, store_name, store_location) ON inv_settings TO eyework_app;
 
 GRANT SELECT ON inv_suppliers TO eyework_app;
-GRANT INSERT (user_id, name, vat_number) ON inv_suppliers TO eyework_app;
-GRANT UPDATE (name, vat_number, is_active) ON inv_suppliers TO eyework_app;
+GRANT INSERT (user_id, name, vat_number, cr_number, phone, note) ON inv_suppliers TO eyework_app;
+GRANT UPDATE (name, vat_number, cr_number, phone, note, is_active) ON inv_suppliers TO eyework_app;
+
+GRANT SELECT ON inv_supplier_reps TO eyework_app;
+GRANT INSERT (user_id, supplier_id, name, mobile, is_default) ON inv_supplier_reps TO eyework_app;
+GRANT UPDATE (name, mobile, is_default, is_active) ON inv_supplier_reps TO eyework_app;
+
+GRANT SELECT ON inv_categories TO eyework_app;
+GRANT INSERT (user_id, name) ON inv_categories TO eyework_app;
+GRANT UPDATE (name, is_active) ON inv_categories TO eyework_app;
 
 GRANT SELECT ON inv_items TO eyework_app;
-GRANT INSERT (user_id, name, code, kind, unit, vat_category, price_halalas, reorder_level_milli) ON inv_items TO eyework_app;
-GRANT UPDATE (name, code, kind, unit, vat_category, price_halalas, reorder_level_milli, is_active) ON inv_items TO eyework_app;
+GRANT INSERT (user_id, name, supplier_code, barcode, kind, unit, category_id, vat_category, vat_exemption_reason, price_halalas,
+              selling_price_halalas, selling_price_includes_vat, reorder_level_milli, target_level_milli, preferred_supplier_id, note)
+    ON inv_items TO eyework_app;
+GRANT UPDATE (name, supplier_code, barcode, kind, unit, category_id, vat_category, vat_exemption_reason, price_halalas,
+              selling_price_halalas, selling_price_includes_vat, reorder_level_milli, target_level_milli, preferred_supplier_id, note,
+              is_active) ON inv_items TO eyework_app;
 
 GRANT SELECT ON inv_purchases TO eyework_app;
 GRANT INSERT (user_id, supplier_id, supplier_invoice_no, invoice_date, prices_include_vat, printed_total_halalas,
-              printed_vat_halalas, note) ON inv_purchases TO eyework_app;
+              printed_vat_halalas, note, rep_id, delivery_note_no, received_on) ON inv_purchases TO eyework_app;
 GRANT UPDATE (supplier_id, supplier_invoice_no, invoice_date, prices_include_vat, printed_total_halalas,
-              printed_vat_halalas, note) ON inv_purchases TO eyework_app;
+              printed_vat_halalas, note, rep_id, delivery_note_no, received_on) ON inv_purchases TO eyework_app;
 
 GRANT SELECT ON inv_purchase_lines TO eyework_app;
-GRANT INSERT (purchase_id, user_id, item_id, quantity_milli, unit_price_halalas, discount_halalas, vat_category)
+GRANT INSERT (purchase_id, user_id, item_id, quantity_milli, unit_price_halalas, discount_halalas, vat_category, received_quantity_milli)
     ON inv_purchase_lines TO eyework_app;
-GRANT UPDATE (item_id, quantity_milli, unit_price_halalas, discount_halalas, vat_category) ON inv_purchase_lines TO eyework_app;
+GRANT UPDATE (item_id, quantity_milli, unit_price_halalas, discount_halalas, vat_category, received_quantity_milli)
+    ON inv_purchase_lines TO eyework_app;
 
 GRANT SELECT ON inv_returns TO eyework_app;
-GRANT INSERT (user_id, purchase_id, return_date, reason, note) ON inv_returns TO eyework_app;
-GRANT UPDATE (return_date, reason, note, credit_note_no, credit_note_date) ON inv_returns TO eyework_app;
+GRANT INSERT (user_id, purchase_id, return_date, reason, note, rep_id) ON inv_returns TO eyework_app;
+GRANT UPDATE (return_date, reason, note, rep_id, credit_note_no, credit_note_date) ON inv_returns TO eyework_app;
+
+GRANT SELECT ON inv_count_sessions TO eyework_app;
+GRANT UPDATE (blind, note) ON inv_count_sessions TO eyework_app;
+
+GRANT SELECT ON inv_count_lines TO eyework_app;
+GRANT UPDATE (counted_milli, unit_cost_halalas, reason, note) ON inv_count_lines TO eyework_app;
 
 GRANT SELECT ON inv_return_lines TO eyework_app;
 GRANT INSERT (return_id, user_id, line_no, quantity_milli) ON inv_return_lines TO eyework_app;
@@ -1685,11 +2356,11 @@ GRANT SELECT ON inv_vouchers, inv_movements, inv_ledger, inv_review_flags TO eye
 
 -- دوالّ القيود والحساب تُستدعى بصلاحية من يكتب أو يسأل.
 REVOKE ALL ON FUNCTION ew_inv_text_ok(text, integer), ew_inv_qty_ok(text, bigint), ew_inv_vat_bp(text),
-                       ew_inv_doc_no_ok(text), ew_inv_doc_key(text), ew_inv_name_key(text),
+                       ew_inv_doc_no_ok(text), ew_inv_doc_key(text), ew_inv_name_key(text), ew_inv_phone_ok(text),
                        ew_inv_purchase_calc(uuid), ew_inv_purchase_digest(uuid), ew_inv_return_digest(uuid),
                        ew_inv_purchase_flags(uuid), ew_inv_return_flags(uuid), ew_inv_flag_keys(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ew_inv_text_ok(text, integer), ew_inv_qty_ok(text, bigint), ew_inv_vat_bp(text),
-                          ew_inv_doc_no_ok(text), ew_inv_doc_key(text), ew_inv_name_key(text),
+                          ew_inv_doc_no_ok(text), ew_inv_doc_key(text), ew_inv_name_key(text), ew_inv_phone_ok(text),
                           ew_inv_purchase_calc(uuid), ew_inv_purchase_digest(uuid), ew_inv_return_digest(uuid),
                           ew_inv_purchase_flags(uuid), ew_inv_return_flags(uuid), ew_inv_flag_keys(uuid, uuid) TO eyework_app;
 
@@ -1702,20 +2373,26 @@ REVOKE ALL ON FUNCTION ew_inv_post_purchase(uuid, integer, text[]), ew_inv_post_
                        ew_inv_stock_voucher(uuid, text, uuid, bigint, bigint, text, text, date, bigint),
                        ew_inv_remove_purchase_line(uuid, smallint, integer), ew_inv_remove_return_line(uuid, smallint, integer),
                        ew_inv_discard_draft(uuid, uuid, integer),
-                       ew_inv_review_begin(uuid, uuid), ew_inv_review_record(uuid, jsonb, jsonb) FROM PUBLIC;
+                       ew_inv_review_begin(uuid, uuid), ew_inv_review_record(uuid, jsonb, jsonb),
+                       ew_inv_count_open(uuid, text, uuid, uuid[], boolean, text), ew_inv_count_add_item(uuid, uuid),
+                       ew_inv_count_refresh(uuid), ew_inv_count_post(uuid, integer, date), ew_inv_count_cancel(uuid, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ew_inv_post_purchase(uuid, integer, text[]), ew_inv_post_return(uuid, integer, text[]),
                           ew_inv_reverse_purchase(uuid, integer, text, text),
                           ew_inv_stock_voucher(uuid, text, uuid, bigint, bigint, text, text, date, bigint),
                           ew_inv_remove_purchase_line(uuid, smallint, integer), ew_inv_remove_return_line(uuid, smallint, integer),
                           ew_inv_discard_draft(uuid, uuid, integer),
-                          ew_inv_review_begin(uuid, uuid), ew_inv_review_record(uuid, jsonb, jsonb) TO eyework_app;
+                          ew_inv_review_begin(uuid, uuid), ew_inv_review_record(uuid, jsonb, jsonb),
+                          ew_inv_count_open(uuid, text, uuid, uuid[], boolean, text), ew_inv_count_add_item(uuid, uuid),
+                          ew_inv_count_refresh(uuid), ew_inv_count_post(uuid, integer, date), ew_inv_count_cancel(uuid, integer) TO eyework_app;
 
 -- داخليّة: تستدعيها دوالّ المالك ومحفّزاته وحدها.
 REVOKE ALL ON FUNCTION ew_inv_require_storekeeper(uuid), ew_inv_next_no(uuid, text), ew_inv_lock_items(uuid[]),
-                       ew_inv_check_ack(uuid, uuid, text[]) FROM PUBLIC;
+                       ew_inv_check_ack(uuid, uuid, text[]), ew_inv_rep_ok(uuid, uuid, uuid),
+                       ew_inv_count_voucher(uuid, inv_items, bigint, bigint, text, text, date, uuid, uuid) FROM PUBLIC;
 
 -- دوالّ المحفّزات لا يستدعيها أحدٌ مباشرة.
-REVOKE ALL ON FUNCTION ew_inv_settings_guard(), ew_inv_supplier_guard(), ew_inv_item_guard(),
-                       ew_inv_purchase_insert_guard(), ew_inv_purchase_guard(), ew_inv_purchase_line_guard(),
+REVOKE ALL ON FUNCTION ew_inv_settings_guard(), ew_inv_supplier_guard(), ew_inv_supplier_rep_guard(), ew_inv_category_guard(),
+                       ew_inv_item_guard(), ew_inv_purchase_insert_guard(), ew_inv_purchase_guard(), ew_inv_purchase_line_guard(),
                        ew_inv_return_insert_guard(), ew_inv_return_guard(), ew_inv_return_line_guard(),
+                       ew_inv_count_session_guard(), ew_inv_count_line_guard(),
                        ew_inv_movement_insert(), ew_inv_keep_record(), ew_inv_keep_posted_lines() FROM PUBLIC;
