@@ -36,12 +36,16 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from psycopg import errors as pg_errors
 
-from eyework import campaigns, config, images
+from eyework import assistant, campaigns, config, images, service_errors
 from eyework.copywriter import AnthropicCopywriter, Copywriter
 from eyework.db import Database
-from eyework.web import routes_auth, routes_campaigns, routes_portal
+from eyework.model_gateway import AnthropicGateway, Guard
+from eyework.prompt_kit import Gateway
+from eyework.reviewer import ReviewRunner
+from eyework.web import routes_ai, routes_auth, routes_campaigns, routes_portal
 from eyework.web.deps import Limiters
 from eyework.web.errors import (
+    AI_ASSISTANT,
     AI_OUTCOMES,
     CONSTRAINTS,
     EDIT_REQUEST,
@@ -86,6 +90,13 @@ _SECURITY_HEADERS = {
 _FORBIDDEN = {"code": "ORIGIN", "detail": "طلبٌ من خارج التطبيق."}
 
 
+class _NoGateway:
+    """بوّابةٌ بلا مفتاح: لاختبارٍ حقن الكاتب وحده. أيّ استدعاءٍ خطأٌ صريح لا صمت."""
+
+    def call(self, request):
+        raise RuntimeError("لا بوّابة نموذج: EYEWORK_ANTHROPIC_API_KEY غير مضبوط ولم تُحقن بوّابة")
+
+
 def _internal(request: Request, exc: Exception) -> JSONResponse:
     # الصنف والمسار فقط: نصّ الاستثناء قد يحمل قيم صفّ أو نصّ إعلان.
     logger.error("خطأ غير متوقَّع %s على %s", type(exc).__name__, request.url.path)
@@ -104,18 +115,27 @@ def create_app(
     settings: config.Settings | None = None,
     *,
     copywriter: Copywriter | None = None,
+    gateway: Gateway | None = None,
     database: Database | None = None,
 ) -> FastAPI:
     settings = settings or config.load()
     owns_database = database is None
+    # الإنتاج يحقن شيئاً فلا يقلع بلا مفتاح. اختبارٌ يحقن الكاتب وحده يأخذ بوّابةً
+    # ترفض كل استدعاء: ما لا يُستدعى فيه لا يحتاج مفتاحاً.
     if copywriter is None and not settings.anthropic_api_key:
         raise config.ConfigError("EYEWORK_ANTHROPIC_API_KEY غير مضبوط")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        yield
-        if owns_database:
-            app.state.db.close()
+        # حوض المراجعة يعيش مع التطبيق: يبدأ هنا ويُغلق بإلغاء ما لم يبدأ؛ وما بقي
+        # مفتوحاً في الدفتر يُغلق ABANDONED في purge.
+        app.state.review_runner.start()
+        try:
+            yield
+        finally:
+            app.state.review_runner.close()
+            if owns_database:
+                app.state.db.close()
 
     app = FastAPI(
         title="صياغة — حملات المنتجات",
@@ -134,6 +154,12 @@ def create_app(
             app.state.db.close()
         raise
     app.state.copywriter = copywriter or AnthropicCopywriter(settings.anthropic_api_key)
+    if gateway is None:
+        gateway = AnthropicGateway(settings.anthropic_api_key) if settings.anthropic_api_key else _NoGateway()
+    app.state.gateway = gateway
+    # القاطع والمقاعد لكل العملية؛ والمراجِع يحمل حوضه الذي يبدأ في lifespan.
+    app.state.ai_guard = Guard()
+    app.state.review_runner = ReviewRunner(app.state.gateway, app.state.ai_guard)
     app.state.limiters = Limiters.default()
 
     def refusal(request: Request) -> JSONResponse | None:
@@ -202,17 +228,29 @@ def create_app(
     def no_data(request: Request, exc: pg_errors.NoDataFound) -> JSONResponse:
         return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "detail": "الحملة غير موجودة."})
 
-    @app.exception_handler(campaigns.NotFound)
-    def not_found(request: Request, exc: campaigns.NotFound) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "detail": "الحملة غير موجودة."})
+    # أصناف الخدمات المشتركة (service_errors؛ والحملات تعيد تصديرها): الحملة تكتفي
+    # بالرسالة الافتراضية، والملاحظة والشاشة تسمّيان نفسيهما.
+    @app.exception_handler(service_errors.NotFound)
+    def not_found(request: Request, exc: service_errors.NotFound) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"code": exc.code, "detail": exc.detail or "الحملة غير موجودة."})
 
-    @app.exception_handler(campaigns.Conflict)
-    def conflict(request: Request, exc: campaigns.Conflict) -> JSONResponse:
-        return JSONResponse(status_code=409, content={"code": exc.code, "detail": CONSTRAINTS["stale_row_version"].detail})
+    @app.exception_handler(service_errors.Conflict)
+    def conflict(request: Request, exc: service_errors.Conflict) -> JSONResponse:
+        content = {"code": exc.code, "detail": exc.detail or CONSTRAINTS["stale_row_version"].detail}
+        if exc.extra:
+            content.update(exc.extra)
+        return JSONResponse(status_code=409, content=content)
 
-    @app.exception_handler(campaigns.Invalid)
-    def invalid(request: Request, exc: campaigns.Invalid) -> JSONResponse:
-        return _error(EDIT_REQUEST.get(exc.code, GENERIC))
+    @app.exception_handler(service_errors.Invalid)
+    def invalid(request: Request, exc: service_errors.Invalid) -> JSONResponse:
+        return _error(EDIT_REQUEST.get(exc.code, GENERIC), exc.field)
+
+    @app.exception_handler(assistant.AssistantError)
+    def assistant_error(request: Request, exc: assistant.AssistantError) -> JSONResponse:
+        spec = AI_ASSISTANT[exc.code]
+        if exc.retry_after_seconds:
+            spec = ErrorSpec(spec.status, spec.code, spec.detail, exc.retry_after_seconds)
+        return _error(spec)
 
     @app.exception_handler(campaigns.AiFailure)
     def ai_failure(request: Request, exc: campaigns.AiFailure) -> JSONResponse:
@@ -249,6 +287,7 @@ def create_app(
     app.include_router(routes_auth.router)
     app.include_router(routes_campaigns.router)
     app.include_router(routes_portal.router)
+    app.include_router(routes_ai.router)
     # أخيراً: كل ما لم يطابق مساراً أعلاه ملفٌّ ساكن. بلا شرط: نشرٌ بلا مجلد
     # الواجهة يفشل عند الإقلاع لا أن يعمل بلا واجهة.
     app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

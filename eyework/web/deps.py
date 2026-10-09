@@ -23,8 +23,8 @@ from eyework import auth
 from eyework.professions import Profession
 from eyework.rate_limit import RateLimit, RateLimiter, RateLimitExceeded
 
-__all__ = ["COOKIE", "Limiters", "client_ip", "client_network", "enforce", "require_profession", "require_user",
-           "session_token"]
+__all__ = ["COOKIE", "Limiters", "client_ip", "client_network", "enforce", "require_current_terms",
+           "require_profession", "require_user", "session_token"]
 
 COOKIE = "__Host-ew"
 COOKIE_MAX_AGE = 30 * 24 * 3600
@@ -51,6 +51,9 @@ class Limiters:
     upload: RateLimiter
     mutation: RateLimiter
     image: RateLimiter
+    #: مسارات الذكاء الاصطناعي لكل حساب (المراجعة والمساعد): ما كلفته مال مسقوفٌ في
+    #: القاعدة فوق هذا؛ هذا حاجزٌ أمام الضغط المكرّر قبل أن يصل القاعدة.
+    ai: RateLimiter
 
     @classmethod
     def default(cls) -> "Limiters":
@@ -70,6 +73,7 @@ class Limiters:
             upload=RateLimiter(RateLimit(10, 3600.0)),
             mutation=RateLimiter(RateLimit(120, 60.0)),
             image=RateLimiter(RateLimit(120, 60.0)),
+            ai=RateLimiter(RateLimit(20, 60.0)),
         )
 
 
@@ -143,3 +147,25 @@ def require_profession(profession: Profession):
         return user_id
 
     return dependency
+
+
+# يُستبدل عند الدمج: نسخةٌ دنيا من بوّابة الموافقة كما تكتبها حزمة التسجيل
+# (registration_spec §7.10)، تقرأ النسخة المقبولة بعبارةٍ ثابتة هنا إلى أن تصل
+# `auth.terms_version_of`. الرمز والحالة والرسالة كما في المواصفة.
+_TERMS = "SELECT ew_my_terms_version() AS version"
+_TERMS_REQUIRED = {"code": "TERMS", "detail": "تغيّر ما يُرسَل إلى Anthropic منذ وافقت. اقرأه ووافق عليه أولاً."}
+
+
+def require_current_terms(request: Request, user_id: UUID = Depends(require_user)) -> UUID:
+    """
+    لا يُرسَل شيءٌ لصاحب الجلسة إلى مزوّد النموذج قبل أن يوافق على النسخة الحالية من
+    «قبل أن تبدأ». من وافق على أقدم — أو لم يوافق قطّ، كحساب الدعوة — يُردّ إلى الموافقة.
+    الأحدث من الحالية يكفي: بعد تراجعٍ عن إصدار لا يُحبس من وافق على الأحدث، والتواريخ
+    YYYY-MM-DD تُقارن نصّاً.
+    """
+    with request.app.state.db.session(user_id) as cursor:
+        cursor.execute(_TERMS)
+        accepted = cursor.fetchone()["version"]
+    if accepted is None or accepted < auth.TERMS_VERSION:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=dict(_TERMS_REQUIRED))
+    return user_id

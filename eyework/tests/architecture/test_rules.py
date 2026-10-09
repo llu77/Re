@@ -3,7 +3,7 @@
 =============
 كل قاعدةٍ هنا تجعل سؤالاً واحداً يُجاب بقراءة ملفٍّ واحد:
 
-  • ما الذي يغادر النظام؟ — `copywriter.py` وحده يستورد `anthropic`، ولا
+  • ما الذي يغادر النظام؟ — `model_gateway.py` وحده يستورد `anthropic`، ولا
     مكتبة شبكةٍ أخرى في شيفرة الإنتاج.
   • من أين يأتي الوقت؟ — لا ساعة حائطٍ في بايثون إطلاقاً؛ `clock.py` وحده
     يقرأ الساعة الرتيبة.
@@ -67,9 +67,10 @@ def _tops(path: Path) -> set[str]:
 NETWORK = {"requests", "urllib", "urllib3", "httpx", "aiohttp", "socket", "http", "ftplib", "smtplib"}
 
 
-def test_only_the_copywriter_speaks_to_the_model():
+def test_only_the_model_gateway_speaks_to_the_model():
+    """كاتب النصّ يستورد العميل وتصنيف الأخطاء من البوّابة، ولا يستورد المكتبة بنفسه."""
     importers = sorted(_rel(p) for p in _production_python() if "anthropic" in _tops(p))
-    assert importers == ["copywriter.py"]
+    assert importers == ["model_gateway.py"]
 
 
 def test_no_other_network_library_in_production_code():
@@ -92,9 +93,10 @@ def test_only_the_image_module_decodes_images():
     assert importers == ["images.py", "scripts/make_icons.py"]
 
 
-#: من يحقّ له لمس القاعدة. طبقة الويب تصلها عبر `auth` و`campaigns` وحدهما؛
-#: و`web/app.py` يُنشئ التجمّع ويترجم أخطاءه.
-DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py"}
+#: من يحقّ له لمس القاعدة. طبقة الويب تصلها عبر `auth` و`campaigns` والمراجِع
+#: والمساعد؛ و`web/app.py` يُنشئ التجمّع ويترجم أخطاءه.
+DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py",
+                    "assistant.py"}
 
 
 def test_database_access_is_confined():
@@ -112,7 +114,8 @@ def test_web_routes_never_touch_the_database_directly():
 
 
 PURE = ("states.py", "money.py", "arabic_numbers.py", "copy_rules.py", "prompt.py", "passwords.py",
-        "clock.py", "rate_limit.py", "professions.py")
+        "clock.py", "rate_limit.py", "professions.py", "service_errors.py", "prompt_kit.py", "ai_limits.py",
+        "ai_text.py", "redact.py", "grounding.py", "reviewer_prompt.py", "assistant_prompt.py", "ai_log.py")
 IMPURE = {"fastapi", "starlette", "psycopg", "psycopg_pool", "anthropic", "PIL"}
 
 
@@ -330,12 +333,115 @@ def test_the_users_name_never_reaches_the_model():
     """
     import inspect
 
-    from eyework import copywriter, prompt, self_check
+    from eyework import assistant_prompt, copywriter, model_gateway, prompt, prompt_kit, reviewer_prompt, self_check
 
-    for module in (prompt, copywriter, self_check):
+    for module in (prompt, copywriter, self_check, prompt_kit, reviewer_prompt, assistant_prompt, model_gateway):
         source = inspect.getsource(module)
         assert "display_name" not in source, module.__name__
         assert "ew_my_display_name" not in source, module.__name__
     assert set(inspect.signature(prompt.CopyRequest).parameters) == {
         "jpeg", "seller_note", "previous", "presets", "edit_note",
+    }
+
+
+# ── طبقة الذكاء الاصطناعي ─────────────────────────────────────────────
+AI_MODULES = ("model_gateway.py", "prompt_kit.py", "ai_limits.py", "ai_text.py", "redact.py", "grounding.py",
+              "reviewer_prompt.py", "reviewer.py", "assistant_prompt.py", "assistant.py", "ai_log.py",
+              "web/routes_ai.py", "scripts/ai_eval.py")
+PROMPT_MODULES = ("prompt_kit.py", "reviewer_prompt.py", "assistant_prompt.py")
+#: من يسجّل عبر `ai_log` وحده: لا `logging` ولا `print`، فلا يتسرّب نصٌّ إلى السجلّ.
+AI_LOG_ONLY = ("model_gateway.py", "prompt_kit.py", "ai_text.py", "redact.py", "grounding.py", "reviewer_prompt.py",
+               "reviewer.py", "assistant_prompt.py", "assistant.py", "web/routes_ai.py")
+#: ما يعيد هذا النموذج 400 عليه، أو لا تحتاجه هذه الأدوات: لا يظهر حرفياً في وحداتها.
+_FORBIDDEN_REQUEST_KEYS = {"thinking", "budget_tokens", "tool_choice"}
+#: مفاتيح لا تدخل موضوعاً يُرسل (المواصفة §6.2).
+IDENTITY_KEYS = {"name", "display_name", "email", "login", "birth", "ui_size", "user_id", "supplier", "vat_number",
+                 "customer", "phone", "ticket_number"}
+
+
+def _string_constants(path: Path) -> set[str]:
+    return {node.value for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+
+
+@pytest.mark.parametrize("name", AI_MODULES)
+def test_ai_modules_never_name_thinking_a_budget_or_forced_tools(name):
+    found = _string_constants(APP / name) & _FORBIDDEN_REQUEST_KEYS
+    assert not found, f"{name}: {sorted(found)}"
+
+
+@pytest.mark.parametrize("name", PROMPT_MODULES)
+def test_prompt_modules_know_neither_the_database_nor_the_user(name):
+    path = APP / name
+    assert not {m for m in _imports(path) if m.startswith(("eyework.auth", "eyework.db", "eyework.web"))}, name
+    source = path.read_text(encoding="utf-8")
+    assert "display_name" not in source and "ew_my_display_name" not in source, name
+
+
+@pytest.mark.parametrize("name", AI_LOG_ONLY)
+def test_ai_modules_log_only_through_ai_log(name):
+    path = APP / name
+    assert "logging" not in _tops(path), name
+    offenders = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "print":
+            offenders.append(f"print [{node.lineno}]")
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) \
+                and func.value.id in ("logger", "logging", "log"):
+            offenders.append(f"{func.value.id}.{func.attr} [{node.lineno}]")
+    assert not offenders, f"{name}: {offenders}"
+
+
+def test_only_ai_log_imports_logging_among_the_ai_modules():
+    importers = [name for name in AI_MODULES if "logging" in _tops(APP / name)]
+    assert importers == ["ai_log.py"]
+
+
+def test_every_model_calling_route_depends_on_the_consent_gate():
+    """ما يصل النموذج أو المراجِع من مسارات الذكاء الاصطناعي يعتمد `require_current_terms`."""
+    tree = ast.parse((APP / "web" / "routes_ai.py").read_text(encoding="utf-8"))
+    checked = []
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef) or not node.decorator_list:
+            continue
+        body = "\n".join(ast.unparse(statement) for statement in node.body)
+        if any(token in body for token in ("reviewer.review(", "assistant.ask(", "state.gateway", "state.copywriter")):
+            assert "Depends(require_current_terms)" in ast.unparse(node.args), node.name
+            checked.append(node.name)
+    assert sorted(checked) == ["ask", "review"]
+
+
+def _identity_key(key: str) -> bool:
+    return any(key == word or key.startswith(word + "_") or key.endswith("_" + word) for word in IDENTITY_KEYS)
+
+
+def test_registered_review_loaders_declare_no_identity_fields():
+    from eyework import reviewer
+
+    for code, feature in reviewer.FEATURES.items():
+        found = sorted(key for key in feature.payload_keys if _identity_key(key))
+        assert not found, f"{code}: {found}"
+
+
+def test_screen_loader_sql_selects_no_identity_columns():
+    """شاشات المساعد تُحمَّل بعباراتٍ ثابتة لا تذكر عموداً من أعمدة الهوية."""
+    tree = ast.parse((APP / "assistant.py").read_text(encoding="utf-8"))
+    statements = [node.value.value for node in tree.body if isinstance(node, ast.Assign)
+                  and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
+                  and re.search(r"\bSELECT\b", node.value.value)]
+    assert statements, "لا عبارات في assistant.py"
+    for statement in statements:
+        for column in ("display_name", "login_hmac", "email", "birth_date", "ui_size", "user_id", "password",
+                       "terms_version", "jpeg", "sha256"):
+            assert column not in statement, column
+
+
+def test_the_model_call_has_no_identity_fields():
+    from eyework.prompt_kit import ModelCall
+
+    assert {field.name for field in dataclasses.fields(ModelCall)} == {
+        "feature", "system", "user", "schema", "effort", "max_tokens", "deadline_seconds", "stream", "prompt_version",
     }

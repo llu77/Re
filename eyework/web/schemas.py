@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, model_validator
 
 from eyework.auth import EMAIL_MAX, LOGIN_MAX, LOGIN_MIN, PASSWORD_MAX, PASSWORD_MIN
 from eyework.copy_rules import EDIT_NOTE_MAX, MAX_PRESETS, EditPreset
@@ -34,6 +34,10 @@ __all__ = [
     "SignupCodeBody",
     "RestoreBody",
     "RowVersionBody",
+    "AssistantBody",
+    "DecisionBody",
+    "ReviewBody",
+    "ScreenBody",
 ]
 
 RowVersion = Annotated[StrictInt, Field(ge=1, le=2_000_000_000)]
@@ -162,3 +166,45 @@ class ConfirmBody(RowVersionBody):
     version_id: UUID
     budget_sar: StrictInt
     days: StrictInt
+
+
+# ── طبقة الذكاء الاصطناعي ──────────────────────────────────────────────
+#: رمز أداةٍ أو نوع موضوع: نظير قيود القاعدة ai_feature_code وai_request_subject_kind.
+UpperCode = Annotated[StrictStr, Field(pattern=r"^[A-Z][A-Z_]{2,39}$")]
+#: بصمة المحتوى كما تُعرض: 64 خانةً ستّ عشرية.
+Digest = Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+class ReviewBody(_Body):
+    """ضغطة «راجع»: الأداة، ونوع الموضوع، ومعرّفه، وما رآه صاحبه من رقم الصفّ إن كان له."""
+
+    feature: UpperCode
+    kind: UpperCode
+    subject_id: UUID
+    expected_row_version: RowVersion | None = None
+
+
+class DecisionBody(_Body):
+    """«عدّل» أو «تابع رغم ذلك» أو «تراجع»، مع بصمة المحتوى الذي عُرضت عليه الملاحظة."""
+
+    action: Literal["EDIT", "PROCEED", "UNDO"]
+    digest: Digest | None = None
+
+
+class ScreenBody(_Body):
+    kind: UpperCode
+    id: UUID | None = None
+
+
+class AssistantBody(_Body):
+    """سؤالٌ مكتوب أو فهرس سؤالٍ جاهز، واحدٌ منهما لا كلاهما."""
+
+    screen: ScreenBody
+    question: Annotated[StrictStr, Field(min_length=1, max_length=400)] | None = None
+    ready_question: Annotated[StrictInt, Field(ge=0, le=2)] | None = None
+
+    @model_validator(mode="after")
+    def _one_of(self) -> "AssistantBody":
+        if (self.question is None) == (self.ready_question is None):
+            raise ValueError("سؤالٌ واحد: مكتوبٌ أو جاهز")
+        return self
