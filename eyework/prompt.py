@@ -24,6 +24,7 @@ import base64
 from dataclasses import dataclass, field
 
 from eyework.copy_rules import PRESET_INSTRUCTIONS, EditPreset
+from eyework.prompt_kit import data
 
 __all__ = [
     "BETAS",
@@ -201,35 +202,25 @@ class CopyRequest:
     edit_note: str | None = None
 
 
-def _data(text: str) -> str:
-    """
-    نصٌّ يُدرج بين وسمين لا يستطيع أن يغلقهما.
-
-    الأقواس الزاويّة تُستبدل بنظائرها الطباعية، فـ«‹/seller_note›» لا يُنهي
-    الوسم ولا يفتح غيره. ما سواها يبقى كما كتبه صاحبه.
-    """
-    return text.replace("<", "‹").replace(">", "›")
-
-
 def _instructions(request: CopyRequest) -> str:
     parts = []
     if request.seller_note:
-        parts.append(f"<seller_note>{_data(request.seller_note)}</seller_note>")
+        parts.append(f"<seller_note>{data(request.seller_note)}</seller_note>")
     if request.previous is None:
         parts.append("اكتب العنوان والوصف لهذا المنتج.")
         return "\n".join(parts)
 
     parts.append(
         "<previous_copy>\n"
-        f"<title>{_data(request.previous.title)}</title>\n"
-        f"<description>{_data(request.previous.description)}</description>\n"
+        f"<title>{data(request.previous.title)}</title>\n"
+        f"<description>{data(request.previous.description)}</description>\n"
         "</previous_copy>"
     )
     changes = [PRESET_INSTRUCTIONS[preset] for preset in request.presets]
     if changes:
         parts.append("التعديلات المطلوبة على النصّ السابق:\n" + "\n".join(f"- {c}" for c in changes))
     if request.edit_note:
-        parts.append(f"<seller_edit_note>{_data(request.edit_note)}</seller_edit_note>")
+        parts.append(f"<seller_edit_note>{data(request.edit_note)}</seller_edit_note>")
     parts.append("اكتب نسخةً جديدة من العنوان والوصف تُطبّق هذه التعديلات، مع القواعد نفسها.")
     return "\n\n".join(parts)
 

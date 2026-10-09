@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 __all__ = ["ErrorSpec", "AI_OUTCOMES", "CONSTRAINTS", "EDIT_REQUEST", "IMAGE", "REGISTRATION",
-           "REGISTRATION_CONSTRAINTS", "UNUSABLE", "GENERIC"]
+           "REGISTRATION_CONSTRAINTS", "UNUSABLE", "GENERIC", "AI_ASSISTANT", "AI_INVALID", "AI_REVIEW_INVALID"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +59,27 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
     "current_version_target": ErrorSpec(409, "STALE", _STALE),
     "budget_in_domain": ErrorSpec(422, "BUDGET_RANGE", "اختر مبلغاً من القيم المعروضة."),
     "days_in_range": ErrorSpec(422, "DAYS_RANGE", "المدّة من يومٍ واحد إلى ثلاثين يوماً."),
+    # طبقة الذكاء الاصطناعي (0009): كما تصل مسارات المساعد والقرار واعتماد مساحات
+    # العمل. مسار المراجعة لا يُرجع هذه الرموز: السقوف عنده 200 «غير متاح».
+    "ai_feature_profession": ErrorSpec(403, "PROFESSION", "هذه الأداة لبوابة مهنةٍ أخرى."),
+    "ai_request_in_progress": ErrorSpec(409, "AI_BUSY", "سيمبول يجيب عن سؤالك السابق. انتظر قليلاً."),
+    "ai_rate": ErrorSpec(429, "AI_RATE", "أسئلةٌ كثيرة في وقتٍ قصير. حاول بعد دقائق.", 600),
+    "ai_daily_cap": ErrorSpec(429, "AI_DAILY", "انتهت أسئلة اليوم. تتجدّد خلال 24 ساعة.", 3600),
+    "ai_new_account_daily_cap": ErrorSpec(429, "AI_NEW_DAILY", "انتهت أسئلة اليوم. تتجدّد خلال 24 ساعة.", 3600),
+    "ai_feature_app_cap": ErrorSpec(503, "AI_APP_BUSY", "سيمبول مشغولٌ اليوم. حاول لاحقاً.", 3600),
+    "ai_flags_undecided": ErrorSpec(409, "FLAGS_UNDECIDED", "وصلت ملاحظةٌ من سيمبول بعد مراجعته. القرار لك."),
+    "ai_flag_closed": ErrorSpec(409, "FLAG_CLOSED", "اعتُمد العمل، ولم يعد لهذه الملاحظة قرار."),
+    "ai_decision_undo": ErrorSpec(409, "UNDO_INVALID", "لا تراجع إلا عن «تابع رغم ذلك»."),
+    "ai_decision_cap": ErrorSpec(429, "DECISION_CAP", "قراراتٌ كثيرة على هذه الملاحظة."),
+    "ai_decision_choice": ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب."),
+    # خللٌ في الخادم لا في الطلب: يُسجَّل القيد ويُجاب كخطأٍ داخلي.
+    "ai_request_not_open": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
+    "ai_flags_shape": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
+    "ai_usage_shape": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
+    "ai_flag_texts": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
+    "ai_flag_immutable": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
+    "ai_outcome_needs_record": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
+    "ai_feature_unknown": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
 }
 
 GENERIC = ErrorSpec(422, "CONSTRAINT", "الطلب يخالف قيداً. راجع القيم وحاول مرة أخرى.")
@@ -134,3 +155,21 @@ REGISTRATION_CONSTRAINTS: dict[str, str] = {
     "display_name_shape": "NAME",
     "registration_needs_name": "NAME",
 }
+
+
+#: «اسأل سيمبول» حين لا يجيب (المواصفة §4.6). السقوف في القاعدة تصل عبر CONSTRAINTS.
+AI_ASSISTANT: dict[str, ErrorSpec] = {
+    "AI_BUSY": ErrorSpec(503, "AI_BUSY", "سيمبول يجيب عن سؤالك السابق. انتظر قليلاً.", 30),
+    "AI_UNAVAILABLE": ErrorSpec(503, "AI_UNAVAILABLE", "سيمبول غير متاح الآن. حاول بعد قليل.", 30),
+    "AI_REFUSED": ErrorSpec(422, "AI_REFUSED", "لم يُجب سيمبول عن هذا السؤال. جرّب صيغةً أخرى."),
+    "AI_INVALID": ErrorSpec(502, "AI_INVALID", "لم يكتمل جواب سيمبول. حاول مرةً أخرى."),
+}
+
+#: مدخلات مسارات الذكاء الاصطناعي التي تُرفض قبل أيّ استدعاء، بحقلها.
+AI_INVALID: dict[str, ErrorSpec] = {
+    "QUESTION": ErrorSpec(422, "QUESTION", "اكتب سؤالاً من 3 إلى 300 حرف."),
+    "READY": ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب."),
+    "SCREEN_ID": ErrorSpec(422, "INVALID", "هذه الشاشة تحتاج معرّفاً."),
+}
+#: الفحص الحتمي لمسار العمل رفض الموضوع قبل المراجعة: الحقل يعود ليُفتح.
+AI_REVIEW_INVALID = ErrorSpec(422, "INVALID", "في العمل ما يُصلَح قبل المراجعة.")

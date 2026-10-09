@@ -36,6 +36,9 @@ from eyework.money import (
     is_valid_days,
 )
 from eyework.prompt import PROMPT_VERSION, CopyRequest, PreviousCopy
+# أصناف الأخطاء الثلاثة صارت مشتركةً بين الخدمات (service_errors) ويُعاد تصديرها
+# هنا، فلا يتغيّر ما كان يستوردها من الحملات.
+from eyework.service_errors import Conflict, Invalid, NotFound
 
 __all__ = [
     "MAX_PAGE",
@@ -76,26 +79,6 @@ VERSIONS_PER_CAMPAIGN = 10
 #: استدعاءاتٌ متزامنة للنموذج في العملية الواحدة. ما زاد ينتظر دوره خارجاً
 #: برسالة «مشغولة» بدل أن يحجز خيطاً دقيقةً كاملة.
 _GENERATIONS = threading.BoundedSemaphore(8)
-
-
-class NotFound(Exception):
-    """غير موجود — أو لغير صاحب الجلسة، ولا فرق في الجواب."""
-
-
-class Conflict(Exception):
-    """تغيّرت الحملة منذ رآها صاحب الطلب. `code` يسمّي السبب."""
-
-    def __init__(self, code: str = "STALE") -> None:
-        super().__init__(code)
-        self.code = code
-
-
-class Invalid(Exception):
-    """مدخلٌ لا يُقبل. `code` رمزٌ ثابت."""
-
-    def __init__(self, code: str) -> None:
-        super().__init__(code)
-        self.code = code
 
 
 class AiFailure(Exception):
