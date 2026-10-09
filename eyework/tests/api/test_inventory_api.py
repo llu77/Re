@@ -392,11 +392,17 @@ def test_a_count_session_is_counted_blind_refreshed_and_posted(keeper, today):
     assert client.post(f"{BASE}/counts", json={"client_token": str(uuid4()), "scope": "ALL"}).json()["code"] == "INV_COUNT_OPEN"
     sid = session["id"]
     put = f"{BASE}/counts/{sid}/lines"
-    refused = client.put(f"{put}/{water['id']}", json={"expected_row_version": session["row_version"], "counted_milli": 8000})
-    assert refused.json()["code"] == "INV_COUNT_REASON"
+    # العدّ المغلق: أوّل حفظٍ بلا سببٍ يكشف الرصيد الدفتري والفرق؛ والسبب واجبٌ قبل الترحيل لا قبل الكشف.
+    session = expect(client.put(f"{put}/{water['id']}", json={"expected_row_version": session["row_version"], "counted_milli": 8000}))
+    water_line = next(line for line in session["lines"] if line["item"]["id"] == water["id"])
+    assert (water_line["book_milli"], water_line["difference_milli"], water_line["reason"], session["counted_so_far"]) == (10000, -2000, None, 1)
+    unreasoned = client.post(f"{BASE}/counts/{sid}/post", json={"expected_row_version": session["row_version"], "occurred_on": today})
+    assert unreasoned.json()["code"] == "INV_COUNT_REASON"
+    wrong = client.put(f"{put}/{water['id']}", json={"expected_row_version": session["row_version"], "counted_milli": 8000, "reason": "FOUND"})
+    assert wrong.json()["code"] == "INV_COUNT_REASON"
     session = expect(client.put(f"{put}/{water['id']}", json={"expected_row_version": session["row_version"], "counted_milli": 8000, "reason": "DAMAGE"}))
     water_line = next(line for line in session["lines"] if line["item"]["id"] == water["id"])
-    assert (water_line["book_milli"], water_line["difference_milli"], session["counted_so_far"]) == (10000, -2000, 1)
+    assert (water_line["book_milli"], water_line["difference_milli"], water_line["reason"]) == (10000, -2000, "DAMAGE")
     session = expect(client.put(f"{put}/{rice['id']}", json={"expected_row_version": session["row_version"], "counted_milli": 20500}))
     # رصيدٌ تحرّك بعد اللقطة: الترحيل يتوقّف حتى يُحدَّث ويُعاد العدّ.
     expect(client.post(f"{BASE}/stock/issue", json={"client_token": str(uuid4()), "item_id": rice["id"], "quantity_milli": 500,

@@ -709,13 +709,16 @@ def test_a_count_session_snapshots_the_books_counts_blind_and_posts_one_voucher_
     assert query(app, s.keeper, "SELECT item_id, book_milli, counted_milli FROM inv_count_lines WHERE session_id = %s ORDER BY line_no",
                  (session,)) == [(s.rice, 20500, None), (tea, 0, None), (s.water, 50000, None)]
     assert scalar(app, s.other, "SELECT count(*) FROM inv_count_lines") == 0
-    # المعدود بشكل الوحدة، والفرق بسببٍ في اتجاهه، ولا سبب بلا فرق.
+    # المعدود بشكل الوحدة، والسبب في اتجاه الفرق ولا سبب بلا فرق؛ أمّا وجوبه فعند الترحيل (العدّ المغلق يكشف الفرق بعد الحفظ).
     assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 500 WHERE session_id = %s AND item_id = %s", (session, s.water),
                    constraint="inv_quantity_unit")
-    assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 48000 WHERE session_id = %s AND item_id = %s", (session, s.water),
-                   constraint="inv_count_line_reason_needed")
     assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 48000, reason = 'FOUND' WHERE session_id = %s AND item_id = %s",
                    (session, s.water), constraint="inv_count_line_reason_needed")
+    assert refused(app, s.keeper, "UPDATE inv_count_lines SET counted_milli = 50000, reason = 'DAMAGE' WHERE session_id = %s AND item_id = %s",
+                   (session, s.water), constraint="inv_count_line_reason_needed")
+    count_line(app, s.keeper, session, s.water, 48000)
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_post(%s, %s, %s)", (session, rv(app, s.keeper, "inv_count_sessions", session), s.today),
+                   constraint="inv_count_needs_reason")
     count_line(app, s.keeper, session, s.water, 48000, reason="DAMAGE")
     count_line(app, s.keeper, session, s.rice, 20500)
     count_line(app, s.keeper, session, tea, 3000, reason="FOUND")

@@ -67,7 +67,7 @@ REVERSAL_REASON_NAMES: dict[str, str] = {
     "OTHER": "سببٌ آخر",
 }
 ISSUE_REASON_NAMES: dict[str, str] = {"SALE": "بيع", "USE": "استعمالٌ داخلي", "DAMAGE": "تلف", "OTHER": "سببٌ آخر"}
-#: أسباب فرق الجرد: للعجز وللزيادة، كما يقبلها قيد `inv_count_line_reason_needed`.
+#: أسباب فرق الجرد: للعجز وللزيادة، كما يقبلها قيد `inv_count_line_reason_needed`؛ ووجوبه عند الترحيل.
 COUNT_REASONS: dict[str, tuple[str, ...]] = {
     "SHORTAGE": ("DAMAGE", "EXPIRED", "THEFT_LOSS", "RECORDING_ERROR", "OTHER"),
     "SURPLUS": ("FOUND", "RECORDING_ERROR", "OTHER"),

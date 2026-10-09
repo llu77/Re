@@ -9,6 +9,7 @@
 import * as React from "react"
 
 import type { BudgetTable, Campaign, DaysTable } from "./campaigns"
+import type { InventoryChoices } from "./inventory"
 import type { SignupState } from "./signup"
 
 export type ServerSize = "COMPACT" | "GAZE"
@@ -52,6 +53,8 @@ export interface Choices {
   days: DaysTable
   edit_presets: string[]
   preset_conflicts: string[][]
+  /** مفردات بوابة المخزون: الوحدات وفئات الضريبة والأسباب والحدود (inventory_rules.choices). */
+  inventory: InventoryChoices
 }
 
 export interface State {

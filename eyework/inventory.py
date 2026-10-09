@@ -1856,7 +1856,7 @@ def _home(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str, ...]:
 assistant.register(dataclasses.replace(
     _HOME, load=_home,
     extra_labels={**_HOME.extra_labels, Profession.STOREKEEPER: (
-        "فاتورة شراء جديدة", "مرتجع من فاتورة", "منتج جديد", "المخزون", "جرد", "المصاريف")},
+        "فاتورة شراء جديدة", "مرتجع من فاتورة", "منتج جديد", "المخزون", "الجرد", "المصاريف", "المجاميع")},
 ))
 assistant.register(ScreenContext(
     kind="INVENTORY_ITEM", profession=Profession.STOREKEEPER, title="بطاقة المنتج",

@@ -2,14 +2,15 @@
  * البوابة بعد الدخول
  * ==================
  * مساحة عمل المهنة (lib/workspace.ts) في الهيكل الموحّد: شريط التبويب أو الشريط الجانبي وورقتا الأقسام والأدوات
- * واحدٌ للجميع. في هذه الحزمة التسويق وحده له مساحة عمل («حملة جديدة» و«حملاتي» وأداة الحملة
- * تحت #/marketing/…)؛ وأمين المخزون والدعم الفني يصلان «حسابي» حتى تصل أدواتهما في حزمتيهما،
- * فلا زرٌّ يفتح ما ليس موجوداً.
+ * واحدٌ للجميع. التسويق له أداة الحملة تحت #/marketing/…، وأمين المخزون بوابته تحت #/inventory/…
+ * (app/inventory-flow.tsx)؛ والدعم الفني يصل «حسابي» حتى تصل أدواته في حزمته، فلا زرٌّ يفتح ما
+ * ليس موجوداً.
  */
 
 import * as React from "react"
 
 import { AccountFlow } from "@/app/account-flow"
+import { InventoryFlow } from "@/app/inventory-flow"
 import { MarketingFlow } from "@/app/marketing-flow"
 import type { AssistantApi } from "@/components/tools/assistant-tool"
 import { Redirect } from "@/components/redirect"
@@ -29,7 +30,9 @@ interface AssistantAnswer {
 }
 
 /** «اسأل سيمبول» من ورقة الأدوات: سؤالٌ واحد بسياق الشاشة (نوعها ومعرّفها لا بياناتها)، والجواب كما يردّه الخادم. */
-export function assistantApi(me: Me, choices: Choices, screen: "HOME" | "CAMPAIGN", id: string | null = null): AssistantApi {
+export type AssistantScreen = "HOME" | "CAMPAIGN" | "INVENTORY_ITEM" | "INVENTORY_PURCHASE" | "INVENTORY_COUNT"
+
+export function assistantApi(me: Me, choices: Choices, screen: AssistantScreen, id: string | null = null): AssistantApi {
   return {
     remaining: Math.max(0, me.ai.assistant.per_day - me.ai.assistant.used_today),
     questionMax: choices.assistant.question_max,
@@ -54,7 +57,9 @@ export function navigate(href: string) {
 }
 
 export function workspaceOf(me: Me): Workspace | null {
-  return me.profession === "MARKETING" ? WORKSPACES.MARKETING : null
+  if (me.profession === "MARKETING") return WORKSPACES.MARKETING
+  if (me.profession === "STOREKEEPER") return WORKSPACES.STOREKEEPER
+  return null
 }
 
 /** الرئيسية تترك الحملة الحالية: ما يصل بعدها لطلبٍ أقدم لا يجد حملةً يحدّثها. */
@@ -68,6 +73,13 @@ function ClearCampaign() {
 export function WorkspaceView({ path, choices, me }: { path: string; choices: Choices; me: Me }) {
   const workspace = workspaceOf(me)
   if (!workspace) return <AccountFlow path={path} choices={choices} me={me} />
+  if (workspace.profession === "STOREKEEPER") {
+    if (path === "#/" || path === "#") return <Redirect to={workspace.base} />
+    if (path === workspace.base || path.startsWith(`${workspace.base}/`) || path.startsWith(`${workspace.base}?`)) {
+      return <InventoryFlow path={path} choices={choices} me={me} workspace={workspace} />
+    }
+    return <Redirect to={workspace.base} />
+  }
   if (path.startsWith(`${workspace.base}/`)) return <MarketingFlow path={path} choices={choices} me={me} workspace={workspace} />
   if (path !== "#/" && path !== "#" && path !== workspace.base) return <Redirect to="#/" />
   return (

@@ -15,9 +15,21 @@ import { cn } from "@/lib/utils"
 import type { Workspace } from "@/lib/workspace"
 
 export function WorkHome({ workspace, userName, onNavigate }: { workspace: Workspace; userName: string | null; onNavigate: (href: string) => void }) {
-  const name = userName?.trim()
   return (
-    <Screen title={name ? `أهلاً، ${name}` : "الرئيسية"}>
+    <Screen title={homeTitle(userName)}>
+      <HomeGrid workspace={workspace} onNavigate={onNavigate} />
+    </Screen>
+  )
+}
+
+export function homeTitle(userName: string | null): string {
+  const name = userName?.trim()
+  return name ? `أهلاً، ${name}` : "الرئيسية"
+}
+
+/** أزرار البدء وحدها: تستعملها الرئيسية المشتركة ورئيسية المخزون بما فوقها من ملخّص. */
+export function HomeGrid({ workspace, onNavigate }: { workspace: Workspace; onNavigate: (href: string) => void }) {
+  return (
       <ul aria-label="ابدأ عملاً" className="grid grid-cols-2 gap-tg lg:grid-cols-3">
         {workspace.home.map((entry) => {
           const Icon = entry.icon
@@ -54,6 +66,5 @@ export function WorkHome({ workspace, userName, onNavigate }: { workspace: Works
           )
         })}
       </ul>
-    </Screen>
   )
 }

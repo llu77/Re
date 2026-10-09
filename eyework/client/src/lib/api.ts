@@ -16,7 +16,7 @@ import { setState } from "./store"
 export const OFFLINE = "تعذّر الاتصال. تحقّق من الشبكة وحاول مرة أخرى."
 export const GENERIC = "حدث خطأ. حاول مرة أخرى."
 
-export type Method = "GET" | "POST" | "PUT" | "DELETE"
+export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
 
 export interface ApiResult<T = unknown> {
   status: number

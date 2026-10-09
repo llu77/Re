@@ -506,10 +506,12 @@ CREATE TABLE inv_count_lines (
     FOREIGN KEY (session_id, user_id) REFERENCES inv_count_sessions (id, user_id) ON DELETE CASCADE,
     FOREIGN KEY (item_id, user_id) REFERENCES inv_items (id, user_id) ON DELETE CASCADE,
     FOREIGN KEY (voucher_id, user_id) REFERENCES inv_vouchers (id, user_id) ON DELETE CASCADE,
+    -- السبب يناسب اتجاه الفرق ولا يُكتب بلا فرق؛ أمّا وجوبه فعند الترحيل (ew_inv_count_voucher): في العدّ المغلق
+    -- لا يعرف العادّ الفرق قبل أن يحفظ عدّه.
     CONSTRAINT inv_count_line_reason_needed CHECK (counted_milli IS NULL OR (
-        ((counted_milli = book_milli) = (reason IS NULL))
-        AND (counted_milli >= book_milli OR reason IN ('DAMAGE', 'EXPIRED', 'THEFT_LOSS', 'RECORDING_ERROR', 'OTHER'))
-        AND (counted_milli <= book_milli OR reason IN ('FOUND', 'RECORDING_ERROR', 'OTHER'))
+        (counted_milli <> book_milli OR reason IS NULL)
+        AND (counted_milli >= book_milli OR reason IS NULL OR reason IN ('DAMAGE', 'EXPIRED', 'THEFT_LOSS', 'RECORDING_ERROR', 'OTHER'))
+        AND (counted_milli <= book_milli OR reason IS NULL OR reason IN ('FOUND', 'RECORDING_ERROR', 'OTHER'))
         AND (reason IS DISTINCT FROM 'OTHER' OR note IS NOT NULL))),
     CONSTRAINT inv_count_line_uncounted CHECK (counted_milli IS NOT NULL OR (reason IS NULL AND counted_at IS NULL AND voucher_id IS NULL))
 );

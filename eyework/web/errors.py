@@ -208,7 +208,7 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
         ("inv_count_needs_cost", ErrorSpec(422, "INV_COST", "لا رصيد يُحسب منه متوسط. اكتب تكلفة الوحدة.")),
         ("inv_count_needs_reason", ErrorSpec(422, "INV_COUNT_REASON", "اختر سبب الفرق بين المعدود والرصيد.")),
         ("inv_count_reason_direction", ErrorSpec(422, "INV_COUNT_REASON", "السبب لا يناسب اتجاه الفرق: للعجز أسبابه وللزيادة أسبابها.")),
-        ("inv_count_line_reason_needed", ErrorSpec(422, "INV_COUNT_REASON", "اختر سبب الفرق بين المعدود والرصيد، ولا سبب بلا فرق.")),
+        ("inv_count_line_reason_needed", ErrorSpec(422, "INV_COUNT_REASON", "السبب يناسب اتجاه الفرق، ولا سبب بلا فرق.")),
         ("inv_count_line_reason", ErrorSpec(422, "INV_COUNT_REASON", "اختر سبب الفرق من القائمة.")),
         ("inv_count_session_open", ErrorSpec(409, "INV_COUNT_OPEN", "لديك جلسة جردٍ مفتوحة. أكملها أو ألغِها أولاً.")),
         ("inv_count_not_open", ErrorSpec(409, "INV_COUNT_CLOSED", "انتهت هذه الجلسة، ولا تتغيّر.")),
