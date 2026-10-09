@@ -142,7 +142,13 @@ class Flow:
         self.page.wait_for_function(f"() => {predicate}")
 
     # ── الفحوص ──────────────────────────────────────────────────────────
+    def fonts(self) -> None:
+        """يُقاس ما يُرسم بخطّ الصفحة لا بالخطّ البديل قبل وصوله (`font-display: swap`): البديل
+        أعرض، فقياسٌ قبل وصول Amiri تحت الحمل يرى نصّاً يفيض لا يفيض بخطّه."""
+        self.page.evaluate("() => document.fonts.ready.then(() => true)")
+
     def audit(self, label: str) -> dict:
+        self.fonts()
         result = self.page.evaluate(AUDIT)
         result["label"] = label
         self.audits.append(result)
@@ -163,6 +169,7 @@ class Flow:
         ]
         locator.click()
         settle()
+        self.fonts()
         hazards = self.page.evaluate(LANDING, points)
         if hazards:
             self.landings.append(f"{label}: {sorted(set(hazards))}")
