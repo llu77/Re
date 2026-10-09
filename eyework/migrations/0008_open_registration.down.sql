@@ -13,7 +13,7 @@ DECLARE
 BEGIN
     SELECT count(*) INTO n FROM users WHERE open_registered;
     IF n > 0 THEN
-        RAISE EXCEPTION 'في القاعدة % حساباً مسجَّلاً بلا رابط لا يصفه مخطّط 0006', n
+        RAISE EXCEPTION 'في القاعدة % حساباً مسجَّلاً بلا رابط لا يصفه مخطّط 0007', n
             USING HINT = 'البريد لا يُخزَّن فلا يجدها delete-user؛ تُحذف بدور المالك: '
                          'DELETE FROM users WHERE open_registered';
     END IF;

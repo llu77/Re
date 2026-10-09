@@ -118,6 +118,7 @@ def server(owner_url):
     settings = config.Settings(
         app_database_url=app_url_for(owner_url), login_key=LOGIN_KEY,
         anthropic_api_key=None, public_origin=f"http://localhost:{port}",
+        support_contact="help@example.sa",
     )
     writer = FakeCopywriter()
     database = Database(settings.app_database_url)

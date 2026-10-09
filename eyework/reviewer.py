@@ -201,6 +201,12 @@ def usage(cursor, feature: str) -> dict:
         "per_day": row["per_day"], "used_today": row["used_today"]}
 
 
+def usage_of(db: Database, user_id: UUID, feature: str) -> dict:
+    """`usage` في معاملةٍ خاصّة: لـ/api/me، حيث لا جلسة قاعدةٍ مفتوحة."""
+    with db.session(user_id) as cursor:
+        return usage(cursor, feature)
+
+
 # ── قراءة جواب النموذج ─────────────────────────────────────────────────
 def _one_flag(item: object, catalogue: Catalogue, kind: str, lines: frozenset[int], payload: Mapping) -> dict | str:
     """ملاحظةٌ واحدة بعد كل فحوص §3.5، أو رمز إسقاطها. كل ملاحظةٍ تسقط وحدها."""

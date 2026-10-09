@@ -54,10 +54,10 @@ __all__ = [
     "create",
     "edit",
     "generate",
+    "generation_allowance",
     "get",
     "image_bytes",
     "list_page",
-    "remaining_generations",
     "replace_image",
     "restore",
     "set_budget",
@@ -70,9 +70,9 @@ __all__ = [
 PAGE_SIZE = 2
 #: آخر صفحةٍ يقبلها المسار؛ «الأقدم» لا يُعرض بعدها.
 MAX_PAGE = 100
+#: نظيرا ew_begin_generation وew_my_generation_limit (0008): أربعون طلب كتابةٍ في اليوم،
+#: وعشرةٌ للحساب المفتوح في أسبوعه الأول. اختبارٌ في القاعدة يقارنهما بها.
 DAILY_GENERATIONS = 40
-#: يُستبدل عند الدمج: نظير ew_my_generation_limit للحساب المفتوح في أسبوعه الأول
-#: (registration_spec §7.5)؛ اختبارٌ في القاعدة يقارنهما.
 NEW_ACCOUNT_DAILY_GENERATIONS = 10
 VERSIONS_PER_CAMPAIGN = 10
 
@@ -133,6 +133,8 @@ _REMAINING = """
 SELECT count(*) AS used FROM generation_attempts
  WHERE ew_is_billable(outcome) AND started_at > now() - interval '24 hours'
 """
+# حدّ اليوم لصاحب الجلسة كما تحسبه القاعدة: عشرة للحساب المفتوح الجديد، وأربعون لغيره.
+_LIMIT = "SELECT ew_my_generation_limit() AS daily"
 
 _INSERT_CAMPAIGN = "INSERT INTO campaigns (user_id) VALUES (%s) RETURNING id"
 _INSERT_IMAGE = """
@@ -283,10 +285,14 @@ def display_name(db: Database, user_id: UUID) -> str | None:
         return cursor.fetchone()["name"]
 
 
-def remaining_generations(db: Database, user_id: UUID) -> int:
+def generation_allowance(db: Database, user_id: UUID) -> tuple[int, int]:
+    """(حدّ اليوم، وما بقي منه) لصاحب الجلسة، كما يعدّهما `ew_begin_generation`."""
     with db.session(user_id) as cursor:
+        cursor.execute(_LIMIT)
+        daily = cursor.fetchone()["daily"] or 0
         cursor.execute(_REMAINING)
-        return max(0, DAILY_GENERATIONS - cursor.fetchone()["used"])
+        used = cursor.fetchone()["used"]
+    return daily, max(0, daily - used)
 
 
 def image_bytes(db: Database, user_id: UUID, campaign_id: UUID) -> bytes:

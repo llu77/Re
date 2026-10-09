@@ -19,6 +19,8 @@ def base_env(monkeypatch):
     monkeypatch.setenv("EYEWORK_APP_DATABASE_URL", "postgresql://x@localhost/eyework_test")
     monkeypatch.setenv("EYEWORK_LOGIN_KEY", base64.b64encode(b"k" * 32).decode())
     monkeypatch.setenv("EYEWORK_PUBLIC_ORIGIN", "http://localhost:8000")
+    # التسجيل المفتوح (الافتراض) لا يُقلع بلا بريد المشغّل.
+    monkeypatch.setenv("EYEWORK_SUPPORT_CONTACT", "help@example.sa")
     for name in config.SDK_ENVIRONMENT:
         monkeypatch.delenv(name, raising=False)
 

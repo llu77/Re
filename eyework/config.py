@@ -18,13 +18,22 @@ import base64
 import binascii
 import os
 import re
+import unicodedata
 from dataclasses import dataclass
 
-__all__ = ["ConfigError", "Settings", "load", "login_key", "public_origin"]
+__all__ = ["REGISTRATION_MODES", "ConfigError", "Settings", "load", "login_key", "public_origin"]
 
 
 class ConfigError(RuntimeError):
     """إعدادٌ مفقود أو غير صالح. الرسالة تسمّي المتغيّر ولا تطبع قيمته."""
+
+
+#: أوضاع التسجيل. open: «أنشئ حساباً» بلا رابط، وروابط المشغّل تعمل معه. code: برابط
+#: المشغّل وحده. closed: بالدعوة وحدها. الخادم وحده يقرّر الوضع: القاعدة لا تحمل مفتاحاً له.
+REGISTRATION_MODES = ("open", "code", "closed")
+#: شكل بريد المشغّل — شرط اسم الدخول نفسه (auth.check_email) بعد التوحيد.
+_CONTACT = re.compile(r"^[a-z0-9._+-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$")
+_CONTACT_MAX = 254
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,8 +46,10 @@ class Settings:
     anthropic_api_key: str | None
     #: الأصل العام بلا مسار، مثل https://work.example.sa — لفحص Origin والروابط.
     public_origin: str
-    #: التسجيل برابط المشغّل مفتوح؟ `EYEWORK_REGISTRATION=closed` يغلقه (الدعوة باقية).
-    registration_open: bool = True
+    #: open: «أنشئ حساباً» بلا رابط، وروابط المشغّل تعمل معه. code: برابط المشغّل وحده. closed: بالدعوة وحدها.
+    registration: str = "open"
+    #: بريد المشغّل الذي يكتب إليه من نسي كلمة مروره أو وجد بريده مأخوذاً. مطلوبٌ مع open (يفحصه load).
+    support_contact: str | None = None
 
 
 def _required(name: str) -> str:
@@ -87,26 +98,44 @@ def _no_sdk_overrides() -> None:
         )
 
 
-def _registration() -> bool:
+def _registration() -> str:
     """
-    `code` (الافتراض): يُسجَّل برابطٍ فيه رمزٌ يصدره المشغّل. `closed`: بالدعوة وحدها.
-    لا تسجيل بلا رمز: من شاء يسأل حينها «هل لهذا البريد حساب؟» — وقائمة المستخدمين
-    معلومةٌ صحّية.
+    `open` (الافتراض، وهو ما طلبه المالك): يُنشئ الزائر حسابه بلا رابط. `code`: برابطٍ
+    فيه رمزٌ يصدره المشغّل. `closed`: بالدعوة وحدها. مقايضة الوضع المفتوح معلَنة في
+    الإشعار: من يحاول التسجيل ببريدٍ مسجَّل يعرف أن له حساباً هنا (المواصفة §4).
     """
-    value = os.environ.get("EYEWORK_REGISTRATION", "code").strip().lower() or "code"
-    if value not in ("code", "closed"):
-        raise ConfigError("EYEWORK_REGISTRATION يجب أن يكون code أو closed")
-    return value == "code"
+    value = os.environ.get("EYEWORK_REGISTRATION", "").strip().lower() or "open"
+    if value not in REGISTRATION_MODES:
+        raise ConfigError("EYEWORK_REGISTRATION يجب أن يكون open أو code أو closed")
+    return value
+
+
+def _support_contact(mode: str) -> str | None:
+    """
+    لا مشغّل يعرف صاحب حسابٍ أنشأه بلا رابط: هذا البريد طريقه الوحيد إليه. فالتسجيل
+    المفتوح لا يُقلع بدونه، ونشرٌ قديم لا ينفتح تسجيله بصمتٍ حين يُحدَّث.
+    """
+    value = unicodedata.normalize("NFKC", os.environ.get("EYEWORK_SUPPORT_CONTACT", "")).strip().lower()
+    if not value:
+        if mode == "open":
+            raise ConfigError("EYEWORK_SUPPORT_CONTACT مطلوبٌ مع EYEWORK_REGISTRATION=open"
+                              " (أو اضبط EYEWORK_REGISTRATION=code)")
+        return None
+    if len(value) > _CONTACT_MAX or not _CONTACT.match(value):
+        raise ConfigError("EYEWORK_SUPPORT_CONTACT ليس بريداً صالحاً")
+    return value
 
 
 def load() -> Settings:
     _no_sdk_overrides()
+    mode = _registration()
     return Settings(
         app_database_url=_required("EYEWORK_APP_DATABASE_URL"),
         login_key=_login_key(_required("EYEWORK_LOGIN_KEY")),
         anthropic_api_key=os.environ.get("EYEWORK_ANTHROPIC_API_KEY", "").strip() or None,
         public_origin=_origin(_required("EYEWORK_PUBLIC_ORIGIN")),
-        registration_open=_registration(),
+        registration=mode,
+        support_contact=_support_contact(mode),
     )
 
 

@@ -13,7 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 __all__ = ["ErrorSpec", "AI_OUTCOMES", "CONSTRAINTS", "EDIT_REQUEST", "IMAGE", "REGISTRATION",
-           "REGISTRATION_CONSTRAINTS", "UNUSABLE", "GENERIC", "AI_ASSISTANT", "AI_INVALID", "AI_REVIEW_INVALID"]
+           "REGISTRATION_CONSTRAINTS", "TERMS_REQUIRED", "UNUSABLE", "GENERIC", "AI_ASSISTANT", "AI_INVALID",
+           "AI_REVIEW_INVALID"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +81,23 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
     "ai_flag_immutable": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
     "ai_outcome_needs_record": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
     "ai_feature_unknown": ErrorSpec(500, "INTERNAL", "حدث خطأ. حاول مرة أخرى."),
+    # التسجيل المفتوح (0008): السقوف تُفحص قبل الإدراج، فالجواب عند الامتلاء واحدٌ لكل بريد.
+    "registration_open_daily_cap": ErrorSpec(503, "REGISTER_FULL",
+                                             "اكتمل عدد الحسابات الجديدة لهذا اليوم. حاول غداً.", 3600),
+    "registration_open_paused": ErrorSpec(503, "REGISTER_PAUSED", "إنشاء الحسابات متوقّفٌ مؤقتاً. حاول غداً.", 3600),
+    "generation_new_account_cap": ErrorSpec(429, "AI_NEW_DAILY",
+                                            "للحساب الجديد عشرة طلبات كتابةٍ في اليوم خلال أسبوعه الأول. حاول غداً.",
+                                            3600),
+    "generation_new_accounts_cap": ErrorSpec(503, "AI_NEW_BUSY",
+                                             "بلغت الحسابات الجديدة حدّها من طلبات الكتابة اليوم. حاول غداً.", 3600),
+    "new_account_campaign_cap": ErrorSpec(409, "NEW_OPEN_CAP",
+                                          "للحساب الجديد ثلاث حملاتٍ مفتوحة في أسبوعه الأول. أكمل إحداها أو ألغِها أولاً."),
+    "terms_version_backwards": ErrorSpec(409, "TERMS_STALE", "وافقتَ على نسخةٍ أحدث من هذه. أعد تحميل الصفحة."),
 }
+
+#: ليس قيداً: بوّابة الموافقة (`web/deps.require_current_terms`). لا يُرسَل شيءٌ إلى
+#: مزوّد النموذج لمن لم يوافق على النسخة الحالية من «قبل أن تبدأ».
+TERMS_REQUIRED = ErrorSpec(403, "TERMS", "تغيّر ما يُرسَل إلى Anthropic منذ وافقت. اقرأه ووافق عليه أولاً.")
 
 GENERIC = ErrorSpec(422, "CONSTRAINT", "الطلب يخالف قيداً. راجع القيم وحاول مرة أخرى.")
 
@@ -145,6 +162,9 @@ REGISTRATION: dict[str, ErrorSpec] = {
     "CODE": ErrorSpec(410, "REGISTER_CODE",
                       "رابط التسجيل غير صالح أو انتهى. اطلب رابطاً جديداً ممّن أعطاك إياه."),
     "CLOSED": ErrorSpec(403, "REGISTER_CLOSED", "التسجيل مغلق. اطلب دعوةً ممّن يدير التطبيق."),
+    "LINK_REQUIRED": ErrorSpec(403, "REGISTER_LINK", "التسجيل هنا برابطٍ ممّن يدير التطبيق. اطلبه منه."),
+    "UI_SIZE": ErrorSpec(422, "REGISTER_INVALID", "اختر كيف تستخدم الجهاز: باللمس أو بتتبّع العين."),
+    "TERMS": ErrorSpec(409, "REGISTER_TERMS", "تغيّر نصّ «قبل أن تبدأ» منذ قرأته. اقرأه من جديد، ثم وافق."),
 }
 
 #: قيود القاعدة على التسجيل ← الحقل الذي يُصلَح. «اليوم» بتاريخ الرياض في القاعدة لا بساعة بايثون.
@@ -154,6 +174,8 @@ REGISTRATION_CONSTRAINTS: dict[str, str] = {
     "birth_date_range": "BIRTH",
     "display_name_shape": "NAME",
     "registration_needs_name": "NAME",
+    "registration_needs_ui_size": "UI_SIZE",
+    "ui_size_known": "UI_SIZE",
 }
 
 

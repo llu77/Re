@@ -191,7 +191,8 @@ def _accept_terms(owner, user_id: UUID, name: str | None = NAME) -> None:
 
 def _signed_in(owner, browser, username: str = KEEPER, *, profession: str = "STOREKEEPER", terms: bool = True,
                name: str | None = NAME):
-    user_id = add_user(owner, username, profession=profession)
+    # `terms=False`: حساب دعوةٍ لم يوافق قطّ (add_user يوافق على النسخة الحالية افتراضاً).
+    user_id = add_user(owner, username, profession=profession, terms_version=None)
     if terms:
         _accept_terms(owner, user_id, name)
     client = browser()

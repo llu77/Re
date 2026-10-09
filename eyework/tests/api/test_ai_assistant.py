@@ -53,7 +53,8 @@ def server(owner, owner_url, writer, gateway):
 
 
 def _signed_in(owner, browser, username: str = MARKETER, *, profession: str = "MARKETING", terms: bool = True):
-    user_id = add_user(owner, username, profession=profession)
+    # `terms=False`: حساب دعوةٍ لم يوافق قطّ (add_user يوافق على النسخة الحالية افتراضاً).
+    user_id = add_user(owner, username, profession=profession, terms_version=None)
     if terms:
         with owner.cursor() as cursor:
             cursor.execute("UPDATE users SET display_name = %s, terms_version = %s, terms_accepted_at = now()"

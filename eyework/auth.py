@@ -7,11 +7,13 @@
 العين لم يُتحقّق منه بعد (Apple توثّق التعبئة بالنقر)؛ وiPhone SE (الجيل الثالث)
 بـTouch ID وحده، وبعد إعادة التشغيل يُطلب رمز الجهاز.
 
-**حسابٌ بالتسجيل أو بالدعوة.** يُنشئ المستخدم حسابه بنفسه (الاسم، وتاريخ
-الميلاد، والبريد، وكلمة المرور، والمهنة) برابط تسجيلٍ يصدره المشغّل، أو يدعوه
-المشغّل إلى حسابٍ جاهز (`eyework.admin`). البريد اسم الدخول، ولا يُرسَل إليه
-شيء: التطبيق لا يرسل بريداً، فلا تحقّق به ولا استرداد. رابط تفعيلٍ جديد من
-المشغّل هو طريق الاسترداد الوحيد.
+**حسابٌ بالتسجيل المفتوح، أو برابط، أو بالدعوة.** يُنشئ المستخدم حسابه بنفسه
+(الاسم، وتاريخ الميلاد، والبريد، وكلمة المرور، والمهنة، وطريقة الاستخدام) بلا
+رابطٍ حين يكون التسجيل مفتوحاً (`EYEWORK_REGISTRATION=open`، الافتراض)، أو برابط
+تسجيلٍ يصدره المشغّل، أو يدعوه المشغّل إلى حسابٍ جاهز (`eyework.admin`). البريد
+اسم الدخول، ولا يُرسَل إليه شيء: التطبيق لا يرسل بريداً، فلا تحقّق به ولا
+استرداد. رابط تفعيلٍ جديد من المشغّل هو طريق الاسترداد الوحيد؛ ومن سجّل بلا
+رابط يطلبه كتابةً إلى `EYEWORK_SUPPORT_CONTACT` من بريد حسابه نفسه.
 
 **اسم الدخول لا يُخزَّن.** يُخزَّن HMAC له بمفتاحٍ خارج القاعدة؛ فنسخةٌ
 مسرّبة من القاعدة لا تكشف من يستخدم التطبيق. الثمن معلَن: فقدُ المفتاح
@@ -38,6 +40,9 @@ from uuid import UUID
 from eyework.db import Database
 from eyework.passwords import hash_password, verify_password
 from eyework.professions import Profession
+# نسخة «قبل أن تبدأ» تعيش في `terms.py` مع نصّها؛ تُصدَّر من هنا كما كانت.
+from eyework.terms import TERMS_VERSION
+from eyework.ui_size import UiSize
 
 __all__ = [
     "EMAIL_MAX",
@@ -51,10 +56,12 @@ __all__ = [
     "RegistrationCodeInvalid",
     "RegistrationInvalid",
     "RegistrationTaken",
+    "accept_terms",
     "activate",
     "check_birth_date",
     "check_email",
     "check_name",
+    "check_password",
     "delete_me",
     "signup_code_usable",
     "hash_token",
@@ -63,10 +70,14 @@ __all__ = [
     "logout",
     "new_token",
     "normalize_login",
+    "open_registration_blocker",
     "open_session",
     "profession_of",
     "register",
     "resolve",
+    "set_ui_size",
+    "terms_version_of",
+    "ui_size_of",
 ]
 
 LOGIN_MIN, LOGIN_MAX = 3, 320
@@ -79,14 +90,18 @@ _OPEN_BY_PASSWORD = "SELECT ew_open_password_session(%s, %s)"
 _RESOLVE = "SELECT ew_resolve_session(%s) AS user_id"
 _REVOKE = "SELECT ew_revoke_session(%s)"
 _ACTIVATE = "SELECT ew_activate(%s, %s, %s) AS user_id"
-_REGISTER = "SELECT new_user, outcome FROM ew_register(%s, %s, %s, %s, %s, %s, %s)"
+#: 0008: ثمانية معاملات آخرها طريقة الاستخدام؛ والتسجيل المفتوح بلا رمز دالّةٌ مستقلّة لا
+#: يستدعيها الخادم إلا في الوضع المفتوح.
+_REGISTER = "SELECT new_user, outcome FROM ew_register(%s, %s, %s, %s, %s, %s, %s, %s)"
+_REGISTER_OPEN = "SELECT new_user, outcome FROM ew_register_open(%s, %s, %s, %s, %s, %s, %s)"
+_OPEN_BLOCKER = "SELECT ew_open_registration_blocker() AS blocker"
 _CODE_USABLE = "SELECT ew_signup_code_usable(%s) AS usable"
 _PROFESSION = "SELECT ew_my_profession() AS profession"
+_UI_SIZE = "SELECT ew_my_ui_size() AS ui_size"
+_SET_UI_SIZE = "SELECT ew_set_my_ui_size(%s)"
+_TERMS = "SELECT ew_my_terms_version() AS version"
+_ACCEPT_TERMS = "SELECT ew_accept_terms(%s)"
 _DELETE_ME = "SELECT ew_delete_me()"
-
-#: نسخة نصّ الإشعار الذي يوافق عليه المسجِّل (`index.html`، شاشة «قبل أن تبدأ»):
-#: تاريخ سريانه. يُرفع حين يتغيّر النصّ؛ ويُحفظ مع الحساب ما وافق عليه صاحبه.
-TERMS_VERSION = "2026-10-09"
 
 #: نظير القيد display_name_shape (0003): حروفٌ عربية ولاتينية ومسافاتٌ مفردة.
 NAME_MAX = 30
@@ -112,7 +127,11 @@ class RegistrationInvalid(Exception):
 
 
 class RegistrationTaken(Exception):
-    """البريد اسم دخولٍ لحسابٍ قائم. يُعدّ على رمز التسجيل."""
+    """
+    البريد اسم دخولٍ لحسابٍ قائم. يُعدّ على رمز التسجيل (ثلاثٌ ثم يُقفل)، أو — بلا
+    رمز — في دفتر التسجيل (ستّون في اليوم توقف التسجيل المفتوح) وفي حصّة الشبكة
+    (ثلاثٌ في اليوم، `web/deps.Limiters.taken_open_net`).
+    """
 
 
 class RegistrationCodeInvalid(Exception):
@@ -235,6 +254,13 @@ def check_birth_date(raw: str) -> datetime.date:
     return birth
 
 
+def check_password(raw: str) -> str:
+    """كلمة المرور بطولها المقبول، أو `RegistrationInvalid("PASSWORD")`: فحصُ شكلٍ لا يمسّ القاعدة."""
+    if not PASSWORD_MIN <= len(raw) <= PASSWORD_MAX:
+        raise RegistrationInvalid("PASSWORD")
+    return raw
+
+
 def signup_code_usable(db: Database, code: str) -> bool:
     """تسأله الواجهة قبل الخطوة الأولى. لا يكشف شيئاً عن الحسابات."""
     with db.session() as cursor:
@@ -242,30 +268,73 @@ def signup_code_usable(db: Database, code: str) -> bool:
         return bool(cursor.fetchone()["usable"])
 
 
-def register(db: Database, key: bytes, *, code: str, name: str, birth_date: datetime.date, email: str,
-             password: str, profession: Profession) -> str:
+def register(db: Database, key: bytes, *, code: str | None, name: str, birth_date: datetime.date, email: str,
+             password: str, profession: Profession, ui_size: UiSize) -> str:
     """
-    يُنشئ حساباً مفعَّلاً بمهنته برمز تسجيلٍ صالح ويفتح جلسة. القيم مفحوصةٌ قبل
-    الاستدعاء (`check_*`)؛ والقاعدة تفحص الرمز، والتاريخ، والسقف اليومي، وما
-    ترفضه بقيدٍ يصل معالج القيود في `web/app.py` باسمه.
+    يُنشئ حساباً مفعَّلاً بمهنته وطريقة استخدامه ويفتح جلسة: برمز تسجيلٍ صالح، أو
+    بلا رمز (`code=None`) في الوضع المفتوح — والمسار وحده يقرّر الوضع، فلا يُستدعى
+    الطريق المفتوح في وضعي code وclosed. القيم مفحوصةٌ قبل الاستدعاء (`check_*`)؛
+    والقاعدة تفحص الرمز، والتاريخ، والسقوف اليومية قبل الإدراج — فعند الامتلاء
+    يصل الجواب نفسه لكل بريد — وما ترفضه بقيدٍ يصل معالج القيود في `web/app.py`
+    باسمه.
 
-    البريد المأخوذ `RegistrationTaken` ويُعدّ على الرمز. والتجزئة تُحسب قبل
-    السؤال عنه، فكلفة الطلب واحدة في الحالين.
+    البريد المأخوذ `RegistrationTaken`: يُعدّ على الرمز، أو بلا رمز في دفتر التسجيل.
+    والتجزئة تُحسب قبل السؤال عنه، فكلفة الطلب واحدة في الحالين.
     """
-    if not PASSWORD_MIN <= len(password) <= PASSWORD_MAX:
-        raise RegistrationInvalid("PASSWORD")
-    password_hash = hash_password(password)
+    password_hash = hash_password(check_password(password))
     with db.session() as cursor:
-        cursor.execute(_REGISTER, (hash_token(code), login_hmac(key, email), password_hash, name,
-                                   birth_date, profession.value, TERMS_VERSION))
+        if code is None:
+            cursor.execute(_REGISTER_OPEN, (login_hmac(key, email), password_hash, name, birth_date,
+                                            profession.value, TERMS_VERSION, ui_size.value))
+        else:
+            cursor.execute(_REGISTER, (hash_token(code), login_hmac(key, email), password_hash, name,
+                                       birth_date, profession.value, TERMS_VERSION, ui_size.value))
         row = cursor.fetchone()
         token = open_session(cursor, row["new_user"]) if row["outcome"] == "OK" else None
-    # الاستثناء بعد المعاملة لا داخلها: داخلها يُلغي عدَّ «مأخوذ» على الرمز.
+    # الاستثناء بعد المعاملة لا داخلها: داخلها يُلغي عدَّ «مأخوذ» على الرمز أو في الدفتر.
     if row["outcome"] == "CODE":
         raise RegistrationCodeInvalid
     if row["outcome"] == "TAKEN":
         raise RegistrationTaken
     return token
+
+
+def open_registration_blocker(db: Database) -> str | None:
+    """ما يمنع تسجيلاً بلا رابط الآن، باسم قيده، أو None. حال التطبيق كلّه؛ لا شيء عن أحد."""
+    with db.session() as cursor:
+        cursor.execute(_OPEN_BLOCKER)
+        return cursor.fetchone()["blocker"]
+
+
+def ui_size_of(db: Database, user_id: UUID) -> UiSize | None:
+    """طريقة استخدام صاحب الجلسة، أو None إن لم يختر بعد: حساب الدعوة، أو حسابٌ أقدم من 0008."""
+    with db.session(user_id) as cursor:
+        cursor.execute(_UI_SIZE)
+        value = cursor.fetchone()["ui_size"]
+    return UiSize(value) if value is not None else None
+
+
+def set_ui_size(db: Database, user_id: UUID, ui_size: UiSize) -> None:
+    """يغيّرها صاحب الجلسة لحسابه وحده: الحساب من الجلسة، لا من الطلب."""
+    with db.session(user_id) as cursor:
+        cursor.execute(_SET_UI_SIZE, (ui_size.value,))
+
+
+def terms_version_of(db: Database, user_id: UUID) -> str | None:
+    """نسخة «قبل أن تبدأ» التي وافق عليها صاحب الجلسة، أو None لحساب دعوةٍ لم يوافق قطّ."""
+    with db.session(user_id) as cursor:
+        cursor.execute(_TERMS)
+        return cursor.fetchone()["version"]
+
+
+def accept_terms(db: Database, user_id: UUID) -> None:
+    """
+    يسجّل موافقة صاحب الجلسة على النسخة الحالية وحدها: لا نسخة من الطلب. والقاعدة لا
+    تقبل الرجوع إلى أقدم ممّا وافق عليه (`terms_version_backwards`)، فبعد تراجعٍ عن
+    إصدار لا تُمحى موافقة من وافق على الأحدث.
+    """
+    with db.session(user_id) as cursor:
+        cursor.execute(_ACCEPT_TERMS, (TERMS_VERSION,))
 
 
 def delete_me(db: Database, user_id: UUID) -> None:
