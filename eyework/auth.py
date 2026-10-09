@@ -75,6 +75,7 @@ PASSWORD_MIN, PASSWORD_MAX = 12, 256
 
 _LOOKUP = "SELECT user_id, password_hash FROM ew_login_lookup(%s)"
 _OPEN = "SELECT ew_open_session(%s, %s)"
+_OPEN_BY_PASSWORD = "SELECT ew_open_password_session(%s, %s)"
 _RESOLVE = "SELECT ew_resolve_session(%s) AS user_id"
 _REVOKE = "SELECT ew_revoke_session(%s)"
 _ACTIVATE = "SELECT ew_activate(%s, %s, %s) AS user_id"
@@ -147,10 +148,17 @@ def _decoy_hash() -> str:
     return hash_password(secrets.token_urlsafe(24))
 
 
-def open_session(cursor, user_id: UUID) -> str:
-    """جلسةٌ جديدة في معاملة المستدعي — مع ما يُثبت الدخول أو لا تكون."""
+def open_session(cursor, user_id: UUID, *, by_password: bool = False) -> str:
+    """
+    جلسةٌ جديدة في معاملة المستدعي — مع ما يُثبت الدخول أو لا تكون. `by_password`
+    للدخول بكلمة المرور وحده: يُحفظ وقته، فتُنشئ الجلسة مفتاح مرورٍ في دقائقها الأولى
+    (`passkeys.add`)، ولا تُنشئه جلسةٌ فتحها مفتاحٌ أو رابطٌ أو تسجيل.
+    """
     token = new_token()
-    cursor.execute(_OPEN, (user_id, hash_token(token)))
+    if by_password:
+        cursor.execute(_OPEN_BY_PASSWORD, (user_id, hash_token(token)))
+    else:
+        cursor.execute(_OPEN, (user_id, hash_token(token)))
     return token
 
 
@@ -162,7 +170,7 @@ def login(db: Database, key: bytes, username: str, password: str) -> str:
         stored = row["password_hash"] if row else _decoy_hash()
         if not verify_password(password, stored) or row is None:
             raise AuthenticationFailed
-        return open_session(cursor, row["user_id"])
+        return open_session(cursor, row["user_id"], by_password=True)
 
 
 def activate(db: Database, key: bytes, token: str, username: str, password: str) -> str:

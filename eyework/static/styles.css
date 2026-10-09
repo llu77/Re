@@ -160,6 +160,10 @@ p { margin: 0; }
     margin: 0;
     font-size: clamp(var(--fs-body), 1em, var(--fs-cap));
 }
+/* شاشةٌ يطول نصّها عن إطارها عند السقف (`--fs-cap`) في أضيق الإطارات — الدخول بصفّ
+   مفتاح المرور، والمصادر بسطرَي التسويق في 320: تتقارب أسطرها (1.4 بدل 1.6)، ولا يصغر
+   حرفٌ ولا هدفٌ ولا مسافةٌ بين هدفين. */
+.content.dense { line-height: 1.4; }
 /* مجموعةٌ تفاعلية تلي مجموعةً تفاعلية: 8 + 16 = 24، حدّ التباعد بين هدفين. */
 .content > .spaced { margin-block-start: calc(var(--target-gap) - 0.5rem); }
 .field-group { display: flex; flex-direction: column; gap: 0.25rem; }

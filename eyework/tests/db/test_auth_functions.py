@@ -52,6 +52,7 @@ def login_hmac(login: bytes) -> bytes:
 
 TOKEN = digest("activation-token")
 SESSION = digest("session-token")
+SESSION_2 = digest("another-session-token")
 
 
 @contextmanager
@@ -82,6 +83,11 @@ def login_lookup(app, login: bytes) -> list[tuple[UUID, str]]:
 def open_session(app, user: UUID, token: bytes) -> None:
     with app.cursor() as cursor:
         cursor.execute("SELECT ew_open_session(%s, %s)", (user, token))
+
+
+def open_password_session(app, user: UUID, token: bytes) -> None:
+    with app.cursor() as cursor:
+        cursor.execute("SELECT ew_open_password_session(%s, %s)", (user, token))
 
 
 def resolve(app, token: bytes) -> UUID | None:
@@ -276,6 +282,43 @@ def test_session_for_an_unknown_user_is_refused(app, owner):
     with rejected(errors.CheckViolation, "session_needs_active_user"):
         open_session(app, UNKNOWN_USER, SESSION)
     assert session_count(owner) == 0
+
+
+@pytest.mark.parametrize(("password_hash", "active"), [
+    (None, True),
+    (OLD_HASH, False),
+], ids=["unactivated", "inactive"])
+def test_a_password_session_needs_an_active_activated_user_too(app, owner, password_hash, active):
+    user = make_user(owner, login=b"member", password_hash=password_hash, active=active)
+    with rejected(errors.CheckViolation, "session_needs_active_user"):
+        open_password_session(app, user, SESSION)
+    assert session_count(owner) == 0
+
+
+def test_only_a_password_sign_in_records_when_the_password_was_given(app, owner):
+    """
+    وقت الدخول بكلمة المرور شرطُ إنشاء مفتاح المرور (0007): جلسةٌ فتحها مفتاحٌ أو
+    رابطٌ أو تسجيل لا تحمله، فلا تُنشئ مفتاحاً.
+    """
+    user = make_user(owner, login=b"member", password_hash=OLD_HASH)
+    open_password_session(app, user, SESSION)
+    open_session(app, user, SESSION_2)
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT token_hash, password_at = created_at, expires_at - created_at FROM sessions"
+                       " ORDER BY token_hash = %s DESC", (SESSION,))
+        assert cursor.fetchall() == [(SESSION, True, SESSION_LIFETIME), (SESSION_2, None, SESSION_LIFETIME)]
+    assert resolve(app, SESSION) == resolve(app, SESSION_2) == user
+
+
+@pytest.mark.parametrize("statement", [
+    "UPDATE sessions SET password_at = created_at - interval '1 second'",
+    "UPDATE sessions SET password_at = expires_at",
+], ids=["before-the-session", "after-it-ends"])
+def test_the_password_time_lies_within_the_session_even_for_the_owner(app, owner, statement):
+    user = make_user(owner, login=b"member", password_hash=OLD_HASH)
+    open_password_session(app, user, SESSION)
+    with rejected(errors.CheckViolation, "session_password_at"), owner.cursor() as cursor:
+        cursor.execute(statement)
 
 
 def test_open_session_lasts_exactly_thirty_days(app, owner):

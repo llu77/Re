@@ -65,8 +65,10 @@ APP_FUNCTIONS = frozenset({
     # 0005: التسجيل برمزه وسقفه اليومي، ومهنة صاحب الجلسة، وحذفه حسابه بنفسه.
     "ew_signup_code_usable", "ew_register", "ew_my_profession", "ew_delete_me",
     # 0006: تحدّي مفتاح المرور، والدخول به، وإضافته لصاحب الجلسة وقراءة مفاتيحه وحده.
-    "ew_passkey_challenge", "ew_passkey_take_challenge", "ew_passkey_lookup", "ew_passkey_signed_in",
+    "ew_passkey_take_challenge", "ew_passkey_lookup", "ew_passkey_signed_in",
     "ew_passkey_add", "ew_my_passkeys",
+    # 0007: جلسة كلمة المرور بوقتها، وتحدّيا الدخول والإضافة منفصلين (بدل ew_passkey_challenge).
+    "ew_open_password_session", "ew_passkey_login_challenge", "ew_passkey_add_challenge",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
     "ew_current_user", "ew_budget_allowed", "ew_is_billable", "ew_jpeg_has_no_metadata",
 })

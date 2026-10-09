@@ -11,7 +11,8 @@ AX5 (جدول Apple بالنقاط؛ ويُفترض بلا قياسٍ أن ال�
   • الجذر 16px، والأزرار وأشرطة الإطار بأحجامها: لا يكبر هدفٌ ولا تتغيّر مسافة.
   • عقد النظر كلّه — الحجم والتباعد والحوافّ وعدد الأهداف، ولا تمرير ولا قصّ،
     وقاعدة الهبوط والأقرب إلى النظر بعد كل نقرة — في المسار الكامل والتسجيل
-    والحساب، وفي كل بندٍ من كل بوابة، وفي أطول نصٍّ مقبول.
+    والحساب، وفي كل بندٍ من كل بوابة، وفي أطول نصٍّ مقبول، وفي شاشات الدخول
+    والتفعيل والخروج والمصادر.
 
 ما يُقاس بالحجم وحده (البوابات والصفحة الكاملة والنصّ المقترح) يكفيه أضيق إطارين،
 375×635 و320×635: كل إطارٍ آخر أعرض منهما وأطول. وما فيه هبوطٌ يُفحص في كل إطار.
@@ -25,10 +26,10 @@ from pathlib import Path
 
 import pytest
 
-from eyework import professions
+from eyework import auth, professions
 from eyework.tests.fakes import ok
-from eyework.tests.ui import test_portals, test_proposal_fit
-from eyework.tests.ui.conftest import DESKTOP, HANDHELD, PHONES, STRESS, VIEWPORTS
+from eyework.tests.ui import test_passkeys, test_portals, test_proposal_fit
+from eyework.tests.ui.conftest import DESKTOP, HANDHELD, LOGIN, PHONES, STRESS, VIEWPORTS
 from eyework.tests.ui.flow import Flow, sample_photo
 
 STYLES = Path(__file__).resolve().parents[2] / "static" / "styles.css"
@@ -177,3 +178,63 @@ def test_the_longest_valid_copy_at_each_text_size(sized_factory, server, descrip
 @pytest.mark.parametrize(("width", "height"), TIGHTEST, ids=TIGHTEST_IDS)
 def test_the_worst_wrapping_copy_at_each_text_size(sized_factory, server, width, height):
     test_proposal_fit.test_the_worst_wrapping_copy_is_never_clipped(sized_factory, server, width, height, 100)
+
+
+def _alert_fits(page) -> None:
+    """نصّ التنبيه داخل مكانه: التنبيه يغطّي المحتوى، وفحص القصّ العامّ لا يدخله."""
+    inside = page.evaluate("() => { const a = document.querySelector('.screen:not([hidden]) .alert');"
+                           " return a.scrollHeight <= a.clientHeight + 1; }")
+    assert inside, "نصّ التنبيه أطول من مكانه"
+
+
+@pytest.mark.parametrize(("width", "height"), TIGHTEST, ids=TIGHTEST_IDS)
+def test_the_sign_in_screen_with_and_without_its_alert_at_each_text_size(sized_factory, server, width, height):
+    """
+    شاشة الدخول وفيها صفّ «ادخل» و«ادخل بمفتاح المرور»، وتحته سطر المساعدة كاملاً؛
+    ثم أطول تنبيهٍ فيها: مفتاح مرورٍ لم يكتمل الدخول به.
+    """
+    page = sized_factory(width, height, session=False)
+    test_passkeys._device(page, [], "refuse")
+    flow = Flow(page, server["base"])
+    page.goto(server["base"] + "/#/login")
+    flow.screen("login")
+    test_passkeys._ready(flow)
+    flow.audit("login")
+    flow.press("#login-passkey", lambda: test_passkeys._alert(flow), "ادخل بمفتاح المرور")
+    assert test_passkeys._alert(flow) == test_passkeys.NOT_SIGNED_IN
+    flow.audit("login alert")
+    _alert_fits(page)
+    test_passkeys._acknowledge(flow)
+    flow.audit("login after the alert")
+    failures = test_portals._failures(flow) + flow.landings
+    assert not failures, "\n".join(failures)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize(("width", "height"), TIGHTEST, ids=TIGHTEST_IDS)
+def test_the_activation_screen_with_and_without_its_alert_at_each_text_size(sized_factory, server, width, height):
+    page = sized_factory(width, height, session=False)
+    flow = Flow(page, server["base"])
+    page.goto(f"{server['base']}/#activate={auth.new_token()}&u={LOGIN}")
+    flow.screen("activate")
+    flow.audit("activate")
+    page.fill("#activate-password", "Activated-Password-2026-z")
+    flow.press(".screen[data-screen='activate'] [type='submit']", lambda: flow.until(
+        "document.querySelector('.screen[data-screen=activate] .alert:not([hidden])') !== null"), "فعّل حسابي")
+    flow.audit("activate alert")
+    _alert_fits(page)
+    failures = test_portals._failures(flow) + flow.landings
+    assert not failures, "\n".join(failures)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize(("width", "height"), TIGHTEST, ids=TIGHTEST_IDS)
+def test_signing_out_at_each_text_size(sized_factory, server, width, height):
+    test_portals.test_signing_out_takes_two_steps(sized_factory, server, width, height)
+
+
+@pytest.mark.parametrize(("width", "height"), TIGHTEST, ids=TIGHTEST_IDS)
+@pytest.mark.parametrize("profession", list(professions.Profession), ids=lambda p: p.value)
+def test_the_sources_screen_at_each_text_size(sized_factory, server, owner, profession, width, height):
+    test_portals.test_the_sources_screen_gives_the_full_onet_notice(
+        sized_factory, server, owner, profession, width, height)

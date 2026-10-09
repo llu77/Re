@@ -28,6 +28,7 @@ __all__ = [
     "EditBody",
     "LoginBody",
     "PasskeyAddBody",
+    "PasskeyAddOptionsBody",
     "PasskeyLoginBody",
     "RegisterBody",
     "SignupCodeBody",
@@ -122,6 +123,12 @@ class PasskeyLoginBody(_Credential):
 
 class PasskeyAddBody(_Credential):
     response: _AttestationResponse
+
+
+class PasskeyAddOptionsBody(_Body):
+    """اسم الدخول الذي دخل به للتوّ: يُعرض في المفتاح، وتطابقه القاعدة مع الحساب."""
+
+    username: Annotated[StrictStr, Field(min_length=LOGIN_MIN, max_length=LOGIN_MAX)]
 
 
 class RowVersionBody(_Body):
