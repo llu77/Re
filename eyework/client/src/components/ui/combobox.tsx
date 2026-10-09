@@ -225,7 +225,7 @@ export function Combobox({
                     data-safe=""
                     onClick={() => choose(entry)}
                     className={cn(
-                      "flex min-h-ctl cursor-default items-center gap-3 rounded-ctl border-2 border-dashed px-3 py-1.5",
+                      "flex min-h-ctl cursor-default items-center gap-3 rounded-ctl border border-dashed px-3 py-1.5",
                       isActive ? "border-primary bg-secondary" : "border-primary/60 bg-card",
                     )}
                   >
@@ -252,7 +252,7 @@ export function Combobox({
                   data-value=""
                   onClick={() => choose(entry)}
                   className={cn(
-                    "flex min-h-ctl cursor-default items-center gap-3 rounded-ctl border-2 px-3 py-1.5",
+                    "flex min-h-ctl cursor-default items-center gap-3 rounded-ctl border px-3 py-1.5",
                     isActive ? "border-primary bg-secondary" : "border-border bg-card",
                   )}
                 >

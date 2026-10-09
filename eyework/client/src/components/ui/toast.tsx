@@ -72,7 +72,7 @@ function Toaster({ current, onDismiss }: { current: { key: number; message: Toas
         <div
           key={current.key}
           className={cn(
-            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-card border-2 bg-card p-pad shadow-pop",
+            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-card border bg-card p-pad shadow-pop",
             tone === "danger" ? "border-destructive" : tone === "info" ? "border-primary" : "border-success",
           )}
         >
@@ -88,7 +88,7 @@ function Toaster({ current, onDismiss }: { current: { key: number; message: Toas
             type="button"
             data-safe=""
             onClick={onDismiss}
-            className="-my-1 inline-flex min-h-ctl min-w-ctl shrink-0 items-center justify-center gap-1.5 rounded-ctl border-2 border-control px-2.5 text-small font-semibold hov:bg-muted"
+            className="-my-1 inline-flex min-h-ctl min-w-ctl shrink-0 items-center justify-center gap-1.5 rounded-ctl border border-control px-2.5 text-small font-semibold hov:bg-muted"
           >
             <X aria-hidden="true" className="size-4 gaze:size-5" />
             إغلاق

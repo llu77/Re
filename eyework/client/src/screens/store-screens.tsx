@@ -61,7 +61,7 @@ export function StoreTotalsScreen({ totals, attention, recent, onAttention, onOp
   const gaze = size === "gaze"
   const shown = attention.filter((a) => a.count > 0)
   return (
-    <Screen title="المجاميع" quietTitle description={`هذا الشهر: ${totals.month}`}>
+    <Screen title="المجاميع" description={`هذا الشهر: ${totals.month}`}>
       <div className="grid grid-cols-2 gap-tg-min lg:grid-cols-4 lg:gap-tg gaze:gap-tg">
         <StatCard label="المشتريات قبل الضريبة" icon={ShoppingCart} value={formatWhole(totals.purchasesNet)} unit="ر.س" />
         <StatCard label="ضريبة المشتريات" icon={BadgePercent} value={formatWhole(totals.purchasesVat)} unit="ر.س" />
@@ -76,7 +76,7 @@ export function StoreTotalsScreen({ totals, attention, recent, onAttention, onOp
         {shown.length === 0 ? (
           <p className="text-flow text-muted-foreground">لا شيء ينتظرك.</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-tg-min md:grid-cols-3 gaze:gap-tg">
+          <ul className="grid grid-cols-1 gap-tg-min tablet:grid-cols-3 gaze:gap-tg">
             {shown.slice(0, gaze ? 1 : 3).map((a) => (
               <li key={a.id}>
                 <StatCard
@@ -149,7 +149,7 @@ export function ExpensesScreen({ month, onPrevious, onNext, rows, totals, onOpen
   const { size } = useSize()
   const gaze = size === "gaze"
   return (
-    <Screen title="المصاريف" quietTitle description={gaze ? undefined : "كل فاتورة شراءٍ مسجّلة تُضاف هنا، والمرتجع يخصم منها."}>
+    <Screen title="المصاريف" description={gaze ? undefined : "كل فاتورة شراءٍ مسجّلة تُضاف هنا، والمرتجع يخصم منها."}>
       <nav aria-label="الشهر" className="flex items-center justify-between gap-tg">
         <Button icon={ChevronRight} onClick={onPrevious}>
           <span className="gaze:hidden">الشهر </span>السابق
@@ -173,7 +173,7 @@ export function ExpensesScreen({ month, onPrevious, onNext, rows, totals, onOpen
           </span>
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-tg-min md:grid-cols-4 md:gap-tg">
+        <div className="grid grid-cols-2 gap-tg-min tablet:grid-cols-4 tablet:gap-tg">
           <StatCard label="المشتريات" icon={ShoppingCart} value={formatWhole(totals.purchases)} unit="ر.س" />
           <StatCard label="المرتجعات" icon={Undo2} value={formatWhole(totals.returns)} unit="ر.س" />
           <StatCard label="الصافي قبل الضريبة" icon={Wallet} value={formatWhole(totals.net)} unit="ر.س" />

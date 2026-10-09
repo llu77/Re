@@ -191,7 +191,7 @@ export function AccountScreen({
           </div>
         </CardContent>
       </Card>
-      <section aria-label="الحساب" className="grid grid-cols-2 gap-tg md:grid-cols-3">
+      <section aria-label="الحساب" className="grid grid-cols-2 gap-tg tablet:grid-cols-3">
         {sources}
       </section>
       <ScreenActions>{leaving}</ScreenActions>

@@ -34,7 +34,7 @@ function SourcesScreen({ onBack }: { onBack: () => void }) {
   }, [])
   const lines = portal ? [...new Set([portal.sources.tasks, portal.sources.skills])] : []
   return (
-    <Screen title="مصادر المحتوى" back={{ label: "رجوع", onBack }}>
+    <Screen title="مصادر المحتوى" back={{ id: "sources-back", label: "رجوع", onClick: onBack }}>
       {portal === undefined ? null : portal === null ? (
         <p role="alert" className="text-flow font-bold text-destructive">
           تعذّرت قراءة المصادر. حاول مرة أخرى.

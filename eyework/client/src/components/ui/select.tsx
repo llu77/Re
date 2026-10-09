@@ -105,7 +105,7 @@ export function Select({ options, value, onValueChange, emptyLabel = "اختر",
         onClick={() => (open ? setOpen(false) : show())}
         onKeyDown={onKeyDown}
         className={cn(
-          "flex min-h-ctl w-full items-center justify-between gap-2 rounded-ctl border-2 border-control bg-card px-3 text-start text-body shadow-ctl",
+          "flex min-h-ctl w-full items-center justify-between gap-2 rounded-ctl border border-control bg-card px-3 text-start text-body",
           "disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground",
           open && "border-primary",
         )}
@@ -135,7 +135,7 @@ export function Select({ options, value, onValueChange, emptyLabel = "اختر",
                 data-value=""
                 onClick={() => choose(index)}
                 className={cn(
-                  "flex min-h-ctl cursor-default items-center justify-between gap-2 rounded-ctl border-2 px-3",
+                  "flex min-h-ctl cursor-default items-center justify-between gap-2 rounded-ctl border px-3",
                   index === active ? "border-primary bg-secondary" : "border-transparent",
                   isSelected && "font-bold",
                 )}

@@ -20,7 +20,7 @@ export interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className={cn("flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-border px-pad py-sec text-center", className)}>
+    <div className={cn("flex flex-col items-center gap-3 rounded-card border border-dashed border-border px-pad py-sec text-center", className)}>
       <span className="flex size-12 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground gaze:size-16">
         <Icon aria-hidden="true" className="size-6 gaze:size-8" strokeWidth={2} />
       </span>

@@ -151,7 +151,7 @@ export function ReturnFlow({ vatRateBp, api, onCancel, initial = {} }: ReturnFlo
     <Screen
       title={step === 0 ? "من أيّ فاتورة؟" : step === 1 ? "ما الذي يُرجَع؟" : "سبب الإرجاع"}
       above={<Stepper steps={STEPS} current={step} />}
-      back={gaze ? undefined : { label: step === 0 ? "الرئيسية" : "الخطوة السابقة", onBack: step === 0 ? onCancel : () => setStep((step - 1) as 0 | 1) }}
+      back={gaze ? undefined : { id: "return-back", label: step === 0 ? "الرئيسية" : "الخطوة السابقة", onClick: step === 0 ? onCancel : () => setStep((step - 1) as 0 | 1) }}
       actions={
         <>
           {gaze ? (

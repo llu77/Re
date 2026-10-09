@@ -63,7 +63,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
         aria-controls={regionId}
         onClick={() => setOpen((shown) => !shown)}
         className={cn(
-          "flex min-h-ctl w-full items-center justify-between gap-3 rounded-ctl border-2 px-4 text-start",
+          "flex min-h-ctl w-full items-center justify-between gap-3 rounded-ctl border px-4 text-start",
           open ? "border-primary bg-secondary" : "border-control bg-card",
         )}
       >
@@ -94,7 +94,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
                     toggle.current?.focus()
                   }}
                   className={cn(
-                    "flex min-h-ctl items-center justify-between gap-2 rounded-ctl border-2 px-3 text-start",
+                    "flex min-h-ctl items-center justify-between gap-2 rounded-ctl border px-3 text-start",
                     checked ? "border-primary bg-secondary font-bold" : "border-control bg-card",
                   )}
                 >
@@ -179,7 +179,7 @@ function TabList({ items, value, onValueChange, label, children, className, stre
               onClick={() => onValueChange(item.id)}
               onKeyDown={(event) => onKeyDown(event, item.id)}
               className={cn(
-                "relative inline-flex min-h-ctl min-w-ctl items-center justify-center gap-2 rounded-ctl border-2 px-3.5 text-body",
+                "relative inline-flex min-h-ctl min-w-ctl items-center justify-center gap-2 rounded-ctl border px-3.5 text-body",
                 "[&_svg]:size-icon [&_svg]:shrink-0",
                 selected
                   ? "border-primary bg-secondary font-bold text-secondary-foreground shadow-[inset_0_-3px_0_hsl(var(--primary))]"

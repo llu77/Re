@@ -32,6 +32,14 @@ describe("the client's source", () => {
     ],
     ["external URLs", /https?:\/\/(?!127\.0\.0\.1|localhost)/],
     ["work left for later", /\b(TODO|FIXME|XXX|HACK)\b/],
+    // الإطارات tablet/lg/xl وحدها: sm و md و2xl لا تعني شيئاً هنا فلا تُكتب بصمت.
+    ["breakpoints outside the three screens", /\b(sm|md|2xl):/],
+    // حدّ كل عنصر تحكّم شعرة (var(--line)): لا border-2.
+    ["two-pixel borders", /\bborder-2\b/],
+    // لا مكتبة حركةٍ ولا إيماءاتٍ ولا <style> محقون: الورقة والحوار على <dialog> الأصلي.
+    ["motion, gesture or portal libraries", /["'](@radix-ui\/|framer-motion|motion\/react|vaul|cmdk)/],
+    // `hov:` وحده: لونٌ تحت فأرةٍ في الحجم العادي، لا تحت النظر.
+    ["hover variants", /\bhover:/],
   ])("holds no %s", (_, pattern) => {
     const hits = sources.filter((file) => pattern.test(code(file))).map((file) => file.slice(SRC.length + 1))
     expect(hits).toEqual([])

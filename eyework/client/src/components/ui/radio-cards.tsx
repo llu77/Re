@@ -69,7 +69,7 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
             onClick={() => onValueChange(option.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "flex min-h-ctl min-w-0 flex-col items-stretch gap-2 rounded-card border-2 p-3 text-start",
+              "flex min-h-ctl min-w-0 flex-col items-stretch gap-2 rounded-card border p-3 text-start",
               checked ? "border-primary bg-secondary shadow-[inset_0_0_0_1px_hsl(var(--primary))]" : "border-control bg-card hov:bg-muted",
             )}
           >

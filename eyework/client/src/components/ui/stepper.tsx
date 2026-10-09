@@ -46,7 +46,7 @@ export function Stepper({ steps, current, variant = "auto", className }: Stepper
             <li key={s.id} aria-current={now ? "step" : undefined} className="flex items-center gap-2">
               <span
                 className={cn(
-                  "num flex size-7 shrink-0 items-center justify-center rounded-pill border-2 text-small font-bold",
+                  "num flex size-7 shrink-0 items-center justify-center rounded-pill border text-small font-bold",
                   done && "border-primary bg-primary text-primary-foreground",
                   now && "border-primary bg-secondary text-secondary-foreground",
                   !done && !now && "border-control bg-card text-muted-foreground",

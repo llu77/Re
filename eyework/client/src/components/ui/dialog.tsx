@@ -9,20 +9,19 @@
  *     تستقرّ على الخلفية لا تُضيّع ما في اللوحة.
  *   • التركيز يُنقل إلى العنوان عند الفتح (يُعلَن ولا يقع على زرٍّ يعتمد)، ويعود عند
  *     الإغلاق إلى ما كان عليه.
- *   • «إغلاق» زرٌّ بنصّه في الطرف الأسفل البعيد — حيث كان زرّ الأدوات العائم — فنظرةٌ
- *     باقيةٌ على موضع الضغط تقع على ما يُغلق، لا على ما يعتمد.
- *   • الحركة: ظهورٌ قصير في الحجم العادي، ولا شيء في الكبير أو مع «تقليل الحركة».
- *     والإغلاق فوريّ.
- *   • في الحجم الكبير تملأ اللوحة الشاشة بلا تمرير؛ وفي العادي حوارٌ في الوسط، أو ورقةٌ
- *     من الأسفل في الهاتف ومن الطرف في الحاسوب.
+ *   • «إغلاق» زرٌّ بنصّه في الطرف الأسفل البعيد، فنظرةٌ باقيةٌ على موضع الضغط تقع على ما
+ *     يُغلق، لا على ما يعتمد.
+ *   • الحركة: ظهورٌ قصير (tailwindcss-animate، CSS وحده) في الحجم العادي، ولا شيء في الكبير
+ *     أو مع «تقليل الحركة». والإغلاق فوريّ.
+ *   • الحوار في الوسط بحدٍّ شعرة وظلٍّ خفيف. والورقة من أسفل الهاتف بزوايا علوية، ونافذةٌ في
+ *     وسط الآيباد والحاسوب، وملء الشاشة بلا تمرير في الحجم الكبير.
  */
 
 import * as React from "react"
-import { motion } from "framer-motion"
 import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { NONE, QUICK, useMotionAllowed } from "@/lib/motion"
+import { useMotionAllowed } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 interface ModalProps {
@@ -71,24 +70,18 @@ function useNativeModal(open: boolean, onClose: () => void) {
   return { ref, heading, onCancel }
 }
 
-function Panel({ children, className, from }: { children: React.ReactNode; className: string; from: "fade" | "bottom" | "end" }) {
+function Panel({ children, className, from }: { children: React.ReactNode; className: string; from: "fade" | "bottom" }) {
   const animate = useMotionAllowed()
-  const initial = !animate
-    ? false
-    : from === "bottom"
-      ? { opacity: 0, y: 24 }
-      : from === "end"
-        ? { opacity: 0, x: -24 }
-        : { opacity: 0, scale: 0.98 }
   return (
-    <motion.div
-      initial={initial}
-      animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-      transition={animate ? QUICK : NONE}
-      className={className}
+    <div
+      className={cn(
+        className,
+        animate && "animate-in duration-150 ease-out fill-mode-both fade-in",
+        animate && (from === "bottom" ? "slide-in-from-bottom-6" : "zoom-in-[0.98]"),
+      )}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
@@ -101,7 +94,7 @@ function Header({ title, description, heading, titleId, descriptionId }: {
 }) {
   return (
     <header className="flex flex-col gap-1">
-      <h2 ref={heading} id={titleId} tabIndex={-1} className="text-title font-bold leading-tight focus-visible:outline-none">
+      <h2 ref={heading} id={titleId} tabIndex={-1} className="text-title font-semibold leading-tight tracking-tight focus-visible:outline-none">
         {title}
       </h2>
       {description ? (
@@ -117,7 +110,7 @@ function Footer({ footer, closeLabel, onClose }: { footer?: React.ReactNode; clo
   return (
     <footer className="flex flex-wrap items-center gap-tg gaze:grid gaze:grid-cols-2">
       {footer}
-      {/* «إغلاق» آخر الذيل: في الصفحة العربية هو الطرف الأيسر، تحت زرّ الأدوات العائم. */}
+      {/* «إغلاق» آخر الذيل: في الصفحة العربية هو الطرف الأيسر، فوق خانة «حسابي» من شريط التبويب. */}
       <Button icon={X} onClick={onClose} className="ms-auto gaze:col-start-2 gaze:ms-0">
         {closeLabel}
       </Button>
@@ -136,16 +129,16 @@ export function Dialog({ open, onClose, title, description, children, footer, cl
       aria-describedby={description ? `${id}-desc` : undefined}
       onCancel={onCancel}
       className={cn(
-        "m-auto w-[min(32rem,calc(100vw-2*var(--edge)))]",
-        "gaze:fixed gaze:inset-0 gaze:m-0 gaze:h-dvh gaze:w-screen",
+        "m-auto w-[min(30rem,calc(100vw-2*var(--edge)))] rounded-card",
+        "gaze:fixed gaze:inset-0 gaze:m-0 gaze:h-dvh gaze:w-screen gaze:rounded-none",
       )}
     >
       {open ? (
         <Panel
           from="fade"
           className={cn(
-            "flex flex-col gap-sec rounded-card bg-card p-pad shadow-pop",
-            "gaze:h-full gaze:justify-between gaze:rounded-none gaze:bg-background gaze:pt-safe gaze:pb-safe gaze:shadow-none",
+            "flex flex-col gap-sec rounded-card border border-border bg-card p-pad shadow-pop",
+            "gaze:h-full gaze:justify-between gaze:rounded-none gaze:border-0 gaze:bg-background gaze:px-edge gaze:pt-safe gaze:pb-safe gaze:shadow-none",
             className,
           )}
         >
@@ -175,21 +168,21 @@ export function Sheet({ open, onClose, title, eyebrow, description, children, fo
       aria-describedby={description ? `${id}-desc` : undefined}
       onCancel={onCancel}
       className={cn(
-        // الهاتف: من الأسفل بعرض الشاشة.
-        "fixed inset-x-0 bottom-0 top-auto m-0 max-h-[88dvh] w-full",
-        // الحاسوب: من الطرف (يسار الصفحة العربية) بارتفاع الشاشة.
-        "md:inset-y-0 md:end-0 md:start-auto md:max-h-none md:w-[26rem]",
+        // الهاتف: ورقةٌ من الأسفل بعرض الشاشة وزوايا علوية.
+        "fixed inset-x-0 bottom-0 top-auto m-0 max-h-[88dvh] w-full rounded-t-[calc(var(--radius-card)+0.25rem)]",
+        // الآيباد والحاسوب: نافذةٌ في الوسط (الهوامش التلقائية تتوسّطها في المحورين).
+        "tablet:inset-0 tablet:m-auto tablet:max-h-[min(40rem,calc(100dvh-2*var(--edge)))] tablet:w-[30rem] tablet:rounded-card",
         // الكبير: الشاشة كلّها، بلا تمرير.
-        "gaze:inset-0 gaze:h-dvh gaze:max-h-none gaze:w-screen",
+        "gaze:inset-0 gaze:m-0 gaze:h-dvh gaze:max-h-none gaze:w-screen gaze:rounded-none",
       )}
     >
       {open ? (
         <Panel
           from="bottom"
           className={cn(
-            "flex max-h-[88dvh] flex-col gap-sec rounded-t-[calc(var(--radius-card)+0.25rem)] bg-card px-edge pb-safe pt-pad shadow-pop",
-            "md:h-dvh md:max-h-none md:rounded-none md:pt-safe",
-            "gaze:h-dvh gaze:max-h-none gaze:rounded-none gaze:bg-background gaze:pt-safe gaze:shadow-none",
+            "flex max-h-[88dvh] flex-col gap-sec rounded-t-[calc(var(--radius-card)+0.25rem)] border border-border bg-card px-edge pb-safe pt-pad shadow-pop",
+            "tablet:max-h-[min(40rem,calc(100dvh-2*var(--edge)))] tablet:rounded-card tablet:p-pad",
+            "gaze:h-dvh gaze:max-h-none gaze:rounded-none gaze:border-0 gaze:bg-background gaze:px-edge gaze:pt-safe gaze:shadow-none",
             className,
           )}
         >

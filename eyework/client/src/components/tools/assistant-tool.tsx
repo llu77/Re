@@ -83,7 +83,7 @@ export function AssistantTool({ userName, screen, workspace, api }: {
           <span className="font-bold">سؤالك: </span>
           {question}
         </p>
-        <section aria-label="جواب سيمبول" className="flex flex-col gap-2 rounded-card border-2 border-ai/40 bg-ai-tint p-pad">
+        <section aria-label="جواب سيمبول" className="flex flex-col gap-2 rounded-card border border-ai/40 bg-ai-tint p-pad">
           <p className="flex items-center gap-2 text-small font-bold text-secondary-foreground">
             <SymbolMark className="size-4" />
             جواب سيمبول · اقتراحٌ تتحقّق منه

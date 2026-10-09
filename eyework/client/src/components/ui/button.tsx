@@ -2,9 +2,10 @@
  * Button — زرّ shadcn/ui بحجمي الواجهة
  * ===================================
  * الأصل: shadcn/ui button (MIT)، والتكييف:
- *   • الارتفاع `h-ctl` (44 أو 72) أو `h-ctl-lg` (48 أو 72): لا حجم أصغر من منطقة الإصابة.
+ *   • الارتفاع `min-h-ctl` (40 أو 48) أو `min-h-ctl-lg` (44 أو 48): لا حجم أصغر من منطقة الإصابة.
  *   • النصّ ظاهرٌ دائماً بجانب الأيقونة: لا زرّ بأيقونةٍ وحدها.
- *   • لكل هدفٍ حدٌّ ظاهر (3:1 على الأقل)؛ والتعبئة الملوّنة لما يعتمد أو يُرسل وحده.
+ *   • لكل هدفٍ حدٌّ شعرة ظاهر (3:1 على الأقل)؛ والتعبئة الملوّنة لما يعتمد أو يُرسل وحده،
+ *     والتدرّج الثانوي بحدّه الأزرق للخطوة التالية.
  *   • `commit` يضع `data-commit` (ما لا يُعاد بضغطة: اعتماد، إرسال، حذف)؛ و`value`
  *     يضع `data-value` (يغيّر قيمةً ظاهرة: خيار، زيادة، نقصان)؛ وغيرهما `data-safe`.
  *     اختبارات الهبوط تقرأ هذه السمات (visual_spec §8).
@@ -20,24 +21,24 @@ import { cn } from "@/lib/utils"
 
 export const buttonVariants = cva(
   [
-    "inline-flex min-w-0 select-none items-center justify-center gap-2 rounded-ctl border-2 px-4 py-1 text-center",
+    "inline-flex min-w-0 select-none items-center justify-center gap-1.5 rounded-ctl border px-3 py-1 text-center",
     "min-h-ctl min-w-ctl text-body font-semibold leading-tight",
     "disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none",
     "aria-disabled:cursor-not-allowed aria-disabled:border-border aria-disabled:bg-muted aria-disabled:text-muted-foreground",
     "[&_svg]:pointer-events-none [&_svg]:size-icon [&_svg]:shrink-0",
-    "gaze:px-5",
+    "gaze:gap-2 gaze:px-4",
   ].join(" "),
   {
     variants: {
       variant: {
         /** يعتمد أو يُرسل: التعبئة الملوّنة لهذا وحده. */
-        primary: "border-primary bg-primary text-primary-foreground shadow-ctl hov:bg-primary/90",
+        primary: "border-primary bg-primary text-primary-foreground hov:bg-primary/90",
         /** خطوةٌ إلى الأمام بلا إرسال، أو الإجراء الثاني. */
-        secondary: "border-primary bg-secondary text-secondary-foreground hov:bg-secondary/70",
+        secondary: "border-primary-line bg-secondary text-secondary-foreground hov:bg-secondary/70",
         /** رجوعٌ أو فتحٌ أو تبديل. */
         outline: "border-control bg-card text-foreground hov:bg-muted",
         /** يحذف أو يلغي، ولا يُستعاد. */
-        danger: "border-destructive bg-destructive text-destructive-foreground shadow-ctl hov:bg-destructive/90",
+        danger: "border-destructive bg-destructive text-destructive-foreground hov:bg-destructive/90",
         /** خطوةٌ آمنة نحو ما يحذف: تفتح التأكيد ولا تحذف. */
         "danger-outline": "border-destructive bg-card text-destructive hov:bg-destructive-tint",
       },

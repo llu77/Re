@@ -9,14 +9,15 @@ from __future__ import annotations
 
 import pytest
 
-from eyework.tests.ui.conftest import DESKTOP, PASSWORD, VIEWPORTS
-from eyework.tests.ui.next.conftest import LOGIN, member
+from eyework.tests.ui.conftest import PASSWORD
+from eyework.tests.ui.next.conftest import DESKTOP, LANDSCAPE, LOGIN, PHONES, STRESS, frame_ids, member
 from eyework.tests.ui.next.flow import Flow
 
-IDS = [f"{w}x{h}" for w, h in VIEWPORTS]
+#: أضيق هاتف، وإطار الإجهاد، والآيباد أفقياً.
+SIGN_IN_FRAMES = [PHONES[0], STRESS, LANDSCAPE]
 
 
-@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+@pytest.mark.parametrize(("width", "height"), SIGN_IN_FRAMES, ids=frame_ids(SIGN_IN_FRAMES))
 @pytest.mark.parametrize("size", ["compact", "gaze"])
 def test_the_password_signs_in_and_the_servers_size_wins(next_page, server, owner, width, height, size):
     member(owner, size="GAZE" if size == "gaze" else "COMPACT")

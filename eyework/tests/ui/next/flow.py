@@ -3,9 +3,9 @@
 =======================================
 القواعد نفسها (tests/ui/flow.py) بقيم كل حجمٍ من `html[data-size]`:
 
-  • الكبير (gaze): أهدافٌ ≥72 وفجواتٌ ≥24 وحافّةٌ ≥16، عشرة أهدافٍ على الأكثر، ولا تمرير
-    ولا قصّ، ولا حركة.
-  • العادي (compact): أهدافٌ ≥44 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح.
+  • الكبير (gaze): أهدافٌ ≥48 (حدّ Apple 44pt وأربعة احتياطاً) وفجواتٌ ≥12 وحافّةٌ ≥16، اثنا عشر
+    هدفاً على الأكثر (أربعةٌ منها شريط التنقّل الثابت)، ولا تمرير ولا قصّ، ولا حركة.
+  • العادي (compact): أهدافٌ ≥40 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح.
 
 وقاعدتا الهبوط والأقرب إلى النظر كما هما: بعد كل ضغطة لا يقع تحت موضعها ما يعتمد
 (`data-commit`) ولا ما يغيّر قيمة (`data-value`، خيارٌ راديوي)، وأقرب عنصرٍ مفعّل إليها
@@ -17,7 +17,7 @@ from __future__ import annotations
 AUDIT = """
 () => {
     const gaze = document.documentElement.dataset.size === 'gaze';
-    const MIN = gaze ? 71.5 : 43.5, GAP = gaze ? 23.5 : 7.5, EDGE = 15.5;
+    const MIN = gaze ? 47.5 : 39.5, GAP = gaze ? 11.5 : 7.5, EDGE = 15.5;
     const root = document.querySelector('dialog[open]') || document.querySelector('[role=alert][class*=fixed]')
         || document.querySelector('[data-content]:not([inert])') || document.body;
     const visible = (e) => {
@@ -151,7 +151,7 @@ class Flow:
             for key in ("small", "close", "edge", "fonts", "clipped"):
                 if audit[key]:
                     failures.append(f"{audit['label']} {key}: {audit[key]}")
-            if audit["gaze"] and audit["enabled"] > 10:
+            if audit["gaze"] and audit["enabled"] > 12:
                 failures.append(f"{audit['label']}: {audit['enabled']} أهداف مفعّلة")
             if audit["gaze"] and audit["vertical"]:
                 failures.append(f"{audit['label']}: تمرير")
