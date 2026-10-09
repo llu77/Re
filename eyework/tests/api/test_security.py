@@ -185,7 +185,7 @@ def test_an_unexpected_error_still_carries_the_security_headers(browser, owner, 
     def broken(*args, **kwargs):
         raise RuntimeError("row (00000000-..., secret copy) failed")
 
-    monkeypatch.setattr(campaigns, "remaining_generations", broken)
+    monkeypatch.setattr(campaigns, "generation_allowance", broken)
     caplog.set_level(logging.DEBUG)
     client = signed_in(owner, browser, SELLER, raise_server_exceptions=False)
     response = client.get("/api/me")

@@ -1,10 +1,11 @@
 """
-التسجيل عبر الواجهة البرمجية
-============================
-من الطلب إلى القاعدة، بالترويسات التي يرسلها `app.js`:
+التسجيل برابطٍ عبر الواجهة البرمجية
+====================================
+من الطلب إلى القاعدة، بالترويسات التي يرسلها `app.js`، في الوضع `code`: هذا
+الملف يختبر طريق الرابط وحده، والتسجيل بلا رابط في `test_open_registration_api.py`.
 
-  • رابط تسجيلٍ صالح ⇒ حسابٌ بمهنته وجلسة، و`/api/me` يعيد المهنة والاسم — لا
-    البريد ولا التاريخ.
+  • رابط تسجيلٍ صالح ⇒ حسابٌ بمهنته وطريقة استخدامه وجلسة، و`/api/me` يعيد
+    المهنة والاسم والحدّ — لا البريد ولا التاريخ.
   • بلا رمزٍ صالح لا حساب، ولا يُعرف إن كان البريد مسجّلاً.
   • كل حقلٍ خاطئ يعود باسم حقله، فتفتح الواجهة خطوته.
   • التسجيل المغلق 403، وحدّ العنوان الواحد 429.
@@ -17,27 +18,35 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from eyework import auth, config
-from eyework.db import Database
-from eyework.tests.api.conftest import COOKIE, LOGIN_KEY, ORIGIN, PASSWORD, WRITE_HEADERS, noise_jpeg
-from eyework.tests.conftest import app_url_for
+from eyework import auth, terms
+from eyework.tests.api.conftest import (
+    COOKIE,
+    LOGIN_KEY,
+    ORIGIN,
+    PASSWORD,
+    WRITE_HEADERS,
+    issue_code,
+    noise_jpeg,
+    serve,
+)
 from eyework.tests.fakes import FakeCopywriter
-from eyework.web.app import create_app
 
 EMAIL = "Sara.Worker@Example.SA"
 
 
-def issue_code(owner) -> str:
-    code = auth.new_token()
-    with owner.cursor() as cursor:
-        cursor.execute("INSERT INTO signup_codes (code_hash, expires_at) VALUES (%s, now() + interval '1 day')",
-                       (auth.hash_token(code),))
-    return code
+@pytest.fixture
+def server(owner, owner_url, writer):
+    """الوضع `code`: التسجيل برابط المشغّل وحده، وبريد المشغّل اختياريٌّ فيه."""
+    with serve(owner_url, writer, registration="code", support_contact=None) as app:
+        yield app
 
 
-def _body(code: str, **overrides) -> dict:
-    body = {"code": code, "name": "سارة  العتيبي ", "birth_date": "1994-03-21", "email": EMAIL,
-            "password": PASSWORD, "profession": "STOREKEEPER", "accept_terms": True}
+def _body(code: str | None = None, **overrides) -> dict:
+    body = {"name": "سارة  العتيبي ", "birth_date": "1994-03-21", "email": EMAIL, "password": PASSWORD,
+            "profession": "STOREKEEPER", "ui_size": "GAZE", "accept_terms": True,
+            "terms_version": terms.TERMS_VERSION}
+    if code is not None:
+        body["code"] = code
     body.update(overrides)
     return body
 
@@ -60,16 +69,21 @@ def test_registering_signs_in_and_opens_the_professions_portal(browser, owner):
     assert COOKIE in client.cookies
 
     me = client.get("/api/me")
-    assert me.json() == {"generations_left": 40, "display_name": "سارة العتيبي", "profession": "STOREKEEPER"}
+    assert me.json() == {"generations_left": 40, "generation_limit": 40, "display_name": "سارة العتيبي",
+                         "profession": "STOREKEEPER", "ui_size": "GAZE", "terms_current": True,
+                         "ai": {"assistant": {"per_day": 60, "used_today": 0}}}
     # ما يعود للواجهة لا يحمل البريد ولا تاريخ الميلاد.
     assert "1994" not in me.text and "example" not in me.text.lower()
 
     with owner.cursor() as cursor:
-        cursor.execute("SELECT login_hmac, birth_date::text, profession, self_registered, terms_version FROM users")
-        login, birth, profession, self_registered, terms = cursor.fetchone()
+        cursor.execute("SELECT login_hmac, birth_date::text, profession, ui_size, self_registered, open_registered,"
+                       " terms_version FROM users")
+        login, birth, profession, size, self_registered, open_registered, version = cursor.fetchone()
     # البريد موحّداً ثم HMAC: الاسم نفسه بحروفٍ كبيرة أو صغيرة حسابٌ واحد.
     assert bytes(login) == auth.login_hmac(LOGIN_KEY, "sara.worker@example.sa")
-    assert (birth, profession, self_registered, terms) == ("1994-03-21", "STOREKEEPER", True, auth.TERMS_VERSION)
+    # حساب الرابط ذاتيٌّ لكنه ليس «مفتوحاً»: له حدود الحساب القائم.
+    assert (birth, profession, size, self_registered, open_registered, version) == (
+        "1994-03-21", "STOREKEEPER", "GAZE", True, False, auth.TERMS_VERSION)
 
 
 def test_a_registered_account_signs_in_again_with_its_email(browser, owner):
@@ -150,6 +164,9 @@ def test_a_taken_email_is_refused_without_touching_the_account(browser, owner):
     with owner.cursor() as cursor:
         cursor.execute("SELECT display_name, profession FROM users")
         assert cursor.fetchall() == [("سارة العتيبي", "STOREKEEPER")]
+        # جواب «مأخوذ» برمزٍ يُعدّ على الرمز لا في الدفتر.
+        cursor.execute("SELECT via, outcome FROM registration_ledger")
+        assert cursor.fetchall() == [("CODE", "OK")]
 
 
 def test_an_unknown_profession_is_a_plain_invalid_request(browser, owner):
@@ -180,19 +197,15 @@ def test_registration_needs_the_write_headers(browser, owner):
 
 @pytest.fixture
 def closed_server(owner, owner_url):
-    settings = config.Settings(app_database_url=app_url_for(owner_url), login_key=LOGIN_KEY,
-                               anthropic_api_key=None, public_origin=ORIGIN, registration_open=False)
-    database = Database(settings.app_database_url)
-    try:
-        yield create_app(settings, copywriter=FakeCopywriter(), database=database)
-    finally:
-        database.close()
+    with serve(owner_url, FakeCopywriter(), registration="closed") as app:
+        yield app
 
 
 def test_a_closed_registration_refuses_and_says_so_in_the_choices(closed_server, owner):
     code = issue_code(owner)
     with TestClient(closed_server, base_url=ORIGIN, headers=WRITE_HEADERS) as client:
-        assert client.get("/api/choices").json()["registration_open"] is False
+        assert client.get("/api/choices").json()["registration"]["mode"] == "closed"
+        assert client.get("/api/auth/registration").status_code == 403
         assert client.post("/api/auth/signup-code", json={"code": code}).status_code == 403
         response = client.post("/api/auth/register", json=_body(code))
     assert response.status_code == 403
@@ -200,9 +213,11 @@ def test_a_closed_registration_refuses_and_says_so_in_the_choices(closed_server,
     assert _users(owner) == 0
 
 
-def test_the_choices_list_the_professions(browser):
+def test_the_choices_list_the_professions_and_name_the_link_only_mode(browser):
     choices = browser().get("/api/choices").json()
-    assert choices["registration_open"] is True
+    assert choices["registration"]["mode"] == "code"
+    assert choices["support_contact"] is None
+    assert "registration_open" not in choices
     assert [(p["code"], p["name"]) for p in choices["professions"]] == [
         ("MARKETING", "التسويق"), ("STOREKEEPER", "أمين المخزون"), ("SUPPORT", "الدعم الفني")]
     assert all(p["tagline"] for p in choices["professions"])

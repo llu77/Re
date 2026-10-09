@@ -32,6 +32,10 @@ RLS_TABLES = (
     "public.users", "public.sessions", "public.activation_tokens", "public.campaigns",
     "public.generation_attempts", "public.copy_versions", "public.campaign_images",
     "public.passkeys", "public.passkey_challenges",
+    # 0008: دفتر التسجيل للمالك وحده، ومفروضٌ عليه أيضاً.
+    "public.registration_ledger",
+    # 0009: أدوات النموذج وسقوفها، ودفتر استدعاءاته، وتنبيهات المراجِع وقراراتها.
+    "public.ai_features", "public.ai_requests", "public.ai_flags", "public.ai_flag_decisions",
 )
 OWNERS_PER_TABLE = [
     "SELECT DISTINCT user_id FROM campaigns",

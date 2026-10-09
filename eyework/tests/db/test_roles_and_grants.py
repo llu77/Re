@@ -38,9 +38,16 @@ ALL_TABLES = frozenset({
     "professions", "signup_codes", "attempt_tombstones",
     # 0006: مفاتيح المرور وتحدّياتها — هويةٌ كالجلسات.
     "passkeys", "passkey_challenges",
+    # 0008: دفتر التسجيل — وقتٌ وطريقٌ ونتيجة، للمالك وحده؛ منه تُعدّ السقوف.
+    "registration_ledger",
+    # 0009: أدوات النموذج وسقوفها (للمالك وحده)، ودفتر استدعاءاته، وتنبيهات المراجِع
+    # وقرارات أصحابها (يقرؤها الويب صفوفَه وحدها، ويكتبها بالدوالّ).
+    "ai_features", "ai_requests", "ai_flags", "ai_flag_decisions",
 })
 READABLE = frozenset({
     "campaign_transition", "campaigns", "generation_attempts", "copy_versions", "campaign_images",
+    # 0009: القراءة بالجدول كلّه تحت عزل الصفّ؛ لا سياسة كتابةٍ لدور الويب عليها.
+    "ai_requests", "ai_flags", "ai_flag_decisions",
 })
 IDENTITY_TABLES = ("public.users", "public.sessions", "public.activation_tokens",
                    "public.passkeys", "public.passkey_challenges")
@@ -69,8 +76,33 @@ APP_FUNCTIONS = frozenset({
     "ew_passkey_add", "ew_my_passkeys",
     # 0007: جلسة كلمة المرور بوقتها، وتحدّيا الدخول والإضافة منفصلين (بدل ew_passkey_challenge).
     "ew_open_password_session", "ew_passkey_login_challenge", "ew_passkey_add_challenge",
+    # 0008: التسجيل المفتوح وما يمنعه الآن، وحدّ الكتابة اليومي لصاحب الجلسة، وطريقة
+    # استخدامه قراءةً وكتابة، ونسخة موافقته وقبوله نسخةً أحدث.
+    "ew_register_open", "ew_open_registration_blocker", "ew_my_generation_limit",
+    "ew_my_ui_size", "ew_set_my_ui_size", "ew_my_terms_version", "ew_accept_terms",
+    # 0009: قرار صاحب التنبيه، وإغلاق استدعاءٍ لم يُنتج شيئاً، وحصّته من كل أداة،
+    # وسؤال المساعد بدايةً ونهاية.
+    "ew_ai_decide", "ew_ai_request_fail", "ew_ai_my_usage", "ew_assistant_begin", "ew_assistant_finish",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
     "ew_current_user", "ew_budget_allowed", "ew_is_billable", "ew_jpeg_has_no_metadata",
+})
+#: ما لا يستدعيه الويب: محفّزاتٌ ودوالّ قيودٍ، وما تستدعيه دوالّ المالك بصلاحيتها.
+#: دالّةٌ جديدة تُعلَن هنا أو في APP_FUNCTIONS، وإلا لم يُقرَّر لمن هي.
+INTERNAL_FUNCTIONS = frozenset({
+    # 0002: حرّاس الحملة والصورة والنسخة والمحاولة.
+    "ew_campaign_insert_guard", "ew_campaign_guard", "ew_purge_image_on_cancel", "ew_image_guard",
+    "ew_version_insert_guard", "ew_version_becomes_current", "ew_forbid_update", "ew_attempt_settle_once",
+    # 0004: لمس الصورة عند استبدالها.
+    "ew_image_touch",
+    # 0005: أثر المحاولة المحذوفة، وتاريخ الرياض.
+    "ew_attempt_tombstone", "ew_riyadh_today",
+    # 0008: حسابٌ مفتوحٌ جديد، وما يمنع تسجيلاً بطريقٍ الآن (من الدفتر وحده).
+    "ew_new_open_account", "ew_registration_blocker",
+    # 0009: فحص نصّ النموذج، وأثر الاستدعاء المحذوف وحارس التنبيه، والسقوف والدفتر
+    # (الفتح والإغلاق والإنفاق)، وقفل الموضوع وكتابة التنبيهات والبوابة والنسيان والمحو.
+    "ew_ai_text_ok", "ew_ai_request_tombstone", "ew_ai_flag_guard", "ew_ai_spend", "ew_ai_request_open",
+    "ew_ai_request_settle", "ew_ai_lock_subject", "ew_ai_flags_put", "ew_ai_gate", "ew_ai_forget_subject",
+    "ew_ai_erase_subject",
 })
 
 
@@ -166,6 +198,11 @@ def test_app_holds_no_delete_or_truncate_on_any_table(owner):
     "DELETE FROM schema_migrations",
     "DELETE FROM passkeys",
     "DELETE FROM passkey_challenges",
+    "DELETE FROM registration_ledger",
+    "DELETE FROM ai_features",
+    "DELETE FROM ai_requests",
+    "DELETE FROM ai_flags",
+    "DELETE FROM ai_flag_decisions",
     "TRUNCATE campaigns",
     "TRUNCATE generation_attempts",
     "TRUNCATE copy_versions",
@@ -177,6 +214,11 @@ def test_app_holds_no_delete_or_truncate_on_any_table(owner):
     "TRUNCATE schema_migrations",
     "TRUNCATE passkeys",
     "TRUNCATE passkey_challenges",
+    "TRUNCATE registration_ledger",
+    "TRUNCATE ai_features",
+    "TRUNCATE ai_requests",
+    "TRUNCATE ai_flags",
+    "TRUNCATE ai_flag_decisions",
 ])
 def test_app_delete_and_truncate_are_refused(app, two_users, statement):
     """المنح في الكتالوج قد يغيب ويبقى الحذف ممكناً بطريقٍ آخر؛ المحاولة نفسها تُرفض."""
@@ -449,6 +491,15 @@ def test_app_executes_exactly_the_declared_interface(owner):
             "   AND has_function_privilege('eyework_app', p.oid, 'EXECUTE')"
         )
         assert {row[0] for row in cursor.fetchall()} == APP_FUNCTIONS
+
+
+def test_every_function_in_the_schema_is_declared_web_facing_or_internal(owner):
+    """ترحيلٌ يضيف دالّةً دون أن يقرّر من يستدعيها يترك سؤال «من يصلها؟» بلا جواب."""
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT DISTINCT p.proname FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace")
+        functions = {row[0] for row in cursor.fetchall()}
+    assert not (APP_FUNCTIONS & INTERNAL_FUNCTIONS)
+    assert functions == APP_FUNCTIONS | INTERNAL_FUNCTIONS
 
 
 # ── القاعدة ────────────────────────────────────────────────────────────

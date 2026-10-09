@@ -36,6 +36,9 @@ from eyework.money import (
     is_valid_days,
 )
 from eyework.prompt import PROMPT_VERSION, CopyRequest, PreviousCopy
+# أصناف الأخطاء الثلاثة صارت مشتركةً بين الخدمات (service_errors) ويُعاد تصديرها
+# هنا، فلا يتغيّر ما كان يستوردها من الحملات.
+from eyework.service_errors import Conflict, Invalid, NotFound
 
 __all__ = [
     "MAX_PAGE",
@@ -51,10 +54,10 @@ __all__ = [
     "create",
     "edit",
     "generate",
+    "generation_allowance",
     "get",
     "image_bytes",
     "list_page",
-    "remaining_generations",
     "replace_image",
     "restore",
     "set_budget",
@@ -67,32 +70,15 @@ __all__ = [
 PAGE_SIZE = 2
 #: آخر صفحةٍ يقبلها المسار؛ «الأقدم» لا يُعرض بعدها.
 MAX_PAGE = 100
+#: نظيرا ew_begin_generation وew_my_generation_limit (0008): أربعون طلب كتابةٍ في اليوم،
+#: وعشرةٌ للحساب المفتوح في أسبوعه الأول. اختبارٌ في القاعدة يقارنهما بها.
 DAILY_GENERATIONS = 40
+NEW_ACCOUNT_DAILY_GENERATIONS = 10
 VERSIONS_PER_CAMPAIGN = 10
 
 #: استدعاءاتٌ متزامنة للنموذج في العملية الواحدة. ما زاد ينتظر دوره خارجاً
 #: برسالة «مشغولة» بدل أن يحجز خيطاً دقيقةً كاملة.
 _GENERATIONS = threading.BoundedSemaphore(8)
-
-
-class NotFound(Exception):
-    """غير موجود — أو لغير صاحب الجلسة، ولا فرق في الجواب."""
-
-
-class Conflict(Exception):
-    """تغيّرت الحملة منذ رآها صاحب الطلب. `code` يسمّي السبب."""
-
-    def __init__(self, code: str = "STALE") -> None:
-        super().__init__(code)
-        self.code = code
-
-
-class Invalid(Exception):
-    """مدخلٌ لا يُقبل. `code` رمزٌ ثابت."""
-
-    def __init__(self, code: str) -> None:
-        super().__init__(code)
-        self.code = code
 
 
 class AiFailure(Exception):
@@ -147,6 +133,8 @@ _REMAINING = """
 SELECT count(*) AS used FROM generation_attempts
  WHERE ew_is_billable(outcome) AND started_at > now() - interval '24 hours'
 """
+# حدّ اليوم لصاحب الجلسة كما تحسبه القاعدة: عشرة للحساب المفتوح الجديد، وأربعون لغيره.
+_LIMIT = "SELECT ew_my_generation_limit() AS daily"
 
 _INSERT_CAMPAIGN = "INSERT INTO campaigns (user_id) VALUES (%s) RETURNING id"
 _INSERT_IMAGE = """
@@ -297,10 +285,14 @@ def display_name(db: Database, user_id: UUID) -> str | None:
         return cursor.fetchone()["name"]
 
 
-def remaining_generations(db: Database, user_id: UUID) -> int:
+def generation_allowance(db: Database, user_id: UUID) -> tuple[int, int]:
+    """(حدّ اليوم، وما بقي منه) لصاحب الجلسة، كما يعدّهما `ew_begin_generation`."""
     with db.session(user_id) as cursor:
+        cursor.execute(_LIMIT)
+        daily = cursor.fetchone()["daily"] or 0
         cursor.execute(_REMAINING)
-        return max(0, DAILY_GENERATIONS - cursor.fetchone()["used"])
+        used = cursor.fetchone()["used"]
+    return daily, max(0, daily - used)
 
 
 def image_bytes(db: Database, user_id: UUID, campaign_id: UUID) -> bytes:

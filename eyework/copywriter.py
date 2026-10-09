@@ -1,9 +1,11 @@
 """
-كاتب النصّ — الحدّ الخارجي الوحيد
-=================================
-الوحدة الوحيدة في التطبيق التي تستورد `anthropic`، والوحيدة التي يغادر منها
-شيءٌ إلى خارج بنيتنا. سؤال «ما الذي يُرسَل؟» جوابه هنا وفي `prompt.py`: صورة
-المنتج بعد تنظيفها، ونصوص المنتج. لا هوية.
+كاتب النصّ
+==========
+الكاتب الوحيد لنصّ الحملة: صورة المنتج بعد تنظيفها، ونصوص المنتج. لا هوية.
+سؤال «ما الذي يُرسَل؟» جوابه هنا وفي `prompt.py`؛ أما الحدّ الخارجي نفسه —
+العميل، ووجهته الثابتة، وتصنيف أخطاء المزوّد، وعدّ الرموز — ففي
+`model_gateway.py`، الوحدة الوحيدة التي تستورد `anthropic`، ويستوردها الكاتب
+من هناك ويبقي حلقته ونتائجه كما هي.
 
 **الحقن لا المفتاح البيئي.** `create_app(copywriter=...)` يستقبل الكاتب،
 فالاختبارات تحقن كاتباً مصطنعاً ولا يوجد في مسار الإنتاج مفتاحٌ يبدّل
@@ -21,12 +23,11 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, replace
-from typing import Literal, Protocol
-
-import anthropic
+from typing import Any, Literal, Protocol
 
 from eyework import clock, self_check
 from eyework.copy_rules import CopyWarning, check_copy, check_note_to_user
+from eyework.model_gateway import _UNBILLED, APIError, Timeout, _tokens, failure_outcome, new_client
 from eyework.prompt import UNUSABLE_REASONS, CopyRequest, build_request
 
 __all__ = ["AnthropicCopywriter", "CopyOutcome", "Copywriter", "Outcome"]
@@ -45,22 +46,10 @@ Outcome = Literal[
 ]
 
 #: مهلة القراءة لكل جولة. بجهد medium تستغرق الكتابة عادةً بين عشر ثوانٍ وستين.
-_TIMEOUT = anthropic.Timeout(90.0, connect=5.0)
-#: لا إعادة تلقائية في المكتبة: محاولةٌ انتهت مهلتها ربما فُوترت، وإعادتها
-#: خفيةً تُخفي ذلك عن السقوف. المستخدم يعيد بنفسه حين يُقال له.
-_MAX_RETRIES = 0
+_TIMEOUT = Timeout(90.0, connect=5.0)
 #: الجولات كلها (الكتابة ونتائج أداة الفحص) تنتهي قبل عقد المحاولة في القاعدة
 #: (خمس دقائق) بهامشٍ يكفي لكتابة النسخة.
 _DEADLINE_SECONDS = 200.0
-#: الوجهة مكتوبةٌ هنا لا مقروءةٌ من البيئة: ANTHROPIC_BASE_URL في البيئة
-#: يرسل الصورة إلى غير Anthropic. (`config` يرفض الإقلاع إن وُجد أصلاً.)
-_BASE_URL = "https://api.anthropic.com"
-
-#: ازدحامٌ مؤقّت: يُعاد المحاولة بعد قليل، ولا يُحسب في حدّ اليوم.
-_BUSY = frozenset({429, 503, 529})
-#: نتائج لا تُحسب في حدّ اليوم لأن الطلب لم يُعالَج. بعد جولةٍ عولجت فعلاً
-#: لا تصحّ: الاستدعاء دُفع، فيُسجَّل OUTPUT_INVALID (يُحسب) لا هذه.
-_UNBILLED = frozenset({"UPSTREAM_BUSY", "UPSTREAM_UNREACHABLE", "UPSTREAM_ERROR"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,14 +71,6 @@ class CopyOutcome:
 
 class Copywriter(Protocol):
     def write(self, request: CopyRequest) -> CopyOutcome: ...
-
-
-def _retry_after(error: anthropic.APIStatusError) -> int | None:
-    value = error.response.headers.get("retry-after") if error.response is not None else None
-    try:
-        return max(1, min(600, int(float(value)))) if value else None
-    except ValueError:
-        return None
 
 
 _FIELDS = {"status", "reason", "title", "description", "message_to_user"}
@@ -151,46 +132,10 @@ def _echo(content) -> list:
             if index > last or block.type not in _DROP_BEFORE_FALLBACK]
 
 
-def _tokens(usage) -> tuple[int, int]:
-    """
-    رموز الجولة كلها. بعد رفضٍ وبديل تحمل `usage.iterations` كل محاولة — ومنها
-    محاولة النموذج الذي رفض، وتُدفع — والأرقام العليا للبديل وحده.
-    """
-    def count(item) -> tuple[int, int]:
-        def get(name):
-            return getattr(item, name, None) or 0
-        return (get("input_tokens") + get("cache_read_input_tokens") + get("cache_creation_input_tokens"),
-                get("output_tokens"))
-
-    if usage is None:
-        return 0, 0
-    iterations = getattr(usage, "iterations", None) or []
-    if iterations:
-        totals = [count(item) for item in iterations]
-        return sum(t[0] for t in totals), sum(t[1] for t in totals)
-    return count(usage)
-
-
 def _failure(error: Exception) -> CopyOutcome:
-    """خطأ المكتبة نتيجةً واحدة. ما لم يصل أو رُفض قبل المعالجة لا يُحسب."""
-    if isinstance(error, anthropic.APITimeoutError):
-        return CopyOutcome("UPSTREAM_TIMEOUT")
-    if isinstance(error, anthropic.APIConnectionError):
-        return CopyOutcome("UPSTREAM_UNREACHABLE", retry_after_seconds=30)
-    if isinstance(error, anthropic.APIStatusError):
-        status = error.status_code
-        if status in _BUSY:
-            return CopyOutcome("UPSTREAM_BUSY", retry_after_seconds=_retry_after(error) or 30,
-                               request_id=error.request_id)
-        if status == 504:
-            return CopyOutcome("UPSTREAM_TIMEOUT", request_id=error.request_id)
-        if status >= 500:
-            logger.error("خطأ لدى خدمة الكتابة: %s (طلب %s)", status, error.request_id)
-            return CopyOutcome("UPSTREAM_ERROR", request_id=error.request_id)
-        # 4xx: خللٌ في الإعداد أو في شكل الطلب، لا في الصورة. يُسجَّل معرّفه وحده.
-        logger.critical("خدمة الكتابة رفضت الطلب: %s (طلب %s)", status, error.request_id)
-        return CopyOutcome("UPSTREAM_ERROR", request_id=error.request_id)
-    raise error
+    """خطأ المكتبة نتيجةً واحدة، كما تصنّفه البوّابة. ما لم يصل أو رُفض قبل المعالجة لا يُحسب."""
+    outcome, retry_after, request_id, _ = failure_outcome(error)
+    return CopyOutcome(outcome, retry_after_seconds=retry_after, request_id=request_id)
 
 
 class AnthropicCopywriter:
@@ -202,10 +147,8 @@ class AnthropicCopywriter:
     تُجمع من الجولات كلها لأنها كلها تُدفع.
     """
 
-    def __init__(self, api_key: str, *, client: anthropic.Anthropic | None = None) -> None:
-        self._client = client or anthropic.Anthropic(
-            api_key=api_key, base_url=_BASE_URL, timeout=_TIMEOUT, max_retries=_MAX_RETRIES
-        )
+    def __init__(self, api_key: str, *, client: Any = None) -> None:
+        self._client = client or new_client(api_key, timeout=_TIMEOUT)
 
     def write(self, request: CopyRequest) -> CopyOutcome:
         params = build_request(request)
@@ -227,9 +170,9 @@ class AnthropicCopywriter:
             try:
                 message = self._client.beta.messages.create(
                     **request_params,
-                    timeout=anthropic.Timeout(min(90.0, remaining), connect=5.0),
+                    timeout=Timeout(min(90.0, remaining), connect=5.0),
                 )
-            except anthropic.APIError as error:
+            except APIError as error:
                 outcome = _failure(error)
                 if not processed:
                     return outcome

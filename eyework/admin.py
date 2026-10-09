@@ -23,7 +23,20 @@
 **الاحتفاظ.** `purge` يُشغَّل يومياً من مجدول النظام: الحملة المعتمدة أو
 الملغاة تُحذف بعد تسعين يوماً، وغير المنتهية بعد ثلاثين يوماً من آخر تعديل،
 والجلسات ورموز التفعيل والتسجيل بعد ثلاثين يوماً من انتهائها أو استعمالها،
-وتحدّيات مفاتيح المرور حين تنتهي مهلتها (خمس دقائق).
+وتحدّيات مفاتيح المرور حين تنتهي مهلتها (خمس دقائق)، ودفتر التسجيل بعد يومه.
+ودفتر استدعاءات النموذج (`ai_requests`، أرقامٌ بلا محتوى) بعد ثلاثين يوماً —
+وما بقي فيه مفتوحاً ساعةً انقطعت عمليّته يُغلق `ABANDONED` محسوباً — وتنبيهات
+المراجِع التي لم يُعتمد عملها بعد ثلاثين يوماً؛ أما التنبيه المعتمد فيبقى مع
+موضوعه وقراراته.
+
+**التسجيل المفتوح.** حين يكون `EYEWORK_REGISTRATION=open` يُنشئ الزائر حسابه
+بنفسه من المسار `/api/auth/register` بلا رمز، فلا يعرفه المشغّل. بريده غير
+موثَّق هنا أيضاً: `reissue-activation` له يبقى بـ`--owner-verified` كحساب الرابط.
+ومن سجّل أحدٌ ببريده قبله يكتب إلى `EYEWORK_SUPPORT_CONTACT` من ذلك البريد نفسه،
+فيردّ المشغّل عليه ليتحقّق، ثم يحذف الحساب الدخيل
+(`delete-user --login <البريد> --confirm-delete-all-data`) ليسجّل صاحب البريد
+من جديد. وتوقّف التسجيل المفتوح يومَه (ستّون جواباً «مأخوذ») يظهر في سجلّ الخادم
+(«قيد registration_open_paused على /api/auth/register»)، لا أمرَ له هنا.
 
 **التسجيل برابط.** `issue-signup-codes` يطبع روابط تسجيلٍ لا تُربط ببريد، كلٌّ
 لحسابٍ واحد. يفتح صاحبه الرابط فيكتب اسمه وتاريخ ميلاده وبريده وكلمة مروره
@@ -126,6 +139,17 @@ DELETE FROM signup_codes
 """
 #: التحدّي لا يُقبل بعد مهلته ولا يُقرأ لشيء: لا سبب لبقائه.
 _PURGE_PASSKEY_CHALLENGES = "DELETE FROM passkey_challenges WHERE expires_at < now()"
+#: دفتر التسجيل تُعدّ منه سقوف آخر يوم وحدها؛ بعد يومه لا يُقرأ لشيء.
+_PURGE_REGISTRATION_LEDGER = "DELETE FROM registration_ledger WHERE occurred_at < now() - interval '24 hours'"
+#: استدعاءٌ بقي مفتوحاً ساعةً انقطعت عمليّته: يُغلق محسوباً، فلا يحجز مقعد صاحبه ولا يبقى مبهماً.
+_PURGE_AI_ABANDONED = """
+UPDATE ai_requests SET finished_at = now(), outcome = 'ABANDONED'
+ WHERE finished_at IS NULL AND started_at < now() - interval '1 hour'
+"""
+#: الدفتر بلا محتوى، وسقوفه ليومٍ واحد؛ ثلاثون يوماً لمراجعة الكلفة ثم يُحذف.
+_PURGE_AI_REQUESTS = "DELETE FROM ai_requests WHERE started_at < now() - interval '30 days'"
+#: تنبيهٌ لم يُعتمد عمله في ثلاثين يوماً لا قرار ينتظره.
+_PURGE_AI_OPEN_FLAGS = "DELETE FROM ai_flags WHERE closed_at IS NULL AND created_at < now() - interval '30 days'"
 
 
 class AdminError(Exception):
@@ -307,7 +331,12 @@ def purge() -> dict[str, int]:
         for name, statement in (("final_campaigns", _PURGE_FINAL), ("idle_campaigns", _PURGE_IDLE),
                                 ("sessions", _PURGE_SESSIONS), ("activation_tokens", _PURGE_TOKENS),
                                 ("signup_codes", _PURGE_SIGNUP_CODES), ("attempt_tombstones", _PURGE_TOMBSTONES),
-                                ("passkey_challenges", _PURGE_PASSKEY_CHALLENGES)):
+                                ("passkey_challenges", _PURGE_PASSKEY_CHALLENGES),
+                                ("registration_ledger", _PURGE_REGISTRATION_LEDGER),
+                                # بهذا الترتيب: يُغلق المهجور قبل أن يُحذف القديم، وتُحذف التنبيهات
+                                # المفتوحة بعد أن يُفكّ ما يبقى منها عن دفترٍ حُذف.
+                                ("ai_abandoned", _PURGE_AI_ABANDONED), ("ai_requests", _PURGE_AI_REQUESTS),
+                                ("ai_open_flags", _PURGE_AI_OPEN_FLAGS)):
             cursor.execute(statement)
             counts[name] = cursor.rowcount
     return counts

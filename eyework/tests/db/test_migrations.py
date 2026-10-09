@@ -35,6 +35,9 @@ SNAPSHOT_MUST_COVER = (
     "ALTER TABLE ONLY public.campaigns FORCE ROW LEVEL SECURITY;",
     "CREATE POLICY campaigns_own ON public.campaigns",
     "CREATE TRIGGER trg_campaign_guard",
+    # 0008 و0009: العزل مفروضٌ على الدفترين — على المالك أيضاً.
+    "ALTER TABLE ONLY public.registration_ledger FORCE ROW LEVEL SECURITY;",
+    "ALTER TABLE ONLY public.ai_requests FORCE ROW LEVEL SECURITY;",
 )
 
 
@@ -66,8 +69,13 @@ def _all_versions() -> list[str]:
 
 
 @pytest.fixture
-def connection(owner_url):
-    """اتصالٌ مستقلّ بوضع autocommit، يبدأ والمخطّط كاملٌ ويُترك كاملاً ولو فشل الاختبار."""
+def connection(owner_url, owner):
+    """
+    اتصالٌ مستقلّ بوضع autocommit، يبدأ والمخطّط كاملٌ ويُترك كاملاً ولو فشل الاختبار.
+
+    بعد تنظيف القاعدة (`owner`): حسابٌ مفتوح بقي من اختبارٍ سابق يجعل تراجع 0008
+    يرفض — عن حقّ — فلا يُقاس التراجع إلا على قاعدةٍ لا تحمل ما يرفضه.
+    """
     with psycopg.connect(owner_url, autocommit=True) as own:
         assert [row[0] for row in _ledger(own)] == _all_versions()
         try:
@@ -266,3 +274,114 @@ def test_0005_down_waits_for_an_account_being_created_and_still_refuses(connecti
     assert [row[0] for row in _ledger(connection)][-1] == "0005"
     with psycopg.connect(owner_url, autocommit=True) as cleanup:
         cleanup.execute("DELETE FROM users")
+
+
+def test_0008_backfills_the_ledger_from_codes_used_in_the_last_day(connection, owner):
+    """
+    السقف في 0007 يعدّ الرموز المستعملة في آخر يوم، وفي 0008 يعدّ الدفتر: فينقل
+    الترحيل تلك الرموز إلى الدفتر بأوقاتها، ولا ينقل رمزاً لم يُستعمل أو استُعمل
+    قبل أكثر من يوم. وإلا أفرغ النشرُ السقفَ ليومٍ كامل.
+    """
+    migrate_down(connection, target="0007")
+    assert [row[0] for row in _ledger(connection)][-1] == "0007"
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO signup_codes (code_hash, created_at, expires_at, used_at) VALUES"
+            " (sha256('a'::bytea), now() - interval '2 hours', now() + interval '1 day', now() - interval '1 hour'),"
+            " (sha256('b'::bytea), now() - interval '24 hours', now() + interval '1 day', now() - interval '23 hours'),"
+            " (sha256('c'::bytea), now() - interval '2 days', now() + interval '1 day', now() - interval '25 hours'),"
+            " (sha256('d'::bytea), now() - interval '1 hour', now() + interval '1 day', NULL)")
+        cursor.execute("SELECT used_at FROM signup_codes WHERE used_at > now() - interval '24 hours' ORDER BY used_at")
+        expected = [(row[0], "CODE", "OK") for row in cursor.fetchall()]
+    assert len(expected) == 2
+
+    assert migrate_up(connection, "0008") == 1
+
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT occurred_at, via, outcome FROM registration_ledger ORDER BY occurred_at")
+        assert cursor.fetchall() == expected
+
+
+def test_0008_down_refuses_while_open_accounts_exist(connection, owner, app):
+    """
+    0005 يضمن ألّا حساب بلا رمز. حسابٌ مفتوح بعد التراجع يخالف ما يصفه مخطّط 0007
+    ويفقد حدود أسبوعه الأول بصمت؛ فالتراجع يرفض ولا يغيّر شيئاً، ويسمّي ما يُحذف.
+    """
+    from eyework.tests.conftest import register_open
+
+    assert register_open(app, "blocker@example.sa")[1] == "OK"
+    assert migrate_down(connection, target="0008") == 1
+    with pytest.raises(psycopg.errors.RaiseException, match="1 حساباً") as caught:
+        migrate_down(connection, target="0007")
+    assert "DELETE FROM users WHERE open_registered" in (caught.value.diag.message_hint or "")
+    assert [row[0] for row in _ledger(connection)][-1] == "0008"
+
+    with owner.cursor() as cursor:
+        cursor.execute("DELETE FROM users WHERE open_registered")
+    assert migrate_down(connection, target="0007") == 1
+    assert migrate_up(connection) == 2
+
+
+def test_0008_down_waits_for_an_open_account_being_created_and_still_refuses(connection, owner_url, app_url):
+    """
+    تسجيلٌ مفتوح لم يُثبَّت بعد لا يراه العدّ. فالتراجع يقفل الجدول أولاً: ينتظر
+    المعاملة، ثم يعدّه ويرفض، ولا يبقى حسابٌ لا يصفه 0007.
+    """
+    import threading
+
+    from eyework.tests.conftest import register_open
+    from eyework.tests.db.test_state_machine import blocked_on_a_lock
+
+    assert migrate_down(connection, target="0008") == 1
+    outcome = {}
+
+    def roll_back() -> None:
+        try:
+            migrate_down(connection, target="0007")
+            outcome["done"] = True
+        except psycopg.errors.RaiseException as exc:
+            outcome["refused"] = str(exc)
+
+    # بلا autocommit: التسجيل يبقى معاملةً مفتوحة تحمل قفل الصفّ حتى يُثبَّت.
+    with psycopg.connect(app_url) as writer:
+        assert register_open(writer, "pending@example.sa")[1] == "OK"
+        racer = threading.Thread(target=roll_back)
+        racer.start()
+        with psycopg.connect(owner_url, autocommit=True) as watcher:
+            waited = blocked_on_a_lock(watcher, connection.info.backend_pid, racer)
+        writer.commit()
+        racer.join(timeout=10)
+    assert waited
+    assert "refused" in outcome, outcome
+    assert [row[0] for row in _ledger(connection)][-1] == "0008"
+    with psycopg.connect(owner_url, autocommit=True) as cleanup:
+        cleanup.execute("DELETE FROM users")
+
+
+def test_0009_down_leaves_the_days_billable_requests_as_tombstones(connection, owner):
+    """
+    التراجع يحذف دفتر الاستدعاءات، ومحفّز حذفه يكتب أثر ما ربما فُوتر في آخر يوم
+    (بعلامة الحساب الجديد): السقف العام في 0008 يعدّ الأثر، فلا يُفرغه التراجع.
+    """
+    from eyework.tests.conftest import make_user
+
+    user = make_user(owner, login=b"keeper", profession="STOREKEEPER")
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO ai_requests (user_id, feature, started_at, finished_at, outcome, new_account) VALUES"
+            " (%s, 'ASSISTANT', now() - interval '1 hour', now() - interval '1 hour', 'OK', true),"
+            " (%s, 'ASSISTANT', now() - interval '2 hours', now() - interval '2 hours', 'REFUSED', false),"
+            " (%s, 'ASSISTANT', now() - interval '3 hours', now() - interval '3 hours', 'UPSTREAM_BUSY', false),"
+            " (%s, 'ASSISTANT', now() - interval '25 hours', now() - interval '25 hours', 'OK', false)",
+            (user, user, user, user))
+        cursor.execute("SELECT started_at, outcome, new_account FROM ai_requests"
+                       " WHERE ew_is_billable(outcome) AND started_at > now() - interval '24 hours'"
+                       " ORDER BY started_at")
+        expected = cursor.fetchall()
+    assert [row[1] for row in expected] == ["REFUSED", "OK"]
+
+    assert migrate_down(connection, target="0008") == 1
+
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT started_at, outcome, new_account FROM attempt_tombstones ORDER BY started_at")
+        assert cursor.fetchall() == expected
