@@ -8,6 +8,9 @@
  *     شريط العنوان، ويُسأل الخادم عنه قبل الخطوة الأولى. البيانات في الذاكرة
  *     خطوةً خطوة، ولا تُرسل إلا في الأخيرة مع كلمة المرور — في نموذجٍ ظاهرٍ
  *     يُرسَل، فيعرض Safari حفظها.
+ *   • التسجيل بلا رابط: حين يقول `/api/choices` إن الوضع مفتوح، تعرض شاشة الدخول
+ *     «حساب جديد»، ويُسأل الخادم «هل يُنشأ حسابٌ الآن؟» قبل الخطوة الأولى، فلا يكتب
+ *     أحدٌ ثماني شاشاتٍ بالنظر ليسمع في آخرها أن اليوم اكتمل. الخطوات نفسها بعدها.
  *   • تاريخ الميلاد بأزرارٍ لا بكتابة: سنواتٌ وأشهرٌ وأيامٌ جاهزة، وخطوة «أقدم/أحدث».
  *   • البوابة لمهنة صاحب الحساب وحدها، والمهامّ والمهارات بندٌ واحد في كل شاشة:
  *     لا تمرير، ولا نصٌّ مقصوص.
@@ -38,18 +41,50 @@ const DAY_PRESETS = [1, 5, 10, 15, 20, 25];
 
 /* ── التسجيل ────────────────────────────────────────────────────────── */
 
+/* تسجيلٌ جديد في الذاكرة: برمز الرابط، أو بلا رمز (`null`) حين يُفتح من «حساب جديد». */
+function newSignup(code) {
+    return {
+        code, checked: false, agreed: false,
+        name: '', year: null, month: null, day: null, profession: null, email: '',
+        // رسالة خطأٍ من الخادم تُعرض على الخطوة التي يُصلَح فيها بعد رسمها.
+        alert: null,
+    };
+}
+
 function captureSignup() {
     if (!location.hash.startsWith('#signup=')) {
         return;
     }
     const params = new URLSearchParams(location.hash.slice(1));
-    state.signup = {
-        code: params.get('signup') || '', checked: false, agreed: false,
-        name: '', year: null, month: null, day: null, profession: null, email: '',
-        // رسالة خطأٍ من الخادم تُعرض على الخطوة التي يُصلَح فيها بعد رسمها.
-        alert: null,
-    };
+    state.signup = newSignup(params.get('signup') || '');
     history.replaceState(null, '', `${location.pathname}#/signup`);
+}
+
+/* الوضع المفتوح كما يعلنه الخادم؛ قبل قراءة الخيارات لا يُعرض شيءٌ عن التسجيل. */
+function registrationOpen() {
+    return Boolean(state.choices) && state.choices.registration.mode === 'open';
+}
+
+/* بريد المشغّل، لمن نسي كلمة مروره أو يريد تغيير مهنته: بلا رابطٍ لا «مَن أعطاك الرابط». */
+function supportContact() {
+    return (state.choices && state.choices.support_contact) || '';
+}
+
+/* شاشة الدخول في الوضع المفتوح: «حساب جديد»، وسطر المساعدة يسمّي بريد المشغّل لا الرابط. */
+function renderLoginRegistration(section) {
+    const open = registrationOpen();
+    section.querySelector('#login-signup').hidden = !open;
+    if (open) {
+        $('login-help').replaceChildren('تعذّر الدخول؟ اكتب إلى ', UI.bdi(supportContact()), ' من بريد حسابك.');
+    }
+}
+
+function startOpenSignup() {
+    if (state.busy) {
+        return;
+    }
+    state.signup = newSignup(null);
+    go('#/signup');
 }
 
 function daysIn(year, month) {
@@ -122,17 +157,31 @@ function signupParent(name) {
 
 async function renderSignup(step, nav) {
     if (!state.signup) {
-        // إعادة تحميلٍ بعد محو الرابط: الرمز لم يعد في الذاكرة.
-        UI.showAlert(renderLogin(), 'افتح رابط التسجيل من جديد.');
-        return;
+        if (!registrationOpen()) {
+            // إعادة تحميلٍ بعد محو الرابط: الرمز لم يعد في الذاكرة.
+            UI.showAlert(renderLogin(), 'افتح رابط التسجيل من جديد.');
+            return;
+        }
+        // إعادة تحميلٍ في الوضع المفتوح: تسجيلٌ بلا رابط من أوّله، فلا رابط يُطلب من أحد.
+        state.signup = newSignup(null);
     }
     if (!state.signup.checked) {
-        const result = await api('POST', '/api/auth/signup-code', { json: { code: state.signup.code } });
+        const open = state.signup.code === null;
+        const result = open
+            ? await api('GET', '/api/auth/registration')
+            : await api('POST', '/api/auth/signup-code', { json: { code: state.signup.code } });
         if (nav !== state.nav || !state.signup) {
             return;
         }
         if (result.status !== 204) {
             const login = renderLogin();
+            if (open) {
+                // لا يُنشأ حسابٌ بلا رابطٍ الآن: اكتمل اليوم أو توقّف (503)، أو حدّ الشبكة (429)،
+                // أو تغيّر الوضع (403). الجواب يقال هنا، و«حساب جديد» تعيد السؤال متى شاء.
+                state.signup = null;
+                UI.showAlert(login, detail(result));
+                return;
+            }
             if ([403, 410, 422].includes(result.status)) {
                 // رمزٌ لا يصلح أو تسجيلٌ مغلق: لا فائدة من المحاولة به ثانيةً.
                 state.signup = null;
@@ -282,6 +331,9 @@ function renderSignupDay() {
 
 function renderSignupProfession() {
     UI.show('signup-profession');
+    if (state.signup.code === null) {
+        $('signup-profession-help').replaceChildren('تُفتح بها بوابتك. تغييرها بعد التسجيل بطلبٍ إلى ', UI.bdi(supportContact()), '.');
+    }
     const list = $('signup-professions');
     list.replaceChildren();
     state.choices.professions.forEach((profession) => {
@@ -307,6 +359,10 @@ function renderSignupProfession() {
 
 function renderSignupEmail() {
     UI.show('signup-email');
+    if (state.signup.code === null) {
+        $('signup-email-help').replaceChildren('لا يصل هذا البريدَ شيء، ولا يُستردّ الحساب به. إن نُسيت كلمة المرور فاكتب إلى ',
+            UI.bdi(supportContact()), ' من هذا البريد.');
+    }
     $('signup-email-input').value = state.signup.email;
 }
 
@@ -365,14 +421,17 @@ async function onSignupCreate(event) {
         return;
     }
     state.busy = true;
-    const result = await api('POST', '/api/auth/register', {
-        json: {
-            code: s.code, name: s.name, birth_date: birthDate(), email: s.email,
-            password, profession: s.profession, accept_terms: true,
-            // هذا العميل بالحجم الكبير وحده، ونسخة الإشعار التي يعرضها هي ما قرأه الخادم.
-            ui_size: 'GAZE', terms_version: state.choices.registration.terms_version,
-        },
-    });
+    const body = {
+        name: s.name, birth_date: birthDate(), email: s.email,
+        password, profession: s.profession, accept_terms: true,
+        // هذا العميل بالحجم الكبير وحده، ونسخة الإشعار التي يعرضها هي ما قرأه الخادم.
+        ui_size: 'GAZE', terms_version: state.choices.registration.terms_version,
+    };
+    if (s.code !== null) {
+        // بلا رابط لا رمز في الطلب: الخادم يُنشئ حساباً «مفتوحاً» بحدود أسبوعه الأول.
+        body.code = s.code;
+    }
+    const result = await api('POST', '/api/auth/register', { json: body });
     state.busy = false;
     if (result.status === 204) {
         state.signup = null;
@@ -776,6 +835,7 @@ function wirePortal() {
     $('home-tasks').addEventListener('click', () => go('#/tasks/1'));
     $('home-skills').addEventListener('click', () => go('#/skills/1'));
     $('login-passkey').addEventListener('click', onPasskeyLogin);
+    $('login-signup').addEventListener('click', startOpenSignup);
     $('account-logout').addEventListener('click', () => go('#/account/logout'));
     $('account-logout-back').addEventListener('click', () => go('#/account'));
     $('account-logout-yes').addEventListener('click', onLogout);
