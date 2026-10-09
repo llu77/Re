@@ -8,9 +8,9 @@ import { defineConfig } from "vitest/config"
  * الأصل: لا خطّ ولا سكربت ولا صورة من خارجه، ولا شيء مضمَّن data:). تُخدم تحت /next/ حتى
  * حزمة التبديل: العميل الثابت عند «/» كما هو، وهذا يُجرَّب بجانبه على الخادم نفسه.
  *
- * قطعتان: `vendor` (React وframer-motion وlucide) و`app` (شيفرة التطبيق). اختبار المؤقّتات
+ * قطعتان: `vendor` (React وlucide) و`app` (شيفرة التطبيق). اختبار المؤقّتات
  * في المتصفّح يعدّ ما تستدعيه قطعة `app` وحدها من setTimeout وأخواته: جدولة React وإطارات
- * framer-motion في `vendor` مسموحةٌ حين تبدأ بضغطةٍ أو بردّ خادم.
+ * React في `vendor` مسموحةٌ حين تبدأ بضغطةٍ أو بردّ خادم.
  */
 export default defineConfig({
   base: "/next/",

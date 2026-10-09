@@ -72,10 +72,11 @@ cd eyework/client && npm ci --no-fund --no-audit && npm run build   # يكتب c
 على `<dialog>` الأصلي: ورقةٌ من أسفل الهاتف، ونافذةٌ في وسط الآيباد، وملء الشاشة في الحجم الكبير.
 الخيارات الستّ (التعديلات والمبالغ والمُدَد) في الحجم الكبير ثلاثةٌ وزرٌّ يقلّب إلى الثلاثة الأخرى.
 
-**مكوّنات 21st.dev** (أُخذ تخطيطها وأُعيد بناؤها بلا Radix ولا حركة؛ شرط النسبة في رأس كل ملف):
-شريط التبويب من «Mobile Navigation Tabs» (shadcnui-blocks،
-https://21st.dev/shadcnui-blocks/components/tabs-08)، والشريط الجانبي من «Sidebar» (wensity،
-https://21st.dev/wensity/components/sidebar)، ونموذج الدخول من «AuthForm» (premium-auth) كما كان.
+**مكوّنات 21st.dev** (أُخذ تخطيطها لا شيفرتها وأُعيد بناؤها بلا Radix ولا حركة؛ النسبة بشروط
+21st.dev ورخصة صفحة كل مكوّن، في رأس كل ملف): شريط التبويب من «Mobile Navigation Tabs»
+(shadcnui-blocks، https://21st.dev/shadcnui-blocks/components/tabs-08)، والشريط الجانبي من
+«Sidebar» (wensity، https://21st.dev/wensity/components/sidebar)، ونموذج الدخول من «AuthForm»
+(premium-auth.tsx الذي ألصقه المالك) كما كان.
 
 **عقد النظر** على الواجهة الجديدة في `tests/ui/next/` بقيم كل حجم (`flow.py`: الكبير 48/12/16
 بلا تمرير و≤12 هدفاً، والعادي 40/8/16)، على إطارات الآيفون (375×635، 390×664، 393×700، 430×800،

@@ -70,7 +70,7 @@ export interface Choice {
 }
 
 /**
- * مجموعة خياراتٍ تُبدَّل في مكانها. في الحجم الكبير لا تزيد الشاشة على عشرة أهداف، فما زاد على
+ * مجموعة خياراتٍ تُبدَّل في مكانها. في الحجم الكبير لا تزيد الشاشة على اثني عشر هدفاً، فما زاد على
  * أربعة خياراتٍ يُعرض ثلاثةً ثلاثةً وزرٌّ رابع يقلّب بينها («خياراتٌ أخرى» ثم «الخيارات الأولى»)؛
  * وفي الحجم العادي تُعرض كلّها.
  */
@@ -290,6 +290,8 @@ export function ProposalScreen({ campaign, versionsMax, busy, onStart, onEnd, on
       {size === "gaze" ? (
         // الحجم الكبير: العنوان والوصف والتنبيه والملاحظة صفحاتٌ تُقرأ كلّها؛ والصورة اختارها صاحبها للتوّ.
         <div id="proposal-copy" className="flex min-h-0 flex-col">
+          {/* 260 حرفاً في الصفحة تتّسع في 320×635 و375×635 بالحجم الكبير بلا قصٍّ بأطول نصٍّ تقبله القواعد
+              (test_the_longest_valid_copy_is_read_whole_before_approval)، و110 في الشاشة القصيرة. */}
           <PagedText
             key={copy.version_id}
             label="النصّ المقترح"
@@ -779,34 +781,23 @@ export function CampaignRows({ items, names, currentId = null, onOpen }: {
   )
 }
 
-/** «حملاتي» بجانب الحملة في العريض بحجم اللمس (الصفحة الأولى؛ «كلّها» تفتح القائمة بصفحاتها). */
-export function CampaignsPane({ items, currentId, hasMore, onOpen, onAll }: {
+/** «حملاتي» بجانب الحملة في العريض بحجم اللمس: الصفحة الأولى، والقائمة كلّها من «حملاتي» في الشريط الجانبي. */
+export function CampaignsPane({ items, currentId, onOpen }: {
   items: CampaignListItem[]
   currentId: string
-  hasMore: boolean
   onOpen: (item: CampaignListItem) => void
-  onAll: () => void
 }) {
   return (
     <section aria-labelledby="campaigns-pane-title" className="flex flex-col gap-tg">
-      <div className="flex min-h-ctl items-center justify-between gap-tg">
-        <h2 id="campaigns-pane-title" className="text-heading font-semibold">
-          حملاتي
-        </h2>
-        {hasMore ? (
-          <Button id="campaigns-all" iconEnd={NextIcon} onClick={onAll}>
-            كلّها
-          </Button>
-        ) : null}
-      </div>
-      {items.length ? (
-        <CampaignRows items={items} names={rowNames(items, 0)} currentId={currentId} onOpen={onOpen} />
-      ) : (
-        <p className="text-small text-muted-foreground">لا حملات أخرى.</p>
-      )}
+      <h2 id="campaigns-pane-title" className="flex min-h-ctl items-center text-lead font-semibold">
+        حملاتي
+      </h2>
+      {items.length ? <CampaignRows items={items} names={rowNames(items, 0)} currentId={currentId} onOpen={onOpen} /> : null}
     </section>
   )
 }
+
+/* ── حملاتي ──────────────────────────────────────────────────────── */
 
 export function CampaignsScreen({ items, page, pageSize, hasMore, installHint, onOpen, onOlder, onNewer, onNew }: {
   items: CampaignListItem[] | null

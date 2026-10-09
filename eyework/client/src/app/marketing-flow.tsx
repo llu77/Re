@@ -190,7 +190,7 @@ function PaneContainer({ campaign, setNotice }: { campaign: Campaign; setNotice:
     }
   }, [campaign.id, campaign.status, setNotice])
   if (!data) return null
-  return <CampaignsPane items={data.items} currentId={campaign.id} hasMore={data.has_more} onOpen={(item) => go(campaignRoute(item.id))} onAll={() => go(LIST)} />
+  return <CampaignsPane items={data.items} currentId={campaign.id} onOpen={(item) => go(campaignRoute(item.id))} />
 }
 
 /* ── المسار ──────────────────────────────────────────────────────── */

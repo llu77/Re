@@ -17,7 +17,7 @@ export function SectionsSheet({ open, workspace, current, onClose, onNavigate }:
   onNavigate: (href: string) => void
 }) {
   return (
-    <Sheet open={open} onClose={onClose} eyebrow={workspace.name} title="الأقسام" description="كل زرٍّ يفتح عملاً.">
+    <Sheet open={open} onClose={onClose} eyebrow={workspace.name} title="الأقسام">
       <ul className="grid grid-cols-2 gap-tg">
         {workspace.home.map((entry) => {
           const Icon = entry.icon

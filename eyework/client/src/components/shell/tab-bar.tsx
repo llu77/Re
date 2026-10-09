@@ -9,8 +9,8 @@
  * ثابتٌ فوق الصفحة في الحجم العادي (المحتوى ينتهي قبله: `.pb-tab`)، ويختفي فيه ما دام حقلٌ
  * مركَّزاً (`kb:hidden`) فلا يركب لوحة المفاتيح. وفي الحجم الكبير في التدفّق أسفل الشاشة (لا
  * تمرير أصلاً) ولا يختفي: إخفاؤه يحرّك الأهداف تحت نظرٍ باقٍ. التخطيط مستوحىً من «Mobile
- * Navigation Tabs» (shadcnui-blocks، 21st.dev: https://21st.dev/shadcnui-blocks/components/tabs-08)
- * بلا Radix.
+ * Navigation Tabs» (shadcnui-blocks، 21st.dev: https://21st.dev/shadcnui-blocks/components/tabs-08،
+ * بشروط 21st.dev ورخصة صفحة المكوّن) بلا Radix: لم تُنقل شيفرته، بل تخطيطه.
  */
 
 import type { LucideIcon } from "lucide-react"
@@ -38,8 +38,8 @@ function NavIcon({ icon, className }: { icon: LucideIcon | "symbol"; className?:
 export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (href: string) => void }) {
   const item = (entry: NavEntry) => {
     const className = cn(
-      "flex min-h-tab w-full flex-col items-center justify-center gap-0.5 rounded-ctl text-[0.75rem] font-semibold leading-none text-muted-foreground",
-      "gaze:text-small gaze:gap-1",
+      "flex min-h-tab w-full flex-col items-center justify-center gap-0.5 rounded-ctl text-small font-semibold leading-none text-muted-foreground",
+      "gaze:gap-1",
       "[&[aria-current]]:text-primary [&[aria-expanded=true]]:text-primary",
     )
     const content = (

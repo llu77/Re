@@ -6,7 +6,8 @@
  * بأيقونةٍ ونصّ، والحالي بتعبئةٍ مدرّجة وعلامة `aria-current`. في الحجم الكبير سكّةٌ بالبنود
  * الأربعة نفسها التي في شريط التبويب (الرئيسية، الأقسام، الأدوات، حسابي)، فتبقى الشاشة
  * ضمن اثني عشر هدفاً. البنية مستوحاةٌ من «Sidebar» (wensity، 21st.dev:
- * https://21st.dev/wensity/components/sidebar) بلا حركةٍ ولا طيّ.
+ * https://21st.dev/wensity/components/sidebar، بشروط 21st.dev ورخصة صفحة المكوّن) بلا حركةٍ ولا طيّ:
+ * لم تُنقل شيفرته، بل تخطيطه.
  */
 
 import { BrandMark, SymbolMark } from "@/components/brand/marks"

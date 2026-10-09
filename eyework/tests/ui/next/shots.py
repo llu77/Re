@@ -86,6 +86,8 @@ def before_login(page, flow, base: str, size: str, shot) -> None:
 
 
 def portal(page, flow, base: str, size: str, shot, photo: dict) -> None:
+    # بعد الدخول تُحمَّل الصفحة من جديد: تغيير الوسم وحده لا يعيد قراءة /api/me.
+    page.goto("about:blank")
     page.goto(base + "/next/" + ("?size=large" if size == "gaze" else "") + "#/")
     flow.screen("#home-new"); flow.audit("home"); shot("11-home")
     if page.locator("#nav-sections").count():
