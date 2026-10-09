@@ -209,7 +209,7 @@ def test_the_choices_name_the_mode_contact_sizes_and_notice(browser):
     assert choices["ui_sizes"] == [{"code": size.value, "name": name, "detail": detail}
                                    for size, (name, detail) in ui_size.CHOICES.items()]
     assert choices["notice"] == terms.notice()
-    assert "registration_open" not in choices
+    assert choices["registration_open"] is True
 
 
 # ── البريد المأخوذ ─────────────────────────────────────────────────────

@@ -300,6 +300,52 @@ def test_client_errors_refusals_and_invalid_output_never_trip_the_breaker():
     assert not breaker.is_open
 
 
+def test_a_trial_permit_not_used_for_a_call_returns_to_the_breaker(monkeypatch):
+    """مراجعةٌ مخزونة أو سقفٌ أخذ الإذن ولم يستدعِ شيئاً: الضغطة التالية تجد الإذن، لا «غير متاح» إلى الأبد."""
+    now = [0.0]
+    monkeypatch.setattr(clock, "monotonic", lambda: now[0])
+    guard = Guard(slots=1)
+    for _ in range(3):
+        guard.record(_reply("UPSTREAM_TIMEOUT"))
+    now[0] = 61.0
+    assert guard.acquire() is None                 # الإذن التجريبي
+    guard.release(called=False)                    # لم يصل شيءٌ إلى المزوّد
+    assert guard.acquire() is None                 # يعود في الحال
+    guard.release()                                # استدعاءٌ لم يُسجَّل: ضاع الإذن
+    assert guard.acquire() == "DOWN"
+    now[0] = 122.0                                 # مدّة فتحٍ أخرى تجدّده
+    assert guard.acquire() is None
+    guard.record(_reply("OK"))
+    guard.release()
+    assert guard.acquire() is None and not guard.breaker.is_open
+
+
+def test_a_trial_permit_without_a_free_slot_is_not_consumed(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(clock, "monotonic", lambda: now[0])
+    guard = Guard(slots=1)
+    assert guard.acquire() is None                 # المقعد الوحيد مشغول باستدعاءٍ قديم
+    for _ in range(3):
+        guard.record(_reply("UPSTREAM_TIMEOUT"))
+    now[0] = 61.0
+    assert guard.acquire() == "BUSY"               # إذنٌ بلا مقعد يعود إلى القاطع
+    guard.release()
+    assert guard.acquire() is None
+    guard.release(called=False)
+
+
+def test_a_failure_of_a_call_begun_before_the_opening_does_not_extend_the_open_period(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(clock, "monotonic", lambda: now[0])
+    breaker = Breaker()
+    for _ in range(3):
+        breaker.record(_reply("UPSTREAM_TIMEOUT"))
+    now[0] = 30.0
+    breaker.record(_reply("UPSTREAM_ERROR", 503))  # استدعاءٌ كان في الطيران عند الفتح
+    now[0] = 60.0
+    assert breaker.allow()                         # التجربة الأولى عند الستين لا التسعين
+
+
 def test_the_guard_refuses_without_a_slot_and_while_the_breaker_is_open():
     guard = Guard(slots=1)
     assert guard.acquire() is None

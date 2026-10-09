@@ -35,6 +35,9 @@ __all__ = [
     "QUESTION_LENGTH",
     "QUOTE_LENGTH",
     "READY_QUESTIONS_MAX",
+    "EVIDENCE_BYTES",
+    "EVIDENCE_LINE_CHARS",
+    "EVIDENCE_LINES",
     "REASON_LENGTH",
     "REVIEW",
     "REVIEW_PROMPT_VERSION",
@@ -112,6 +115,11 @@ BREAKER_OPEN_SECONDS = 60.0
 MAX_FLAGS = 3
 REASON_LENGTH = (12, 160)
 SUGGESTION_LENGTH = (8, 140)
+#: شواهد الملاحظة التي يبنيها الخادم: ثلاثة أسطر، كلٌّ حتى هذا الطول، والمجموع بشكل
+#: JSON لا يتجاوز بايتات قيد الجدول `ai_flag_evidence` فلا يرفض التسجيلَ اسمُ صنفٍ طويل.
+EVIDENCE_LINES = 3
+EVIDENCE_LINE_CHARS = 120
+EVIDENCE_BYTES = 600
 ANSWER_LENGTH = (1, 320)
 ANSWER_MAX_LINES = 6
 #: سؤال المساعد بعد التوحيد والقصّ.

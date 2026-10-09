@@ -20,7 +20,7 @@ from uuid import UUID, uuid4
 import pytest
 from psycopg import errors as pg_errors
 
-from eyework import assistant, reviewer
+from eyework import assistant, clock, reviewer
 from eyework.assistant_prompt import DONT_KNOW_TEXT
 from eyework.model_gateway import Guard
 from eyework.professions import Profession
@@ -255,10 +255,34 @@ def test_a_failed_call_closes_the_request_with_its_outcome(db, runner, reply, re
 def test_a_discarded_record_is_unavailable_and_a_broken_record_still_closes_the_request(db, runner):
     db.handlers[RECORD] = lambda params: [{"outcome": "DISCARDED"}]
     assert _review(db, runner)["review"]["reason"] == "FAILED"
+    # المزوّد عالج الاستدعاء ثم تعذّر تسجيله: يُغلق OUTPUT_INVALID بما استُهلك، فيُعدّ في السقوف.
     db.handlers[RECORD] = lambda params: RuntimeError("connection lost")
     assert _review(db, runner)["review"]["reason"] == "FAILED"
-    ((_, outcome, _),) = db.params_of(reviewer._FAIL)
-    assert outcome == "UPSTREAM_ERROR" and _slots_free(runner)
+    ((_, outcome, usage_json),) = db.params_of(reviewer._FAIL)
+    assert outcome == "OUTPUT_INVALID" and json.loads(usage_json)["prompt_version"] == "rv-2026-10-09.1"
+    assert _slots_free(runner)
+    # ولم يصل الاستدعاء إلى المزوّد أصلاً: انقطاعٌ بلا استهلاك.
+    runner.gateway.call = lambda request: (_ for _ in ()).throw(RuntimeError("reset"))
+    assert _review(db, runner)["review"]["reason"] == "FAILED"
+    assert db.params_of(reviewer._FAIL)[-1][1:] == ("UPSTREAM_ERROR", None) and _slots_free(runner)
+
+
+def test_a_review_that_calls_nothing_during_the_trial_returns_the_permit(db, runner, monkeypatch):
+    """بعد فتح القاطع: مراجعةٌ مخزونة أو سقفٌ لا يستهلك الإذن التجريبي، فالضغطة التالية تصل المزوّد."""
+    now = [0.0]
+    monkeypatch.setattr(clock, "monotonic", lambda: now[0])
+    for _ in range(3):
+        runner.guard.record(model_reply("UPSTREAM_TIMEOUT"))
+    now[0] = 61.0
+    db.handlers[reviewer._STORED_REVIEW] = lambda params: [{"?column?": 1}]
+    assert _review(db, runner)["review"]["status"] == "DONE"
+    db.handlers[reviewer._STORED_REVIEW] = lambda params: []
+    db.handlers[BEGIN] = lambda params: _Violation("ai_rate")
+    assert _review(db, runner)["review"]["reason"] == "RATE"
+    assert runner.gateway.calls == [] and runner.guard.breaker.is_open
+    db.handlers[BEGIN] = lambda params: [{"request_id": uuid4(), "digest": DIGEST}]
+    assert _review(db, runner)["review"]["status"] == "DONE"
+    assert len(runner.gateway.calls) == 1 and not runner.guard.breaker.is_open
 
 
 def test_an_unknown_feature_or_kind_is_not_found_before_any_slot(db, runner):
@@ -292,16 +316,26 @@ def test_decisions_check_closure_and_both_digests_before_the_database_decides(db
     assert stale.value.code == "FLAG_STALE"
     db.handlers[DIGEST_SQL] = lambda params: [{"digest": None}]
     with pytest.raises(Conflict) as moved:
-        reviewer.decide(db, USER, flag_id, "EDIT", None)
+        reviewer.decide(db, USER, flag_id, "EDIT", DIGEST.hex())
     assert moved.value.code == "FLAG_STALE"
     db.handlers[reviewer._FLAG] = lambda params: [_flag_record(closed_at=decided)]
     with pytest.raises(Conflict) as closed:
-        reviewer.decide(db, USER, flag_id, "EDIT", None)
+        reviewer.decide(db, USER, flag_id, "EDIT", DIGEST.hex())
     assert closed.value.code == "FLAG_CLOSED"
     db.handlers[reviewer._FLAG] = lambda params: []
     with pytest.raises(NotFound):
-        reviewer.decide(db, USER, flag_id, "EDIT", None)
+        reviewer.decide(db, USER, flag_id, "EDIT", DIGEST.hex())
     assert len(db.params_of(reviewer._DECIDE)) == 1
+
+
+def test_a_flag_of_an_unregistered_feature_is_not_decided(db, monkeypatch):
+    """بلا دالّة بصمةٍ للموضوع لا يُعرف إن تغيّر، فلا قرار: 404 لا قرارٌ مسجَّل على محتوىً لم يعد يُرى."""
+    flag_id = uuid4()
+    db.handlers[reviewer._FLAG] = lambda params: [_flag_record(id=flag_id)]
+    monkeypatch.delitem(reviewer.FEATURES, "STOCK_REVIEW")
+    with pytest.raises(NotFound) as gone:
+        reviewer.decide(db, USER, flag_id, "PROCEED", DIGEST.hex())
+    assert gone.value.detail == reviewer.NO_REVIEW and db.params_of(reviewer._DECIDE) == []
 
 
 def test_the_undecided_conflict_carries_only_flags_without_proceed(db):
@@ -371,6 +405,20 @@ def test_an_upstream_failure_and_a_crash_close_the_request_and_free_the_slot(ass
         _ask(assistant_db, _Exploding(), guard)
     assert assistant_db.params_of(assistant._FAIL)[1][1] == "UPSTREAM_ERROR"
     assert guard.acquire() is None
+
+
+def test_a_question_refused_before_the_call_returns_the_trial_permit(assistant_db, monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(clock, "monotonic", lambda: now[0])
+    guard = Guard(slots=1)
+    for _ in range(3):
+        guard.record(model_reply("UPSTREAM_TIMEOUT"))
+    now[0] = 61.0
+    assistant_db.handlers[assistant._BEGIN] = lambda params: _Violation("ai_daily_cap")
+    with pytest.raises(_Violation):                # السقف يُترجم في طبقة الويب؛ هنا يصل كما هو
+        _ask(assistant_db, FakeGateway(), guard)
+    assert guard.acquire() is None                 # الإذن عاد، ولم يُستهلك على سقفٍ
+    guard.release(called=False)
 
 
 def test_the_guard_refuses_before_any_database_access(assistant_db):

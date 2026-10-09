@@ -93,16 +93,16 @@ def test_only_the_image_module_decodes_images():
     assert importers == ["images.py", "scripts/make_icons.py"]
 
 
-#: من يحقّ له لمس القاعدة. طبقة الويب تصلها عبر `auth` و`campaigns` والمراجِع
-#: والمساعد؛ و`web/app.py` يُنشئ التجمّع ويترجم أخطاءه.
-DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py",
-                    "assistant.py"}
+#: من يستورد psycopg مباشرةً، بالضبط: `db.py` يفتح الجلسات، و`admin.py` و`migrations/run.py`
+#: بدور المالك، و`campaigns.py` و`reviewer.py` يترجمان أخطاء القيود، و`web/app.py` يُنشئ
+#: التجمّع ويترجم أخطاءه. سائر الخدمات (`auth` و`passkeys` والمساعد) تصل القاعدة عبر
+#: `eyework.db` وحده؛ وقاعدة المسارات في `test_web_routes_never_touch_the_database_directly`.
+DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py"}
 
 
 def test_database_access_is_confined():
     importers = {_rel(p) for p in _production_python() if "psycopg" in _tops(p) or "psycopg_pool" in _tops(p)}
-    assert importers <= DATABASE_ALLOWED, f"وصولٌ إلى القاعدة خارج حدوده: {importers - DATABASE_ALLOWED}"
-    assert "db.py" in importers
+    assert importers == DATABASE_ALLOWED, f"مستوردو psycopg تغيّروا: {importers ^ DATABASE_ALLOWED}"
 
 
 def test_web_routes_never_touch_the_database_directly():
@@ -419,12 +419,18 @@ def _identity_key(key: str) -> bool:
     return any(key == word or key.startswith(word + "_") or key.endswith("_" + word) for word in IDENTITY_KEYS)
 
 
-def test_registered_review_loaders_declare_no_identity_fields():
+def test_registered_review_loaders_declare_no_identity_fields_and_carry_a_fixture():
+    """
+    المفاتيح المعلَنة تُفحص هنا (المسار السريع)؛ وما يحمّله المحمّل فعلاً يُقارن بها في
+    `tests/api/test_ai_review.py::check_loader_keys` على موضوعٍ من `fixture` — فلا تُسجَّل
+    أداةٌ بلا موضعٍ نموذجي يُشغَّل عليه محمّلها.
+    """
     from eyework import reviewer
 
     for code, feature in reviewer.FEATURES.items():
         found = sorted(key for key in feature.payload_keys if _identity_key(key))
         assert not found, f"{code}: {found}"
+        assert feature.fixture is not None, f"{code}: أداة مراجعةٍ بلا موضوعٍ نموذجي"
 
 
 def test_screen_loader_sql_selects_no_identity_columns():
