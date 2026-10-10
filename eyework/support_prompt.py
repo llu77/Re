@@ -233,10 +233,13 @@ def thread_block(messages: Sequence[ThreadMessage]) -> str:
     kept: list[tuple[int, ThreadMessage]] = []
     used = 0
     last_customer = max((i for i, m in enumerate(messages) if m.author == "customer"), default=None)
+    full = False
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
         must = index == last_customer
-        if not must and (len(kept) >= THREAD_MESSAGES or used + len(message.text) > THREAD_CHARS):
+        # من الأحدث إلى الأقدم بلا فجوة: إذا لم تتّسع رسالةٌ سقط ما قبلها كلّه (إلا آخر رسالةٍ من العميل).
+        if not must and (full or len(kept) >= THREAD_MESSAGES or used + len(message.text) > THREAD_CHARS):
+            full = True
             continue
         kept.append((index, message))
         used += len(message.text)
@@ -288,8 +291,10 @@ class DraftInvalid(Exception):
         self.code = code
 
 
-_GREETING = re.compile(r"^(?:مرحب|أهلاً|اهلا|أهلا|السلام عليكم|Hello|Hi|Dear)[^\n]{0,40}?[،,]?\s*$", re.IGNORECASE)
-_SIGNOFF = re.compile(r"^(?:فريق الدعم|مع التحية|مع خالص التحية|Regards|Best|Kind regards)", re.IGNORECASE)
+#: سطر التحية أو الختام وحده، لا سطرٌ فيه جملة («Hi, please restart the router.» محتوى يبقى).
+_GREETING = re.compile(r"^(?:مرحب|أهلاً|اهلا|أهلا|السلام عليكم|Hello|Hi|Dear)[^\n.!؟?]{0,30}[،,]?\s*$", re.IGNORECASE)
+_SIGNOFF = re.compile(r"^(?:فريق الدعم[^\n.!؟?]{0,30}|مع التحية|مع خالص التحية|Regards|Best(?: regards)?|Kind regards)[،,.]?\s*$",
+                      re.IGNORECASE)
 _FIELD_LABEL = re.compile(r"^(?:المشكلة|البيئة|الحلّ|الحل|السبب)\s*:\s*")
 
 

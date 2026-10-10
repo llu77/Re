@@ -460,7 +460,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "set-profession":
             cancelled = set_profession(args.login, args.profession)
             print("نُقل الحساب إلى بوابة " + NAMES[Profession(args.profession)]
-                  + (f"، وأُلغيت {cancelled} حملةً مفتوحة" if cancelled else ""))
+                  + (f"، وأُغلق {cancelled} ممّا كان مفتوحاً في بوابته السابقة (حملاتٌ أو تذاكر)" if cancelled else ""))
         elif args.command == "issue-signup-codes":
             print("\n".join(issue_signup_codes(args.count, args.hours, args.label)))
         elif args.command == "set-name":

@@ -53,7 +53,9 @@ function reviewLine(reply: Ticket["live_reply"], reviewing: boolean, answer: Rev
   if (!answer) return null
   if (answer.review.status !== "DONE") return answer.review.message ?? "مراجعة سيمبول غير متاحة الآن. يمكنك المتابعة."
   if (!flags.length) return "راجع سيمبول الردّ ولم يجد ما يُستغرب."
-  return flags.length === 1 ? "ملاحظةٌ من سيمبول تنتظر قرارك." : `${flags.length} ملاحظات من سيمبول تنتظر قرارك.`
+  const open = flags.filter((f) => f.decision !== "PROCEED").length
+  if (open === 0) return "قرّرتَ في ملاحظات سيمبول."
+  return open === 1 ? "ملاحظةٌ من سيمبول تنتظر قرارك." : `${open} ملاحظات من سيمبول تنتظر قرارك.`
 }
 
 export function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
@@ -122,7 +124,8 @@ export function ReplyScreen(props: ReplyScreenProps) {
   const released = reply.state === "RELEASED"
   const spoken = ticket.channel === "PHONE" || ticket.channel === "IN_PERSON"
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function"
-  const aiFlags = late ?? answer?.flags ?? reply.ai_flags
+  // جواب «لم تنتهِ المراجعة» بلا ملاحظات لا يخفي ملاحظاتٍ وصلت مع التذكرة.
+  const aiFlags = late ?? (answer?.review.status === "DONE" ? answer.flags : reply.ai_flags)
   const openRules = reply.flags.filter((f) => f.state === "OPEN")
   const openAi = aiFlags.filter((f) => f.decision !== "PROCEED")
   const blocked = openRules.length > 0 || openAi.length > 0

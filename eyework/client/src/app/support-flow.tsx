@@ -28,7 +28,7 @@ import { PhrasesTool } from "@/components/tools/phrases-tool"
 import { Notice } from "@/components/ui/notice"
 import { useToast } from "@/components/ui/toast"
 import { detail, errorCode, type ApiResult } from "@/lib/api"
-import { go } from "@/lib/router"
+import { currentHash, go } from "@/lib/router"
 import { LONG_LIST_PAGE, useServerPage } from "@/lib/size"
 import type { Choices, Me } from "@/lib/store"
 import * as sup from "@/lib/support"
@@ -243,6 +243,8 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
   React.useEffect(() => {
     if (sub !== null) toast.dismiss()
   }, [sub, toast])
+  // ...وتُغلق حين تُغادَر التذكرة، فلا تُقرأ على التذكرة التالية.
+  React.useEffect(() => () => toast.dismiss(), [toast])
 
   // بعد الحفظ أو ردّ العميل: المسودة تُطلب حين تُفتح التذكرة، مرّةً واحدة (`draft=1` يُمحى من العنوان).
   React.useEffect(() => {
@@ -272,22 +274,24 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
   const backLabel = ticket.status === "PENDING" ? "بانتظار العميل" : ticket.status === "ESCALATED" ? "المُصعَّدة" : "التذاكر"
 
   async function prepare(body: { kind: sup.ReplyKind; draft_id?: string | null; core?: string | null; template_questions?: sup.QuestionCode[]; kb_article_ids?: string[] }): Promise<Fail> {
+    const startedAt = currentHash()
     const result = await sup.prepareReply(id, ticket!.row_version, { client_token: replyToken, ...body })
     if (result.status !== 201) return failed(result)
     renewReplyToken()
     setSeed(null)
     await refresh()
-    go(ticketRoute(id, "/reply"))
+    if (currentHash() === startedAt) go(ticketRoute(id, "/reply"))
     return null
   }
 
   async function addMessage(author: "CUSTOMER" | "NOTE", text: string): Promise<Fail> {
+    const startedAt = currentHash()
     const result = await sup.addMessage(id, ticket!.row_version, author, text, messageToken)
     if (result.status !== 201 || !result.data) return failed(result)
     renewMessageToken()
     setData(result.data)
     onChanged()
-    go(author === "CUSTOMER" ? `${ticketRoute(id)}?draft=1` : ticketRoute(id))
+    if (currentHash() === startedAt) go(author === "CUSTOMER" ? `${ticketRoute(id)}?draft=1` : ticketRoute(id))
     return null
   }
 
@@ -325,7 +329,8 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
             if (!draft) return null
             const result = await sup.classify(id, ticket.row_version, {
               // الموضوع يبقى كما هو: الدالة تكتب ما يُرسل، فلو لم يُرسل لمُسح.
-              category: draft.suggestion.category, priority: draft.suggestion.priority ?? ticket.priority, subject: ticket.subject, accept_draft_id: draft.id,
+              category: draft.suggestion.category, priority: draft.suggestion.priority ?? ticket.priority, subject: ticket.subject ?? draft.subject ?? null,
+              accept_draft_id: draft.id,
             })
             if (result.status !== 200 || !result.data) return failed(result)
             setData(result.data)
@@ -359,7 +364,7 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
           onRedraft={() => go(ticketRoute(id, "/redraft"))}
           onSearch={async (query) => {
             const result = await sup.listArticles("published", query, 1)
-            return result.status === 200 && result.data ? result.data.items : []
+            return result.status === 200 && result.data ? result.data.items : detail(result)
           }}
           onResolution={async (articleId) => {
             const result = await sup.getArticle(articleId)
@@ -393,8 +398,9 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
             if (result.status !== 200 || !result.data) return failed(result)
             setData(result.data)
             onChanged()
-            toast.show({ title: `صُعّدت التذكرة #${ticket.number}`, tone: "success" })
-            go(notify ? ticketRoute(id, "/reply") : ticketRoute(id))
+            const reply = notify && result.data.live_reply !== null
+            if (!reply) toast.show({ title: `صُعّدت التذكرة #${ticket.number}`, tone: "success" })
+            go(reply ? ticketRoute(id, "/reply") : ticketRoute(id))
             return null
           }}
         />
@@ -409,7 +415,7 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
             if (result.status !== 200 || !result.data) return failed(result)
             setData(result.data)
             const marked = (reason === "WRONG_INFO" || reason === "OUTDATED_ARTICLE") && draft.citations.length
-            toast.show({ title: "رُفضت المسودة", description: marked ? `عُلّمت ${draft.citations.map((c) => `KB-${c.number}`).filter((v, i, a) => a.indexOf(v) === i).join(" و")} «تحتاج مراجعة».` : undefined, tone: "info" })
+            toast.show({ title: `رُفضت مسودة التذكرة #${ticket.number}`, description: marked ? `عُلّمت ${draft.citations.map((c) => `KB-${c.number}`).filter((v, i, a) => a.indexOf(v) === i).join(" و")} «تحتاج مراجعة».` : undefined, tone: "info" })
             back()
             return null
           }}
@@ -478,7 +484,9 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
             const result = await sup.decideFlag(flag.id, choice, digest)
             if (result.status === 200 && result.data) {
               const decided = result.data
-              setReview({ replyId: live.id, reviewing: false, answer: state?.answer ? { ...state.answer, flags: sup.withDecision(state.answer.flags, decided) ?? [] } : null, late: sup.withDecision(state?.late ?? null, decided) })
+              setReview((prev) => prev && prev.replyId === live.id
+                ? { ...prev, answer: prev.answer ? { ...prev.answer, flags: sup.withDecision(prev.answer.flags, decided) ?? [] } : null, late: sup.withDecision(prev.late, decided) }
+                : prev)
               if (!state?.answer) void refresh()
             } else {
               setNotice(detail(result))
@@ -682,7 +690,7 @@ function ArticleContainer({ id, sub, onChanged, setNotice }: { id: string; sub: 
           const result = await sup.decideFlag(flag.id, choice, digest)
           if (result.status === 200 && result.data) {
             const decided = result.data
-            setReview(review ? { ...review, answer: review.answer ? { ...review.answer, flags: sup.withDecision(review.answer.flags, decided) ?? [] } : null, late: sup.withDecision(review.late, decided) } : null)
+            setReview((prev) => prev ? { ...prev, answer: prev.answer ? { ...prev.answer, flags: sup.withDecision(prev.answer.flags, decided) ?? [] } : null, late: sup.withDecision(prev.late, decided) } : null)
             if (!review?.answer) setData({ ...article, flags: sup.withDecision(article.flags, decided) ?? [] })
           } else {
             setNotice(detail(result))
@@ -755,7 +763,7 @@ export function SupportFlow({ path, choices, me, workspace }: { path: string; ch
 
   const loadPhrases = React.useCallback(async () => {
     const result = await sup.phrases()
-    if (result.status !== 200 || !result.data) return null
+    if (result.status !== 200 || !result.data) return { fail: detail(result) }
     return {
       phrases: result.data.phrases,
       questions: result.data.questions.map((q) => ({ id: q.code, ar: q.ar, en: q.en })),
@@ -783,9 +791,9 @@ export function SupportFlow({ path, choices, me, workspace }: { path: string; ch
     content = <DecideContainer setNotice={setNotice} />
   } else if (clean === "/open") {
     const view = params.get("view")
-    content = <TicketsContainer view={view === "resolved" || view === "closed" ? view : "open"} setNotice={setNotice} />
+    content = <TicketsContainer key={view ?? "open"} view={view === "resolved" || view === "closed" ? view : "open"} setNotice={setNotice} />
   } else if (clean === "/pending" || clean === "/escalated") {
-    content = <TicketsContainer view={clean.slice(1) as sup.TicketView} setNotice={setNotice} />
+    content = <TicketsContainer key={clean} view={clean.slice(1) as sup.TicketView} setNotice={setNotice} />
   } else if (clean === "/new") {
     content = !home.data ? null : accepted ? <NewTicketContainer onCreated={home.reload} /> : <Redirect to={`${BASE}/notice?then=new`} />
   } else if (ticket) {

@@ -564,7 +564,7 @@ def _search(cursor, *queries: str | None) -> list[dict]:
     """أفضل المقالات المنشورة لنصوص البحث، بلا تكرار، بترتيبها."""
     found: dict[UUID, dict] = {}
     for query in queries:
-        text = " ".join((query or "").split())[:SEARCH_CHARS]
+        text = " ".join(rules.without_masks(query or "").split())[:SEARCH_CHARS]
         if len(text) < 2:
             continue
         for row in _rows(cursor, _SEARCH, (text, SEARCH_LIMIT)):
@@ -803,14 +803,18 @@ def escalate(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping) -> d
         cursor.execute("SELECT ew_support_escalate(%s, %s, %s, %s)",
                        (ticket_id, fields["expected_row_version"], fields["target"], note))
     if fields.get("notify_customer"):
-        # «أبلغ العميل»: إفادةٌ جاهزة بلغته، تُنسخ وتُرسل كأيّ ردّ.
+        # «أبلغ العميل»: إفادةٌ جاهزة بلغته، تُنسخ وتُرسل كأيّ ردّ. التصعيد قد تمّ: إن تعذّر تجهيز الإفادة
+        # (توقيعٌ لا يُقبل مثلاً) عادت التذكرة مصعّدةً بلا ردّ، ولا يُقال للموظف إن التصعيد لم يتمّ.
         with db.session(user_id) as cursor:
             version = _one(cursor, "SELECT row_version FROM support_tickets WHERE id = %s", (ticket_id,))["row_version"]
             messages = _rows(cursor, _MESSAGES, (ticket_id,))
         language = _language(messages)
-        prepare_reply(db, user_id, ticket_id, {
-            "kind": "UPDATE", "expected_row_version": version, "client_token": uuid.uuid4(),
-            "core": rules.UPDATE_TEMPLATES["ESCALATED"][0 if language == "AR" else 1]}, template=True)
+        try:
+            prepare_reply(db, user_id, ticket_id, {
+                "kind": "UPDATE", "expected_row_version": version, "client_token": uuid.uuid4(),
+                "core": rules.UPDATE_TEMPLATES["ESCALATED"][0 if language == "AR" else 1]}, template=True)
+        except (Invalid, Conflict, pg_errors.IntegrityError) as error:
+            ai_log.event("support_escalation_notice_skipped", level="warning", reason=type(error).__name__)
     return _ticket_view(db, user_id, ticket_id)
 
 

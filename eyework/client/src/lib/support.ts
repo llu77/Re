@@ -297,6 +297,9 @@ export const ARTICLE_STATE: Record<ArticleState, string> = {
   DRAFT: "مسودة", PROPOSED: "مقترحة", PUBLISHED: "منشورة", ARCHIVED: "مؤرشفة", DISCARDED: "متروكة",
 }
 export const AUTHOR: Record<Message["author"], string> = { CUSTOMER: "العميل", AGENT: "ردّك", NOTE: "ملاحظة داخلية" }
+export const REVIEW_REASON: Record<string, string> = {
+  DRAFT_WRONG_INFO: "رُفضت مسودةٌ اقتبست منها لمعلومةٍ خاطئة", DRAFT_OUTDATED: "رُفضت مسودةٌ اقتبست منها لأنها قديمة", EMPLOYEE: "علّمتَها بنفسك",
+}
 export const SLA_FIRST: Record<number, string> = { 30: "نصف ساعة", 60: "ساعة", 120: "ساعتان", 240: "٤ ساعات", 480: "٨ ساعات", 1440: "يوم" }
 export const SLA_RESOLVE: Record<number, string> = { 240: "٤ ساعات", 480: "٨ ساعات", 1440: "يوم", 2880: "يومان", 4320: "٣ أيام", 7200: "٥ أيام" }
 export const USAGE_KIND: Record<string, string> = {

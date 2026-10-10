@@ -101,6 +101,15 @@ def test_a_secret_is_flagged_when_the_reply_asks_for_it_not_when_it_explains_a_r
     assert ("ASKS_SECRET" in codes) is flagged
 
 
+@pytest.mark.parametrize(("core", "flagged"), [
+    ("نتصل بكم غداً.", True), ("وغدا يصل الفني.", True), ("سنقدم لكم التعويض.", True), ("الخدمة مضمونة.", True),
+    ("أعيدوا التشغيل بعد وقت الغداء.", False), ("We will refund you.", True),
+])
+def test_a_promise_is_a_word_not_part_of_another(core, flagged):
+    codes = [f["code"] for f in rules.rule_flags(core, "ANSWER", rules.language_of(core), ())]
+    assert ("PROMISE" in codes) is flagged
+
+
 def test_a_promise_quoted_from_an_article_is_not_flagged():
     assert rules.rule_flags("يُستبدل الجهاز مجاناً خلال الضمان.", "ANSWER", "AR", ["يُستبدل الجهاز مجاناً خلال الضمان"]) == []
 
@@ -189,6 +198,12 @@ def test_the_greeting_and_sign_off_the_model_adds_are_removed():
     assert draft["body"] == BODY
 
 
+def test_only_a_greeting_or_sign_off_line_alone_is_removed():
+    assert prompt._strip_frame("Hi, please restart the router.\nThen print a test page.\nBest regards") == \
+        "Hi, please restart the router.\nThen print a test page."
+    assert prompt._strip_frame("Hello Sara,\nRestart the router.\nفريق الدعم") == "Restart the router."
+
+
 def test_the_ask_info_preset_needs_an_ask_info_reply():
     with pytest.raises(prompt.DraftInvalid):
         prompt.parse_draft(_reply(), REFS, {"art-1": SOURCE}, "AR", ("ASK_INFO",))
@@ -212,6 +227,17 @@ def test_the_thread_keeps_the_newest_messages_and_always_the_last_customer_messa
     block = prompt.thread_block([prompt.ThreadMessage("customer", "رسالة العميل"), *long])
     assert "رسالة العميل" in block and 'omitted_earlier="' in block
     assert block.count("<message") <= prompt.THREAD_MESSAGES + 1
+
+
+def test_the_thread_leaves_no_gap_when_a_message_does_not_fit():
+    block = prompt.thread_block([prompt.ThreadMessage("internal_note", "ملاحظة قديمة"),
+                                 prompt.ThreadMessage("internal_note", "طويلة " * 2000),
+                                 prompt.ThreadMessage("customer", "رسالة العميل")])
+    assert "رسالة العميل" in block and "ملاحظة قديمة" not in block and "طويلة" not in block
+
+
+def test_the_knowledge_base_search_ignores_the_masks():
+    assert rules.without_masks("[رقم محذوف] الطابعة [رابط محذوف: example.com] [بريد محذوف]").split() == ["الطابعة"]
 
 
 def test_a_proposal_is_refused_with_contacts_and_accepted_clean():

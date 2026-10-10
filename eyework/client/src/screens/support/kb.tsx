@@ -24,7 +24,7 @@ import { Stepper } from "@/components/ui/stepper"
 import { Tabs } from "@/components/ui/tabs"
 import { formatDay } from "@/lib/format"
 import {
-  ARTICLE_STATE, REJECT_REASON, type AiFlag, type Article, type ArticleFields, type ArticleRow, type Improve, type KbView, type Paged, type ReviewAnswer,
+  ARTICLE_STATE, REJECT_REASON, REVIEW_REASON, type AiFlag, type Article, type ArticleFields, type ArticleRow, type Improve, type KbView, type Paged, type ReviewAnswer,
 } from "@/lib/support"
 import { LONG_LIST_PAGE, useSize } from "@/lib/size"
 
@@ -190,7 +190,7 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
       النسخة {latest.version}
       {article.published_version ? ` · المنشورة ${article.published_version}` : " · لم تُنشر بعد"}
       {latest.at ? ` · ${formatDay(latest.at)}` : ""}
-      {article.needs_review ? ` · تحتاج مراجعة${article.needs_review_reason ? `: ${article.needs_review_reason}` : ""}` : ""}
+      {article.needs_review ? ` · تحتاج مراجعة${article.needs_review_reason ? `: ${REVIEW_REASON[article.needs_review_reason] ?? ""}` : ""}` : ""}
     </p>
   )
   return (

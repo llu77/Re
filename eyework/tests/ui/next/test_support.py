@@ -316,6 +316,20 @@ def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, s
     _pick(flow, "reject-reason", "TOO_LONG", "أطول من اللازم")
     flow.press("#reject-submit", lambda: flow.until("!location.hash.includes('/reject')"), "ارفض المسودة")
     assert _status(owner, "SELECT reject_reason FROM support_drafts") == ("TOO_LONG",)
+    # ملاحظةٌ داخلية تُقرأ في الحجم الكبير أيضاً: صفحة «المحادثة» بعد آخر رسالة.
+    ticket_id = page.evaluate("() => location.hash").split("/t/")[1].split("/")[0].split("?")[0]
+    api, headers = f"{server['base']}/api/support/tickets/{ticket_id}", {"X-Eyework": "1", "Origin": server["base"]}
+    version = page.request.get(api).json()["row_version"]
+    noted = page.request.post(api + "/messages", headers=headers, data={
+        "client_token": str(uuid.uuid4()), "expected_row_version": version, "author": "NOTE", "text": "اتصلتُ بها وطلبتُ صورة الخطأ."})
+    assert noted.status == 201, noted.text()
+    page.reload()
+    flow.screen("#ticket-prev, #ticket-back")
+    if gaze:
+        _press_until(flow, "#ticket-next", "text=اتصلتُ بها وطلبتُ صورة الخطأ.", "التالي")
+        _audit(flow, "ticket-thread")
+    else:
+        flow.press("#ticket-earlier", lambda: flow.screen("text=اتصلتُ بها وطلبتُ صورة الخطأ."), "رسائل سابقة")
     _to_decisions(flow)
     flow.press("#decide-escalate", lambda: flow.screen("#escalate-target, #escalate-target-TIER2"), "صعّد")
     _audit(flow, "escalate")

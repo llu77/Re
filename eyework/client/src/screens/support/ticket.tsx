@@ -21,6 +21,7 @@ import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { PagedText } from "@/components/ui/paged-text"
+import { useToast } from "@/components/ui/toast"
 import { formatDay, formatTime } from "@/lib/format"
 import {
   AUTHOR, CATEGORY, CHANNEL, ESCALATION_TARGET, PRIORITY, REJECT_REASON, REPLY_KIND, ticketTitle, type DismissReason, type Message, type RuleFlag,
@@ -69,8 +70,10 @@ function suggestionPending(ticket: Ticket): boolean {
   const draft = ticket.draft
   if (!draft || !draft.current) return false
   const s = draft.suggestion
-  if (!s.priority && !s.category) return false
   if (ticket.status === "RESOLVED" || ticket.status === "CLOSED") return false
+  // الموضوع الذي يقترحه سيمبول حين تُركت التذكرة بلا موضوع (كما يعد حقل التذكرة الجديدة).
+  if (!ticket.subject && draft.subject) return true
+  if (!s.priority && !s.category) return false
   return (s.priority !== null && s.priority !== ticket.priority) || (s.category !== null && s.category !== ticket.category)
 }
 
@@ -94,6 +97,16 @@ export function TicketScreen(props: TicketScreenProps) {
   React.useEffect(() => {
     setPage(0)
   }, [ticket.status])
+  // رسالة القرار السابق («رُفضت المسودة») تُغلق حين تُقلَّب صفحات الحجم الكبير: لا تبقى فوق أعلى الصفحة التالية.
+  const toast = useToast()
+  const firstPage = React.useRef(true)
+  React.useEffect(() => {
+    if (firstPage.current) {
+      firstPage.current = false
+      return
+    }
+    if (gaze) toast.dismiss()
+  }, [page, gaze, toast])
 
   async function run(id: string, action: () => Promise<Fail>) {
     setBusy(id)
@@ -123,6 +136,7 @@ export function TicketScreen(props: TicketScreenProps) {
         {current.suggestion.category && current.suggestion.priority ? " · " : null}
         {current.suggestion.priority ? `الأولوية: ${PRIORITY[current.suggestion.priority]}` : null}
       </p>
+      {!ticket.subject && current.subject ? <p className="text-flow">الموضوع: {current.subject}</p> : null}
       {current.suggestion.because ? <p className="text-small text-muted-foreground gaze:short:hidden">{current.suggestion.because}</p> : null}
       <div className="flex flex-wrap gap-tg gaze:flex-col">
         <Button id="ticket-accept-suggestion" variant="secondary" icon={CheckCircle2} busy={busy === "accept"} onClick={() => void run("accept", onAcceptSuggestion)}>
@@ -146,7 +160,7 @@ export function TicketScreen(props: TicketScreenProps) {
   const escalation = ticket.status === "ESCALATED" && ticket.escalation ? (
     <section aria-label="التصعيد" className="flex flex-col gap-1 rounded-card border border-warning-line bg-warning-tint p-pad">
       <p className="font-semibold">صُعّدت إلى {ESCALATION_TARGET[ticket.escalation.target]}</p>
-      <p className="text-small text-muted-foreground gaze:hidden">{ticket.escalation.note}</p>
+      <p className="text-small text-muted-foreground gaze:line-clamp-3">{ticket.escalation.note}</p>
     </section>
   ) : null
 
@@ -263,6 +277,11 @@ export function TicketScreen(props: TicketScreenProps) {
     if (flagNotes) pages.push({ id: "flags", label: "تنبيه", body: flagNotes })
     if (escalation) pages.push({ id: "escalation", label: "التصعيد", body: escalation })
     pages.push({ id: "message", label: "الرسالة", body: lastMessage })
+    // ما قبل آخر رسالة: رسائل العميل السابقة، وردودك المرسلة، وملاحظاتك الداخلية — نصّاً مقسّماً صفحات.
+    if (earlier.length && !ticket.texts_purged) {
+      const text = earlier.map((m) => `${AUTHOR[m.author]} · ${when(m.at)}\n${m.body}`).join("\n\n")
+      pages.push({ id: "thread", label: "المحادثة", body: <PagedText text={text} label="المحادثة" perPage={{ gaze: 240, gazeShort: 120 }} /> })
+    }
     if (drafting || current || draftAlert || askDraft || draftBlock) pages.push({ id: "draft", label: "المسودة", body: <>{draftAlert}{draftBlock}{askDraft}</> })
     // القرارات أربعةً في كل صفحة (ومعها تنبيه الخطأ إن وُجد): ستّةٌ في صفحةٍ لا تتّسع لها أقصر الهواتف حين يلتفّ
     // سطر الشارات أو يظهر التنبيه. والتالية «المزيد» بزرّ «التالي» في الشريط.
