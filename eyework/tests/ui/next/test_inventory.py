@@ -467,20 +467,19 @@ def test_the_tools_offer_the_vat_calculator_and_the_assistant_knows_the_screen(n
     page = _page(next_page, owner, server, "gaze", *PHONES[0])
     flow = Flow(page)
     _setup(flow)
-    flow.press("#nav-tools", lambda: flow.screen("dialog[open]"), "الأدوات")
+    flow.open_tools()
     _audit(flow, "tools")
     names = page.eval_on_selector_all("dialog[open] ul button", "(bs) => bs.map((b) => b.textContent.trim())")
-    assert [n.startswith(("حاسبة الضريبة", "ابحث عن منتج", "اسأل سيمبول", "مساعدة")) for n in names] == [True] * 4 and names[0].startswith("حاسبة الضريبة"), names
+    assert [n.startswith(("حاسبة الضريبة", "ابحث عن منتج", "مساعدة")) for n in names] == [True] * 3 and names[0].startswith("حاسبة الضريبة"), names
     flow.press("dialog[open] >> text=حاسبة الضريبة", lambda: flow.screen("dialog[open] input"), "حاسبة الضريبة")
     page.fill("dialog[open] input", "100")
     flow.until("document.querySelector('dialog[open]').textContent.includes('115.00')")
     _audit(flow, "vat-tool")
     assert [url for method, url in page.requests if "/api/inventory/tools/vat" in url]
-    flow.press("dialog[open] >> text=كل الأدوات", lambda: flow.screen("dialog[open] ul button"), "كل الأدوات")
-    flow.press("dialog[open] >> text=اسأل سيمبول", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
-    page.fill("dialog[open] textarea", "بماذا أبدأ اليوم؟")
-    # الجواب نفسه (نصّ البوّابة المصطنعة)، لا كلمة «سؤالك» الظاهرة في وصف الأداة قبل الإرسال.
-    flow.press("dialog[open] button[type='submit']", lambda: flow.until("document.querySelector('dialog[open]').textContent.includes('حملاتي')"), "أرسل")
+    flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
+    # الجواب نفسه (نصّ البوّابة المصطنعة)، لا كلمةٌ ظاهرة في الورقة قبل الإرسال.
+    flow.ask_symbol("بماذا أبدأ اليوم؟", "حملاتي")
+    _audit(flow, "chat")
     call = page.gateway.calls[-1]
     assert "الأصناف النشطة: 0" in call.user and "<label>الجرد</label>" in call.user
     assert not flow.failures(), "\n".join(flow.failures())

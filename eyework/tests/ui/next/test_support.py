@@ -415,7 +415,7 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
     page.goto(page.next + BASE + "/kb/improve")
     flow.screen("text=لا ثغرات في آخر ثلاثين يوماً")
     _audit(flow, "improve")
-    flow.press("#nav-tools", lambda: flow.screen("text=عبارات وأسئلة جاهزة"), "الأدوات")
+    flow.open_tools()
     flow.press("text=عبارات وأسئلة جاهزة", lambda: flow.screen("#phrase-copy-THANKS_SORRY"), "عبارات وأسئلة جاهزة")
     _audit(flow, "tool-phrases")
     flow.press("#phrase-copy-THANKS_SORRY", lambda: flow.screen("text=نُسخت. الصقها في الردّ."), "انسخ")

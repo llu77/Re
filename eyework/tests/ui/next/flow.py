@@ -78,21 +78,24 @@ AUDIT = """
     const field = (e) => e.matches('input, textarea, select');
     const small = rects.filter(([e, r]) => r.width < MIN || r.height < (field(e) ? MIN_FIELD : MIN_HIT))
         .map(([e, r]) => `${name(e)} ${Math.round(r.width)}x${Math.round(r.height)}`);
-    // الحجم العادي: الصفحة تمرّ وشريط التبويب ثابتٌ فوقها. ما يقع تحته أو في فجوته قبل التمرير ليس مجاوراً
-    // له إن كان التمرير المتبقّي يرفعه فوق الشريط بالفجوة كاملة (يظهر فوقه بالتمرير: `.pb-tab`)؛ وإلا
-    // فالتراكب حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عن الشريط مهما مُرّرت.
+    // الحجم العادي: الصفحة تمرّ، وشريط التبويب وزرّ «اسأل سيمبول» العائم ثابتان فوقها. ما يقع تحت أحدهما أو في
+    // فجوته قبل التمرير ليس مجاوراً له إن كان التمرير المتبقّي يرفعه فوقه بالفجوة كاملة (يظهر فوقه بالتمرير:
+    // `.pb-tab-launcher`)؛ وإلا فالتراكب حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عنه مهما مُرّرت.
     const scroller = document.scrollingElement;
     const room = scroller.scrollHeight - innerHeight - scroller.scrollTop;
-    const bar = document.querySelector('nav[aria-label="أقسام البوابة"]');
-    const barRect = bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect() : null;
-    const belowFold = (e, r) => barRect !== null && !bar.contains(e) && r.bottom > barRect.top - GAP && r.bottom - room <= barRect.top - GAP;
+    const fixed = [document.querySelector('nav[aria-label="أقسام البوابة"]'), document.getElementById('nav-chat')]
+        .filter((c) => c && getComputedStyle(c).position === 'fixed' && visible(c));
+    const belowFold = (c, e, r) => {
+        const top = c.getBoundingClientRect().top;
+        return !c.contains(e) && r.bottom > top - GAP && r.bottom - room <= top - GAP;
+    };
     const close = [];
     for (let i = 0; i < rects.length; i += 1) {
         for (let j = i + 1; j < rects.length; j += 1) {
             const [a, ra] = rects[i];
             const [b, rb] = rects[j];
             if (a.contains(b) || b.contains(a)) continue;
-            if (barRect && ((bar.contains(a) && belowFold(b, rb)) || (bar.contains(b) && belowFold(a, ra)))) continue;
+            if (fixed.some((c) => (c.contains(a) && belowFold(c, b, rb)) || (c.contains(b) && belowFold(c, a, ra)))) continue;
             const gap = Math.max(rb.left - ra.right, ra.left - rb.right, rb.top - ra.bottom, ra.top - rb.bottom);
             if (gap < GAP) close.push(`${name(a)} ↔ ${name(b)}: ${Math.round(gap)}`);
         }
@@ -323,6 +326,29 @@ class Flow:
         commits = sorted({f"{n['name']} على بعد {n['distance']}px" for n in nearest if n["commit"]})
         if commits:
             self.landings.append(f"{label}: أقرب عنصرٍ إلى النظر يعتمد — {commits}")
+
+    def open_tools(self) -> None:
+        """ورقة الأدوات: من «الأدوات» في الشريط أو السكّة، وفي الحجم الكبير على الهاتف من ورقة سيمبول (مكانها في
+        الشريط لزرّه)."""
+        if self.page.locator("#nav-tools").count():
+            self.press("#nav-tools", lambda: self.screen("dialog[open] ul button"), "الأدوات")
+            return
+        self.press("#nav-chat", lambda: self.screen("dialog[open] >> text=الأدوات"), "سيمبول")
+        self.press("dialog[open] >> text=الأدوات", lambda: self.screen("dialog[open] ul button"), "الأدوات")
+
+    def ask_symbol(self, question: str, answered: str) -> None:
+        """سؤالٌ مكتوب إلى سيمبول من زرّه، حتى يظهر في الورقة ما ينتظره الاختبار من جوابه."""
+        gaze = self.page.evaluate("() => document.documentElement.dataset.size") == "gaze"
+        if gaze:
+            self.press("#nav-chat", lambda: self.screen("dialog[open] button"), "سيمبول")
+            if self.page.locator("dialog[open] >> text=سؤالٌ جديد").count():
+                self.press("dialog[open] >> text=سؤالٌ جديد", lambda: self.screen("dialog[open] >> text=اكتب سؤالك"), "سؤالٌ جديد")
+            self.press("dialog[open] >> text=اكتب سؤالك", lambda: self.screen("dialog[open] textarea"), "اكتب سؤالك")
+        else:
+            self.press("#nav-chat", lambda: self.screen("dialog[open] textarea"), "اسأل سيمبول")
+        self.page.fill("dialog[open] textarea", question)
+        self.press("dialog[open] button[type='submit']",
+                   lambda: self.until(f"document.querySelector('dialog[open]').textContent.includes({answered!r})"), "أرسل")
 
     def failures(self) -> list[str]:
         failures = []

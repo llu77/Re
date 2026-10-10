@@ -1223,6 +1223,51 @@ def _assistant_ticket(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[st
     return assistant.fit(lines)
 
 
+# ── أدوات سيمبول لموظف الدعم: تقرأ ولا تغيّر ───────────────────────────
+def _tool_kb(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+    """أقرب ثلاث مقالاتٍ منشورة: العنوان والمشكلة وأوّل الحلّ؛ والنصّ كلّه يمرّ بالإخفاء بعدها."""
+    query = " ".join(text.split())
+    if not 2 <= len(query) <= 200:
+        return ("يُكتب ما يُبحث عنه بكلمتين على الأقل.",)
+    rows = _rows(cursor, _SEARCH, (query, 3))
+    if not rows:
+        return (f"لا مقالة منشورة تطابق «{query}».",)
+    lines = []
+    for row in rows:
+        resolution = " ".join(row["resolution"].split())
+        if len(resolution) > 220:
+            resolution = resolution[:220].rsplit(" ", 1)[0] + "…"
+        lines.append(f"KB-{row['number']} «{row['title']}»: {' '.join(row['issue'].split())} — الحلّ: {resolution}")
+    return assistant.fit(lines)
+
+
+def _tool_desk(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+    c = _one(cursor, _COUNTS)
+    return (f"بانتظار قرارك: {c['decide']}، والتذاكر المفتوحة: {c['open']}، وبانتظار العميل: {c['pending']}، "
+            f"والمُصعَّدة: {c['escalated']}، ومقالاتٌ تحتاج مراجعة: {c['kb_attention']}",)
+
+
+assistant.register_tool(assistant.Tool(
+    name="KB", profession=Profession.SUPPORT,
+    description="أقرب ثلاث مقالاتٍ منشورة في قاعدة المعرفة لما يُبحث عنه: العنوان والمشكلة وأوّل الحلّ.",
+    input_hint="المشكلة بكلماتٍ قليلة", label="بحث في قاعدة المعرفة", run=_tool_kb,
+))
+assistant.register_tool(assistant.Tool(
+    name="DESK", profession=Profession.SUPPORT,
+    description="أعداد المكتب الآن: بانتظار القرار، والمفتوحة، وبانتظار العميل، والمُصعَّدة، والمقالات التي تحتاج مراجعة.",
+    input_hint=None, label="أعداد المكتب", run=_tool_desk,
+))
+#: معرّفات بنود رئيسية الدعم في العميل (lib/workspace.ts)، بأسمائها.
+assistant.register_destinations(Profession.SUPPORT, (
+    assistant.Destination("new", "تذكرة جديدة"),
+    assistant.Destination("decide", "بانتظار قراري"),
+    assistant.Destination("open", "التذاكر المفتوحة"),
+    assistant.Destination("pending", "بانتظار العميل"),
+    assistant.Destination("escalated", "المُصعَّدة"),
+    assistant.Destination("knowledge", "قاعدة المعرفة"),
+))
+
+
 assistant.register(dataclasses.replace(
     _ASSISTANT_HOME, load=_assistant_home,
     extra_labels={**_ASSISTANT_HOME.extra_labels, Profession.SUPPORT: (

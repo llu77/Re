@@ -9,7 +9,7 @@
 import * as React from "react"
 import { LogOut, Trash2 } from "lucide-react"
 
-import { assistantApi, navigate, workspaceOf } from "@/app/workspace"
+import { chatApi, navigate, workspaceOf } from "@/app/workspace"
 import { BrandMark } from "@/components/brand/marks"
 import { Screen } from "@/components/shell/screen"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
@@ -175,7 +175,8 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
       current={null}
       userName={me.display_name}
       onNavigate={navigate}
-      tools={{ userName: me.display_name, assistant: assistantApi(me, choices, "HOME"), supportContact: choices.support_contact }}
+      tools={{ supportContact: choices.support_contact }}
+      chat={chatApi(me, choices, "HOME")}
     >
       {content}
     </WorkspaceShell>

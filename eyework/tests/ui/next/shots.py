@@ -94,12 +94,9 @@ def portal(page, flow, base: str, size: str, shot, photo: dict) -> None:
     if page.locator("#nav-sections").count():
         flow.press("#nav-sections", lambda: flow.screen("dialog[open]"), "الأقسام"); flow.audit("sections"); shot("12-sections")
         flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
-    if page.locator("#nav-tools").count():
-        flow.press("#nav-tools", lambda: flow.screen("dialog[open]"), "الأدوات"); flow.audit("tools"); shot("13-tools")
-        flow.press("dialog[open] >> text=اسأل سيمبول", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
-    else:
-        flow.press("#nav-assistant", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
-    flow.audit("assistant"); shot("14-assistant")
+    flow.open_tools(); flow.audit("tools"); shot("13-tools")
+    flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
+    flow.press("#nav-chat", lambda: flow.screen("dialog[open] button"), "سيمبول"); flow.audit("chat"); shot("14-chat")
     flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
     flow.press("#home-new", lambda: flow.screen("#photo-input"), "حملة جديدة"); flow.audit("photo"); shot("15-photo")
     page.set_input_files("#photo-input", files=[photo])

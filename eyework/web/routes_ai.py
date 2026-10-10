@@ -68,11 +68,12 @@ def decide(flag_id: UUID, body: DecisionBody, request: Request, user_id: UUID = 
 
 @router.post("/assistant")
 def ask(body: AssistantBody, request: Request, user_id: UUID = Depends(require_current_terms)) -> dict:
-    """سؤالٌ واحد عن العمل من شاشةٍ بعينها. الطلب كلّه ينتظر الجواب."""
+    """سؤالٌ في محادثةٍ عن العمل من شاشةٍ بعينها، بأسئلتها السابقة. الطلب كلّه ينتظر الجواب وأدواته."""
     state = request.app.state
     enforce(state.limiters.ai, str(user_id))
     try:
         return assistant.ask(state.db, state.gateway, state.ai_guard, user_id, body.screen.kind, body.screen.id,
-                             body.question, body.ready_question)
+                             body.question, body.ready_question,
+                             [(turn.question, turn.answer) for turn in body.history])
     except Invalid as exc:
         return _invalid(AI_INVALID.get(exc.code, GENERIC), exc.field)

@@ -270,12 +270,20 @@ class ScreenBody(_Body):
     id: UUID | None = None
 
 
+class AssistantTurn(_Body):
+    """سؤالٌ سابق في المحادثة وجوابه كما عُرض."""
+
+    question: Annotated[StrictStr, Field(min_length=1, max_length=400)]
+    answer: Annotated[StrictStr, Field(min_length=1, max_length=400)]
+
+
 class AssistantBody(_Body):
-    """سؤالٌ مكتوب أو فهرس سؤالٍ جاهز، واحدٌ منهما لا كلاهما."""
+    """سؤالٌ مكتوب أو فهرس سؤالٍ جاهز، واحدٌ منهما لا كلاهما؛ ومعه ثلاثة أسئلةٍ سابقة على الأكثر بأجوبتها."""
 
     screen: ScreenBody
     question: Annotated[StrictStr, Field(min_length=1, max_length=400)] | None = None
     ready_question: Annotated[StrictInt, Field(ge=0, le=2)] | None = None
+    history: Annotated[list[AssistantTurn], Field(max_length=3)] = []
 
     @model_validator(mode="after")
     def _one_of(self) -> "AssistantBody":

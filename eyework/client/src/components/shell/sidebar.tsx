@@ -2,15 +2,16 @@
  * Sidebar — الشريط الجانبي (الآيباد والحاسوب)
  * ==========================================
  * من 744px (iPad mini عمودياً) فأوسع: عمودٌ في بداية الصفحة (يمينها) بالعلامة واسم البوابة، ثم
- * الرئيسية وبنود البوابة، ثم أداتا «اسأل سيمبول» و«مساعدة»، ثم «حسابي» في أسفله. كل بندٍ صفٌّ
- * بأيقونةٍ ونصّ، والحالي بتعبئةٍ مدرّجة وعلامة `aria-current`. في الحجم الكبير سكّةٌ بالبنود
- * الأربعة نفسها التي في شريط التبويب (الرئيسية، الأقسام، الأدوات، حسابي)، فتبقى الشاشة
- * ضمن اثني عشر هدفاً. البنية مستوحاةٌ من «Sidebar» (wensity، 21st.dev:
+ * الرئيسية وبنود البوابة، ثم «الأدوات» و«مساعدة»، ثم «حسابي» في أسفله؛ و«اسأل سيمبول» زرٌّ عائم في
+ * الركن الآخر (chat-launcher.tsx). كل بندٍ صفٌّ بأيقونةٍ ونصّ، والحالي بتعبئةٍ مدرّجة وعلامة
+ * `aria-current`. في الحجم الكبير سكّةٌ بأربعة بنود: الرئيسية والأقسام، ثم «سيمبول» بالتعبئة الملوّنة، ثم
+ * حسابي، و«الأدوات» من ورقة سيمبول؛ فتبقى الشاشة ضمن اثني عشر هدفاً. البنية مستوحاةٌ من «Sidebar» (wensity، 21st.dev:
  * https://21st.dev/wensity/components/sidebar، بشروط 21st.dev ورخصة صفحة المكوّن) بلا حركةٍ ولا طيّ:
  * لم تُنقل شيفرته، بل تخطيطه.
  */
 
 import { BrandMark, SymbolMark } from "@/components/brand/marks"
+import { SymbolBadge } from "@/components/chat/chat-launcher"
 import type { NavEntry } from "@/components/shell/tab-bar"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
@@ -30,9 +31,12 @@ function Row({ entry, onNavigate }: { entry: NavEntry; onNavigate: (href: string
     "flex min-h-ctl w-full items-center gap-3 rounded-ctl px-3 text-start font-semibold text-foreground",
     "hov:bg-muted",
     "[&[aria-current]]:bg-secondary [&[aria-current]]:text-secondary-foreground",
+    entry.accent && "border border-primary bg-primary text-primary-foreground shadow-pop hov:bg-primary/90",
   )
   const icon =
-    entry.icon === "symbol" ? (
+    entry.accent && entry.icon === "symbol" ? (
+      <SymbolBadge className="-ms-1.5 size-7" />
+    ) : entry.icon === "symbol" ? (
       <SymbolMark className="size-icon shrink-0" />
     ) : (
       <entry.icon aria-hidden="true" className="size-icon shrink-0 text-muted-foreground [[aria-current]_&]:text-secondary-foreground" strokeWidth={2.25} />

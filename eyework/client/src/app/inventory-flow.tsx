@@ -20,7 +20,7 @@
 import * as React from "react"
 import { Calculator, ClipboardCheck, PackageSearch } from "lucide-react"
 
-import { assistantApi, navigate } from "@/app/workspace"
+import { chatApi, navigate } from "@/app/workspace"
 import { Redirect } from "@/components/redirect"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import type { ToolEntry } from "@/components/shell/tools-sheet"
@@ -1164,12 +1164,8 @@ export function InventoryFlow({ path, choices, me, workspace }: { path: string; 
           toast.dismiss()
           navigate(href)
         }}
-        tools={{
-          userName: me.display_name,
-          assistant: assistantApi(me, choices, screenKind, screenKind === "HOME" ? null : docId),
-          supportContact: choices.support_contact,
-          context: tools,
-        }}
+        tools={{ supportContact: choices.support_contact, context: tools }}
+        chat={chatApi(me, choices, screenKind, screenKind === "HOME" ? null : docId)}
       >
         {content}
       </WorkspaceShell>

@@ -90,6 +90,7 @@
     --icon: 1.125rem;        /* 18 */
     --tab: 3.75rem;          /* 60 — شريط التبويب السفلي (يُضاف إليه الحافّة الآمنة) */
     --bar: 2.75rem;          /* 44 — الصفّ العلوي («رجوع» والفعل الثانوي) */
+    --launcher: 3.5rem;      /* 56 — زرّ «اسأل سيمبول» العائم (44) وفجوته فوق الشريط: المحتوى ينتهي فوقه */
     --side: 15rem;           /* 240 — الشريط الجانبي في الآيباد والحاسوب */
     --radius: 0.75rem;       /* 12 */
     --radius-card: 1rem;     /* 16 */
@@ -128,6 +129,7 @@
     --icon: 1.125rem;        /* 18 */
     --tab: 4.5rem;           /* 72 — بند الشريط مساحته كاملة */
     --bar: 3rem;             /* 48 */
+    --launcher: 0rem;        /* لا زرّ يطفو فوق المحتوى: سيمبول بندٌ في شريط التبويب أو السكّة */
     --side: 12rem;           /* 192 — سكّةٌ بالبنود الأربعة */
     --radius: 0.75rem;       /* 12 */
     --radius-card: 1rem;     /* 16 */
@@ -153,7 +155,7 @@
     text-size-adjust: 100%;
     /* الصفّ العلوي لاصقٌ في الحجم العادي: ما يُركَّز بلوحة المفاتيح لا يختفي تحته. */
     scroll-padding-block-start: calc(var(--bar) + var(--edge));
-    scroll-padding-block-end: calc(var(--tab) + var(--edge));
+    scroll-padding-block-end: calc(var(--tab) + var(--launcher) + var(--edge));
   }
 
   body {
@@ -251,6 +253,14 @@
   .pb-tab {
     padding-bottom: calc(var(--tab) + var(--edge) + env(safe-area-inset-bottom));
   }
+  /* …وفوق زرّ «اسأل سيمبول» العائم فوقه: آخر المحتوى يُمرَّر فوق الزرّ لا تحته (الهاتف بحجم اللمس). */
+  .pb-tab-launcher {
+    padding-bottom: calc(var(--tab) + var(--launcher) + var(--edge) + env(safe-area-inset-bottom));
+  }
+  /* الآيباد والحاسوب بحجم اللمس: الزرّ العائم في الركن السفلي، بلا شريط تبويب. */
+  .pb-launcher {
+    padding-bottom: calc(var(--launcher) + max(var(--edge), env(safe-area-inset-bottom)));
+  }
   /* شاشةٌ تملأ ما بين رأس الصفحة وأسفلها في الحجم العادي («حسابي» وتأكيداه): شريط إجراءاتها في أسفل
      الشاشة دائماً، فما يقع تحت «رجوع» في التأكيد هو الزرّ الذي فُتح به، لا خيارٌ فوقه. ما يحيط بها
      (`--chrome`) يعلنه إطارها: البوابة فوقها `--sec` وتحتها شريط التبويب أو الحافّة الآمنة؛ والإطار
@@ -259,11 +269,11 @@
     min-height: calc(100dvh - var(--chrome, 0px));
   }
   .chrome-portal {
-    --chrome: calc(var(--sec) + var(--tab) + var(--edge) + env(safe-area-inset-bottom));
+    --chrome: calc(var(--sec) + var(--tab) + var(--launcher) + var(--edge) + env(safe-area-inset-bottom));
   }
   @media (min-width: 46.5rem) {
     .chrome-portal {
-      --chrome: calc(var(--sec) + max(var(--edge), env(safe-area-inset-bottom)));
+      --chrome: calc(var(--sec) + var(--launcher) + max(var(--edge), env(safe-area-inset-bottom)));
     }
   }
   .chrome-bare {

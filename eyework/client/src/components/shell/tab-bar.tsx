@@ -2,7 +2,9 @@
  * TabBar — شريط التبويب السفلي (الهاتف)
  * ====================================
  * أربعة بنودٍ ثابتة في أسفل الشاشة في كل شاشةٍ من البوابة: الرئيسية، والأقسام، والأدوات، وحسابي؛ وفي
- * الحجم الكبير ثلاثة (بلا «الأقسام»: هي أزرار الرئيسية، وأربعةٌ لا تتّسع في 320px بحدّ الهدف وفجوته).
+ * الحجم الكبير ثلاثة: الرئيسية، و«سيمبول» في الوسط بالتعبئة الملوّنة (زرّ المحادثة العائم في الحجم العادي،
+ * وهنا بندٌ لا يطفو فوق المحتوى)، وحسابي. «الأقسام» هي أزرار الرئيسية، و«الأدوات» من ورقة المحادثة: أربعةٌ
+ * لا تتّسع في 320px بحدّ الهدف وفجوته.
  * أيقونةٌ ونصٌّ تحتها، والحالي باللون الأساسي وعلامة `aria-current`. كلّها آمنة (`data-safe`):
  * رابطٌ يفتح شاشةً أو زرٌّ يفتح ورقة، ولا شيء يعتمد. ارتفاعه `--tab` فوق الحافّة الآمنة،
  * وبين بنوده `--tg`؛ في 320px كل بندٍ 66px باللمس و69px في الحجم الكبير (ثلاثةٌ بفجوة 40)، ومراكزها على بعد 109px.
@@ -17,6 +19,7 @@
 import type { LucideIcon } from "lucide-react"
 
 import { SymbolMark } from "@/components/brand/marks"
+import { SymbolBadge } from "@/components/chat/chat-launcher"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
@@ -29,6 +32,8 @@ export interface NavEntry {
   /** …أو زرٌّ يفتح ورقة. */
   onClick?: () => void
   current?: boolean
+  /** بالتعبئة الملوّنة: «سيمبول» في الحجم الكبير. */
+  accent?: boolean
 }
 
 function NavIcon({ icon, className }: { icon: LucideIcon | "symbol"; className?: string }) {
@@ -46,10 +51,11 @@ export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (
       // في الحجم الكبير البند 48 ومساحة إصابته الخفيّة تملأ حشو الشريط فوقه وتحته: 72، الشريط كلّه.
       "gaze:min-h-ctl gaze:gap-1",
       "[&[aria-current]]:text-primary",
+      entry.accent && "border border-primary bg-primary text-primary-foreground shadow-pop",
     )
     const content = (
       <>
-        <NavIcon icon={entry.icon} className="size-icon shrink-0" />
+        {entry.accent && entry.icon === "symbol" ? <SymbolBadge className="size-6" /> : <NavIcon icon={entry.icon} className="size-icon shrink-0" />}
         <span>{entry.label}</span>
       </>
     )

@@ -3,23 +3,29 @@
  * ====================================
  * تطبيقٌ واحد ودخولٌ واحد وبوابةٌ واحدة؛ والمهنة تحدّد ما فيها (lib/workspace.ts):
  *
- *   الهاتف:            الشاشة، وتحتها شريط التبويب [الرئيسية · الأقسام · الأدوات · حسابي]
- *   الآيباد والحاسوب:  شريطٌ جانبي [العلامة · الرئيسية · البنود · اسأل سيمبول · مساعدة · حسابي]
- *                      والشاشة بجانبه؛ وفي العريض بحجم اللمس قائمةٌ وتفصيلٌ معاً (`pane`).
- *   الحجم الكبير:      الشريط الجانبي سكّةٌ بالبنود الأربعة نفسها؛ لا تمرير: الغلاف بارتفاع الشاشة.
+ *   الهاتف:            الشاشة، وتحتها شريط التبويب [الرئيسية · الأقسام · الأدوات · حسابي]، وفوقه زرّ
+ *                      «اسأل سيمبول» العائم في ركن النهاية
+ *   الآيباد والحاسوب:  شريطٌ جانبي [العلامة · الرئيسية · البنود · الأدوات · مساعدة · حسابي] والشاشة
+ *                      بجانبه، والزرّ العائم في الركن السفلي؛ وفي العريض بحجم اللمس قائمةٌ وتفصيلٌ معاً (`pane`).
+ *   الحجم الكبير:      لا شيء يطفو: شريط التبويب [الرئيسية · سيمبول · حسابي] والسكّة [الرئيسية · الأقسام ·
+ *                      سيمبول · حسابي]، و«الأدوات» من ورقة المحادثة (شاشةٌ باثني عشر هدفاً لا تتّسع لبندٍ خامس)؛
+ *                      ولا تمرير: الغلاف بارتفاع الشاشة.
  *
- * «الأقسام» و«الأدوات» ورقتان على <dialog>: ما خلفهما خاملٌ من المتصفّح نفسه. ولا شيء هنا
+ * «الأقسام» و«الأدوات» والمحادثة أوراقٌ على <dialog>: ما خلفها خاملٌ من المتصفّح نفسه. ولا شيء هنا
  * يعتمد: كل بندٍ رابطٌ أو زرٌّ آمن. ويُكتب `data-keyboard` على <html> ما دام حقلٌ مركَّزاً
- * (lib/keyboard.ts) فيختفي شريط التبويب تحت لوحة المفاتيح.
+ * (lib/keyboard.ts) فيختفي شريط التبويب والزرّ العائم تحت لوحة المفاتيح.
  */
 
 import * as React from "react"
 import { CircleHelp, House, LayoutGrid, UserRound, Wrench } from "lucide-react"
 
+import { ChatLauncher } from "@/components/chat/chat-launcher"
+import { ChatSheet } from "@/components/chat/chat-sheet"
 import { SectionsSheet } from "@/components/shell/sections-sheet"
 import { Sidebar } from "@/components/shell/sidebar"
 import { TabBar, type NavEntry } from "@/components/shell/tab-bar"
 import { ToolsSheet, type ToolsProps } from "@/components/shell/tools-sheet"
+import type { ChatApi } from "@/lib/chat"
 import { useKeyboardFlag } from "@/lib/keyboard"
 import { TABLET_QUERY, WIDE_QUERY, useMatch, useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
@@ -32,12 +38,14 @@ export interface WorkspaceShellProps {
   userName: string | null
   onNavigate: (href: string) => void
   tools: Omit<ToolsProps, "workspace" | "screen" | "onNavigate">
+  /** المحادثة مع سيمبول من هذه الشاشة: نوعها ومعرّفها وأسئلتها الجاهزة (lib/chat.ts). */
+  chat: ChatApi
   /** قائمةٌ تُعرض بجانب الشاشة في العريض بحجم اللمس («حملاتي» بجانب الحملة). */
   pane?: React.ReactNode
   children: React.ReactNode
 }
 
-export function WorkspaceShell({ workspace, current, userName, onNavigate, tools, pane, children }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, current, userName, onNavigate, tools, chat, pane, children }: WorkspaceShellProps) {
   const { size } = useSize()
   const gaze = size === "gaze"
   const tablet = useMatch(TABLET_QUERY)
@@ -46,6 +54,7 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
   // `gen` يزيد مع كل فتح فتُرسم الورقة من جديد (key) بحالةٍ نظيفة.
   const [tool, setTool] = React.useState<{ open: boolean; initial: string | null; gen: number }>({ open: false, initial: null, gen: 0 })
   const openTool = (initial: string | null) => setTool((t) => ({ open: true, initial, gen: t.gen + 1 }))
+  const [chatOpen, setChatOpen] = React.useState(false)
   const main = React.useRef<HTMLElement>(null)
   useKeyboardFlag(main)
 
@@ -53,6 +62,7 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
   const account: NavEntry = { id: "nav-account", label: "حسابي", icon: UserRound, href: "#/account", current: current === null }
   const sectionsEntry: NavEntry = { id: "nav-sections", label: "الأقسام", icon: LayoutGrid, onClick: () => setSections(true) }
   const toolsEntry: NavEntry = { id: "nav-tools", label: "الأدوات", icon: Wrench, onClick: () => openTool(null) }
+  const chatEntry: NavEntry = { id: "nav-chat", label: "سيمبول", icon: "symbol", accent: true, onClick: () => setChatOpen(true) }
   const four = [home, sectionsEntry, toolsEntry, account]
 
   const entries: NavEntry[] = workspace.home.map((entry) => ({
@@ -63,13 +73,10 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
     current: entry.id === current,
   }))
   const sidebarGroups: NavEntry[][] = gaze
-    ? [[home, sectionsEntry], [toolsEntry], [account]]
+    ? [[home, sectionsEntry], [chatEntry], [account]]
     : [
         [home, ...entries],
-        [
-          { id: "nav-assistant", label: "اسأل سيمبول", icon: "symbol", onClick: () => openTool("assistant") },
-          { id: "nav-help", label: "مساعدة", icon: CircleHelp, onClick: () => openTool("help") },
-        ],
+        [toolsEntry, { id: "nav-help", label: "مساعدة", icon: CircleHelp, onClick: () => openTool("help") }],
         [account],
       ]
 
@@ -93,7 +100,8 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
             twoPanes ? "max-w-[72rem]" : "max-w-content",
             // الحجم الكبير على الهاتف: بين آخر صفٍّ وشريط التبويب فاصل قسمٍ كامل، فمركزاهما على بعد 96 على الأقل.
             gaze ? cn("flex min-h-0 flex-1 flex-col pt-tg", tablet ? "pb-safe" : "pb-sec") : "pt-sec",
-            !gaze && (tablet ? "pb-safe" : "pb-tab"),
+            // الحجم العادي: آخر المحتوى فوق شريط التبويب وفوق زرّ «اسأل سيمبول» العائم.
+            !gaze && (tablet ? "pb-launcher" : "pb-tab-launcher"),
           )}
         >
           {twoPanes ? (
@@ -106,9 +114,27 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
           )}
         </main>
       </div>
-      {/* الحجم الكبير على الهاتف: ثلاثة بنود. أربعةٌ لا تتّسع في 320px بحدّ الهدف وفجوته، و«الأقسام» هي
-          أزرار الرئيسية نفسها: البلوغ إلى قسمٍ ضغطتان في الحالين. */}
-      {tablet ? null : <TabBar items={gaze ? [home, toolsEntry, account] : four} onNavigate={onNavigate} />}
+      {/* الحجم الكبير على الهاتف: ثلاثة بنود، و«سيمبول» أوسطها. أربعةٌ لا تتّسع في 320px بحدّ الهدف وفجوته،
+          و«الأقسام» هي أزرار الرئيسية نفسها، و«الأدوات» في ورقة المحادثة. */}
+      {tablet ? null : <TabBar items={gaze ? [home, chatEntry, account] : four} onNavigate={onNavigate} />}
+      {gaze ? null : <ChatLauncher tablet={tablet} onOpen={() => setChatOpen(true)} />}
+      <ChatSheet
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        chat={chat}
+        workspace={workspace}
+        current={current}
+        userName={userName}
+        onNavigate={onNavigate}
+        onTools={
+          gaze
+            ? () => {
+                setChatOpen(false)
+                openTool(null)
+              }
+            : undefined
+        }
+      />
       <SectionsSheet open={sections} workspace={workspace} current={current} onClose={() => setSections(false)} onNavigate={onNavigate} />
       <ToolsSheet
         key={tool.gen}

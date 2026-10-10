@@ -20,7 +20,7 @@
 import * as React from "react"
 import { MessageSquareQuote } from "lucide-react"
 
-import { assistantApi, navigate } from "@/app/workspace"
+import { chatApi, navigate } from "@/app/workspace"
 import { Redirect } from "@/components/redirect"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import type { ToolEntry } from "@/components/shell/tools-sheet"
@@ -812,12 +812,8 @@ export function SupportFlow({ path, choices, me, workspace }: { path: string; ch
           toast.dismiss()
           navigate(href)
         }}
-        tools={{
-          userName: me.display_name,
-          assistant: assistantApi(me, choices, ticket ? "SUPPORT_TICKET" : "HOME", ticket ? ticket[1] : null),
-          supportContact: choices.support_contact,
-          context: tools,
-        }}
+        tools={{ supportContact: choices.support_contact, context: tools }}
+        chat={chatApi(me, choices, ticket ? "SUPPORT_TICKET" : "HOME", ticket ? ticket[1] : null)}
       >
         {content}
       </WorkspaceShell>

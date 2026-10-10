@@ -12,43 +12,21 @@ import { AccountFlow } from "@/app/account-flow"
 import { InventoryFlow } from "@/app/inventory-flow"
 import { MarketingFlow } from "@/app/marketing-flow"
 import { SupportFlow } from "@/app/support-flow"
-import type { AssistantApi } from "@/components/tools/assistant-tool"
 import { Redirect } from "@/components/redirect"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
-import { api, detail } from "@/lib/api"
+import type { ChatApi, ChatScreenKind } from "@/lib/chat"
 import { currentHash, go } from "@/lib/router"
 import { setState, type Choices, type Me } from "@/lib/store"
 import { WORKSPACES, type Workspace } from "@/lib/workspace"
 import { WorkHome } from "@/screens/work-home"
 
-interface AssistantAnswer {
-  status: "ANSWER" | "DONT_KNOW" | "OUT_OF_SCOPE"
-  text: string
-  question_sent: string
-  sources: { line: string; href: string }[]
-  usage: { per_day: number; used_today: number }
-}
-
-/** «اسأل سيمبول» من ورقة الأدوات: سؤالٌ واحد بسياق الشاشة (نوعها ومعرّفها لا بياناتها)، والجواب كما يردّه الخادم. */
-export type AssistantScreen = "HOME" | "CAMPAIGN" | "INVENTORY_ITEM" | "INVENTORY_PURCHASE" | "INVENTORY_COUNT" | "SUPPORT_TICKET"
-
-export function assistantApi(me: Me, choices: Choices, screen: AssistantScreen, id: string | null = null): AssistantApi {
+/** المحادثة مع سيمبول من شاشةٍ بعينها: نوعها ومعرّفها لا بياناتها، وأسئلتها الجاهزة وحصّة اليوم من الخادم. */
+export function chatApi(me: Me, choices: Choices, kind: ChatScreenKind, id: string | null = null): ChatApi {
   return {
-    remaining: Math.max(0, me.ai.assistant.per_day - me.ai.assistant.used_today),
+    screen: { kind, id },
+    ready: choices.assistant.ready[kind] ?? [],
     questionMax: choices.assistant.question_max,
-    ask: async (question) => {
-      const result = await api<AssistantAnswer>("POST", "/api/ai/assistant", { json: { screen: { kind: screen, id }, question } })
-      if (result.status !== 200 || !result.data) return { ok: false, message: detail(result) }
-      const answer = result.data
-      return {
-        ok: true,
-        reply: {
-          answer: answer.text,
-          note: answer.sources.length ? answer.sources.map((source) => source.line).join("\n") : null,
-          remaining: Math.max(0, answer.usage.per_day - answer.usage.used_today),
-        },
-      }
-    },
+    remaining: Math.max(0, me.ai.assistant.per_day - me.ai.assistant.used_today),
   }
 }
 
@@ -91,7 +69,8 @@ export function WorkspaceView({ path, choices, me }: { path: string; choices: Ch
       current="home"
       userName={me.display_name}
       onNavigate={navigate}
-      tools={{ userName: me.display_name, assistant: assistantApi(me, choices, "HOME"), supportContact: choices.support_contact }}
+      tools={{ supportContact: choices.support_contact }}
+      chat={chatApi(me, choices, "HOME")}
     >
       <ClearCampaign />
       <WorkHome workspace={workspace} userName={me.display_name} onNavigate={navigate} />

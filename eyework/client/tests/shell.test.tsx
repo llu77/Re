@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { AppProviders } from "@/app/providers"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
+import type { ChatApi } from "@/lib/chat"
 import { WORKSPACES } from "@/lib/workspace"
 
 const NAV = ["nav-home", "nav-sections", "nav-tools", "nav-account"]
@@ -24,12 +25,13 @@ function viewport(width: number) {
   }
 }
 
-const tools = { userName: "علي", assistant: { remaining: 3, ask: async () => ({ ok: false as const, message: "" }) }, supportContact: null }
+const tools = { supportContact: null }
+const chat: ChatApi = { screen: { kind: "HOME", id: null }, ready: ["ماذا أبدأ به اليوم؟"], questionMax: 300, remaining: 60 }
 
 function shell(size: "compact" | "gaze", current: string | null = "home") {
   return render(
     <AppProviders size={size}>
-      <WorkspaceShell workspace={WORKSPACES.MARKETING} current={current} userName="علي" onNavigate={() => {}} tools={tools}>
+      <WorkspaceShell workspace={WORKSPACES.MARKETING} current={current} userName="علي" onNavigate={() => {}} tools={tools} chat={chat}>
         <p>المحتوى</p>
       </WorkspaceShell>
     </AppProviders>,
@@ -53,13 +55,32 @@ describe("the workspace shell", () => {
     expect([...nav.querySelectorAll("a, button")].every((e) => e.hasAttribute("data-safe"))).toBe(true)
     expect(nav.querySelector("#nav-home")?.getAttribute("aria-current")).toBe("page")
     expect(document.querySelector("#sidebar")).toBeNull()
+    // «اسأل سيمبول» يطفو فوق الشريط، خارجه، آمناً بنصٍّ ظاهر.
+    const launcher = document.querySelector("#nav-chat") as HTMLElement
+    expect(nav.contains(launcher)).toBe(false)
+    expect(launcher.hasAttribute("data-safe")).toBe(true)
+    expect(launcher.className).toContain("fixed")
+    expect(launcher.textContent).toBe("اسأل سيمبول")
   })
 
-  it("gives a tablet the sidebar with the entries and the two tools, and no tab bar", () => {
+  it("docks Symbol in the middle of the gaze-size tab bar instead of floating it", () => {
+    viewport(390)
+    shell("gaze")
+    const nav = screen.getByRole("navigation", { name: "أقسام البوابة" })
+    expect(ids(nav)).toEqual(["nav-home", "nav-chat", "nav-account"])
+    expect(document.querySelectorAll("#nav-chat")).toHaveLength(1)
+    expect(nav.querySelector("#nav-chat")?.className).not.toContain("fixed")
+    expect(nav.querySelector("#nav-chat")?.textContent).toBe("سيمبول")
+    // في الحجم الكبير بلا aria-haspopup: سمة الزرّ لـ«الانتقال إلى العنصر».
+    expect(nav.querySelector("#nav-chat")?.hasAttribute("aria-haspopup")).toBe(false)
+  })
+
+  it("gives a tablet the sidebar with the entries, the tools and help, the floating Symbol, and no tab bar", () => {
     viewport(744)
     shell("compact", "new")
     const sidebar = document.querySelector("#sidebar") as HTMLElement
-    expect(ids(sidebar)).toEqual(["nav-home", "nav-entry-new", "nav-entry-campaigns", "nav-assistant", "nav-help", "nav-account"])
+    expect(ids(sidebar)).toEqual(["nav-home", "nav-entry-new", "nav-entry-campaigns", "nav-tools", "nav-help", "nav-account"])
+    expect(sidebar.contains(document.querySelector("#nav-chat"))).toBe(false)
     expect(sidebar.querySelector("#nav-entry-new")?.getAttribute("aria-current")).toBe("page")
     expect(sidebar.querySelector("#nav-entry-new")?.getAttribute("href")).toBe("#/marketing/new")
     expect([...sidebar.querySelectorAll("a, button")].every((e) => e.hasAttribute("data-safe"))).toBe(true)
@@ -67,11 +88,12 @@ describe("the workspace shell", () => {
     expect(document.querySelectorAll("nav[aria-label='أقسام البوابة']")).toHaveLength(1)
   })
 
-  it("keeps the gaze-size rail to the four entries of the tab bar", () => {
+  it("keeps the gaze-size rail to four entries, Symbol in place of the tools", () => {
     viewport(1024)
     shell("gaze", null)
     const sidebar = document.querySelector("#sidebar") as HTMLElement
-    expect(ids(sidebar)).toEqual(NAV)
+    expect(ids(sidebar)).toEqual(["nav-home", "nav-sections", "nav-chat", "nav-account"])
+    expect(document.querySelectorAll("#nav-chat")).toHaveLength(1)
     expect(sidebar.querySelector("#nav-account")?.getAttribute("aria-current")).toBe("page")
   })
 
@@ -79,7 +101,7 @@ describe("the workspace shell", () => {
     viewport(744)
     const tablet = render(
       <AppProviders size="compact">
-        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} pane={<p>القائمة</p>}>
+        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} chat={chat} pane={<p>القائمة</p>}>
           <p>الحملة</p>
         </WorkspaceShell>
       </AppProviders>,
@@ -89,7 +111,7 @@ describe("the workspace shell", () => {
     viewport(1280)
     const wide = render(
       <AppProviders size="compact">
-        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} pane={<p>القائمة</p>}>
+        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} chat={chat} pane={<p>القائمة</p>}>
           <p>الحملة</p>
         </WorkspaceShell>
       </AppProviders>,
@@ -98,7 +120,7 @@ describe("the workspace shell", () => {
     wide.unmount()
     const gaze = render(
       <AppProviders size="gaze">
-        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} pane={<p>القائمة</p>}>
+        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} chat={chat} pane={<p>القائمة</p>}>
           <p>الحملة</p>
         </WorkspaceShell>
       </AppProviders>,
