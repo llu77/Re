@@ -17,6 +17,9 @@
  *     التركيز إلى الحقل. والإغلاق بالضغط خارجه، أو Escape، أو الاختيار.
  *   • ما في الحقل بعد الاختيار اسم الصنف؛ وتغييره يلغي الاختيار حتى يُختار من جديد:
  *     لا يُرسل اسمٌ مكتوب كأنه صنفٌ مختار.
+ *   • في الحجم الكبير الخيارات أزرارٌ بـaria-pressed بينها فجوة الهدفين، لا listbox وoption: «الانتقال
+ *     إلى العنصر» في تتبّع العين والرأس يقصد ما له سمة الزرّ. ولا يعود التركيز إلى الحقل بعد اختيارٍ أو
+ *     تقليب: في iOS يفتح لوحة المفاتيح فوق الشاشة.
  */
 
 import * as React from "react"
@@ -103,6 +106,8 @@ export function Combobox({
     else if (inputRef && typeof inputRef === "object") (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = node
   }
 
+  const gaze = size === "gaze"
+
   function choose(entry: Entry | undefined) {
     if (!entry) return
     setOpen(false)
@@ -113,13 +118,13 @@ export function Combobox({
     }
     onValueChange(entry.option)
     onQueryChange(entry.option.label)
-    input.current?.focus()
+    if (!gaze) input.current?.focus()
   }
 
   function goToPage(next: number) {
     setPage(Math.max(0, Math.min(pages - 1, next)))
     setActive(-1)
-    input.current?.focus()
+    if (!gaze) input.current?.focus()
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -203,7 +208,7 @@ export function Combobox({
         // شيءٌ تحت حدّها، والمضيف يُخفي ما كان تحت الحقل حتى تُغلق (onOpenChange).
         <div
           className={cn(
-            "z-30 flex flex-col gap-tg-min rounded-card border border-border bg-card p-2 shadow-pop",
+            "z-30 flex flex-col gap-tg-min rounded-card border border-border bg-card p-2 shadow-pop gaze:gap-tg",
             size === "gaze" ? "mt-tg" : "absolute inset-x-0 top-full mt-tg-min",
           )}
         >
@@ -212,18 +217,24 @@ export function Combobox({
               يبحث…
             </p>
           ) : null}
-          <ul id={listId} role="listbox" aria-label={listLabel} className="flex flex-col gap-tg-min">
+          <ul
+            id={listId}
+            role={gaze ? undefined : "listbox"}
+            data-options={gaze ? "" : undefined}
+            aria-label={listLabel}
+            className={cn("flex flex-col gap-tg-min", gaze && "gap-tg")}
+          >
             {entries.map((entry, index) => {
               const isActive = index === active
               if (entry.kind === "create") {
                 return (
-                  <li
+                  <Choice
                     key="__create"
+                    gaze={gaze}
                     id={`${listId}-${index}`}
-                    role="option"
-                    aria-selected={false}
-                    data-safe=""
-                    onClick={() => choose(entry)}
+                    selected={false}
+                    kind="safe"
+                    onChoose={() => choose(entry)}
                     className={cn(
                       "flex min-h-ctl cursor-default items-center gap-3 rounded-ctl border border-dashed px-3 py-1.5",
                       isActive ? "border-primary bg-secondary" : "border-primary/60 bg-card",
@@ -238,19 +249,19 @@ export function Combobox({
                       </span>
                       {createHint ? <span className="text-small text-muted-foreground gaze:short:hidden">{createHint}</span> : null}
                     </span>
-                  </li>
+                  </Choice>
                 )
               }
               const { option } = entry
               const isSelected = value?.value === option.value
               return (
-                <li
+                <Choice
                   key={option.value}
+                  gaze={gaze}
                   id={`${listId}-${index}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  data-value=""
-                  onClick={() => choose(entry)}
+                  selected={isSelected}
+                  kind="value"
+                  onChoose={() => choose(entry)}
                   className={cn(
                     "flex min-h-ctl cursor-default items-center gap-3 rounded-ctl border px-3 py-1.5",
                     isActive ? "border-primary bg-secondary" : "border-border bg-card",
@@ -268,7 +279,7 @@ export function Combobox({
                     </span>
                   ) : null}
                   {isSelected ? <Check aria-hidden="true" className="size-icon shrink-0 text-primary" /> : null}
-                </li>
+                </Choice>
               )
             })}
           </ul>
@@ -289,5 +300,35 @@ export function Combobox({
         </div>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * خيارٌ في القائمة: في الحجم العادي `li role="option"` بنمط APG (التركيز يبقى في الحقل)، وفي الكبير زرٌّ
+ * بـaria-pressed داخل `li` (سمة الزرّ لـ«الانتقال إلى العنصر»). «value» يغيّر قيمة، و«safe» يفتح نموذجاً.
+ */
+function Choice({ gaze, id, selected, kind, onChoose, className, children }: {
+  gaze: boolean
+  id: string
+  selected: boolean
+  kind: "value" | "safe"
+  onChoose: () => void
+  className: string
+  children: React.ReactNode
+}) {
+  const marks = kind === "value" ? { "data-value": "" } : { "data-safe": "" }
+  if (gaze) {
+    return (
+      <li>
+        <button type="button" id={id} aria-pressed={selected} {...marks} onClick={onChoose} className={cn("w-full text-start", className)}>
+          {children}
+        </button>
+      </li>
+    )
+  }
+  return (
+    <li id={id} role="option" aria-selected={selected} {...marks} onClick={onChoose} className={className}>
+      {children}
+    </li>
   )
 }

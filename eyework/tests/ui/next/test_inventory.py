@@ -78,10 +78,12 @@ def _choose_option(flow: Flow, combobox: str, text: str, create: bool, label: st
     """يكتب في قائمة البحث ثم يختار المطابق، أو «جديد باسم» حين لا مطابق."""
     page = flow.page
     page.fill(f"#{combobox}", text)
-    flow.screen("[role=listbox]")
-    target = "[role=listbox] [role=option][data-safe]" if create else f"[role=listbox] [role=option][data-value]:has-text('{text}')"
+    # في الحجم الكبير الخيارات أزرارٌ في `[data-options]`، وفي العادي `option` في `listbox`.
+    options, choice = ("[data-options]", "button") if _gaze(page) else ("[role=listbox]", "[role=option]")
+    flow.screen(options)
+    target = f"{options} {choice}[data-safe]" if create else f"{options} {choice}[data-value]:has-text('{text}')"
     flow.screen(target)
-    flow.press(target, lambda: page.wait_for_selector("[role=listbox]", state="detached"), label)
+    flow.press(target, lambda: page.wait_for_selector(options, state="detached"), label)
 
 
 def _setup(flow: Flow) -> None:
