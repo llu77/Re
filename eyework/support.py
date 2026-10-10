@@ -20,8 +20,6 @@
 
 from __future__ import annotations
 
-import datetime
-import hashlib
 import json
 import uuid
 from contextlib import contextmanager
@@ -197,7 +195,13 @@ _ORDER = """
 _COUNTS = """
 SELECT (SELECT count(*) FROM support_tickets t
           LEFT JOIN LATERAL (SELECT * FROM support_drafts x WHERE x.ticket_id = t.id ORDER BY x.seq DESC LIMIT 1) d ON true
-""" + _DECIDE_WHERE + """) AS decide,
+         WHERE t.status IN ('NEW', 'OPEN', 'ESCALATED')
+           AND (EXISTS (SELECT 1 FROM support_replies r WHERE r.ticket_id = t.id AND r.state IN ('READY', 'RELEASED'))
+                OR (d.id IS NOT NULL AND d.rejected_at IS NULL
+                    AND d.based_on_message_id = (SELECT m.id FROM support_messages m WHERE m.ticket_id = t.id
+                                                    AND m.author = 'CUSTOMER' ORDER BY m.created_at DESC, m.id DESC LIMIT 1)
+                    AND NOT EXISTS (SELECT 1 FROM support_replies r WHERE r.ticket_id = t.id AND r.draft_id = d.id
+                                      AND r.state = 'SENT')))) AS decide,
        (SELECT count(*) FROM support_tickets WHERE status IN ('NEW', 'OPEN')) AS open,
        (SELECT count(*) FROM support_tickets WHERE status = 'PENDING') AS pending,
        (SELECT count(*) FROM support_tickets WHERE status = 'ESCALATED') AS escalated,
@@ -600,17 +604,17 @@ def request_draft(db: Database, runner: ReviewRunner, user_id: UUID, ticket_id: 
     if hint is not None and "\n" in hint:
         hint = " ".join(hint.split())
     with db.session(user_id) as cursor, _ticket_errors():
+        # المسودة التي يُعاد كتابتها من التذكرة نفسها، قبل أن يُفتح صفٌّ في الدفتر.
+        previous = _one(cursor, _DRAFT_BY_ID, (redraft_of,)) if redraft_of else None
+        if redraft_of and (previous is None or previous["ticket_id"] != ticket_id):
+            raise Invalid("DRAFT", field="redraft_of")
         cursor.execute(_BEGIN_DRAFT, (ticket_id, fields["expected_row_version"]))
         begun = cursor.fetchone()
         request_id, based_on = begun["request_id"], begun["based_on_message_id"]
         thread_rows = _rows(cursor, _THREAD, (ticket_id,))
         ticket = _one(cursor, "SELECT subject FROM support_tickets WHERE id = %s", (ticket_id,))
-        previous = _one(cursor, _DRAFT_BY_ID, (redraft_of,)) if redraft_of else None
         last_customer = next((r["body"] for r in reversed(thread_rows) if r["author"] == "CUSTOMER"), "")
         found = _search(cursor, last_customer, ticket["subject"])
-    if redraft_of and (previous is None or previous["ticket_id"] != ticket_id):
-        _finish(db, user_id, request_id, "OUTPUT_INVALID" if False else "UPSTREAM_ERROR", None)
-        raise Invalid("DRAFT", field="redraft_of")
     language = rules.language_of(last_customer)
     request = prompt.DraftInput(
         messages=_thread(thread_rows), language=language, articles=tuple(_article(row) for row in found),
@@ -683,10 +687,11 @@ SELECT a.id AS article_id, a.number, v.version, v.title, v.issue, v.environment,
 _PREPARE = "SELECT ew_support_prepare_reply(%s, %s, %s, %s, %s, %s, %s, %s, %s) AS id"
 
 
-def prepare_reply(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping) -> dict:
+def prepare_reply(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping, *, template: bool = False) -> dict:
     """
     «جهّز الردّ»: النصّ النهائي (التحية باسم العميل، ثم الردّ، ثم التوقيع) وتنبيهات القواعد عليه.
-    من المسودة كما هي، أو بعد تعديلها، أو بقلم الموظف، أو من الأسئلة الجاهزة.
+    من المسودة كما هي، أو بعد تعديلها، أو بقلم الموظف، أو من الأسئلة الجاهزة؛ و`template` لإفادةٍ
+    جاهزة يكتبها الخادم (إبلاغ العميل بالتصعيد).
     """
     kind = fields["kind"]
     questions = list(dict.fromkeys(fields.get("template_questions") or ()))
@@ -714,7 +719,7 @@ def prepare_reply(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping)
         if questions:
             core, template = rules.template_core(questions, language), True
         else:
-            core, template = rules.normalize(fields.get("core") or ""), False
+            core = rules.normalize(fields.get("core") or "")
         if not 20 <= len(core) <= 1200 or not rules.kb_clean(core):
             raise Invalid("REPLY_TEXT", field="core")
         signature = (_one(cursor, _SIGNATURE) or {}).get("signature")
@@ -783,7 +788,7 @@ def escalate(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping) -> d
         language = _language(messages)
         prepare_reply(db, user_id, ticket_id, {
             "kind": "UPDATE", "expected_row_version": version, "client_token": uuid.uuid4(),
-            "core": rules.UPDATE_TEMPLATES["ESCALATED"][0 if language == "AR" else 1], "template": True})
+            "core": rules.UPDATE_TEMPLATES["ESCALATED"][0 if language == "AR" else 1]}, template=True)
     return _ticket_view(db, user_id, ticket_id)
 
 
@@ -1084,7 +1089,7 @@ def phrases() -> dict:
 # ── المراجِع: الردّ والمقالة ────────────────────────────────────────────
 _REVIEW_REPLY = """
 SELECT r.id, r.ticket_id, r.kind, r.core, r.body_sha256, r.draft_id, r.state, r.origin
-  FROM support_replies r WHERE r.id = %s FOR UPDATE
+  FROM support_replies r WHERE r.id = %s
 """
 _LAST_CUSTOMER = """
 SELECT body FROM support_messages WHERE ticket_id = %s AND author = 'CUSTOMER' ORDER BY created_at DESC, id DESC LIMIT 1
@@ -1112,7 +1117,7 @@ def _load_reply(cursor, user_id: UUID, kind: str, reply_id: UUID, _expected: int
 _REVIEW_ARTICLE = """
 SELECT a.id, a.state, a.latest_version, a.published_version, v.title, v.issue, v.environment, v.resolution, v.cause
   FROM kb_articles a JOIN kb_versions v ON v.article_id = a.id AND v.version = a.latest_version
- WHERE a.id = %s FOR UPDATE OF a
+ WHERE a.id = %s
 """
 
 
@@ -1168,11 +1173,3 @@ ARTICLE_FEATURE = ReviewFeature(
 reviewer.FEATURES["SUPPORT_REPLY_REVIEW"] = REPLY_FEATURE
 reviewer.FEATURES["SUPPORT_ARTICLE_REVIEW"] = ARTICLE_FEATURE
 
-
-def body_digest(body: str) -> str:
-    """بصمة النصّ كما تحسبها القاعدة (`sha256(convert_to(body, 'UTF8'))`)."""
-    return hashlib.sha256(body.encode("utf-8")).hexdigest()
-
-
-def _unused(_value: datetime.date | None = None) -> None:
-    """—"""

@@ -528,7 +528,7 @@ def reply_payload(customer_message: str, kind: str, core: str, articles: Sequenc
     إليها (رقمها A1… وعنوانها ونصّها). لا اسم ولا تحية ولا توقيع ولا رقم تذكرة.
     """
     return {
-        "customer_message": customer_message,
+        "last_message": customer_message,
         "kind": kind,
         "sentences": [{"line": n, "text": text} for n, text in enumerate(_sentences(core), start=1)],
         "articles": [{"ref": f"A{n}", "title": title, "text": text}
@@ -537,7 +537,7 @@ def reply_payload(customer_message: str, kind: str, core: str, articles: Sequenc
 
 
 REPLY_PAYLOAD_KEYS: frozenset[str] = frozenset({
-    "customer_message", "kind", "sentences", "line", "text", "articles", "ref", "title",
+    "last_message", "kind", "sentences", "line", "text", "articles", "ref", "title",
 })
 
 
@@ -548,7 +548,7 @@ def _sentence(payload: Mapping, number: int | None) -> tuple[str, ...]:
 
 def _reply_evidence(payload: Mapping, _number: int | None) -> tuple[str, ...]:
     first = (payload.get("sentences") or [{}])[0].get("text", "")
-    return (f"رسالة العميل: {payload.get('customer_message', '')}", f"أوّل الردّ: {first}")
+    return (f"رسالة العميل: {payload.get('last_message', '')}", f"أوّل الردّ: {first}")
 
 
 _KIND_NAMES = {"ANSWER": "جوابٌ يحلّ المشكلة", "ASK_INFO": "طلب معلومات", "UPDATE": "إفادةٌ بالمتابعة"}
@@ -576,7 +576,7 @@ REPLY_CATALOGUE = Catalogue("SUPPORT_REPLY_REVIEW", (
           "في الجملة ما يلوم العميل أو يسخر منه أو يهوّن من مشكلته، أو ما يُقرأ حادّاً. اختيار الكلمات للموظف ما "
           "لم يبلغ هذا.", _sentence),
     Check("DOES_NOT_ADDRESS", REPLY, frozenset({"reply"}), False,
-          "الردّ كلّه لا يتناول ما تسأل عنه رسالة العميل (customer_message) أو ما تشكو منه، فسيعود ليسأل. فحصٌ على "
+          "الردّ كلّه لا يتناول ما تسأل عنه رسالة العميل الأخيرة (last_message) أو ما تشكو منه، فسيعود ليسأل. فحصٌ على "
           "الردّ كلّه: line فارغ.", _reply_evidence),
     Check("KIND_MISMATCH", REPLY, frozenset({"reply"}), False,
           "نوع الردّ (kind) لا يطابق نصّه: ANSWER لا يقدّم حلّاً، أو ASK_INFO لا يطلب شيئاً، أو UPDATE يقدّم حلّاً "

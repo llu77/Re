@@ -570,7 +570,9 @@ def test_another_profession_is_forbidden_and_unknown_features_or_kinds_are_not_f
     assert forbidden.status_code == 403 and forbidden.json()["code"] == "PROFESSION"
     client, user_id = _signed_in(owner, browser)
     doc = _doc(owner, user_id)
-    assert _review(client, doc, feature="SUPPORT_REPLY_REVIEW").status_code == 404
+    # أداة مهنةٍ أخرى مسجّلة 403؛ وما لا يُعرف 404.
+    assert _review(client, doc, feature="SUPPORT_REPLY_REVIEW").status_code == 403
+    assert _review(client, doc, feature="NOT_A_FEATURE").status_code == 404
     assert _review(client, doc, kind="RETURN").status_code == 404
 
 

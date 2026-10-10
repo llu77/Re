@@ -21,7 +21,6 @@ from __future__ import annotations
 import re
 import unicodedata
 from typing import Iterable
-from urllib.parse import urlsplit
 
 from eyework.grounding import kb_norm
 
@@ -120,12 +119,12 @@ _LONG_NUMBER = re.compile(rf"\+?(?:{_DIGIT}[ -]?){{8}}{_DIGIT}(?:[ -]?{_DIGIT})*
 _SEVEN_DIGITS = re.compile(rf"\+?(?:{_DIGIT}[ -]?){{6}}{_DIGIT}(?:[ -]?{_DIGIT})*")
 
 
+_HOST = re.compile(r"(?i)^(?:https?://)?(?:[^/@\s]*@)?([^/:?#\s]+)")
+
+
 def _host(url: str) -> str | None:
-    target = url if re.match(r"(?i)https?://", url) else f"http://{url}"
-    try:
-        host = urlsplit(target).hostname
-    except ValueError:
-        return None
+    match = _HOST.match(url)
+    host = match.group(1).lower() if match else None
     if not host:
         return None
     try:
