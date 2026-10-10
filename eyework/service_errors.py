@@ -44,9 +44,10 @@ class Conflict(Exception):
 
 
 class Invalid(Exception):
-    """مدخلٌ لا يُقبل. `code` رمزٌ ثابت، و`field` الحقل الذي يُصلَح إن عُرف."""
+    """مدخلٌ لا يُقبل. `code` رمزٌ ثابت، و`field` الحقل الذي يُصلَح إن عُرف، و`extra` حقولٌ تُضاف إلى الجواب."""
 
-    def __init__(self, code: str, field: str | None = None) -> None:
+    def __init__(self, code: str, field: str | None = None, extra: dict | None = None) -> None:
         super().__init__(code)
         self.code = code
         self.field = field
+        self.extra = extra

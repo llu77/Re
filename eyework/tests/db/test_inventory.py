@@ -392,6 +392,59 @@ def test_returns_take_the_remaining_share_and_the_credit_note_is_recorded_once(a
                    constraint="inv_reversal_has_returns")
 
 
+def test_the_return_date_is_part_of_what_the_reviewer_saw(app, scene):
+    """سيمبول يحكم على سبب الإرجاع بالأيام منذ الشراء: تغيير التاريخ محتوىً آخر لا تغطّيه مراجعةٌ سابقة."""
+    s = scene
+    p = draft(app, s.keeper, s.sup, "RD-1", s.today - datetime.timedelta(days=10), 11500)
+    line(app, s.keeper, p, s.water, 1000, 10000)
+    post(app, s.keeper, p)
+    r = ret(app, s.keeper, p, "EXCESS")
+    rline(app, s.keeper, r, 1, 1000)
+    before = scalar(app, s.keeper, "SELECT ew_inv_return_digest(%s)", (r,))
+    query(app, s.keeper, "UPDATE inv_returns SET return_date = %s WHERE id = %s", (s.today - datetime.timedelta(days=5), r))
+    assert scalar(app, s.keeper, "SELECT ew_inv_return_digest(%s)", (r,)) != before
+
+
+def stock(app, user, itm) -> tuple[int, int]:
+    return query(app, user, "SELECT on_hand_milli, stock_value_halalas FROM inv_items WHERE id = %s", (itm,))[0]
+
+
+def test_what_goes_back_to_the_supplier_leaves_at_the_cost_it_came_in_with(app, scene):
+    """عشرةٌ بـ10.00 ثم فاتورةٌ خطأ بعشرةٍ بـ1000.00 تُعكس: تبقى العشرة بـ100.00 لا بنصف ما دخل.
+    وعشرةٌ بـ10.00 ثم عشرةٌ بـ20.00 يُرجع الثاني: تبقى بـ100.00 كما دخلت، والمتوسط للصرف وحده."""
+    s = scene
+    voucher(app, s.keeper, "OPENING", s.water, 10000, cost=1000, day=s.today)
+    wrong = draft(app, s.keeper, s.sup, "W-1", s.today, 1150000)
+    line(app, s.keeper, wrong, s.water, 10000, 100000)
+    post(app, s.keeper, wrong)
+    assert stock(app, s.keeper, s.water) == (20000, 1010000)
+    query(app, s.keeper, "SELECT ew_inv_reverse_purchase(%s, %s, 'WRONG_DETAILS', NULL)", (wrong, rv(app, s.keeper, "inv_purchases", wrong)))
+    assert stock(app, s.keeper, s.water) == (10000, 10000)
+
+    second = draft(app, s.keeper, s.sup, "W-2", s.today, 23000)
+    line(app, s.keeper, second, s.water, 10000, 2000)
+    post(app, s.keeper, second)
+    assert stock(app, s.keeper, s.water) == (20000, 30000)
+    r = ret(app, s.keeper, second, "EXCESS")
+    rline(app, s.keeper, r, 1, 4000)
+    post_return(app, s.keeper, r)
+    assert stock(app, s.keeper, s.water) == (16000, 22000)          # أربعةٌ بـ20.00
+    r = ret(app, s.keeper, second, "EXCESS")
+    rline(app, s.keeper, r, 1, 6000)
+    post_return(app, s.keeper, r)
+    assert stock(app, s.keeper, s.water) == (10000, 10000)          # والباقي من السطر بباقي تكلفته
+    # وإن خرج من الصنف شيءٌ بالمتوسط المتضخّم قبل العكس، يخرج العكس بالمتوسط أيضاً: لا تبقى كميةٌ بلا قيمة.
+    chairs = item(app, s.keeper, "كرسي مكتب", price=1000)
+    voucher(app, s.keeper, "OPENING", chairs, 20000, cost=1000, day=s.today)
+    wrong = draft(app, s.keeper, s.sup, "W-3", s.today, 1150000)
+    line(app, s.keeper, wrong, chairs, 10000, 100000)
+    post(app, s.keeper, wrong)
+    voucher(app, s.keeper, "ISSUE", chairs, 15000, reason="USE", day=s.today)
+    assert stock(app, s.keeper, chairs) == (15000, 510000)
+    query(app, s.keeper, "SELECT ew_inv_reverse_purchase(%s, %s, 'WRONG_DETAILS', NULL)", (wrong, rv(app, s.keeper, "inv_purchases", wrong)))
+    assert stock(app, s.keeper, chairs) == (5000, 170000)
+
+
 def test_a_return_of_goods_already_issued_is_refused_and_consumes_no_number(owner, app, scene):
     s = scene
     pz = draft(app, s.keeper, s.sup, "Z-9", s.today, 50000)
@@ -763,3 +816,81 @@ def test_a_count_session_snapshots_the_books_counts_blind_and_posts_one_voucher_
     query(app, s.keeper, "UPDATE inv_items SET reorder_level_milli = 50000 WHERE id = %s", (s.water,))
     assert count_open(app, s.keeper, scope="LOW")[1] == 3
     assert scalar(app, s.keeper, "SELECT items_total FROM inv_count_sessions WHERE number = 3") == 1
+
+
+RETURN_FLAG = ('[{"check": "REASON_IMPLAUSIBLE", "severity": "MEDIUM", "field": "reason", "line": 1, '
+               '"reason": "«زيادة» بعد أشهرٍ من الشراء سببٌ غير معتاد.", "suggestion": null, "evidence": []}]')
+
+
+def test_symbols_note_on_a_return_gates_its_posting_and_is_forgotten_with_the_draft(app, scene):
+    s = scene
+    p = base_invoice(app, s)
+    post(app, s.keeper, p)
+    r = ret(app, s.keeper, p, "EXCESS")
+    rline(app, s.keeper, r, 1, 1000)
+    request, digest = query(app, s.keeper, "SELECT * FROM ew_inv_review_begin(NULL, %s)", (r,))[0]
+    assert digest == scalar(app, s.keeper, "SELECT ew_inv_return_digest(%s)", (r,))
+    assert record(app, s.keeper, request, RETURN_FLAG) == "OK"
+    (flag, code, closed), = ai_flags(app, s.keeper, r)
+    assert code == "REASON_IMPLAUSIBLE" and closed is None
+    keys = scalar(app, s.keeper, "SELECT ew_inv_flag_keys(NULL, %s)", (r,))
+    assert refused(app, s.keeper, "SELECT ew_inv_post_return(%s, %s, %s)", (r, rv(app, s.keeper, "inv_returns", r), keys),
+                   constraint="ai_flags_undecided")
+    query(app, s.keeper, "SELECT * FROM ew_ai_decide(%s, 'PROCEED')", (flag,))
+    assert post_return(app, s.keeper, r) == 1
+    assert ai_flags(app, s.keeper, r)[0][2] is not None
+    # مسودةٌ أخرى تُراجَع ثم تُحذف: ما قيل عنها يُنسى معها.
+    r2 = ret(app, s.keeper, p, "EXCESS")
+    rline(app, s.keeper, r2, 1, 1000)
+    request, _ = query(app, s.keeper, "SELECT * FROM ew_inv_review_begin(NULL, %s)", (r2,))[0]
+    record(app, s.keeper, request, RETURN_FLAG)
+    query(app, s.keeper, "SELECT ew_inv_discard_draft(NULL, %s, %s)", (r2, rv(app, s.keeper, "inv_returns", r2)))
+    assert ai_flags(app, s.keeper, r2) == []
+
+
+def test_a_full_return_can_be_edited_line_by_line(app, scene):
+    """أربعون سطراً هي الحدّ؛ وتعديل كمية سطرٍ قائم (إدراجٌ مع ON CONFLICT) ليس سطراً جديداً."""
+    s = scene
+    p = draft(app, s.keeper, s.sup, "FULL-40", s.today, 92000)   # 40 × 2 × 10.00 وضريبتها
+    items = [item(app, s.keeper, f"منتج تجربة {n}") for n in range(40)]
+    for itm in items:
+        line(app, s.keeper, p, itm, 2000, 1000)
+    post(app, s.keeper, p)
+    r = ret(app, s.keeper, p, "EXCESS")
+    for n in range(1, 41):
+        rline(app, s.keeper, r, n, 1000)
+    query(app, s.keeper, "INSERT INTO inv_return_lines (return_id, user_id, line_no, quantity_milli) VALUES (%s, ew_current_user(), 1, 2000)"
+                         " ON CONFLICT (return_id, line_no) DO UPDATE SET quantity_milli = EXCLUDED.quantity_milli", (r,))
+    assert scalar(app, s.keeper, "SELECT quantity_milli FROM inv_return_lines WHERE return_id = %s AND line_no = 1", (r,)) == 2000
+
+
+def test_records_that_hold_posted_documents_are_not_deleted_and_rows_are_written_only_for_oneself(owner, app, scene):
+    s = scene
+    rep_id = rep(app, s.keeper, s.sup, "أحمد", "0501234567", default=True)
+    p = draft(app, s.keeper, s.sup, "REP-1", s.today, 11500)
+    query(app, s.keeper, "UPDATE inv_purchases SET rep_id = %s WHERE id = %s", (rep_id, p))
+    line(app, s.keeper, p, s.water, 1000, 10000)
+    post(app, s.keeper, p)
+    # المندوب لا يُحذف مباشرةً، ولو من المالك: حذفه كان يتتالى إلى الفاتورة المسجّلة.
+    assert owner_refused(owner, "DELETE FROM inv_supplier_reps WHERE id = %s", (rep_id,), "inv_record_is_permanent")
+    # صفٌّ لحسابٍ آخر يُرفض قبل أن يُقرأ له شيء: لا يكشف اختلاف الخطأ حال مستنده ولا مهنته.
+    for statement, params in (
+        ("INSERT INTO inv_purchase_lines (purchase_id, user_id, item_id, quantity_milli, unit_price_halalas, vat_category)"
+         " VALUES (%s, %s, %s, 1000, 100, 'S')", (p, s.keeper, s.water)),
+        ("INSERT INTO inv_suppliers (user_id, name) VALUES (%s, 'مورّدٌ دخيل')", (s.marketer,)),
+        ("INSERT INTO inv_suppliers (user_id, name) VALUES (%s, 'مورّدٌ دخيل')", (s.keeper,)),
+    ):
+        assert refused(app, s.other, statement, params, constraint="inv_not_owner"), statement
+
+
+def test_an_item_in_an_open_count_keeps_its_unit_and_ten_sessions_a_day_is_the_cap(app, scene):
+    s = scene
+    session = count_open(app, s.keeper)[0]
+    assert refused(app, s.keeper, "UPDATE inv_items SET kind = 'SERVICE', unit = 'SERVICE' WHERE id = %s", (s.water,),
+                   constraint="inv_item_unit_locked")
+    query(app, s.keeper, "SELECT ew_inv_count_cancel(%s, %s)", (session, rv(app, s.keeper, "inv_count_sessions", session)))
+    for _ in range(9):
+        opened = count_open(app, s.keeper)[0]
+        query(app, s.keeper, "SELECT ew_inv_count_cancel(%s, %s)", (opened, rv(app, s.keeper, "inv_count_sessions", opened)))
+    assert refused(app, s.keeper, "SELECT * FROM ew_inv_count_open(%s, 'ALL', NULL, NULL, true, NULL)", (uuid.uuid4(),),
+                   constraint="inv_count_daily_cap")

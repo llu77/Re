@@ -182,6 +182,23 @@ def vat_split(amount_halalas: int, basis: str, category: str) -> tuple[int, int,
     return amount_halalas, int(vat), int(amount + vat)
 
 
+def return_share(quantity_milli: int, remaining_milli: int, bought_milli: int, line_net: int, line_vat: int,
+                 prev_net: int, prev_vat: int) -> tuple[int, int]:
+    """
+    (قبل الضريبة، الضريبة) لسطر مرتجع كما يحسبه التسجيل (ew_inv_post_return): حصّةٌ من صافي
+    سطر الفاتورة وضريبته بقدر الكمية، مقرّبةً نصفاً إلى أعلى، لا تتجاوز ما بقي؛ ومن يُرجع آخر ما
+    بقي يأخذ الباقي كلّه. فما تعرضه المسودة هو ما يُسجَّل.
+    """
+    if quantity_milli <= 0:
+        return 0, 0
+    if quantity_milli == remaining_milli:
+        return line_net - prev_net, line_vat - prev_vat
+    share = Decimal(quantity_milli) / Decimal(bought_milli)
+    net = int((Decimal(line_net) * share).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    vat = int((Decimal(line_vat) * share).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return min(net, line_net - prev_net), min(vat, line_vat - prev_vat)
+
+
 def choices() -> dict:
     """ما تعرضه الواجهة للاختيار في بوابة المخزون، من الخادم وحده (`/api/choices`)."""
     return {

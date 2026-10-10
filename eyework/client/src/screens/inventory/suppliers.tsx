@@ -18,16 +18,20 @@ import { DataTable } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Field, Input, Textarea } from "@/components/ui/input"
 import { RadioCards } from "@/components/ui/radio-cards"
+import { Tabs } from "@/components/ui/tabs"
 import type { Paged, Rep, Supplier } from "@/lib/inventory"
 import { useSize } from "@/lib/size"
 
 import { Facts, GazeHost, GazeSlot, type Fact } from "./common"
 import type { Fail } from "./setup"
 
-export function SuppliersScreen({ data, query, onQuery, page, onPage, onOpen, onNew, onBack }: {
+export function SuppliersScreen({ data, query, onQuery, archived, onArchived, page, onPage, onOpen, onNew, onBack }: {
   data: Paged<Supplier> | null
   query: string
   onQuery: (query: string) => void
+  /** المؤرشفون في قائمتهم: منها يُفتح المورّد ويُعاد تفعيله. */
+  archived: boolean
+  onArchived: (archived: boolean) => void
   page: number
   onPage: (page: number) => void
   onOpen: (supplier: Supplier) => void
@@ -45,6 +49,8 @@ export function SuppliersScreen({ data, query, onQuery, page, onPage, onOpen, on
       <Field label="ابحث بالاسم">
         <Input id="suppliers-search" type="search" autoComplete="off" value={query} onChange={(event) => onQuery(event.target.value)} />
       </Field>
+      <Tabs items={[{ id: "active", label: "النشطون" }, { id: "archived", label: "المؤرشفون" }]} value={archived ? "archived" : "active"}
+            onValueChange={(id) => onArchived(id === "archived")} label="التصفية">
       {data === null ? null : (
         <DataTable<Supplier>
           caption="المورّدون"
@@ -63,9 +69,11 @@ export function SuppliersScreen({ data, query, onQuery, page, onPage, onOpen, on
           page={page}
           onPageChange={onPage}
           total={data.total}
-          empty={<EmptyState icon={Truck} title={query ? "لا مورّد يطابق" : "لا مورّدين بعد"} description={query ? undefined : "أضف مورّدك الأوّل، أو أنشئه من رأس فاتورة شراء."} />}
+          empty={<EmptyState icon={Truck} title={query ? "لا مورّد يطابق" : archived ? "لا مورّدين مؤرشفين" : "لا مورّدين بعد"}
+                             description={query || archived ? undefined : "أضف مورّدك الأوّل، أو أنشئه من رأس فاتورة شراء."} />}
         />
       )}
+      </Tabs>
     </Screen>
   )
 }
@@ -195,7 +203,7 @@ export function SupplierForm({ supplier, initialName = "", onSave, onBack }: {
       <GazeHost>
         <GazeSlot id="supplier-name">
           <Field label="اسم المورّد" error={error("name")} required>
-            <Input id="supplier-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+            <Input id="supplier-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
           </Field>
         </GazeSlot>
         <GazeSlot id="supplier-vat">
@@ -215,7 +223,7 @@ export function SupplierForm({ supplier, initialName = "", onSave, onBack }: {
         </GazeSlot>
         <GazeSlot id="supplier-note">
           <Field label="ملاحظة" error={error("note")} className="gaze:hidden">
-            <Textarea id="supplier-note" rows={2} maxLength={280} value={note} onChange={(event) => setNote(event.target.value)} />
+            <Textarea id="supplier-note" rows={2} maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
           </Field>
         </GazeSlot>
         {supplier ? (
@@ -298,7 +306,7 @@ export function RepForm({ supplier, rep, onSave, onBack }: {
       <GazeHost>
         <GazeSlot id="rep-name">
           <Field label="اسم المندوب" error={error("name")} required>
-            <Input id="rep-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+            <Input id="rep-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
           </Field>
         </GazeSlot>
         <GazeSlot id="rep-mobile">

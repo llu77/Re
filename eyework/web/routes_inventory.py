@@ -3,7 +3,9 @@
 ====================
 تحت `/api/inventory`، لأصحاب مهنة أمين المخزون وحدهم (403 لغيرهم). كل كتابةٍ على
 صفٍّ قائم تحمل `expected_row_version` — ما رآه صاحبها — فالضغطة المكرّرة بالعين
-تُرفض بـ409 بدل أن تُطبَّق مرتين. والقراءات (البحث أثناء الكتابة والصفحات) لها
+تُرفض بـ409 بدل أن تُطبَّق مرتين؛ إلا اثنتين في جلسة الجرد لا تحتاجانه: إضافة منتجٍ إليها
+(سطرٌ واحد للمنتج، فالضغطة الثانية 409 `INV_COUNT_LINE_EXISTS`) وتحديث أرصدتها (لا يمسّ
+إلا سطراً تحرّك رصيده بعد اللقطة، فالضغطة الثانية لا تغيّر شيئاً). والقراءات (البحث أثناء الكتابة والصفحات) لها
 حدّها (`inventory_read`)، والكتابات حدّ `mutation` نفسه.
 
 مستند غيرك ⇒ 404 لا 403: لا يُكشف أنه موجود. ومراجعة سيمبول للمسودة من مسار
@@ -14,10 +16,10 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 
 from eyework import inventory
 from eyework.inventory_rules import MAX_PAGE
@@ -55,6 +57,9 @@ from eyework.web.schemas import (
 )
 
 __all__ = ["router"]
+
+#: رقم السطر كما في القاعدة (inv_line_no_range): لا رقمٌ يخرج عن smallint فيصير خطأ خادم.
+LineNo = Annotated[int, Path(ge=1, le=999)]
 
 router = APIRouter(prefix="/api/inventory", dependencies=[Depends(require_profession(Profession.STOREKEEPER))])
 
@@ -243,7 +248,7 @@ def add_line(purchase_id: UUID, body: LineCreateBody, request: Request, user_id:
 
 
 @router.patch("/purchases/{purchase_id}/lines/{line_no}")
-def patch_line(purchase_id: UUID, line_no: int, body: LinePatchBody, request: Request,
+def patch_line(purchase_id: UUID, line_no: LineNo, body: LinePatchBody, request: Request,
                user_id: UUID = Depends(require_user)) -> dict:
     _write(request, user_id)
     fields = body.model_dump(exclude_unset=True, exclude={"expected_row_version"})
@@ -251,7 +256,7 @@ def patch_line(purchase_id: UUID, line_no: int, body: LinePatchBody, request: Re
 
 
 @router.post("/purchases/{purchase_id}/lines/{line_no}/remove")
-def remove_line(purchase_id: UUID, line_no: int, body: RowVersionBody, request: Request,
+def remove_line(purchase_id: UUID, line_no: LineNo, body: RowVersionBody, request: Request,
                 user_id: UUID = Depends(require_user)) -> dict:
     _write(request, user_id)
     return inventory.remove_line(_db(request), user_id, purchase_id, line_no, body.expected_row_version)
@@ -312,7 +317,7 @@ def discard_return(return_id: UUID, body: RowVersionBody, request: Request,
 
 
 @router.put("/returns/{return_id}/lines/{line_no}")
-def put_return_line(return_id: UUID, line_no: int, body: ReturnLineBody, request: Request,
+def put_return_line(return_id: UUID, line_no: LineNo, body: ReturnLineBody, request: Request,
                     user_id: UUID = Depends(require_user)) -> dict:
     _write(request, user_id)
     return inventory.put_return_line(_db(request), user_id, return_id, line_no, body.expected_row_version, body.quantity_milli)

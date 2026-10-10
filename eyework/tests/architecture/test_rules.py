@@ -94,7 +94,7 @@ def test_only_the_image_module_decodes_images():
 
 
 #: من يستورد psycopg مباشرةً، بالضبط: `db.py` يفتح الجلسات، و`admin.py` و`migrations/run.py`
-#: بدور المالك، و`campaigns.py` و`reviewer.py` يترجمان أخطاء القيود، و`web/app.py` يُنشئ
+#: بدور المالك، و`campaigns.py` و`reviewer.py` و`inventory.py` يترجمون أخطاء القيود، و`web/app.py` يُنشئ
 #: التجمّع ويترجم أخطاءه. سائر الخدمات (`auth` و`passkeys` والمساعد) تصل القاعدة عبر
 #: `eyework.db` وحده؛ وقاعدة المسارات في `test_web_routes_never_touch_the_database_directly`.
 DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py", "inventory.py"}
@@ -426,9 +426,12 @@ def test_registered_review_loaders_declare_no_identity_fields_and_carry_a_fixtur
     `tests/api/test_ai_review.py::check_loader_keys` على موضوعٍ من `fixture` — فلا تُسجَّل
     أداةٌ بلا موضعٍ نموذجي يُشغَّل عليه محمّلها.
     """
+    import eyework.inventory  # noqa: F401 — يسجّل STOCK_REVIEW للفاتورة وللمرتجع
     from eyework import reviewer
 
-    for code, feature in reviewer.FEATURES.items():
+    assert "STOCK_REVIEW" in reviewer.FEATURES and ("STOCK_REVIEW", "RETURN") in reviewer.KIND_FEATURES
+    every = {**reviewer.FEATURES, **{f"{code}/{kind}": feature for (code, kind), feature in reviewer.KIND_FEATURES.items()}}
+    for code, feature in every.items():
         found = sorted(key for key in feature.payload_keys if _identity_key(key))
         assert not found, f"{code}: {found}"
         assert feature.fixture is not None, f"{code}: أداة مراجعةٍ بلا موضوعٍ نموذجي"

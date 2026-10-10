@@ -194,7 +194,9 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
     const box = wrapper.current?.getBoundingClientRect()
     const host = wrapper.current?.closest("[data-gaze-host]")?.getBoundingClientRect()
     const actions = document.querySelector("[data-screen-actions]")?.getBoundingClientRect()
-    const bar = document.querySelector('nav[aria-label="أقسام البوابة"]')?.getBoundingClientRect()
+    // شريط التبويب أسفل الهاتف وحده يحدّ ما تحت؛ وفي الآيباد العنصر نفسه شريطٌ جانبي من أعلى الشاشة.
+    const tabs = document.querySelector('nav[aria-label="أقسام البوابة"]')?.getBoundingClientRect()
+    const bar = box && tabs && tabs.top > box.bottom ? tabs : undefined
     const limit = Math.min(actions?.top ?? Infinity, bar?.top ?? Infinity, window.innerHeight)
     const above = box && host ? box.top - host.top : 0
     const below = box ? limit - box.bottom : 0
@@ -318,7 +320,7 @@ export const RULE_REASONS: Record<string, string> = {
   PRICE_FAR_FROM_HISTORY: "السعر بعيدٌ عن وسيط آخر مشتريات هذا المنتج.",
   QUANTITY_FAR_FROM_HISTORY: "الكمية بعيدةٌ عن المعتاد لهذا المنتج.",
   CATEGORY_CHANGED: "فئة ضريبة السطر تخالف فئة المنتج المعتادة.",
-  SHORT_DELIVERY: "ما وصل أقلّ ممّا في الفاتورة: يُسجَّل ما وصل، ويُطالَب المورّد بالباقي أو بإشعارٍ دائن.",
+  SHORT_DELIVERY: "ما وصل أقلّ ممّا في الفاتورة: تُسجَّل الفاتورة كما هي، ثم مرتجعٌ بسبب نقص التسليم بما لم يصل.",
   FULL_RETURN: "يُرجع كل ما في الفاتورة.",
   OLD_PURCHASE: "الفاتورة المرجوع منها قديمة.",
 }

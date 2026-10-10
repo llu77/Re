@@ -262,23 +262,24 @@ class AssistantBody(_Body):
 
 
 # ── المخزون ────────────────────────────────────────────────────────────
-# الأنواع والأطوال هنا؛ والشكل الدقيق (الرقم الضريبي 3…3، الباركود، التاريخ) تفحصه القاعدة
-# والخدمة بعد توحيد الأرقام العربية، فيعود لكل قيدٍ رمزه ورسالته (web/errors).
+# الأنواع وسقوفٌ واسعة هنا؛ والشكل الدقيق (طول الاسم، الرقم الضريبي 3…3، السجل، الهاتف، الباركود،
+# التاريخ) تفحصه القاعدة والخدمة بعد توحيد الأرقام العربية، فيعود لكل قيدٍ رمزه ورسالته
+# (web/errors) لا «قيمةٌ غير صالحة» بلا اسم حقل.
 Halalas = Annotated[StrictInt, Field(ge=0, le=100_000_000_000_000)]
 UnitPrice = Annotated[StrictInt, Field(ge=0, le=1_000_000_000)]
 ItemPrice = Annotated[StrictInt, Field(ge=1, le=1_000_000_000)]
 Milli = Annotated[StrictInt, Field(ge=1, le=1_000_000_000)]
 CountMilli = Annotated[StrictInt, Field(ge=0, le=1_000_000_000_000)]
-InvName = Annotated[StrictStr, Field(min_length=1, max_length=60)]
+InvName = Annotated[StrictStr, Field(min_length=1, max_length=120)]
 CategoryName = Annotated[StrictStr, Field(min_length=1, max_length=40)]
 DocNo = Annotated[StrictStr, Field(min_length=1, max_length=40)]
 InvNote = Annotated[StrictStr, Field(min_length=1, max_length=200)]
 Exemption = Annotated[StrictStr, Field(min_length=1, max_length=80)]
-VatNumber = Annotated[StrictStr, Field(min_length=15, max_length=15)]
-CrNumber = Annotated[StrictStr, Field(min_length=10, max_length=10)]
-Phone = Annotated[StrictStr, Field(min_length=10, max_length=13)]
+VatNumber = Annotated[StrictStr, Field(min_length=1, max_length=20)]
+CrNumber = Annotated[StrictStr, Field(min_length=1, max_length=20)]
+Phone = Annotated[StrictStr, Field(min_length=1, max_length=20)]
 SupplierCode = Annotated[StrictStr, Field(min_length=1, max_length=20)]
-Barcode = Annotated[StrictStr, Field(min_length=8, max_length=14)]
+Barcode = Annotated[StrictStr, Field(min_length=1, max_length=20)]
 Day = Annotated[StrictStr, Field(min_length=10, max_length=10)]
 FlagKey = Annotated[StrictStr, Field(pattern=r"^[A-Z_]{3,40}(:[0-9]{1,3})?$")]
 VatCategory = Literal["S", "Z", "E", "O"]

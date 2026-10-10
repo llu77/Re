@@ -216,9 +216,12 @@ def _return(flow: Flow, today: str) -> None:
     _audit(flow, "return-pick")
     flow.press("#return-start", lambda: flow.screen("[aria-label='أسطر الفاتورة']"), "ابدأ المرتجع")
     _audit(flow, "return-empty")
-    for _ in range(3):
-        flow.press("[aria-label='زِد الكمية المرتجعة من كرتونة ماء ٣٣٠ مل']", lambda: None, "زِد")
-    flow.until("document.querySelector('[aria-label=\"أسطر الفاتورة\"] output').textContent.includes('3')")
+    # المعدِّل معطّلٌ حتى يُحفظ ما قبله: كل ضغطةٍ تنتظر حفظها.
+    plus = "[aria-label='زِد الكمية المرتجعة من كرتونة ماء ٣٣٠ مل']"
+    for n in range(1, 4):
+        flow.press(plus, lambda n=n: flow.until(
+            f"!document.querySelector(\"{plus}\").disabled"
+            f" && document.querySelector('[aria-label=\"أسطر الفاتورة\"] output').textContent.includes('{n}')"), "زِد")
     _audit(flow, "return-quantities")
     if gaze:
         flow.press("#return-next", lambda: flow.screen("#return-reason"), "السبب")
@@ -335,15 +338,29 @@ def test_a_draft_is_kept_on_the_server_and_an_undecided_symbol_note_blocks_posti
                                          reason="سعر «كرتونة ماء ٣٣٠ مل» 10.00 ر.س يبدو منخفضاً لكرتونة ماء.",
                                          suggestion="تأكّد من السعر في فاتورة المورّد.")))
     page.goto(page.next + draft + "/review")
+    # تنبيه القاعدة (فرق الإجمالي 116 مقابل 115) يُقرّ به أوّلاً، فلا يبقى ما يحجز إلا ملاحظة سيمبول.
     if size == "gaze":
-        # تنبيهٌ في كل شاشة: الأوّل من اثنين، و«التالي» معطّلٌ حتى يُبتّ فيه.
         flow.until("document.querySelector('h1') && document.querySelector('h1').textContent.includes('تنبيه 1 من 2')")
+        assert page.locator("#review-next").is_disabled()
+        flow.press("[data-flag-status='open'] >> text=تابع رغم ذلك", lambda: flow.screen("[data-flag-status='acknowledged']"), "تابع رغم ذلك")
+        flow.press("#review-next", lambda: flow.until("document.querySelector('h1').textContent.includes('تنبيه 2 من 2')"), "التالي")
+        assert "يبدو منخفضاً" in page.text_content("[data-flag-status='open']")
         assert page.locator("#review-next").is_disabled()
     else:
         flow.until("document.querySelectorAll('[data-flag-status]').length === 2")
+        flow.press("[data-flag-status='open'] >> text=تابع رغم ذلك",
+                   lambda: flow.until("document.querySelectorAll('[data-flag-status=\"acknowledged\"]').length === 1"), "تابع رغم ذلك")
+        assert "يبدو منخفضاً" in page.text_content("[data-flag-status='open']")
         assert page.locator("#review-post").is_disabled()
     _audit(flow, "review-undecided")
-    # «فاتورة شراء جديدة» من الرئيسية لا تنشئ مسودةً ثانية ما دامت الأولى بلا أسطر؛ وهذه فيها سطر فتُنشأ ثانية.
+    # والخادم يحجز التسجيل نفسه: الإقرار بتنبيهات القاعدة كلّها لا يكفي ما دامت الملاحظة بلا قرار.
+    api = f"{server['base']}/api/inventory/purchases/{draft.rsplit('/', 1)[-1]}"
+    keys = [f["key"] for f in page.request.get(api + "/flags").json()["flags"]]
+    version = page.request.get(api).json()["row_version"]
+    refused = page.request.post(api + "/post", data={"expected_row_version": version, "acknowledged": keys},
+                                headers={"X-Eyework": "1", "Origin": server["base"]})
+    assert (refused.status, refused.json()["code"]) == (409, "FLAGS_UNDECIDED")
+    # قائمة فواتير الشراء تعرض المسودة نفسها، لا ثانيةً أنشأتها إعادة التحميل.
     page.goto(page.next + "#/inventory/purchases")
     flow.until("document.querySelectorAll('[aria-label=\"فواتير الشراء\"] li').length === 1")
     _audit(flow, "purchases")
@@ -352,8 +369,8 @@ def test_a_draft_is_kept_on_the_server_and_an_undecided_symbol_note_blocks_posti
 
 
 @pytest.mark.parametrize(("width", "height"), [STRESS, TABLETS[0], DESKTOP], ids=frame_ids([STRESS, TABLETS[0], DESKTOP]))
-def test_the_product_form_and_the_supplier_card_fit_every_frame(next_page, server, owner, width, height):
-    """نموذج المنتج بثلاث مجموعاته، وبطاقة المورّد بمندوبيه، بالحجم الكبير على الأضيق والآيباد والحاسوب."""
+def test_the_product_form_and_the_supplier_card_fit_the_tightest_tablet_and_desktop_frames(next_page, server, owner, width, height):
+    """نموذج المنتج بخطواته الخمس، وبطاقة المورّد بمندوبيه، بالحجم الكبير على الأضيق والآيباد والحاسوب."""
     page = _page(next_page, owner, server, "gaze", width, height)
     flow = Flow(page)
     _setup(flow)

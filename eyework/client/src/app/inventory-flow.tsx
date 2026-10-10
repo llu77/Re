@@ -31,12 +31,13 @@ import { useToast } from "@/components/ui/toast"
 import { detail, errorCode, errorField, type ApiResult } from "@/lib/api"
 import * as inv from "@/lib/inventory"
 import { BASE, countRoute, itemRoute, purchaseRoute, returnRoute, supplierRoute } from "@/lib/inventory"
-import { formatAmount } from "@/lib/money"
+import { formatAmount, vatOnNet } from "@/lib/money"
 import { go } from "@/lib/router"
 import type { Choices, Me } from "@/lib/store"
 import type { Workspace } from "@/lib/workspace"
 import { CountAddScreen, CountLineScreen, CountScreen, CountsScreen, NewCountScreen, type CountLineBody, type CountOpenBody } from "@/screens/inventory/counts"
 import { InventoryHome } from "@/screens/inventory/home"
+import { ItemLookup } from "@/screens/inventory/lookup"
 import { ExpensesScreen, TotalsScreen, VouchersScreen } from "@/screens/inventory/ledger"
 import { ItemForm, ItemScreen, StockScreen, VoucherScreen, type ItemBody, type VoucherBody } from "@/screens/inventory/products"
 import {
@@ -95,6 +96,28 @@ function useLoad<T>(load: () => Promise<ApiResult<T>>, deps: React.DependencyLis
   return { data: state.key === key ? state.data : null, setData, reload }
 }
 
+/**
+ * كتابات المستند بالترتيب، كلٌّ برقم الصفّ الذي تركته سابقتها: «احفظ الرأس ثم السطر ثم راجِع»
+ * لا يرفضها رقمٌ قديم من العرض الذي بدأت منه، وضغطتان سريعتان لا تتسابقان.
+ */
+function useWrites(rowVersion: number | null) {
+  const version = React.useRef(rowVersion)
+  const queue = React.useRef<Promise<unknown>>(Promise.resolve())
+  React.useEffect(() => {
+    version.current = rowVersion
+  }, [rowVersion])
+  return React.useCallback(<T,>(run: (rowVersion: number) => Promise<ApiResult<T>>): Promise<ApiResult<T>> => {
+    const next = queue.current.then(async () => {
+      const result = await run(version.current ?? 0)
+      const data = result.data as { row_version?: unknown } | null
+      if (result.status >= 200 && result.status < 300 && data && typeof data.row_version === "number") version.current = data.row_version
+      return result
+    })
+    queue.current = next.catch(() => undefined)
+    return next
+  }, [])
+}
+
 /** بحثٌ يعرض نتيجة آخر كلمةٍ وحدها. */
 function useSearch<T>(search: (query: string) => Promise<ApiResult<T>>, empty: T) {
   const [result, setResult] = React.useState<T>(empty)
@@ -119,6 +142,8 @@ function useSearch<T>(search: (query: string) => Promise<ApiResult<T>>, empty: T
 
 const supplierOption = (s: inv.Supplier): ComboboxOption => ({ value: s.id, label: s.name, description: s.vat_number ? `ض ${s.vat_number}` : undefined })
 const itemOption = (i: inv.ItemOption): ComboboxOption => ({ value: i.id, label: i.name, description: `${i.code} · ${i.unit_name}`, meta: `${inv.formatMilli(i.on_hand_milli)} ${i.unit_name}` })
+/** منتقي الجرد بلا رصيد: العدّ المغلق لا يُرى فيه الرصيد الدفتري ولا قبل اختيار المنتج. */
+const countOption = (i: inv.ItemOption): ComboboxOption => ({ value: i.id, label: i.name, description: `${i.code} · ${i.unit_name}` })
 const searchSuppliers = (q: string) => inv.listSuppliers(q, 1, 10)
 const searchItemsPlain = (q: string) => inv.searchItems(q, null)
 const EMPTY_SUPPLIERS: inv.Paged<inv.Supplier> = { items: [], page: 1, pages: 1, total: 0 }
@@ -275,6 +300,11 @@ function VoucherContainer({ id, choices, today, setNotice }: { id: string; choic
               ? await inv.issueVoucher({ ...common, quantity_milli: body.quantity_milli, reason: body.reason ?? "OTHER", note: body.note })
               : await inv.countVoucher({ ...common, counted_milli: body.quantity_milli, expected_on_hand_milli: current.on_hand_milli, unit_cost_halalas: body.unit_cost_halalas, reason: body.reason, note: body.note })
         const fail = failOf(result)
+        if (result.status === 409 && errorCode(result) === "INV_COUNT_STALE") {
+          // تحرّك الرصيد منذ فُتحت الشاشة: يُقرأ من جديد (والعدد المكتوب باقٍ) فيظهر الفرق الصحيح.
+          item.reload()
+          return { message: "تغيّر الرصيد منذ فتحت الشاشة. راجع الفرق الجديد ثم سجّل.", field: null }
+        }
         if (fail || !result.data) return fail
         toast.show({ title: `سُجّل السند ${result.data.label}`, tone: "success" })
         go(itemRoute(id), { replace: true })
@@ -290,13 +320,19 @@ function VoucherContainer({ id, choices, today, setNotice }: { id: string; choic
 function SuppliersContainer({ setNotice }: { setNotice: SetNotice }) {
   const [query, setQuery] = React.useState("")
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => inv.listSuppliers(query, page + 1, 10), [query, page], setNotice)
+  const [archived, setArchived] = React.useState(false)
+  const { data } = useLoad(() => inv.listSuppliers(query, page + 1, 10, archived), [query, page, archived], setNotice)
   return (
     <SuppliersScreen
       data={data}
       query={query}
       onQuery={(q) => {
         setQuery(q)
+        setPage(0)
+      }}
+      archived={archived}
+      onArchived={(value) => {
+        setArchived(value)
         setPage(0)
       }}
       page={page}
@@ -425,12 +461,14 @@ function NewPurchaseContainer({ summary, setNotice }: { summary: inv.Summary; se
   return null
 }
 
-function PurchaseContainer({ id, sub, path, choices, today, setNotice }: {
+function PurchaseContainer({ id, sub, path, choices, today, onDraft, setNotice }: {
   id: string
   sub: string | null
   path: string
   choices: inv.InventoryChoices
   today: string
+  /** المستند مسودة (فتظهر «راجِع الآن» في الأدوات) أو لا. */
+  onDraft: (draft: boolean) => void
   setNotice: SetNotice
 }) {
   const toast = useToast()
@@ -438,15 +476,24 @@ function PurchaseContainer({ id, sub, path, choices, today, setNotice }: {
   const [suppliers, searchSupplier] = useSearch(searchSuppliers, EMPTY_SUPPLIERS)
   const searchItems = React.useCallback((q: string) => inv.searchItems(q, id), [id])
   const [found, searchItem] = useSearch(searchItems, EMPTY_ITEMS)
-  const supplierId = purchase.data?.supplier?.id ?? null
+  const [chosenSupplier, setChosenSupplier] = React.useState<string | null | undefined>(undefined)
+  // مندوبو المورّد المختار في الشاشة (وفي الحجم الكبير لم يُحفظ بعد)، وإلا مورّد المسودة.
+  const supplierId = chosenSupplier === undefined ? (purchase.data?.supplier?.id ?? null) : chosenSupplier
   const reps = useLoad(() => (supplierId ? inv.getSupplier(supplierId) : Promise.resolve({ status: 200, data: null } as ApiResult<inv.Supplier>)), [supplierId], setNotice)
   const focusLine = Number(queryOf(path).get("line") ?? "") || null
+  const write = useWrites(purchase.data?.row_version ?? null)
+  const status = purchase.data?.status ?? null
+  React.useEffect(() => {
+    onDraft(status === "DRAFT")
+    return () => onDraft(false)
+  }, [status, onDraft])
   if (!purchase.data) return null
   const current = purchase.data
+  // كل 409 يعني أن ما يُعرض تغيّر (أو سُجّل في نافذةٍ أخرى): يُقرأ من جديد فيظهر بحاله.
   const apply = (result: ApiResult<inv.Purchase>): Fail => {
     const fail = failOf(result)
     if (!fail && result.data) purchase.setData(result.data)
-    else if (result.status === 409 && errorCode(result) === "STALE") purchase.reload()
+    else if (result.status === 409) purchase.reload()
     return fail
   }
   const back = () => go(BASE)
@@ -475,8 +522,10 @@ function PurchaseContainer({ id, sub, path, choices, today, setNotice }: {
         />
       )
     }
+    // السعر الشامل بتقريب الخادم نفسه (نصفٌ إلى أعلى بنسبة الفئة)، لا بضربٍ عشري.
+    const rateOf = (code: string) => choices.vat_categories.find((c) => c.code === code)?.rate_bp ?? 0
     const entry = (item: inv.ItemOption): inv.ItemOption =>
-      current.prices_include_vat && item.vat_category === "S" ? { ...item, price_entry_halalas: Math.round(item.price_halalas * 1.15) } : item
+      current.prices_include_vat ? { ...item, price_entry_halalas: item.price_halalas + vatOnNet(item.price_halalas, rateOf(item.vat_category)) } : item
     return (
       <PurchaseEditor
         key={`${id}-${focusLine ?? ""}`}
@@ -486,10 +535,11 @@ function PurchaseContainer({ id, sub, path, choices, today, setNotice }: {
         supplierOptions={suppliers.items.map(supplierOption)}
         onSupplierQuery={searchSupplier}
         reps={supplierId ? (reps.data?.reps ?? null) : []}
+        onSupplierChosen={setChosenSupplier}
         itemOptions={found.items.map((i) => ({ ...itemOption(i), meta: `${formatAmount(i.price_entry_halalas)} ر.س` }))}
         items={found.items}
         onItemQuery={searchItem}
-        onHeader={async (fields: HeaderFields) => apply(await inv.patchPurchase(id, current.row_version, fields))}
+        onHeader={async (fields: HeaderFields) => apply(await write((rv) => inv.patchPurchase(id, rv, fields)))}
         onCreateSupplier={async (body: QuickSupplier) => {
           const result = await inv.createSupplier(body)
           const fail = failOf(result)
@@ -505,11 +555,11 @@ function PurchaseContainer({ id, sub, path, choices, today, setNotice }: {
           }
           return { item: entry(result.data) }
         }}
-        onAddLine={async (body: LineBody) => apply(await inv.addLine(id, current.row_version, body))}
-        onPatchLine={async (lineNo, body: LineBody) => apply(await inv.patchLine(id, lineNo, current.row_version, body))}
-        onRemoveLine={async (lineNo) => apply(await inv.removeLine(id, lineNo, current.row_version))}
+        onAddLine={async (body: LineBody) => apply(await write((rv) => inv.addLine(id, rv, body)))}
+        onPatchLine={async (lineNo, body: LineBody) => apply(await write((rv) => inv.patchLine(id, lineNo, rv, body)))}
+        onRemoveLine={async (lineNo) => apply(await write((rv) => inv.removeLine(id, lineNo, rv)))}
         onDiscard={async () => {
-          const result = await inv.discardPurchase(id, current.row_version)
+          const result = await write((rv) => inv.discardPurchase(id, rv))
           const fail = failOf(result)
           if (!fail) go(BASE, { replace: true })
           return fail
@@ -598,7 +648,12 @@ function ReviewContainer<T>({ kind, id, title, subject, lineNames, totals, lines
     const mine = ++latest.current
     setReviewing(true)
     const current = await refresh()
-    if (mine !== latest.current || !current) return
+    if (mine !== latest.current) return
+    if (!current) {
+      // لم تُقرأ التنبيهات (انقطاعٌ أو خطأ): تنتهي المحاولة فيظهر «أعد المحاولة» ولا يبقى السطر «يراجع».
+      setReviewing(false)
+      return
+    }
     const result = await inv.reviewDocument(kind, id, current.row_version)
     if (mine !== latest.current) return
     setReviewing(false)
@@ -687,14 +742,14 @@ function ReturnsContainer({ path, setNotice }: { path: string; setNotice: SetNot
   )
 }
 
-const searchPosted = (q: string) => inv.listPurchases("POSTED", q, 1, 10)
+const searchReturnable = (q: string) => inv.listPurchases("RETURNABLE", q, 1, 10)
 const EMPTY_PURCHASES: inv.Paged<inv.PurchaseRow> = { items: [], page: 1, pages: 1, total: 0 }
 
 function NewReturnContainer({ setNotice }: { setNotice: SetNotice }) {
   const [query, setQuery] = React.useState("")
-  const initial = useLoad(() => inv.listPurchases("POSTED", "", 1, 10), [], setNotice)
-  const [found, search] = useSearch(searchPosted, EMPTY_PURCHASES)
-  const rows = (query.trim() ? found : initial.data ?? EMPTY_PURCHASES).items.filter((row) => row.reversal_number === null)
+  const initial = useLoad(() => inv.listPurchases("RETURNABLE", "", 1, 10), [], setNotice)
+  const [found, search] = useSearch(searchReturnable, EMPTY_PURCHASES)
+  const rows = (query.trim() ? found : initial.data ?? EMPTY_PURCHASES).items
   return (
     <NewReturnScreen
       options={rows.map((row) => ({ value: row.id, label: `${row.supplier_name ?? ""} · ${row.label ?? ""}`, description: row.supplier_invoice_no ? `فاتورة ${row.supplier_invoice_no}` : undefined, meta: row.total_halalas === null ? undefined : `${formatAmount(row.total_halalas)} ر.س` }))}
@@ -715,17 +770,30 @@ function NewReturnContainer({ setNotice }: { setNotice: SetNotice }) {
   )
 }
 
-function ReturnContainer({ id, sub, choices, today, setNotice }: { id: string; sub: string | null; choices: inv.InventoryChoices; today: string; setNotice: SetNotice }) {
+function ReturnContainer({ id, sub, choices, today, onDraft, setNotice }: {
+  id: string
+  sub: string | null
+  choices: inv.InventoryChoices
+  today: string
+  onDraft: (draft: boolean) => void
+  setNotice: SetNotice
+}) {
   const toast = useToast()
   const draft = useLoad(() => inv.getReturn(id), [id], setNotice, () => go(BASE, { replace: true }))
   const supplierId = draft.data?.purchase.supplier_id ?? null
   const reps = useLoad(() => (supplierId ? inv.getSupplier(supplierId) : Promise.resolve({ status: 200, data: null } as ApiResult<inv.Supplier>)), [supplierId], setNotice)
+  const write = useWrites(draft.data?.row_version ?? null)
+  const status = draft.data?.status ?? null
+  React.useEffect(() => {
+    onDraft(status === "DRAFT")
+    return () => onDraft(false)
+  }, [status, onDraft])
   if (!draft.data) return null
   const current = draft.data
   const apply = (result: ApiResult<inv.Return>): Fail => {
     const fail = failOf(result)
     if (!fail && result.data) draft.setData(result.data)
-    else if (result.status === 409 && errorCode(result) === "STALE") draft.reload()
+    else if (result.status === 409) draft.reload()
     return fail
   }
   if (current.status === "DRAFT") {
@@ -737,7 +805,7 @@ function ReturnContainer({ id, sub, choices, today, setNotice }: { id: string; s
           title="مراجعة المرتجع قبل تسجيله"
           subject={`${current.purchase.supplier_name ?? ""} · ${current.purchase.label}`}
           lineNames={Object.fromEntries(current.lines.map((line) => [line.line_no, line.item.name]))}
-          totals={{ net: 0, vat: 0, gross: current.lines.reduce((sum, line) => sum + Math.round((line.quantity_milli * line.unit_price_halalas) / 1000), 0) }}
+          totals={current.totals ?? { net: 0, vat: 0, gross: 0 }}
           linesCount={current.lines.filter((line) => line.quantity_milli > 0).length}
           steps={RETURN_STEPS}
           loadFlags={() => inv.returnFlags(id)}
@@ -760,10 +828,10 @@ function ReturnContainer({ id, sub, choices, today, setNotice }: { id: string; s
         choices={choices}
         reps={reps.data?.reps ?? null}
         today={today}
-        onLine={async (lineNo, quantity) => apply(await inv.putReturnLine(id, lineNo, current.row_version, quantity))}
-        onHeader={async (fields) => apply(await inv.patchReturn(id, current.row_version, fields))}
+        onLine={async (lineNo, quantity) => apply(await write((rv) => inv.putReturnLine(id, lineNo, rv, quantity)))}
+        onHeader={async (fields) => apply(await write((rv) => inv.patchReturn(id, rv, fields)))}
         onDiscard={async () => {
-          const fail = failOf(await inv.discardReturn(id, current.row_version))
+          const fail = failOf(await write((rv) => inv.discardReturn(id, rv)))
           if (!fail) go(BASE, { replace: true })
           return fail
         }}
@@ -778,7 +846,7 @@ function ReturnContainer({ id, sub, choices, today, setNotice }: { id: string; s
       draft={current}
       choices={choices}
       today={today}
-      onCreditNote={async (number, date) => apply(await inv.putCreditNote(id, current.row_version, number, date))}
+      onCreditNote={async (number, date) => apply(await write((rv) => inv.putCreditNote(id, rv, number, date)))}
       onOpenPurchase={() => go(purchaseRoute(current.purchase.id))}
       onBack={() => go(`${BASE}/returns`)}
     />
@@ -812,7 +880,7 @@ function NewCountContainer({ choices, onOpened, setNotice }: { choices: inv.Inve
     <NewCountScreen
       choices={choices}
       categories={categories.data?.items ?? []}
-      itemOptions={found.items.map(itemOption)}
+      itemOptions={found.items.map(countOption)}
       onItemQuery={search}
       onOpen={async (body: CountOpenBody) => {
         const result = await inv.openCount({ client_token: token.current, ...body })
@@ -840,12 +908,13 @@ function CountContainer({ id, sub, choices, today, onChanged, setNotice }: {
   const [page, setPage] = React.useState(0)
   const session = useLoad(() => inv.getCount(id), [id], setNotice, () => go(`${BASE}/counts`, { replace: true }))
   const [found, search] = useSearch(searchItemsPlain, EMPTY_ITEMS)
+  const write = useWrites(session.data?.row_version ?? null)
   if (!session.data) return null
   const current = session.data
   const apply = (result: ApiResult<inv.CountSession>): Fail => {
     const fail = failOf(result)
     if (!fail && result.data) session.setData(result.data)
-    else if (result.status === 409 && errorCode(result) === "STALE") session.reload()
+    else if (result.status === 409) session.reload()
     return fail
   }
   if (sub && sub.startsWith("l/") && current.status === "OPEN") {
@@ -861,7 +930,7 @@ function CountContainer({ id, sub, choices, today, onChanged, setNotice }: {
         session={current}
         line={line}
         choices={choices}
-        onSave={async (body: CountLineBody) => apply(await inv.setCountLine(id, itemId, current.row_version, body))}
+        onSave={async (body: CountLineBody) => apply(await write((rv) => inv.setCountLine(id, itemId, rv, body)))}
         onPrevious={previous ? () => go(countRoute(id, `/l/${previous.item.id}`)) : null}
         onNext={next ? () => go(countRoute(id, `/l/${next.item.id}`)) : null}
         onBack={() => go(countRoute(id))}
@@ -872,7 +941,7 @@ function CountContainer({ id, sub, choices, today, onChanged, setNotice }: {
     return (
       <CountAddScreen
         session={current}
-        itemOptions={found.items.map(itemOption)}
+        itemOptions={found.items.map(countOption)}
         onItemQuery={search}
         onAdd={async (itemId) => {
           const fail = apply(await inv.addCountItem(id, itemId))
@@ -899,7 +968,7 @@ function CountContainer({ id, sub, choices, today, onChanged, setNotice }: {
       }}
       onAdd={() => go(countRoute(id, "/add"))}
       onPost={async (occurredOn) => {
-        const result = await inv.postCount(id, current.row_version, occurredOn)
+        const result = await write((rv) => inv.postCount(id, rv, occurredOn))
         const fail = apply(result)
         if (!fail) {
           onChanged()
@@ -908,7 +977,7 @@ function CountContainer({ id, sub, choices, today, onChanged, setNotice }: {
         return fail
       }}
       onCancel={async () => {
-        const fail = apply(await inv.cancelCount(id, current.row_version))
+        const fail = apply(await write((rv) => inv.cancelCount(id, rv)))
         if (!fail) onChanged()
         return fail
       }}
@@ -1004,14 +1073,20 @@ export function InventoryFlow({ path, choices, me, workspace }: { path: string; 
   const today = data?.today ?? ""
 
   const standardRate = inventory.vat_categories.find((c) => c.code === "S")?.rate_bp ?? 1500
+  const [drafting, setDrafting] = React.useState(false)
   const tools: ToolEntry[] = [
-    ...(docKind === "p" && !docSub ? [{ id: "review-now", label: "راجِع الآن", description: "تنبيهات الفاتورة ومراجعة سيمبول", icon: ClipboardCheck, route: purchaseRoute(docId as string, "/review") }] : []),
+    // «راجِع الآن» لمسودة فاتورةٍ أو مرتجعٍ مفتوحة وحدها: المسجَّل لا يُراجَع.
+    ...(drafting && docId && !docSub && (docKind === "p" || docKind === "r")
+      ? [{ id: "review-now", label: "راجِع الآن", description: docKind === "p" ? "تنبيهات الفاتورة ومراجعة سيمبول" : "تنبيهات المرتجع ومراجعة سيمبول", icon: ClipboardCheck,
+           route: docKind === "p" ? purchaseRoute(docId, "/review") : returnRoute(docId, "/review") }]
+      : []),
     { id: "vat", label: "حاسبة الضريبة", description: "قبل الضريبة وبعدها", icon: Calculator,
       panel: () => <VatCalculator rateBp={standardRate} compute={async (amount, basis) => {
         const result = await inv.vatTool(amount, basis)
         return result.status === 200 && result.data ? { net: result.data.net_halalas, vat: result.data.vat_halalas, gross: result.data.gross_halalas } : { error: detail(result) }
       }} /> },
-    { id: "find-item", label: "ابحث عن منتج", description: "بالاسم أو الرمز أو الباركود", icon: PackageSearch, route: `${BASE}/stock` },
+    // في الورقة نفسها: لا يغادر مسودةً مفتوحة، ويعرض آخر أسعار الشراء.
+    { id: "find-item", label: "ابحث عن منتج", description: "رصيده وسعره وآخر أسعار شرائه", icon: PackageSearch, panel: () => <ItemLookup /> },
   ]
 
   let content: React.ReactNode = null
@@ -1052,9 +1127,9 @@ export function InventoryFlow({ path, choices, me, workspace }: { path: string; 
   } else if (clean === "/totals") {
     content = <TotalsContainer summary={data} setNotice={setNotice} />
   } else if (docKind === "p" && docId) {
-    content = <PurchaseContainer id={docId} sub={docSub} path={path} choices={inventory} today={today} setNotice={setNotice} />
+    content = <PurchaseContainer id={docId} sub={docSub} path={path} choices={inventory} today={today} onDraft={setDrafting} setNotice={setNotice} />
   } else if (docKind === "r" && docId) {
-    content = <ReturnContainer id={docId} sub={docSub} choices={inventory} today={today} setNotice={setNotice} />
+    content = <ReturnContainer id={docId} sub={docSub} choices={inventory} today={today} onDraft={setDrafting} setNotice={setNotice} />
   } else if (docKind === "i" && docId) {
     content = docSub === "edit" ? <ItemFormContainer id={docId} choices={inventory} initialName="" setNotice={setNotice} />
       : docSub === "voucher" ? <VoucherContainer id={docId} choices={inventory} today={today} setNotice={setNotice} />
