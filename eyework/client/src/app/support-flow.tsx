@@ -5,12 +5,12 @@
  *
  *   #/support                         الرئيسية: الأزرار الستة بأعدادها
  *   #/support/notice[?then=new]       إشعار المكتب، ثم ما طُلب قبله
- *   #/support/settings                التوقيع وأهداف زمن الخدمة والاستعمال
+ *   #/support/settings                التوقيع واتفاقية مستوى الخدمة والاستعمال
  *   #/support/decide                  بانتظار قراري
  *   #/support/open[?view=resolved|closed] · /pending · /escalated   قوائم التذاكر
  *   #/support/new                     تذكرة جديدة (بعد الإشعار)
  *   #/support/t/{id}[?draft=1]        التذكرة؛ و`draft=1` يطلب مسودة سيمبول حين تُفتح (بعد الحفظ أو ردّ العميل)
- *   #/support/t/{id}/compose?from=draft|blank · /ask · /escalate · /reject · /resolve · /classify · /redraft
+ *   #/support/t/{id}/compose?from=draft|blank · /ask · /escalate · /return · /reject · /resolve · /classify · /redraft
  *   #/support/t/{id}/reply · /customer · /note · /follow-up
  *   #/support/kb[?view=…] · /kb/new[?ticket=…&n=…] · /kb/improve · /kb/a/{id}[/edit|/publish]
  *
@@ -34,7 +34,7 @@ import type { Choices, Me } from "@/lib/store"
 import * as sup from "@/lib/support"
 import { BASE, articleRoute, ticketRoute } from "@/lib/support"
 import type { Workspace } from "@/lib/workspace"
-import { AskInfoScreen, ClassifyScreen, EscalateScreen, RedraftScreen, RejectScreen, ResolveScreen } from "@/screens/support/actions"
+import { AskInfoScreen, ClassifyScreen, EscalateScreen, RedraftScreen, RejectScreen, ResolveScreen, ReturnScreen } from "@/screens/support/actions"
 import { failOf, type Fail } from "@/screens/support/common"
 import { ComposeScreen } from "@/screens/support/compose"
 import { DecideScreen, DeskNoticeScreen, SupportHome, TicketsScreen, noticeAccepted } from "@/screens/support/home"
@@ -299,6 +299,7 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
     const route: Record<TicketAction, string> = {
       "compose-draft": "/compose?from=draft", "compose-blank": "/compose?from=blank", ask: "/ask", escalate: "/escalate", reject: "/reject",
       resolve: "/resolve", customer: "/customer", note: "/note", classify: "/classify", redraft: "/redraft", reply: "/reply", "follow-up": "/follow-up",
+      return: "/return",
     }
     if (action === "compose-draft" || action === "compose-blank") setSeed(null)
     go(ticketRoute(id, route[action]))
@@ -338,13 +339,6 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
           }}
           onReopen={async () => {
             const result = await sup.reopen(id, ticket.row_version)
-            if (result.status !== 200 || !result.data) return failed(result)
-            setData(result.data)
-            onChanged()
-            return null
-          }}
-          onReturnEscalation={async () => {
-            const result = await sup.returnEscalation(id, ticket.row_version, null)
             if (result.status !== 200 || !result.data) return failed(result)
             setData(result.data)
             onChanged()
@@ -401,6 +395,22 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
             const reply = notify && result.data.live_reply !== null
             if (!reply) toast.show({ title: `صُعّدت التذكرة #${ticket.number}`, tone: "success" })
             go(reply ? ticketRoute(id, "/reply") : ticketRoute(id))
+            return null
+          }}
+        />
+      )
+    case "return":
+      if (!ticket.allowed.return_escalation) return <Redirect to={ticketRoute(id)} />
+      return (
+        <ReturnScreen
+          ticket={ticket}
+          onBack={back}
+          onReturn={async (note) => {
+            const result = await sup.returnEscalation(id, ticket.row_version, note)
+            if (result.status !== 200 || !result.data) return failed(result)
+            setData(result.data)
+            onChanged()
+            back()
             return null
           }}
         />
@@ -600,13 +610,34 @@ function KbListContainer({ params, setNotice }: { params: URLSearchParams; setNo
   )
 }
 
+/** المقالة من تذكرة: عنوانها موضوع التذكرة، والمشكلة آخر رسالةٍ من العميل بكلماته (KCS). */
+function fromTicket(ticket: sup.Ticket): sup.ArticleFields {
+  const last = [...ticket.messages].reverse().find((m) => m.author === "CUSTOMER")
+  const issue = ticket.texts_purged || !last ? "" : [...last.body.replace(/\s+/g, " ").trim()].slice(0, 400).join("")
+  return { title: ticket.subject ?? "", issue, environment: null, resolution: "", cause: null }
+}
+
 function NewArticleContainer({ params, onChanged }: { params: URLSearchParams; onChanged: () => void }) {
   const [token] = useToken()
   const ticketId = params.get("ticket")
   const number = Number(params.get("n")) || null
+  // التذكرة تُقرأ أولاً حين تُكتب المقالة منها؛ وإن تعذّرت قراءتها يُكتب من صفحةٍ فارغة.
+  const [seed, setSeed] = React.useState<sup.ArticleFields | null | undefined>(ticketId ? undefined : null)
+  React.useEffect(() => {
+    if (!ticketId) return
+    let current = true
+    void sup.getTicket(ticketId).then((result) => {
+      if (current) setSeed(result.status === 200 && result.data ? fromTicket(result.data) : null)
+    })
+    return () => {
+      current = false
+    }
+  }, [ticketId])
+  if (seed === undefined) return null
   return (
     <ArticleEditor
       article={null}
+      initial={seed}
       sourceTicket={ticketId ? { id: ticketId, number } : null}
       onBack={() => go(ticketId ? `${BASE}/kb/improve` : `${BASE}/kb`)}
       onSave={async (fields) => {
@@ -693,7 +724,7 @@ function ArticleContainer({ id, sub, onChanged, setNotice }: { id: string; sub: 
           if (result.status === 200 && result.data) {
             setData(result.data)
             onChanged()
-            toast.show({ title: `اعتُمدت KB-${article.number}`, tone: "success" })
+            toast.show({ title: `نُشرت KB-${article.number}`, tone: "success" })
             back()
             return null
           }

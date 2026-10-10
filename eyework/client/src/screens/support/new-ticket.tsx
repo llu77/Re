@@ -115,7 +115,7 @@ export function NewTicketScreen({ onPreview, onSave, onBack, title = "تذكرة
       <Button id="ticket-paste" icon={ClipboardPaste} onClick={() => void paste()} className="self-start gaze:w-full">
         الصق من الحافظة
       </Button>
-      {pasteFailed ? <p role="status" className="text-small font-semibold text-warning">لم يُقرأ شيءٌ من الحافظة. الصق في الحقل أو اكتب.</p> : null}
+      {pasteFailed ? <p role="status" className="text-small font-semibold text-warning">لم يُقرأ شيءٌ من الحافظة.</p> : null}
       <Field
         label={spoken ? "ما قاله العميل" : simple ? "النصّ" : "رسالة العميل"}
         hint={`${[...text].length} من ${TEXT_MAX}`}

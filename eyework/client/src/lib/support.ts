@@ -23,6 +23,7 @@ export type Preset = "SHORTER" | "SIMPLER" | "MORE_FORMAL" | "WARMER" | "ASK_INF
 export type RejectReason = "WRONG_INFO" | "NOT_IN_KB" | "MISUNDERSTOOD" | "TONE" | "TOO_LONG" | "INCOMPLETE" | "OUTDATED_ARTICLE" | "OTHER"
 export type EscalationTarget = "TIER2" | "SUPERVISOR" | "VENDOR" | "FIELD_TECH" | "OTHER_TEAM"
 export type Resolution = "BY_PHONE" | "IN_PERSON" | "DUPLICATE" | "NOT_SUPPORT" | "NO_RESPONSE"
+export type CloseReason = "AFTER_RESOLVED" | "IDLE" | "PROFESSION_CHANGED"
 export type DismissReason = "FALSE_ALARM" | "EMPLOYER_APPROVED" | "KB_OUTDATED" | "OTHER"
 /** وما يكتبه الخادم وحده: «CONFIRMED» حين تُحلّ التذكرة بلا ردٍّ على آخر رسالة. */
 export type DismissedReason = DismissReason | "CONFIRMED"
@@ -163,6 +164,7 @@ export interface Allowed {
   reopen: boolean
   follow_up: boolean
   note: boolean
+  classify: boolean
 }
 
 export interface Ticket extends TicketRow {
@@ -173,8 +175,9 @@ export interface Ticket extends TicketRow {
   escalation: { target: EscalationTarget; note: string; at: string | null; returned_at: string | null; return_note: string | null } | null
   flags: RuleFlag[]
   follow_up_of: string | null
-  resolution: string | null
-  close_reason: string | null
+  follow_up_number: number | null
+  resolution: Resolution | "REPLIED" | null
+  close_reason: CloseReason | null
   texts_purged: boolean
   allowed: Allowed
   ai: { draft_left_today: number | null }
@@ -271,15 +274,15 @@ export const STATUS: Record<TicketStatus, string> = {
 export const PRIORITY: Record<Priority, string> = { URGENT: "عاجلة", HIGH: "عالية", NORMAL: "عادية", LOW: "منخفضة" }
 export const PRIORITIES: Priority[] = ["URGENT", "HIGH", "NORMAL", "LOW"]
 export const CATEGORY: Record<Category, string> = {
-  ACCOUNT: "الحساب والدخول", SOFTWARE: "البرامج", HARDWARE: "الأجهزة", PRINTING: "الطباعة", NETWORK: "الشبكة والإنترنت",
-  EMAIL: "البريد", INSTALL: "التثبيت والإعداد", HOW_TO: "طريقة الاستخدام", OTHER: "أخرى",
+  ACCOUNT: "الحسابات والصلاحيات", SOFTWARE: "البرمجيات", HARDWARE: "الأجهزة", PRINTING: "الطباعة", NETWORK: "الشبكة والإنترنت",
+  EMAIL: "البريد الإلكتروني", INSTALL: "التثبيت والإعداد", HOW_TO: "طريقة الاستخدام", OTHER: "أخرى",
 }
 export const CATEGORIES = Object.keys(CATEGORY) as Category[]
 export const CHANNEL: Record<Channel, string> = {
   MESSAGING: "واتساب أو رسائل", EMAIL: "بريد", PHONE: "مكالمة", IN_PERSON: "حضوري", WEB_FORM: "نموذج جهة العمل", OTHER: "أخرى",
 }
 export const CHANNELS = Object.keys(CHANNEL) as Channel[]
-export const REPLY_KIND: Record<ReplyKind, string> = { ANSWER: "جوابٌ يحلّ المشكلة", ASK_INFO: "طلب معلومات", UPDATE: "إفادةٌ بالمتابعة" }
+export const REPLY_KIND: Record<ReplyKind, string> = { ANSWER: "ردٌّ بالحلّ", ASK_INFO: "طلب معلومات", UPDATE: "تحديث الحالة" }
 export const PRESET: Record<Exclude<Preset, "ASK_INFO">, string> = { SHORTER: "أقصر", SIMPLER: "أبسط", MORE_FORMAL: "أكثر رسمية", WARMER: "أدفأ" }
 export const REJECT_REASON: Record<RejectReason, string> = {
   WRONG_INFO: "معلومةٌ خاطئة", NOT_IN_KB: "القاعدة لا تغطّي المسألة", MISUNDERSTOOD: "لم يفهم المشكلة", TONE: "الأسلوب غير مناسب",
@@ -291,14 +294,19 @@ export const ESCALATION_TARGET: Record<EscalationTarget, string> = {
 export const RESOLUTION: Record<Resolution, string> = {
   BY_PHONE: "حُلّت بالهاتف", IN_PERSON: "حُلّت حضورياً", DUPLICATE: "مكرّرة", NOT_SUPPORT: "ليست طلب دعم", NO_RESPONSE: "لم يردّ العميل",
 }
+/** كيف انتهت التذكرة، في سطرها: «حُلّت بالردّ»، و«أُغلقت تلقائياً بعد الحلّ». */
+export const OUTCOME: Record<Resolution | "REPLIED", string> = { ...RESOLUTION, REPLIED: "حُلّت بالردّ" }
+export const CLOSE_REASON: Record<CloseReason, string> = {
+  AFTER_RESOLVED: "أُغلقت تلقائياً بعد الحلّ", IDLE: "أُغلقت لعدم النشاط", PROFESSION_CHANGED: "أُغلقت بتغيير المهنة",
+}
 export const DISMISS_REASON: Record<DismissReason, string> = {
-  FALSE_ALARM: "تنبيهٌ في غير محلّه", EMPLOYER_APPROVED: "جهة العمل موافقة", KB_OUTDATED: "المقالة قديمة", OTHER: "سببٌ آخر",
+  FALSE_ALARM: "تنبيهٌ خاطئ", EMPLOYER_APPROVED: "بموافقة الإدارة", KB_OUTDATED: "المقالة قديمة", OTHER: "سببٌ آخر",
 }
 export const DISMISSED_REASON: Record<DismissedReason, string> = { ...DISMISS_REASON, CONFIRMED: "أكّدتَ الحلّ دون ردّ" }
 export const ARTICLE_STATE: Record<ArticleState, string> = {
   DRAFT: "مسودة", PUBLISHED: "منشورة", ARCHIVED: "مؤرشفة", DISCARDED: "متروكة",
 }
-export const AUTHOR: Record<Message["author"], string> = { CUSTOMER: "العميل", AGENT: "ردّك", NOTE: "ملاحظة داخلية" }
+export const AUTHOR: Record<Message["author"], string> = { CUSTOMER: "العميل", AGENT: "ردّ الدعم", NOTE: "ملاحظة داخلية" }
 export const REVIEW_REASON: Record<string, string> = {
   DRAFT_WRONG_INFO: "رُفضت مسودةٌ اقتبست منها لمعلومةٍ خاطئة", DRAFT_OUTDATED: "رُفضت مسودةٌ اقتبست منها لأنها قديمة", EMPLOYEE: "علّمتَها بنفسك",
 }
@@ -308,11 +316,11 @@ export const USAGE_KIND: Record<string, string> = {
   SUPPORT_DRAFT: "المسودات", SUPPORT_REPLY_REVIEW: "مراجعة الردود", SUPPORT_ARTICLE_REVIEW: "مراجعة المقالات",
 }
 
-/** المدّة بالدقائق بكلماتٍ قصيرة: «35 د»، «3 س»، «2 ي». */
+/** المدّة بالدقائق بكلماتٍ قصيرة: «35 د»، «3 س»، «2 يوم». */
 export function duration(minutes: number): string {
   if (minutes < 60) return `${minutes} د`
   if (minutes < 60 * 48) return `${Math.floor(minutes / 60)} س`
-  return `${Math.floor(minutes / 1440)} ي`
+  return `${Math.floor(minutes / 1440)} يوم`
 }
 
 /** شارة زمن الخدمة: النصّ ونغمته. */
