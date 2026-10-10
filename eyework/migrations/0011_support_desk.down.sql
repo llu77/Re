@@ -34,7 +34,7 @@ DROP FUNCTION IF EXISTS ew_support_release_reply(uuid, text, bytea);
 DROP FUNCTION IF EXISTS ew_support_ack_flag(uuid, text, text);
 DROP FUNCTION IF EXISTS ew_support_review_record(uuid, jsonb, jsonb);
 DROP FUNCTION IF EXISTS ew_support_review_begin(uuid);
-DROP FUNCTION IF EXISTS ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb);
+DROP FUNCTION IF EXISTS ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb, uuid[]);
 DROP FUNCTION IF EXISTS ew_support_reject_draft(uuid, text, text);
 DROP FUNCTION IF EXISTS ew_support_finish_call(uuid, text, jsonb);
 DROP FUNCTION IF EXISTS ew_support_record_draft(uuid, uuid, text, text, text, text, text, text, text, text, boolean,

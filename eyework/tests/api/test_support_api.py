@@ -183,6 +183,16 @@ def test_a_quote_that_is_not_in_the_article_is_refused_and_counted(agent, gatewa
         assert cursor.fetchall() == [("OUTPUT_INVALID",)]
     gateway.queue(model_reply("REFUSED"))
     assert draft(client, expect(client.get(f"{BASE}/tickets/{t['id']}"))).json()["code"] == "AI_REFUSED"
+    # فشلٌ غير متوقَّع في الطريق يُغلق الطلب أيضاً، فلا يحجز المسودة التالية حتى ينقضي أجله.
+    call = gateway.call
+    gateway.call = lambda request: (_ for _ in ()).throw(RuntimeError("انقطع الطريق"))
+    assert draft(client, expect(client.get(f"{BASE}/tickets/{t['id']}"))).status_code == 500
+    gateway.call = call
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT outcome FROM ai_requests WHERE user_id = %s AND feature = 'SUPPORT_DRAFT' ORDER BY started_at DESC"
+                       " LIMIT 1", (user_id,))
+        assert cursor.fetchone() == ("UPSTREAM_ERROR",)
+    assert draft(client, expect(client.get(f"{BASE}/tickets/{t['id']}"))).status_code == 201
 
 
 def test_a_draft_without_an_article_asks_for_information_and_can_be_rejected_and_redrafted(agent, gateway):
@@ -228,6 +238,20 @@ def test_a_reply_carries_greeting_and_signature_and_its_rule_flags_block_the_cop
     t = expect(client.post(f"{BASE}/replies/{reply['id']}/confirm", json={"sent": True}))
     assert (t["status"], t["resolution"], t["live_reply"]) == ("RESOLVED", "REPLIED", None)
     assert t["messages"][-1]["author"] == "AGENT" and t["messages"][-1]["body"] == reply["body"]
+
+
+def test_heeding_a_rule_flag_withdraws_the_reply_so_the_same_text_is_not_copied(agent):
+    client, _ = agent
+    accept(client)
+    t = ticket(client)
+    reply = expect(client.post(f"{BASE}/tickets/{t['id']}/replies", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER",
+        "core": "سنصلح الطابعة خلال 2 ساعات، ثم اطبعوا صفحة اختبار."}), 201)
+    flag = next(f for f in reply["flags"] if f["code"] == "PROMISE")
+    assert expect(client.post(f"{BASE}/flags/{flag['id']}", json={"action": "HEEDED"}))["state"] == "HEEDED"
+    copied = client.post(f"{BASE}/replies/{reply['id']}/release", json={"via": "COPY", "body_sha256": reply["body_sha256"]})
+    assert copied.status_code == 409
+    assert expect(client.get(f"{BASE}/tickets/{t['id']}"))["live_reply"] is None
 
 
 def test_symbols_review_of_an_edited_reply_gates_the_copy_until_decided(agent, gateway):
@@ -346,7 +370,7 @@ def test_an_article_is_proposed_from_a_ticket_that_had_a_sent_reply(agent, gatew
         "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER",
         "core": "أعيدوا تشغيل الطابعة ثم اطبعوا صفحة اختبار من قائمتها."}), 201)
     for f in reply["flags"]:
-        expect(client.post(f"{BASE}/flags/{f['id']}", json={"action": "HEEDED"}))
+        expect(client.post(f"{BASE}/flags/{f['id']}", json={"action": "DISMISSED", "reason": "EMPLOYER_APPROVED"}))
     expect(client.post(f"{BASE}/replies/{reply['id']}/release", json={"via": "COPY", "body_sha256": reply["body_sha256"]}))
     expect(client.post(f"{BASE}/replies/{reply['id']}/confirm", json={"sent": True}))
     gateway.queue(proposal_reply())
@@ -428,3 +452,28 @@ def test_the_lists_page_by_the_size_the_client_shows(agent):
     assert (len(found["items"]), found["pages"], found["total"]) == (2, 2, 3)
     rest = expect(client.get(f"{BASE}/kb", params={"q": "الطابعة", "size": 2, "page": 2}))
     assert len(rest["items"]) == 1
+
+
+def test_an_article_inserted_into_a_written_reply_is_kept_with_it_and_reviewed_with_it(agent, gateway):
+    """«أضف من قاعدة المعرفة»: المقالة تُحفظ مع الردّ فتراها مراجعة سيمبول وتعود إلى المحرّر؛ وغير المنشورة تُرفض."""
+    client, _ = agent
+    accept(client)
+    article(client, title="شاشة جهاز الاستقبال سوداء", issue="شاشة جهاز الاستقبال سوداء ولا تستجيب.",
+            resolution="1. افصل جهاز الاستقبال عن الكهرباء دقيقةً كاملة.\n2. أعد توصيله وانتظر ظهور الشعار.")
+    kb = article(client)   # مقالة الطابعة: الأقرب لرسالة العميل، فلا تُغني عن المدرجة
+    draft_one = article(client, title="مسودةٌ لم تُنشر بعد", publish=False)
+    t = ticket(client)
+    core = "افصلوا جهاز الاستقبال عن الكهرباء دقيقةً كاملة، ثم أعيدوا توصيله وانتظروا ظهور الشعار."
+    screen = expect(client.get(f"{BASE}/kb", params={"q": "جهاز الاستقبال"}))["items"][0]
+    refused = client.post(f"{BASE}/tickets/{t['id']}/replies", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER", "core": core,
+        "kb_article_ids": [draft_one["id"]]})
+    assert refused.status_code == 422
+    reply = expect(client.post(f"{BASE}/tickets/{t['id']}/replies", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER", "core": core,
+        "kb_article_ids": [screen["id"]]}), 201)
+    assert reply["kb_article_ids"] == [screen["id"]] and screen["id"] != kb["id"]
+    gateway.queue(review_reply())
+    expect(client.post("/api/ai/review", json={"feature": "SUPPORT_REPLY_REVIEW", "subject_kind": "SUPPORT_REPLY",
+                                               "subject_id": reply["id"]}))
+    assert "شاشة جهاز الاستقبال سوداء" in gateway.calls[-1].user

@@ -176,7 +176,8 @@ SELECT t.id, t.number, t.status, t.priority, t.category, t.channel, t.customer_l
        d.id AS draft_id, d.based_on_message_id AS draft_based_on, d.result AS draft_result, d.body AS draft_body,
        d.rejected_at AS draft_rejected_at, d.suggested_priority,
        (SELECT r.state FROM support_replies r WHERE r.ticket_id = t.id AND r.state IN ('READY', 'RELEASED')) AS live_state,
-       (SELECT count(*) FROM support_flags f WHERE f.ticket_id = t.id AND f.state = 'OPEN') AS open_flags
+       (SELECT count(*) FROM support_flags f JOIN support_replies r ON r.id = f.reply_id
+         WHERE f.ticket_id = t.id AND f.state = 'OPEN' AND r.state = 'READY') AS open_flags
   FROM support_tickets t
   LEFT JOIN LATERAL (SELECT * FROM support_drafts x WHERE x.ticket_id = t.id ORDER BY x.seq DESC LIMIT 1) d ON true
 """
@@ -342,6 +343,7 @@ def _reply_view(db: Database, user_id: UUID, cursor, reply: Mapping, language: s
         "body_sha256": bytes(reply["body_sha256"]).hex(), "state": reply["state"],
         "release_via": reply["release_via"], "at": _iso(reply["created_at"]),
         "needs_review": reply["origin"] in ("EDITED", "MANUAL") and reply["state"] == "READY",
+        "kb_article_ids": [str(k) for k in reply["kb_article_ids"]],
         "flags": flags,
     }
 
@@ -638,7 +640,8 @@ def request_draft(db: Database, runner: ReviewRunner, user_id: UUID, ticket_id: 
     sources = {str(row["article_id"]): _source(row) for row in found}
     try:
         reply = _call(runner, call)
-    except SupportAiFailure:
+    except Exception:
+        # أيّ فشلٍ قبل الجواب (المقعد، أو خطأٌ غير متوقَّع في الطريق) يُغلق الطلب، فلا يبقى مفتوحاً يحجز التالي.
         _finish(db, user_id, request_id, "UPSTREAM_ERROR", None)
         raise
     if reply.outcome != "OK":
@@ -695,7 +698,7 @@ SELECT a.id AS article_id, a.number, v.version, v.title, v.issue, v.environment,
   JOIN kb_versions v ON v.article_id = c.article_id AND v.version = c.article_version
  WHERE c.draft_id = %s
 """
-_PREPARE = "SELECT ew_support_prepare_reply(%s, %s, %s, %s, %s, %s, %s, %s, %s) AS id"
+_PREPARE = "SELECT ew_support_prepare_reply(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::uuid[]) AS id"
 
 
 def prepare_reply(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping, *, template: bool = False) -> dict:
@@ -737,7 +740,7 @@ def prepare_reply(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping,
         body = rules.compose_body(core, ticket["customer_label"], signature, language)
         flags = [] if template else rules.rule_flags(core, kind, language, grounding)
         cursor.execute(_PREPARE, (ticket_id, fields["expected_row_version"], fields["client_token"], draft_id, kind,
-                                  template, core, body, json.dumps(flags, ensure_ascii=False)))
+                                  template, core, body, json.dumps(flags, ensure_ascii=False), [str(k) for k in kb_ids]))
         reply_id = cursor.fetchone()["id"]
         reply = _one(cursor, _REPLY, (reply_id,))
         view = _reply_view(db, user_id, cursor, reply, language)
@@ -753,9 +756,17 @@ def _reply_or_404(cursor, reply_id: UUID) -> dict:
 
 
 def ack_flag(db: Database, user_id: UUID, flag_id: UUID, action: str, reason: str | None) -> dict:
+    """
+    «تابع رغم ذلك» (DISMISSED بسببه) أو «عدّل» (HEEDED). الأخذ بتنبيه ردٍّ جاهز يسحبه في المعاملة نفسها: ما يُنسخ
+    بعدها ردٌّ يُكتب من جديد، لا النصّ نفسه بلا سبب.
+    """
     with db.session(user_id) as cursor, _ticket_errors(FLAG_GONE):
         cursor.execute("SELECT ew_support_ack_flag(%s, %s, %s)", (flag_id, action, reason))
         flag = _one(cursor, "SELECT * FROM support_flags WHERE id = %s", (flag_id,))
+        if action == "HEEDED" and flag["reply_id"] is not None:
+            live = _one(cursor, "SELECT state FROM support_replies WHERE id = %s", (flag["reply_id"],))
+            if live is not None and live["state"] == "READY":
+                cursor.execute("SELECT ew_support_confirm_reply(%s, false)", (flag["reply_id"],))
     return _flag_view(flag)
 
 
@@ -987,7 +998,8 @@ def propose_article(db: Database, runner: ReviewRunner, user_id: UUID, ticket_id
         thread_rows = _rows(cursor, _THREAD, (ticket_id,))
     try:
         reply = _call(runner, prompt.proposal_call(_thread(thread_rows)))
-    except SupportAiFailure:
+    except Exception:
+        # أيّ فشلٍ قبل الجواب (المقعد، أو خطأٌ غير متوقَّع في الطريق) يُغلق الطلب، فلا يبقى مفتوحاً يحجز التالي.
         _finish(db, user_id, request_id, "UPSTREAM_ERROR", None)
         raise
     if reply.outcome != "OK":
@@ -1107,7 +1119,7 @@ def phrases() -> dict:
 
 # ── المراجِع: الردّ والمقالة ────────────────────────────────────────────
 _REVIEW_REPLY = """
-SELECT r.id, r.ticket_id, r.kind, r.core, r.body_sha256, r.draft_id, r.state, r.origin
+SELECT r.id, r.ticket_id, r.kind, r.core, r.body_sha256, r.draft_id, r.state, r.origin, r.kb_article_ids
   FROM support_replies r WHERE r.id = %s
 """
 _LAST_CUSTOMER = """
@@ -1127,8 +1139,8 @@ def _require_current_notice(cursor) -> None:
 
 def _load_reply(cursor, user_id: UUID, kind: str, reply_id: UUID, _expected: int | None) -> Snapshot:
     """
-    الردّ كما يراه المراجِع: آخر رسالةٍ من العميل، ونوعه، وجمله، والمقالات التي اقتبست منها
-    مسودته؛ وإن لم تكن فأقرب ثلاثٍ منشورة لرسالة العميل.
+    الردّ كما يراه المراجِع: آخر رسالةٍ من العميل، ونوعه، وجمله، والمقالات التي اقتبست منها مسودته والتي أدرج
+    الموظف خطواتها؛ وإن لم تكن فأقرب ثلاثٍ منشورة لرسالة العميل.
     """
     _require_current_notice(cursor)
     reply = _one(cursor, _REVIEW_REPLY, (reply_id,))
@@ -1136,6 +1148,9 @@ def _load_reply(cursor, user_id: UUID, kind: str, reply_id: UUID, _expected: int
         raise NotFound("NOT_FOUND", reviewer.NO_REVIEW)
     last = (_one(cursor, _LAST_CUSTOMER, (reply["ticket_id"],)) or {}).get("body", "")
     rows = _rows(cursor, _DRAFT_SOURCES, (reply["draft_id"],)) if reply["draft_id"] else []
+    if reply["kb_article_ids"]:
+        cited = {row["title"] for row in rows}
+        rows += [row for row in _rows(cursor, _KB_PUBLISHED, (list(reply["kb_article_ids"]),)) if row["title"] not in cited]
     if not rows:
         rows = _search(cursor, last)[:3]
     articles = [(row["title"], prompt.article_text(row["title"], row["issue"], row["environment"], row["resolution"],

@@ -8,7 +8,7 @@
  */
 
 import * as React from "react"
-import { ArrowUpRight, Ban, Check, CheckCircle2, ListChecks, Save, Sparkles } from "lucide-react"
+import { ArrowUpRight, Ban, Check, CheckCircle2, Copy, ListChecks, Save, Sparkles } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { Alert } from "@/components/ui/alert"
@@ -162,6 +162,16 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
   const { busy, fail, run } = useRun()
   const targets = Object.keys(ESCALATION_TARGET) as EscalationTarget[]
   const noteOk = note.trim().length >= 10
+  const [copied, setCopied] = React.useState<"ok" | "failed" | null>(null)
+  // الملخّص يُنسخ داخل الضغطة نفسها لتلصقه في قناة الجهة التي تصعّد إليها (لا يرسل التطبيق شيئاً).
+  async function copyNote() {
+    try {
+      await navigator.clipboard.writeText(note)
+      setCopied("ok")
+    } catch {
+      setCopied("failed")
+    }
+  }
 
   const targetField = gaze ? (
     <GazeHost>
@@ -172,9 +182,19 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
       ids={Object.fromEntries(targets.map((t) => [t, `escalate-target-${t}`]))} />
   )
   const noteField = (
-    <Field label="ملاحظة التصعيد" hint={gaze ? undefined : "عشرة أحرفٍ على الأقل: المشكلة وما جُرّب."} error={fail?.field === "note" ? fail.message : null}>
-      <Textarea id="escalate-note" rows={gaze ? 4 : 5} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} />
-    </Field>
+    <div className="flex flex-col gap-tg">
+      <Field label="ملاحظة التصعيد" hint={gaze ? undefined : "عشرة أحرفٍ على الأقل: المشكلة وما جُرّب."} error={fail?.field === "note" ? fail.message : null}>
+        <Textarea id="escalate-note" rows={gaze ? 4 : 5} maxLength={1000} value={note} onChange={(event) => { setNote(event.target.value); setCopied(null) }} />
+      </Field>
+      <Button id="escalate-copy" icon={Copy} disabled={!noteOk} onClick={() => void copyNote()} className="self-start gaze:w-full">
+        انسخ ملخّص التصعيد
+      </Button>
+      {copied ? (
+        <p role="status" className={copied === "ok" ? "text-small font-semibold text-success" : "text-small font-semibold text-destructive"}>
+          {copied === "ok" ? "نُسخ الملخّص. الصقه في رسالتك إلى الجهة." : "تعذّر النسخ. حاول مرةً أخرى."}
+        </p>
+      ) : null}
+    </div>
   )
   const notifyField = (
     <RadioCards<"yes" | "no"> label="أبلغ العميل؟" options={[{ value: "yes", title: "نعم، بردٍّ يفيد بالإحالة" }, { value: "no", title: "لا الآن" }]} value={notify} onValueChange={setNotify}

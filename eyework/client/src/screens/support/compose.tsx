@@ -45,7 +45,7 @@ export interface ComposeProps {
   onRedraft: () => void
   onBack: () => void
   /** ردٌّ سُحب ليُعدَّل: نصّه ونوعه بدل المسودة. */
-  initial?: { text: string; kind: ReplyKind } | null
+  initial?: { text: string; kind: ReplyKind; kbIds?: string[] } | null
 }
 
 /** يشطب الجمل المختارة، ويضمّ الباقي كما كان. */
@@ -67,7 +67,7 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
   const [text, setText] = React.useState(initial?.text ?? draft?.body ?? "")
   const [tool, setTool] = React.useState<Tool | null>(null)
   const [removed, setRemoved] = React.useState<Set<number>>(new Set())
-  const [kbIds, setKbIds] = React.useState<string[]>([])
+  const [kbIds, setKbIds] = React.useState<string[]>(initial?.kbIds ?? [])
   const [query, setQuery] = React.useState("")
   const [found, setFound] = React.useState<ArticleRow[] | null>(null)
   const [note, setNote] = React.useState<string | null>(null)

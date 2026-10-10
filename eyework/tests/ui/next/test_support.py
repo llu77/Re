@@ -323,6 +323,10 @@ def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, s
         _pick(flow, "escalate-target", "VENDOR", "المورّد أو الشركة المصنّعة")
         flow.press("#escalate-next", lambda: flow.screen("#escalate-note"), "الملاحظة")
         _audit(flow, "escalate-note")
+    # الملخّص يُنسخ ليُلصق في قناة الجهة.
+    flow.press("#escalate-copy", lambda: flow.screen("text=نُسخ الملخّص"), "انسخ ملخّص التصعيد")
+    assert page.evaluate("() => navigator.clipboard.readText()").startswith("التذكرة #1")
+    if gaze:
         flow.press("#escalate-next", lambda: flow.screen("#escalate-notify-no"), "العميل")
         _audit(flow, "escalate-notify")
         flow.press("#escalate-next", lambda: flow.screen("#escalate-submit"), "التصعيد")

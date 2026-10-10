@@ -23,12 +23,14 @@ import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { PagedText } from "@/components/ui/paged-text"
 import { formatDay, formatTime } from "@/lib/format"
 import {
-  AUTHOR, CATEGORY, CHANNEL, ESCALATION_TARGET, PRIORITY, REJECT_REASON, REPLY_KIND, ticketTitle, type Message, type RuleFlag, type Ticket,
+  AUTHOR, CATEGORY, CHANNEL, ESCALATION_TARGET, PRIORITY, REJECT_REASON, REPLY_KIND, ticketTitle, type DismissReason, type Message, type RuleFlag,
+  type Ticket,
 } from "@/lib/support"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 import { MaskedText, PriorityBadge, SlaBadge, StatusBadge, type Fail } from "./common"
+import { RuleFlagCard } from "./reply"
 
 export type TicketAction =
   | "compose-draft" | "compose-blank" | "ask" | "escalate" | "reject" | "resolve" | "customer" | "note" | "classify" | "redraft"
@@ -45,6 +47,8 @@ export interface TicketScreenProps {
   onAcceptSuggestion: () => Promise<Fail>
   onReopen: () => Promise<Fail>
   onReturnEscalation: () => Promise<Fail>
+  /** تنبيه قاعدةٍ على التذكرة (أولويةٌ أدنى من المقترحة): «تابع رغم ذلك» بسببه. */
+  onAckRule: (flag: RuleFlag, action: "HEEDED" | "DISMISSED", reason: DismissReason | null) => Promise<Fail>
   onAction: (action: TicketAction) => void
   onBack: () => void
   backLabel: string
@@ -68,14 +72,6 @@ function suggestionPending(ticket: Ticket): boolean {
   if (!s.priority && !s.category) return false
   if (ticket.status === "RESOLVED" || ticket.status === "CLOSED") return false
   return (s.priority !== null && s.priority !== ticket.priority) || (s.category !== null && s.category !== ticket.category)
-}
-
-function RuleFlagNote({ flag }: { flag: RuleFlag }) {
-  return (
-    <Alert tone={flag.state === "OPEN" ? "warning" : "info"} title={flag.message}>
-      {flag.reason}
-    </Alert>
-  )
 }
 
 /** قرارات الحجم الكبير في كل صفحة. */
@@ -140,7 +136,12 @@ export function TicketScreen(props: TicketScreenProps) {
   ) : null
 
   const ticketFlags = ticket.flags.filter((f) => f.state === "OPEN")
-  const flagNotes = ticketFlags.length ? <div className="flex flex-col gap-tg">{ticketFlags.map((f) => <RuleFlagNote key={f.id} flag={f} />)}</div> : null
+  // «عدّل» على تنبيه الأولوية يفتح التصنيف؛ و«تابع رغم ذلك» يقرّه بسببه فلا يبقى مفتوحاً على التذكرة.
+  const flagNotes = ticketFlags.length ? (
+    <div className="flex flex-col gap-tg">
+      {ticketFlags.map((f) => <RuleFlagCard key={f.id} flag={f} gaze={gaze} onAck={(action, reason) => props.onAckRule(f, action, reason)} onEdit={() => onAction("classify")} />)}
+    </div>
+  ) : null
 
   const escalation = ticket.status === "ESCALATED" && ticket.escalation ? (
     <section aria-label="التصعيد" className="flex flex-col gap-1 rounded-card border border-warning-line bg-warning-tint p-pad">
@@ -258,8 +259,8 @@ export function TicketScreen(props: TicketScreenProps) {
     type Page = { id: string; label: string; body: React.ReactNode }
     const pages: Page[] = []
     if (live) pages.push({ id: "reply", label: "الردّ", body: live })
-    if (suggestion) pages.push({ id: "suggestion", label: "الاقتراح", body: <>{suggestion}{flagNotes}</> })
-    else if (flagNotes) pages.push({ id: "flags", label: "تنبيه", body: flagNotes })
+    if (suggestion) pages.push({ id: "suggestion", label: "الاقتراح", body: suggestion })
+    if (flagNotes) pages.push({ id: "flags", label: "تنبيه", body: flagNotes })
     if (escalation) pages.push({ id: "escalation", label: "التصعيد", body: escalation })
     pages.push({ id: "message", label: "الرسالة", body: lastMessage })
     if (drafting || current || draftAlert || askDraft || draftBlock) pages.push({ id: "draft", label: "المسودة", body: <>{draftAlert}{draftBlock}{askDraft}</> })

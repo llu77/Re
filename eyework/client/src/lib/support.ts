@@ -142,6 +142,8 @@ export interface Reply {
   release_via: ReleaseVia | null
   at: string | null
   needs_review: boolean
+  /** مقالاتٌ أدرج الموظف خطواتها في الردّ؛ تعود إلى المحرّر بـ«عدّل الردّ». */
+  kb_article_ids: string[]
   flags: RuleFlag[]
   ai_flags: AiFlag[]
 }

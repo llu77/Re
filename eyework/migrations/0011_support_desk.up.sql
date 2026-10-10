@@ -401,6 +401,8 @@ CREATE TABLE support_replies (
     state        text NOT NULL DEFAULT 'READY' CONSTRAINT support_reply_state
                      CHECK (state IN ('READY', 'RELEASED', 'SENT', 'WITHDRAWN')),
     release_via  text CONSTRAINT support_reply_via CHECK (release_via IS NULL OR release_via IN ('COPY', 'SHARE', 'SCRIPT')),
+    -- مقالاتٌ منشورة أدرج الموظف خطواتها في الردّ («أضف من قاعدة المعرفة»): سندٌ تراه المراجعة ويعود إلى المحرّر.
+    kb_article_ids uuid[] NOT NULL DEFAULT '{}' CONSTRAINT support_reply_kb_ids_count CHECK (cardinality(kb_article_ids) <= 3),
     client_token uuid NOT NULL,
     created_at   timestamptz NOT NULL DEFAULT now(),
     released_at  timestamptz,
@@ -916,10 +918,10 @@ CREATE FUNCTION ew_support_reply_update_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
     IF (NEW.id, NEW.ticket_id, NEW.user_id, NEW.draft_id, NEW.kind, NEW.origin, NEW.core, NEW.body,
-        NEW.body_sha256, NEW.client_token, NEW.created_at)
+        NEW.body_sha256, NEW.client_token, NEW.created_at, NEW.kb_article_ids)
        IS DISTINCT FROM
        (OLD.id, OLD.ticket_id, OLD.user_id, OLD.draft_id, OLD.kind, OLD.origin, OLD.core, OLD.body,
-        OLD.body_sha256, OLD.client_token, OLD.created_at) THEN
+        OLD.body_sha256, OLD.client_token, OLD.created_at, OLD.kb_article_ids) THEN
         RAISE EXCEPTION 'reply' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_reply_immutable';
     END IF;
     IF NEW.state = OLD.state AND (NEW.release_via, NEW.released_at, NEW.sent_at, NEW.withdrawn_at)
@@ -1480,7 +1482,7 @@ $$;
 -- p_rule_flags: [{"code": "PROMISE", "evidence": "..."}]. الأصل والمراجعة يستنتجهما المحفّز.
 CREATE FUNCTION ew_support_prepare_reply(
     p_ticket uuid, p_expected_row_version integer, p_client_token uuid, p_draft uuid, p_kind text,
-    p_template boolean, p_core text, p_body text, p_rule_flags jsonb
+    p_template boolean, p_core text, p_body text, p_rule_flags jsonb, p_kb_article_ids uuid[] DEFAULT '{}'
 ) RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
@@ -1497,10 +1499,14 @@ BEGIN
         RETURN rid;
     END IF;
     t := ew_support_ticket_for(uid, p_ticket, p_expected_row_version);
-    INSERT INTO support_replies (ticket_id, user_id, draft_id, kind, origin, core, body, client_token)
+    IF EXISTS (SELECT 1 FROM unnest(coalesce(p_kb_article_ids, '{}')) k
+                WHERE NOT EXISTS (SELECT 1 FROM kb_articles a WHERE a.id = k AND a.user_id = uid AND a.state = 'PUBLISHED')) THEN
+        RAISE EXCEPTION 'kb' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_reply_kb_ids';
+    END IF;
+    INSERT INTO support_replies (ticket_id, user_id, draft_id, kind, origin, core, body, client_token, kb_article_ids)
     VALUES (p_ticket, uid, p_draft, p_kind,
             CASE WHEN p_draft IS NOT NULL THEN 'EDITED' WHEN p_template THEN 'TEMPLATE' ELSE 'MANUAL' END,
-            p_core, p_body, p_client_token)
+            p_core, p_body, p_client_token, coalesce(p_kb_article_ids, '{}'))
     RETURNING id INTO rid;
     UPDATE support_tickets SET status = t.status WHERE id = p_ticket;
     PERFORM ew_support_log(uid, p_ticket, NULL, 'REPLY_PREPARED',
@@ -2190,7 +2196,7 @@ REVOKE ALL ON FUNCTION
                             text, uuid, jsonb, jsonb),
     ew_support_finish_call(uuid, text, jsonb),
     ew_support_reject_draft(uuid, text, text),
-    ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb),
+    ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb, uuid[]),
     ew_support_review_begin(uuid),
     ew_support_review_record(uuid, jsonb, jsonb),
     ew_support_ack_flag(uuid, text, text),
@@ -2224,7 +2230,7 @@ GRANT EXECUTE ON FUNCTION
                             text, uuid, jsonb, jsonb),
     ew_support_finish_call(uuid, text, jsonb),
     ew_support_reject_draft(uuid, text, text),
-    ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb),
+    ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb, uuid[]),
     ew_support_review_begin(uuid),
     ew_support_review_record(uuid, jsonb, jsonb),
     ew_support_ack_flag(uuid, text, text),

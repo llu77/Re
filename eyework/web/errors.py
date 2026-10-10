@@ -391,6 +391,8 @@ SUPPORT_CONSTRAINTS: dict[str, ErrorSpec] = {
     "support_escalation_open": ErrorSpec(409, "ESCALATED", "التذكرة مُصعَّدة. سجّل ما عاد من التصعيد قبل ردّ الحلّ."),
     "support_one_open_escalation": _S_TRANSITION,
     "support_reply_core": ErrorSpec(422, "REPLY_TEXT", "الردّ من 20 إلى 1200 حرف، بلا رقم هويةٍ أو بطاقةٍ أو آيبان."),
+    "support_reply_kb_ids": ErrorSpec(422, "INVALID", "أدرج حتى ثلاث مقالاتٍ منشورة من قاعدتك."),
+    "support_reply_kb_ids_count": ErrorSpec(422, "INVALID", "أدرج حتى ثلاث مقالاتٍ منشورة من قاعدتك."),
     "support_reply_body": ErrorSpec(422, "REPLY_TEXT", "الردّ من 20 إلى 1200 حرف، بلا رقم هويةٍ أو بطاقةٍ أو آيبان."),
     "support_reply_hash_mismatch": ErrorSpec(409, "REPLY_CHANGED", "النصّ المنسوخ غير النصّ المحفوظ. لا ترسله؛ افتح الردّ "
                                                                    "وانسخه من جديد."),

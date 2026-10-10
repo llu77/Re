@@ -197,7 +197,7 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
   const { data: ticket, setData } = useLoad(() => sup.getTicket(id), [id], setNotice, () => go(`${BASE}/open`, { replace: true }))
   const [drafting, setDrafting] = React.useState(false)
   const [draftFail, setDraftFail] = React.useState<string | null>(null)
-  const [seed, setSeed] = React.useState<{ text: string; kind: sup.ReplyKind } | null>(null)
+  const [seed, setSeed] = React.useState<{ text: string; kind: sup.ReplyKind; kbIds?: string[] } | null>(null)
   const [replyToken, renewReplyToken] = useToken()
   const [messageToken, renewMessageToken] = useToken()
   const [review, setReview] = React.useState<{ replyId: string; reviewing: boolean; answer: sup.ReviewAnswer | null; late: sup.AiFlag[] | null } | null>(null)
@@ -312,6 +312,13 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
           backLabel={backLabel}
           onBack={() => go(`${BASE}/${listOf}`)}
           onAction={onAction}
+          onAckRule={async (flag, action, reason) => {
+            const result = await sup.ackFlag(flag.id, action, reason)
+            if (result.status !== 200) return failed(result)
+            const fresh = await sup.getTicket(id)
+            if (fresh.status === 200 && fresh.data) setData(fresh.data)
+            return null
+          }}
           onRequestDraft={() => void requestDraft(ticket, ticket.draft ? { redraft_of: ticket.draft.id } : {})}
           onSendAsIs={() => prepare({ kind: draft?.reply_kind ?? "ANSWER", draft_id: draft?.id ?? null, core: draft?.body ?? "" })}
           onAcceptSuggestion={async () => {
@@ -508,8 +515,17 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
             const result = await sup.confirmReply(live.id, false)
             if (result.status !== 200 || !result.data) return failed(result)
             setData(result.data)
-            setSeed({ text: live.core, kind: live.kind })
+            setSeed({ text: live.core, kind: live.kind, kbIds: live.kb_article_ids })
             go(ticketRoute(id, `/compose?from=${result.data.draft?.current ? "draft" : "blank"}`))
+            return null
+          }}
+          onHeedRule={async (flag) => {
+            const result = await sup.ackFlag(flag.id, "HEEDED", null)
+            if (result.status !== 200) return failed(result)
+            const fresh = await sup.getTicket(id)
+            if (fresh.status === 200 && fresh.data) setData(fresh.data)
+            setSeed({ text: live.core, kind: live.kind, kbIds: live.kb_article_ids })
+            go(ticketRoute(id, `/compose?from=${fresh.data?.draft?.current ? "draft" : "blank"}`))
             return null
           }}
         />

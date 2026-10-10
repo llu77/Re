@@ -42,6 +42,8 @@ export interface ReplyScreenProps {
   onConfirm: (sent: boolean) => Promise<Fail>
   /** «عدّل»: يُسحب الردّ ويُفتح المحرّر بنصّه. */
   onEdit: () => Promise<Fail>
+  /** «عدّل» على تنبيه قاعدة: يُسجَّل الأخذ به (HEEDED)، فيسحب الخادم الردّ، ويُفتح المحرّر بنصّه. */
+  onHeedRule: (flag: RuleFlag) => Promise<Fail>
   onBack: () => void
 }
 
@@ -54,7 +56,7 @@ function reviewLine(reply: Ticket["live_reply"], reviewing: boolean, answer: Rev
   return flags.length === 1 ? "ملاحظةٌ من سيمبول تنتظر قرارك." : `${flags.length} ملاحظات من سيمبول تنتظر قرارك.`
 }
 
-function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
+export function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
   flag: RuleFlag
   gaze: boolean
   onAck: (action: "HEEDED" | "DISMISSED", reason: DismissReason | null) => Promise<Fail>
@@ -106,7 +108,7 @@ function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
 }
 
 export function ReplyScreen(props: ReplyScreenProps) {
-  const { ticket, reviewing, answer, late, onReviewAgain, onDecideAi, onAckRule, onRelease, onConfirm, onEdit, onBack } = props
+  const { ticket, reviewing, answer, late, onReviewAgain, onDecideAi, onAckRule, onHeedRule, onRelease, onConfirm, onEdit, onBack } = props
   const { size } = useSize()
   const gaze = size === "gaze"
   const reply = ticket.live_reply
@@ -168,7 +170,7 @@ export function ReplyScreen(props: ReplyScreenProps) {
 
   const failAlert = fail ? <Alert tone="danger" title="لم يتمّ" live>{fail.message}</Alert> : null
   const ruleCards = reply.flags.map((flag) => (
-    <RuleFlagCard key={flag.id} flag={flag} gaze={gaze} onAck={(action, reason) => onAckRule(flag, action, reason)} onEdit={() => void run("edit", onEdit)} />
+    <RuleFlagCard key={flag.id} flag={flag} gaze={gaze} onAck={(action, reason) => onAckRule(flag, action, reason)} onEdit={() => void run("edit", () => onHeedRule(flag))} />
   ))
   const aiCards = aiFlags.map((flag) => (
     <AIFlag
