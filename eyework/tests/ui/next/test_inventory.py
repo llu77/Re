@@ -91,6 +91,10 @@ def _setup(flow: Flow) -> None:
     _audit(flow, "setup")
     assert page.evaluate("() => location.hash") == BASE
     assert page.input_value("#settings-store-name") == "المخزن الرئيسي"
+    # لا جواب مسبق عن أساس التكلفة: «احفظ وابدأ» معطّلٌ حتى يُختار.
+    assert page.locator("#settings-basis-net[aria-checked='true'], #settings-basis-gross[aria-checked='true']").count() == 0
+    assert page.locator("#settings-save").is_disabled()
+    flow.press("#settings-basis-net", lambda: flow.until("!document.querySelector('#settings-save').disabled"), "نعم، مسجّلة وتخصمها")
     flow.press("#settings-save", lambda: flow.screen("#home-purchase"), "احفظ وابدأ")
     _audit(flow, "home")
     assert page.text_content("#home-summary").startswith("لا شيء ينتظرك")

@@ -434,8 +434,8 @@ function PurchasesContainer({ path, setNotice }: { path: string; setNotice: SetN
   )
 }
 
-/** مسودةٌ فارغة قائمة تُعاد، وإلا تُنشأ واحدة بأساس الضريبة من الإعدادات. */
-function NewPurchaseContainer({ summary, setNotice }: { summary: inv.Summary; setNotice: SetNotice }) {
+/** مسودةٌ فارغة قائمة تُعاد، وإلا تُنشأ واحدة. */
+function NewPurchaseContainer({ setNotice }: { setNotice: SetNotice }) {
   React.useEffect(() => {
     let current = true
     void (async () => {
@@ -446,7 +446,9 @@ function NewPurchaseContainer({ summary, setNotice }: { summary: inv.Summary; se
         go(purchaseRoute(empty.id), { replace: true })
         return
       }
-      const created = await inv.createPurchase({ prices_include_vat: summary.settings?.cost_includes_vat ?? false })
+      // الفاتورة تبدأ بأسعارٍ قبل الضريبة (كما تُطبع في الفاتورة الضريبية)، ويُغيَّر ذلك في الفاتورة نفسها؛ وأساس
+      // تكلفة المخزون في الإعدادات سؤالٌ آخر (هل تُستردّ الضريبة).
+      const created = await inv.createPurchase({})
       if (!current) return
       if (created.status === 201 && created.data) go(purchaseRoute(created.data.id), { replace: true })
       else if (created.status !== 401) {
@@ -457,7 +459,7 @@ function NewPurchaseContainer({ summary, setNotice }: { summary: inv.Summary; se
     return () => {
       current = false
     }
-  }, [summary.settings?.cost_includes_vat, setNotice])
+  }, [setNotice])
   return null
 }
 
@@ -1113,7 +1115,7 @@ export function InventoryFlow({ path, choices, me, workspace }: { path: string; 
   } else if (clean === "/purchases") {
     content = <PurchasesContainer path={path} setNotice={setNotice} />
   } else if (clean === "/purchases/new") {
-    content = <NewPurchaseContainer summary={data} setNotice={setNotice} />
+    content = <NewPurchaseContainer setNotice={setNotice} />
   } else if (clean === "/returns") {
     content = <ReturnsContainer path={path} setNotice={setNotice} />
   } else if (clean === "/returns/new") {
