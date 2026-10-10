@@ -1,0 +1,22 @@
+-- before: 2 requests (1 open for 2 h, 1 settled 40 days ago), 2 flags (1 closed, 1 open), 2 decisions
+-- after:
+  feature  |  outcome  
+-----------+-----------
+ ASSISTANT | ABANDONED
+(1 row)
+
+    check_code     | unlinked | closed | decisions 
+-------------------+----------+--------+-----------
+ PRICE_IMPLAUSIBLE | t        | t      |         1
+(1 row)
+
+ decisions_left 
+----------------
+              1
+(1 row)
+
+ tombstones_from_purge 
+-----------------------
+                     0
+(1 row)
+

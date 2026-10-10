@@ -1,0 +1,486 @@
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:58] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:15:59] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:00] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:01] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:02] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:03] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:04] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:05] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:06] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:07] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:08] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:09] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:10] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /icon-192.png HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-arabic-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-latin-700.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-arabic-400.woff2 HTTP/1.1" 200 -
+127.0.0.1 - - [08/Oct/2026 19:16:11] "GET /fonts/amiri-latin-400.woff2 HTTP/1.1" 200 -
+{
+ "failures": {
+  "current signup-notice 375x635 body23": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "current login 375x635 body23": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "current signup-notice 375x635 body53": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "current login 375x635 body53": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "current signup-notice 320x635 body-": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "current signup-notice 320x635 body17": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "current signup-notice 320x635 body23": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "current login 320x635 body23": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "current signup-notice 320x635 body53": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "current login 320x635 body53": [
+   "clipped=['help']",
+   "scroll"
+  ],
+  "proposed signup-notice 375x635 body23": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed login 375x635 body23": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ],
+  "proposed signup-notice 375x635 body53": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed login 375x635 body53": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ],
+  "proposed signup-notice 320x635 body-": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed signup-notice 320x635 body17": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed signup-notice 320x635 body23": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed login 320x635 body23": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ],
+  "proposed signup-notice 320x635 body53": [
+   "clipped=['line']",
+   "scroll"
+  ],
+  "proposed login 320x635 body53": [
+   "clipped=['login-help', 'BDI']",
+   "scroll"
+  ]
+ },
+ "spare": {
+  "spare-current notice 375x635 body-": 97,
+  "spare-current notice 375x635 body17": 97,
+  "spare-current notice 375x635 body23": 81,
+  "spare-current notice 375x635 body53": 81,
+  "spare-current notice 390x664 body-": 126,
+  "spare-current notice 390x664 body17": 126,
+  "spare-current notice 390x664 body23": 110,
+  "spare-current notice 390x664 body53": 110,
+  "spare-current notice 390x763 body-": 225,
+  "spare-current notice 390x763 body17": 225,
+  "spare-current notice 390x763 body23": 209,
+  "spare-current notice 390x763 body53": 209,
+  "spare-current notice 320x635 body-": 39,
+  "spare-current notice 320x635 body17": 39,
+  "spare-current notice 320x635 body23": 21,
+  "spare-current notice 320x635 body53": 21,
+  "spare-current notice 1280x800 body-": 262,
+  "spare-current notice 1280x800 body17": 262,
+  "spare-current notice 1280x800 body23": 246,
+  "spare-current notice 1280x800 body53": 246,
+  "spare notice 375x635 body-": 68,
+  "spare notice 375x635 body17": 68,
+  "spare notice 375x635 body23": 21,
+  "spare notice 375x635 body53": 21,
+  "spare notice 390x664 body-": 126,
+  "spare notice 390x664 body17": 126,
+  "spare notice 390x664 body23": 80,
+  "spare notice 390x664 body53": 80,
+  "spare notice 390x763 body-": 225,
+  "spare notice 390x763 body17": 225,
+  "spare notice 390x763 body23": 179,
+  "spare notice 390x763 body53": 179,
+  "spare notice 320x635 body-": 11,
+  "spare notice 320x635 body17": 11,
+  "spare notice 320x635 body23": -10,
+  "spare notice 320x635 body53": -10,
+  "spare notice 1280x800 body-": 262,
+  "spare notice 1280x800 body17": 262,
+  "spare notice 1280x800 body23": 246,
+  "spare notice 1280x800 body53": 246
+ }
+}

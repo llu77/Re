@@ -1,0 +1,24 @@
+FAILED eyework/tests/db/test_generation_caps.py::test_the_trace_of_a_deleted_attempt_has_no_identity_and_only_counts_its_day
+FAILED eyework/tests/db/test_registration.py::test_registration_creates_an_active_account_and_uses_the_code
+FAILED eyework/tests/db/test_registration.py::test_no_account_without_a_usable_code[missing]
+FAILED eyework/tests/db/test_registration.py::test_no_account_without_a_usable_code[used]
+FAILED eyework/tests/db/test_registration.py::test_no_account_without_a_usable_code[expired]
+FAILED eyework/tests/db/test_registration.py::test_no_account_without_a_usable_code[locked]
+FAILED eyework/tests/db/test_registration.py::test_a_code_makes_one_account_only
+FAILED eyework/tests/db/test_registration.py::test_a_taken_login_is_counted_on_the_code_and_locks_it_at_three
+FAILED eyework/tests/db/test_registration.py::test_registration_never_takes_over_a_pending_invitation
+FAILED eyework/tests/db/test_registration.py::test_birth_date_today_in_riyadh_is_accepted_and_tomorrow_is_not
+FAILED eyework/tests/db/test_registration.py::test_a_birth_date_before_1900_is_refused
+FAILED eyework/tests/db/test_registration.py::test_registration_needs_a_proper_name[None]
+FAILED eyework/tests/db/test_registration.py::test_registration_needs_a_proper_name[\u0633\u0627\u0631\u06292]
+FAILED eyework/tests/db/test_registration.py::test_registration_needs_a_proper_name[  \u0633\u0627\u0631\u0629]
+FAILED eyework/tests/db/test_registration.py::test_registration_needs_a_proper_name[ab@c]
+FAILED eyework/tests/db/test_registration.py::test_registration_needs_a_proper_name[\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633\u0633]
+FAILED eyework/tests/db/test_registration.py::test_registration_needs_consent
+FAILED eyework/tests/db/test_registration.py::test_an_unknown_profession_is_refused
+FAILED eyework/tests/db/test_registration.py::test_a_failed_registration_leaves_the_code_unused
+FAILED eyework/tests/db/test_registration.py::test_the_daily_cap_counts_the_codes_used_in_the_last_day
+FAILED eyework/tests/db/test_registration.py::test_deleting_an_account_does_not_make_room_under_the_daily_cap
+FAILED eyework/tests/db/test_registration.py::test_deleting_an_account_keeps_the_code_used
+FAILED eyework/tests/db/test_roles_and_grants.py::test_app_executes_exactly_the_declared_interface
+23 failed, 572 passed in 56.35s

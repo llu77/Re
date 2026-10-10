@@ -1,0 +1,30 @@
+PASS  open register OK                                
+PASS  ledger OPEN/OK                                  
+PASS  taken never touches                             
+PASS  ledger TAKEN rows                               
+PASS  field checks                                    
+PASS  no ledger row on refusal                        
+PASS  open daily cap                                  
+PASS  total daily cap                                 
+PASS  deletion makes no room                          
+PASS  taken breaker                                   
+PASS  availability                                    
+PASS  code TAKEN on the code                          
+PASS  web role denied                                 
+PASS  ledger has no identity                          
+PASS  concurrent cap is serialized                    
+PASS  generation limit                                
+PASS  new-account daily cap                           
+PASS  new-accounts pool                               
+PASS  new-account campaign cap                        
+PASS  open implies self-registered                    
+PASS  size stored and required                        
+PASS  old ew_register signature gone                  
+PASS  unchosen is NULL, own value only                
+PASS  set own size only                               
+PASS  no session raises insufficient_privilege        
+PASS  inactive raises insufficient_privilege          
+PASS  web role cannot read or write ui_size directly  
+PASS  accept a newer notice                           
+PASS  down refuses with open accounts                 
+29/29 passed
