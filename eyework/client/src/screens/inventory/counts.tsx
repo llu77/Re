@@ -31,7 +31,7 @@ import {
   type Category, type CountLine, type CountRow, type CountScope, type CountSession, type InventoryChoices, type Paged,
 } from "@/lib/inventory"
 import { formatAmount, parseAmount } from "@/lib/money"
-import { useSize } from "@/lib/size"
+import { LIST_PAGE, useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 import { Facts, GazeHost, GazeSlot, Picker, Qty, useOpenReport, type Fact } from "./common"
@@ -77,7 +77,7 @@ export function CountsScreen({ data, page, onPage, openSession, onOpen, onNew, o
           trailing={(row) => <Badge tone={STATUS_TONE[row.status]}>{COUNT_STATUS[row.status]}</Badge>}
           onOpen={onOpen}
           openLabel={(row) => `افتح ${row.label}`}
-          pageSize={{ compact: 10, gaze: 3, gazeShort: 2 }}
+          pageSize={LIST_PAGE}
           page={page}
           onPageChange={onPage}
           total={data.total}

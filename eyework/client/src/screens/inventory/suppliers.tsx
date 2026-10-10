@@ -20,7 +20,7 @@ import { Field, Input, Textarea } from "@/components/ui/input"
 import { RadioCards } from "@/components/ui/radio-cards"
 import { Tabs } from "@/components/ui/tabs"
 import type { Paged, Rep, Supplier } from "@/lib/inventory"
-import { useSize } from "@/lib/size"
+import { LIST_PAGE, useSize } from "@/lib/size"
 
 import { Facts, GazeHost, GazeSlot, type Fact } from "./common"
 import type { Fail } from "./setup"
@@ -65,7 +65,7 @@ export function SuppliersScreen({ data, query, onQuery, archived, onArchived, pa
           secondary={(row) => (row.vat_number ? `ض ${row.vat_number}` : gaze ? "" : "بلا رقمٍ ضريبي")}
           onOpen={onOpen}
           openLabel={(row) => `افتح ${row.name}`}
-          pageSize={{ compact: 10, gaze: 3, gazeShort: 2 }}
+          pageSize={LIST_PAGE}
           page={page}
           onPageChange={onPage}
           total={data.total}

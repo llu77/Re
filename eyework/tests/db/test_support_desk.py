@@ -205,6 +205,10 @@ def test_a_draft_answers_only_from_a_verbatim_published_quote_and_settles_its_re
     assert refusal(app, s1, _RECORD, (request, based_on, "DRAFT", "ANSWER", ANSWER, "انقطاع الإنترنت", None, "NETWORK",
                                       "WIDESPREAD", "STOPPED", False, None, "AR", cite(a1, "أعد تشغيل الحاسوب مرتين"),
                                       USAGE)) == "support_citation_not_verbatim"
+    # اقتباسٌ لا يبقى منه شيءٌ بعد التوحيد (تطويلٌ وتشكيل) يحويه كل نصّ، فلا يُسند الإجابة.
+    assert refusal(app, s1, _RECORD, (request, based_on, "DRAFT", "ANSWER", ANSWER, "انقطاع الإنترنت", None, "NETWORK",
+                                      "WIDESPREAD", "STOPPED", False, None, "AR", cite(a1, "ـــــــــَُِ   ـــ"),
+                                      USAGE)) == "support_citation_not_verbatim"
     d1 = record_draft(app, s1, request, based_on, citations=cite(a1))
     assert query(app, s1, "SELECT suggested_priority, seq, served_model, prompt_version, call_id FROM support_drafts"
                           " WHERE id = %s", (d1,))[0] == ("URGENT", 1, "claude-opus-5-5", "support-2026-10-09.1", request)
@@ -224,7 +228,9 @@ def test_a_draft_is_for_the_latest_customer_message_within_its_lease(owner, app)
                    " gen_random_uuid())", (t1, rv(app, s1, "support_tickets", t1)))
     assert refusal(app, s1, _RECORD, (request, based_on, "DRAFT", "ANSWER", ANSWER, "انقطاع الإنترنت", None, "NETWORK",
                                       "WIDESPREAD", "STOPPED", False, None, "AR", cite(a1), USAGE)) == "support_draft_stale"
-    query(app, s1, "SELECT ew_support_finish_call(%s, 'UPSTREAM_TIMEOUT', NULL)", (request,))
+    # الخادم يغلق المسودة التي سبقتها رسالةٌ DISCARDED بكلفتها، فلا يبقى الطلب مفتوحاً يحجز التالي حتى ينقضي أجله.
+    query(app, s1, "SELECT ew_support_finish_call(%s, 'DISCARDED', %s::jsonb)", (request, USAGE))
+    assert query(app, s1, "SELECT outcome, input_tokens FROM ai_requests WHERE id = %s", (request,))[0] == ("DISCARDED", 100)
 
     request, based_on = begin_draft(app, s1, t1)
     with owner.cursor() as cursor:
@@ -236,13 +242,17 @@ def test_a_draft_is_for_the_latest_customer_message_within_its_lease(owner, app)
 def test_failures_settle_the_request_and_a_ticket_has_at_most_eight_drafts_a_day(owner, app):
     s1 = desk_user(owner, b"s1", app=app)
     t1 = ticket(app, s1)
+    # ما لم يصل النموذج (سيمبول متوقّف أو مشغول) لا يُحسب على التذكرة.
+    for _ in range(2):
+        request, _ = begin_draft(app, s1, t1)
+        query(app, s1, "SELECT ew_support_finish_call(%s, 'UPSTREAM_ERROR', NULL)", (request,))
     for _ in range(8):
         request, _ = begin_draft(app, s1, t1)
         # النتيجة الناجحة تُكتب بدالّة أثرها وحدها.
         assert refusal(app, s1, "SELECT ew_support_finish_call(%s, 'OK', NULL)", (request,)) == "ai_outcome_needs_record"
         query(app, s1, "SELECT ew_support_finish_call(%s, 'OUTPUT_INVALID', NULL)", (request,))
         assert scalar(app, s1, "SELECT outcome FROM ai_requests WHERE id = %s", (request,)) == "OUTPUT_INVALID"
-    assert scalar(app, s1, "SELECT count(*) FROM support_events WHERE ticket_id = %s AND event = 'DRAFT_FAILED'", (t1,)) == 8
+    assert scalar(app, s1, "SELECT count(*) FROM support_events WHERE ticket_id = %s AND event = 'DRAFT_FAILED'", (t1,)) == 10
     # سقف التذكرة يُفحص قبل سقف الدقائق العشر للميزة (عشرة).
     assert refusal(app, s1, "SELECT * FROM ew_support_begin_draft(%s, %s)",
                    (t1, rv(app, s1, "support_tickets", t1))) == "support_ticket_draft_cap"

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from pathlib import Path
 
 import pytest
@@ -134,17 +135,20 @@ def _notice(flow: Flow) -> None:
     _audit(flow, "home")
 
 
-def _new_ticket(flow: Flow, text: str = CUSTOMER, label: str = "سارة") -> None:
-    """القناة، ثم الرسالة، ثم ما سيُحفظ (البريد والرقم محذوفان)، ثم الاسم للتحية، ثم الحفظ."""
+CHANNELS = {"MESSAGING": "واتساب أو رسائل", "PHONE": "مكالمة"}
+
+
+def _new_ticket(flow: Flow, text: str = CUSTOMER, label: str = "سارة", channel: str = "MESSAGING", subject: str | None = None) -> None:
+    """القناة، ثم الرسالة، ثم ما سيُحفظ (البريد والرقم محذوفان)، ثم الاسم للتحية والموضوع، ثم الحفظ."""
     page = flow.page
     gaze = _gaze(page)
     flow.press("#home-new", lambda: flow.screen("#ticket-text, #ticket-channel"), "تذكرة جديدة")
     _audit(flow, "ticket-new")
     if gaze:
-        _pick(flow, "ticket-channel", "MESSAGING", "واتساب أو رسائل")
+        _pick(flow, "ticket-channel", channel, CHANNELS[channel])
         flow.press("#ticket-next", lambda: flow.screen("#ticket-text"), "الرسالة")
     else:
-        flow.press("#ticket-channel-MESSAGING", lambda: None, "واتساب")
+        flow.press(f"#ticket-channel-{channel}", lambda: None, CHANNELS[channel])
     page.fill("#ticket-text", text)
     page.locator("#ticket-text").blur()
     _audit(flow, "ticket-message")
@@ -155,6 +159,8 @@ def _new_ticket(flow: Flow, text: str = CUSTOMER, label: str = "سارة") -> No
     if gaze:
         flow.press("#ticket-next", lambda: flow.screen("#ticket-label"), "التفاصيل")
     page.fill("#ticket-label", label)
+    if subject:
+        page.fill("#ticket-subject", subject)
     page.locator("#ticket-label").blur()
     _audit(flow, "ticket-details")
     if gaze:
@@ -185,7 +191,7 @@ def test_the_agent_walks_from_an_article_to_a_confirmed_reply(next_page, server,
     flow.press("#nav-home", lambda: flow.screen("#home-new"), "الرئيسية")
     page.gateway.queue(draft_reply("DRAFT", "ANSWER", ANSWER, ({"article": "A1", "quote": "انزع الشريط اللاصق الواقي إن كان موجوداً"},),
                                    subject="الطابعة تطبع صفحاتٍ فارغة", impact="WIDESPREAD", urgency="STOPPED", note="استندتُ إلى مقالة الطابعة."))
-    _new_ticket(flow)
+    _new_ticket(flow, subject="طابعة المكتب")
     flow.until("!document.querySelector('#ticket-drafting')")
     flow.screen("#ticket-accept-suggestion")
     _audit(flow, "ticket-suggestion")
@@ -216,8 +222,8 @@ def test_the_agent_walks_from_an_article_to_a_confirmed_reply(next_page, server,
         assert not flow.landings, "\n".join(flow.landings)
         flow.gaze_safe()
     assert not page.errors, page.errors
-    status, category, label = _status(owner, "SELECT status, category, customer_label FROM support_tickets")
-    assert (status, category, label) == ("RESOLVED", "PRINTING", "سارة")
+    status, category, label, subject = _status(owner, "SELECT status, category, customer_label, subject FROM support_tickets")
+    assert (status, category, label, subject) == ("RESOLVED", "PRINTING", "سارة", "طابعة المكتب")
     assert _status(owner, "SELECT origin, state, release_via FROM support_replies") == ("AS_IS", "SENT", "COPY")
     body = _status(owner, "SELECT body FROM support_messages WHERE author = 'CUSTOMER'")[0]
     assert "sara@example.com" not in body and "0551234567" not in body and "[بريد محذوف]" in body
@@ -380,4 +386,87 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
     assert not flow.failures(), "\n".join(flow.failures())
     if size == "gaze":
         assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", SIZES)
+@pytest.mark.parametrize(("width", "height"), [PHONES[0], STRESS], ids=frame_ids([PHONES[0], STRESS]))
+def test_a_reply_read_aloud_shared_or_confirmed_later_never_lands_on_a_commit(next_page, server, owner, size, width, height):
+    """
+    ردّ مكالمةٍ يُقرأ للعميل («انتهيت»)، ثم يُؤكَّد لاحقاً من التذكرة («أكّد الإرسال»)؛ وردّ رسالةٍ يُشارَك (ورقة
+    المشاركة مصطنعة كما في Safari). في كل انتقالٍ تقع الضغطة على زرٍّ آمن، ولا يكون الاعتماد أقرب ما إليها.
+    """
+    page = _page(next_page, owner, server, size, width, height)
+    page.add_init_script("navigator.share = async () => {}")
+    flow = Flow(page)
+    gaze = size == "gaze"
+    page.goto(page.next + BASE)
+    flow.screen("#home-new")
+    _notice(flow)
+    ask = "لنساعدكم بسرعة، ما نصّ رسالة الخطأ كما تظهر على الشاشة؟"
+    page.gateway.queue(draft_reply("DRAFT", "ASK_INFO", ask, (), impact="SINGLE", urgency="DEGRADED"))
+    _new_ticket(flow, "اتصل العميل: البريد لا يصلني في الجوال منذ تحديث النظام.", "منى", channel="PHONE")
+    flow.until("!document.querySelector('#ticket-drafting')")
+    _to_decisions(flow)
+    flow.press("#decide-send", lambda: flow.screen("#reply-prev, #reply-back"), "أرسل كما هي")
+    if gaze:
+        flow.press("#reply-next", lambda: flow.screen("#reply-script"), "التالي")
+        _audit(flow, "reply-send-phone")
+    assert page.locator("#reply-share").count() == 1
+    flow.press("#reply-script", lambda: flow.screen("#reply-script-done"), "اقرأه للعميل")
+    _audit(flow, "reply-script")
+    flow.press("#reply-script-done", lambda: flow.screen("#reply-sent"), "انتهيت")
+    _audit(flow, "reply-confirm-phone")
+    flow.press("#reply-back" if gaze else "#reply-back", lambda: flow.screen("#ticket-open-reply"), "التذكرة")
+    _audit(flow, "ticket-released")
+    flow.press("#ticket-open-reply", lambda: flow.screen("#reply-sent"), "أكّد الإرسال")
+    _audit(flow, "reply-confirm-later")
+    flow.press("#reply-sent", lambda: flow.until("!location.hash.includes('/reply')"), "نعم، أرسلته")
+    assert _status(owner, "SELECT state, release_via FROM support_replies") == ("SENT", "SCRIPT")
+
+    page.gateway.queue(draft_reply("DRAFT", "ASK_INFO", ask, (), impact="SINGLE", urgency="DEGRADED"))
+    flow.press("#nav-home", lambda: flow.screen("#home-new"), "الرئيسية")
+    _new_ticket(flow, "البريد لا يصلني في الجوال منذ تحديث النظام.", "سارة")
+    flow.until("!document.querySelector('#ticket-drafting')")
+    _to_decisions(flow)
+    flow.press("#decide-send", lambda: flow.screen("#reply-prev, #reply-back"), "أرسل كما هي")
+    if gaze:
+        flow.press("#reply-next", lambda: flow.screen("#reply-share"), "التالي")
+    flow.press("#reply-share", lambda: flow.screen("#reply-sent"), "شارك الردّ")
+    _audit(flow, "reply-confirm-share")
+    flow.press("#reply-sent", lambda: flow.until("!location.hash.includes('/reply')"), "نعم، أرسلته")
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT release_via FROM support_replies ORDER BY created_at")
+        assert [row[0] for row in cursor.fetchall()] == ["SCRIPT", "SHARE"]
+    assert not flow.failures(), "\n".join(flow.failures())
+    if gaze:
+        assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_a_list_longer_than_a_page_pages_by_what_the_table_shows(next_page, server, owner, size):
+    """أربع تذاكر مفتوحة: ثلاثٌ في صفحة الحجم الكبير ثم الرابعة في الثانية، وكلّها معاً في العادي."""
+    page = _page(next_page, owner, server, size, *PHONES[0])
+    flow = Flow(page)
+    page.goto(page.next + BASE)
+    flow.screen("#home-new")
+    _notice(flow)
+    api, headers = f"{server['base']}/api/support", {"X-Eyework": "1", "Origin": server["base"]}
+    for n in range(4):
+        created = page.request.post(api + "/tickets", headers=headers, data={
+            "client_token": str(uuid.uuid4()), "channel": "MESSAGING", "text": f"الطابعة رقم {n + 1} في المكتب لا تطبع شيئاً منذ الصباح."})
+        assert created.status == 201, created.text()
+    page.goto(page.next + BASE + "/open")
+    rows = "[aria-label='التذاكر المفتوحة'] li"
+    flow.until(f"document.querySelectorAll(\"{rows}\").length > 0")
+    _audit(flow, "list-open-long")
+    if size == "gaze":
+        assert page.locator(rows).count() == 3
+        pager = "[aria-label='صفحات التذاكر المفتوحة'] button:has-text('التالي')"
+        flow.press(pager, lambda: flow.until(f"document.querySelectorAll(\"{rows}\").length === 1"), "التالي")
+        _audit(flow, "list-open-long-2")
+    else:
+        assert page.locator(rows).count() == 4
+    assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors

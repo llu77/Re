@@ -146,6 +146,13 @@ export function ReplyScreen(props: ReplyScreenProps) {
     }
     await run("share", () => onRelease("SHARE"))
   }
+  async function shareAgain() {
+    try {
+      await navigator.share({ text: reply!.body })
+    } catch {
+      // أُغلقت ورقة المشاركة: لا شيء يُسجَّل، فالردّ أُطلق من قبل.
+    }
+  }
   async function copyAgain() {
     try {
       await navigator.clipboard.writeText(reply!.body)
@@ -212,6 +219,41 @@ export function ReplyScreen(props: ReplyScreenProps) {
       </div>
     </>
   )
+  // في الحجم الكبير: كل زرّ إرسالٍ يحلّ محلّه في التأكيد زرٌّ آمن بحجمه ومكانه («مرةً أخرى»)، فالضغطة التي
+  // أطلقت الردّ — نسخاً أو مشاركةً أو قراءة، أو «أكّد الإرسال» من التذكرة — تقع على زرٍّ لا يعتمد شيئاً، و«نعم،
+  // أرسلته» و«لا، لم أرسله» في أسفل المحتوى بعيداً عنها.
+  const againButtons = (
+    <div className="flex flex-col gap-tg">
+      {spoken ? (
+        <Button id="reply-script-again" variant="secondary" icon={Mic} onClick={() => setReading(true)}>
+          اقرأه مرةً أخرى
+        </Button>
+      ) : null}
+      <Button id="reply-copy-again" size="lg" icon={Copy} onClick={() => void copyAgain()}>
+        انسخه مرةً أخرى
+      </Button>
+      {canShare ? (
+        <Button id="reply-share-again" icon={Share2} onClick={() => void shareAgain()}>
+          شاركه مرةً أخرى
+        </Button>
+      ) : null}
+    </div>
+  )
+  const gazeConfirm = (
+    <>
+      {againButtons}
+      <p className="text-lead font-semibold">هل أرسلتَ الردّ إلى العميل؟</p>
+      {fail ? <Alert tone="danger" title="لم يتمّ" live>{fail.message}</Alert> : null}
+      <div className="mt-auto grid grid-cols-2 gap-tg">
+        <Button id="reply-sent" variant="primary" size="lg" commit icon={CheckCircle2} busy={busy === "sent"} onClick={() => void run("sent", () => onConfirm(true))}>
+          نعم، أرسلته
+        </Button>
+        <Button id="reply-not-sent" size="lg" commit icon={X} busy={busy === "not-sent"} onClick={() => void run("not-sent", () => onConfirm(false))}>
+          لا، لم أرسله
+        </Button>
+      </div>
+    </>
+  )
   const badges = (
     <div className="flex flex-wrap items-center gap-2">
       <Badge tone="neutral">{REPLY_KIND[reply.kind]}</Badge>
@@ -221,22 +263,27 @@ export function ReplyScreen(props: ReplyScreenProps) {
 
   /* ── القراءة للعميل ── */
   if (reading) {
+    const scriptBack = <Button id="reply-script-back" icon={BackIcon} onClick={() => setReading(false)}>الردّ</Button>
+    const scriptDone = released ? (
+      <Button id="reply-script-done" icon={CheckCircle2} onClick={() => setReading(false)}>انتهيت</Button>
+    ) : (
+      <Button id="reply-script-done" variant="primary" commit icon={CheckCircle2} busy={busy === "script"} onClick={() => void run("script", async () => {
+        const result = await onRelease("SCRIPT")
+        if (!result) setReading(false)
+        return result
+      })}>
+        انتهيت
+      </Button>
+    )
+    // في الحجم الكبير: «الردّ» في أعلى المحتوى حيث كان «اقرأه للعميل»، و«انتهيت» في الخانة التي يقع فيها «التذكرة»
+    // في التأكيد بعدها؛ فلا تقع ضغطةٌ على اعتماد، ولا يكون الاعتماد أقرب ما إليها.
     return (
       <Screen
         title="اقرأه للعميل"
-        actions={
-          <>
-            <Button id="reply-script-back" icon={BackIcon} onClick={() => setReading(false)}>الردّ</Button>
-            <Button id="reply-script-done" variant="primary" commit icon={CheckCircle2} busy={busy === "script"} onClick={() => void run("script", async () => {
-              const result = await onRelease("SCRIPT")
-              if (!result) setReading(false)
-              return result
-            })}>
-              انتهيت
-            </Button>
-          </>
-        }
+        above={gaze ? badges : undefined}
+        actions={gaze ? <>{scriptDone}<span aria-hidden="true" /></> : <>{scriptBack}{scriptDone}</>}
       >
+        {gaze ? scriptBack : null}
         {failAlert}
         <PagedText text={reply.body} label="الردّ" className="text-lead" perPage={{ gaze: 200, gazeShort: 100 }} />
       </Screen>
@@ -248,8 +295,7 @@ export function ReplyScreen(props: ReplyScreenProps) {
     if (released) {
       return (
         <Screen title="تأكيد الإرسال" above={badges} actions={<><Button id="reply-back" icon={BackIcon} onClick={onBack}>التذكرة</Button><span aria-hidden="true" /></>}>
-          {confirm}
-          {failAlert}
+          {gazeConfirm}
         </Screen>
       )
     }

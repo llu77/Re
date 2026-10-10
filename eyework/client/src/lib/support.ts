@@ -353,8 +353,8 @@ export function clientToken(): string {
 }
 
 export const home = () => get<Home>("/home")
-export const decideQueue = (page: number) => get<Paged<TicketRow>>("/decide", { page })
-export const listTickets = (view: TicketView, page: number) => get<Paged<TicketRow>>("/tickets", { view, page })
+export const decideQueue = (page: number, size: number) => get<Paged<TicketRow>>("/decide", { page, size })
+export const listTickets = (view: TicketView, page: number, size: number) => get<Paged<TicketRow>>("/tickets", { view, page, size })
 export const maskPreview = (text: string) => post<MaskPreview>("/mask-preview", { text })
 export const createTicket = (body: {
   client_token: string
@@ -393,7 +393,7 @@ export const resolve = (id: string, rowVersion: number, resolution: Resolution, 
   post<Ticket>(`/tickets/${id}/resolve`, { expected_row_version: rowVersion, resolution, confirmed })
 export const reopen = (id: string, rowVersion: number) => post<Ticket>(`/tickets/${id}/reopen`, { expected_row_version: rowVersion })
 
-export const listArticles = (view: KbView, q: string, page: number) => get<Paged<ArticleRow>>("/kb", { view, q: q.trim() || null, page })
+export const listArticles = (view: KbView, q: string, page: number, size = 20) => get<Paged<ArticleRow>>("/kb", { view, q: q.trim() || null, page, size })
 export const getArticle = (id: string) => get<Article>(`/kb/${id}`)
 export const createArticle = (fields: ArticleFields, token: string, sourceTicketId: string | null) =>
   post<Article>("/kb", { client_token: token, source_ticket_id: sourceTicketId, ...fields })

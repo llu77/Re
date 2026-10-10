@@ -79,6 +79,8 @@ __all__ = [
 ]
 
 PAGE_SIZE = 20
+#: أحجام صفحات القوائم: 2 و3 للحجم الكبير، و10 و20 للعادي (العميل يطلب ما يعرضه الجدول بالضبط).
+PAGE_SIZES = (2, 3, 4, 5, 10, 20)
 MAX_PAGE = 500
 TICKET_GONE = "التذكرة غير موجودة."
 ARTICLE_GONE = "المقالة غير موجودة."
@@ -123,9 +125,15 @@ def _page(page: int) -> int:
     return page
 
 
-def _paged(rows: list[dict], items: list, page: int, total: int | None = None) -> dict:
+def _size(size: int) -> int:
+    if size not in PAGE_SIZES:
+        raise Invalid("PAGE", field="size")
+    return size
+
+
+def _paged(rows: list[dict], items: list, page: int, total: int | None = None, size: int = PAGE_SIZE) -> dict:
     total = rows[0]["total"] if rows else (total or 0)
-    return {"items": items, "page": page, "pages": max(1, -(-total // PAGE_SIZE)), "total": total}
+    return {"items": items, "page": page, "pages": max(1, -(-total // size)), "total": total}
 
 
 @contextmanager
@@ -261,23 +269,23 @@ def home(db: Database, user_id: UUID) -> dict:
     return {"counts": counts, "notice": support_notice.notice(settings.get("notice_version"))}
 
 
-def decide_queue(db: Database, user_id: UUID, page: int) -> dict:
-    page = _page(page)
+def decide_queue(db: Database, user_id: UUID, page: int, size: int = PAGE_SIZE) -> dict:
+    page, size = _page(page), _size(size)
     with db.session(user_id) as cursor:
         rows = _rows(cursor, _TICKET_COLUMNS.replace("SELECT t.id,", "SELECT count(*) OVER () AS total, t.id,", 1)
-                     + _DECIDE_WHERE + _ORDER + " LIMIT %s OFFSET %s", (PAGE_SIZE, (page - 1) * PAGE_SIZE))
-    return _paged(rows, [_ticket_row(row) for row in rows], page)
+                     + _DECIDE_WHERE + _ORDER + " LIMIT %s OFFSET %s", (size, (page - 1) * size))
+    return _paged(rows, [_ticket_row(row) for row in rows], page, size=size)
 
 
-def list_tickets(db: Database, user_id: UUID, view: str, page: int) -> dict:
+def list_tickets(db: Database, user_id: UUID, view: str, page: int, size: int = PAGE_SIZE) -> dict:
     if view not in _VIEWS:
         raise Invalid("VIEW", field="view")
-    page = _page(page)
+    page, size = _page(page), _size(size)
     order = " ORDER BY t.updated_at DESC, t.number DESC" if view in ("resolved", "closed") else _ORDER
     with db.session(user_id) as cursor:
         rows = _rows(cursor, _TICKET_COLUMNS.replace("SELECT t.id,", "SELECT count(*) OVER () AS total, t.id,", 1)
-                     + f" WHERE {_VIEWS[view]}" + order + " LIMIT %s OFFSET %s", (PAGE_SIZE, (page - 1) * PAGE_SIZE))
-    return _paged(rows, [_ticket_row(row) for row in rows], page)
+                     + f" WHERE {_VIEWS[view]}" + order + " LIMIT %s OFFSET %s", (size, (page - 1) * size))
+    return _paged(rows, [_ticket_row(row) for row in rows], page, size=size)
 
 
 # ── التذكرة ─────────────────────────────────────────────────────────────
@@ -511,6 +519,8 @@ def follow_up(db: Database, user_id: UUID, closed_id: UUID, fields: Mapping) -> 
 def classify(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping) -> dict:
     subject = _subject(fields.get("subject"))
     with db.session(user_id) as cursor, _ticket_errors():
+        if "subject" not in fields:
+            subject = (_one(cursor, "SELECT subject FROM support_tickets WHERE id = %s", (ticket_id,)) or {}).get("subject")
         cursor.execute("SELECT ew_support_set_ticket(%s, %s, %s, %s, %s, %s)",
                        (ticket_id, fields["expected_row_version"], fields.get("category"), fields["priority"], subject,
                         fields.get("accept_draft_id")))
@@ -850,8 +860,8 @@ def _article_row(row: Mapping) -> dict:
             "reuse_count": row["reuse_count"], "row_version": row["row_version"], "updated_at": _iso(row["updated_at"])}
 
 
-def list_articles(db: Database, user_id: UUID, view: str, q: str | None, page: int) -> dict:
-    page = _page(page)
+def list_articles(db: Database, user_id: UUID, view: str, q: str | None, page: int, size: int = PAGE_SIZE) -> dict:
+    page, size = _page(page), _size(size)
     with db.session(user_id) as cursor:
         if q is not None and q.strip():
             query = " ".join(q.split())
@@ -861,12 +871,14 @@ def list_articles(db: Database, user_id: UUID, view: str, q: str | None, page: i
             rows = _rows(cursor, _ARTICLE_ROW + " WHERE a.id = ANY(%s)", (ids,))
             order = {article_id: n for n, article_id in enumerate(ids)}
             rows.sort(key=lambda row: order[row["id"]])
-            return {"items": [_article_row(r) for r in rows], "page": 1, "pages": 1, "total": len(rows)}
+            # أقرب عشر مقالات، مقسّمةً بحجم صفحة العميل كما تُقسّم القوائم.
+            items = [_article_row(r) for r in rows[(page - 1) * size:page * size]]
+            return {"items": items, "page": page, "pages": max(1, -(-len(rows) // size)), "total": len(rows)}
         if view not in _KB_VIEWS:
             raise Invalid("VIEW", field="view")
         rows = _rows(cursor, _ARTICLE_ROW + f" WHERE {_KB_VIEWS[view]} ORDER BY a.number DESC LIMIT %s OFFSET %s",
-                     (PAGE_SIZE, (page - 1) * PAGE_SIZE))
-    return _paged(rows, [_article_row(r) for r in rows], page)
+                     (size, (page - 1) * size))
+    return _paged(rows, [_article_row(r) for r in rows], page, size=size)
 
 
 def _article_view(db: Database, user_id: UUID, article_id: UUID) -> dict:
@@ -1047,8 +1059,12 @@ def get_settings(db: Database, user_id: UUID) -> dict:
             "notice": support_notice.notice(settings.get("notice_version"))}
 
 
-def save_settings(db: Database, user_id: UUID, signature: str | None, sla: Mapping | None) -> dict:
-    if signature is not None:
+#: «لم يُرسل»: يبقى الحقل كما هو.
+KEEP = object()
+
+
+def save_settings(db: Database, user_id: UUID, signature: str | None | object, sla: Mapping | None) -> dict:
+    if isinstance(signature, str):
         signature = rules.one_line(signature) or None
         if signature is not None and (not 2 <= len(signature) <= 60 or not rules.contact_free(signature)):
             raise Invalid("SIGNATURE", field="signature")
@@ -1060,6 +1076,8 @@ def save_settings(db: Database, user_id: UUID, signature: str | None, sla: Mappi
                 raise Invalid("SLA", field="sla")
             targets[priority] = [value["first_reply_minutes"], value["resolve_minutes"]]
     with db.session(user_id) as cursor:
+        if signature is KEEP:
+            signature = (_one(cursor, _SETTINGS) or {}).get("signature")
         cursor.execute("SELECT ew_support_save_settings(%s, %s)",
                        (signature, None if targets is None else json.dumps(targets)))
     return get_settings(db, user_id)

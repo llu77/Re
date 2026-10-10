@@ -156,6 +156,14 @@ def test_a_draft_is_grounded_on_a_published_article_and_sends_no_identity(agent,
     # الأولوية المقترحة من الأثر والإلحاح، لا من نصّ النموذج.
     assert d["suggestion"]["priority"] == "URGENT" and d["suggestion"]["because"] == "توقّف العمل لأكثر من مستخدم"
     assert t["badges"]["draft_ready"] and expect(client.get(f"{BASE}/decide"))["total"] == 1
+    # «اعتمد المقترح» يغيّر الفئة والأولوية ولا يمسح موضوعاً كتبه الموظف.
+    t = expect(client.post(f"{BASE}/tickets/{t['id']}/classification",
+                           json={"expected_row_version": t["row_version"], "category": None, "priority": "NORMAL",
+                                 "subject": "الطابعة في الطابق الثاني"}))
+    t = expect(client.post(f"{BASE}/tickets/{t['id']}/classification",
+                           json={"expected_row_version": t["row_version"], "category": d["suggestion"]["category"],
+                                 "priority": d["suggestion"]["priority"], "accept_draft_id": d["id"]}))
+    assert (t["subject"], t["priority"]) == ("الطابعة في الطابق الثاني", "URGENT")
     call = gateway.calls[-1]
     assert call.feature == "SUPPORT_DRAFT" and "الطابعة تطبع صفحاتٍ فارغة" in call.user
     for forbidden in (LABEL, NAME, SIGNATURE, f"#{t['number']}", t["id"]):
@@ -354,6 +362,10 @@ def test_settings_keep_a_signature_and_service_targets_and_phrases_are_static(ag
     settings = expect(client.put(f"{BASE}/settings", json={"signature": SIGNATURE,
                                                           "sla": {"URGENT": {"first_reply_minutes": 30, "resolve_minutes": 240}}}))
     assert settings["signature"] == SIGNATURE and settings["sla"]["URGENT"] == {"first_reply_minutes": 30, "resolve_minutes": 240}
+    # حفظ أهداف الوقت وحدها (كما تفعل شاشتها) لا يمسح التوقيع؛ وnull صريحٌ يمسحه.
+    settings = expect(client.put(f"{BASE}/settings", json={"sla": {"HIGH": {"first_reply_minutes": 60, "resolve_minutes": 480}}}))
+    assert settings["signature"] == SIGNATURE and settings["sla"]["HIGH"] == {"first_reply_minutes": 60, "resolve_minutes": 480}
+    assert expect(client.put(f"{BASE}/settings", json={"signature": None}))["signature"] is None
     assert {u["kind"] for u in settings["ai_usage"]} == {"SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_PROPOSAL",
                                                           "SUPPORT_ARTICLE_REVIEW"}
     bad = client.put(f"{BASE}/settings", json={"signature": "اتصل 0551234567"})
@@ -387,3 +399,23 @@ def test_symbol_reviews_an_article_only_after_the_desk_notice(agent):
     assert (refused.status_code, refused.json()["code"]) == (409, "NOTICE")
     published = expect(client.post(f"{BASE}/kb/{a['id']}/publish", json={"expected_row_version": a["row_version"], "version": 1}))
     assert published["state"] == "PUBLISHED"
+
+
+def test_the_lists_page_by_the_size_the_client_shows(agent):
+    """القوائم تُقسَّم بحجم صفحة العميل (3 في الحجم الكبير)، فلا يعرض الجدول أكثر ممّا أرسل الخادم ولا تأتي صفحته الثانية فارغة."""
+    client, _ = agent
+    accept(client)
+    for n in range(4):
+        ticket(client, text=f"الطابعة رقم {n + 1} في المكتب لا تطبع شيئاً منذ الصباح.")
+    first = expect(client.get(f"{BASE}/tickets", params={"view": "open", "size": 3}))
+    assert (len(first["items"]), first["pages"], first["total"]) == (3, 2, 4)
+    second = expect(client.get(f"{BASE}/tickets", params={"view": "open", "size": 3, "page": 2}))
+    assert len(second["items"]) == 1 and {r["id"] for r in second["items"]}.isdisjoint(r["id"] for r in first["items"])
+    assert expect(client.get(f"{BASE}/tickets", params={"view": "open"}))["pages"] == 1
+    assert client.get(f"{BASE}/tickets", params={"view": "open", "size": 7}).status_code == 422
+    for n in range(3):
+        article(client, title=f"الطابعة تطبع صفحاتٍ فارغة {n + 1}")
+    found = expect(client.get(f"{BASE}/kb", params={"q": "الطابعة", "size": 2}))
+    assert (len(found["items"]), found["pages"], found["total"]) == (2, 2, 3)
+    rest = expect(client.get(f"{BASE}/kb", params={"q": "الطابعة", "size": 2, "page": 2}))
+    assert len(rest["items"]) == 1

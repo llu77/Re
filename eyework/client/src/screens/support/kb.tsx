@@ -26,7 +26,7 @@ import { formatDay } from "@/lib/format"
 import {
   ARTICLE_STATE, REJECT_REASON, type AiFlag, type Article, type ArticleFields, type ArticleRow, type Improve, type KbView, type Paged, type ReviewAnswer,
 } from "@/lib/support"
-import { useSize } from "@/lib/size"
+import { LONG_LIST_PAGE, useSize } from "@/lib/size"
 
 import type { Fail } from "./common"
 
@@ -45,7 +45,8 @@ function rowLine(row: ArticleRow): string {
 function ArticleTable({ caption, rows, total, page, onPage, onOpen, empty }: {
   caption: string
   rows: ArticleRow[]
-  total: number
+  /** مجموع صفوف الخادم إن كانت صفحاتها منه؛ بلا قيمةٍ تُقسَّم الصفوف هنا. */
+  total?: number
   page: number
   onPage: (page: number) => void
   onOpen: (row: ArticleRow) => void
@@ -65,7 +66,7 @@ function ArticleTable({ caption, rows, total, page, onPage, onOpen, empty }: {
       trailing={(row) => <Badge tone={row.needs_review ? "warning" : STATE_TONE[row.state]} className="gaze:hidden">{row.needs_review ? "تحتاج مراجعة" : ARTICLE_STATE[row.state]}</Badge>}
       onOpen={onOpen}
       openLabel={(row) => `افتح KB-${row.number}`}
-      pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+      pageSize={LONG_LIST_PAGE}
       page={page}
       onPageChange={onPage}
       total={total}
@@ -436,7 +437,7 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
       />
     )
   } else if (data && tab === "attention") {
-    body = <ArticleTable caption="تحتاج نظرة" rows={data.attention} total={data.attention.length} page={page} onPage={setPage} onOpen={onOpenArticle} empty={<EmptyState icon={BookOpen} title="لا مقالة تحتاج نظرة" />} />
+    body = <ArticleTable caption="تحتاج نظرة" rows={data.attention} page={page} onPage={setPage} onOpen={onOpenArticle} empty={<EmptyState icon={BookOpen} title="لا مقالة تحتاج نظرة" />} />
   }
   return (
     <Screen

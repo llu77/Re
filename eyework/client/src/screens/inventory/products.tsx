@@ -31,7 +31,7 @@ import {
   type Category, type InventoryChoices, type Item, type ItemDetail, type ItemFilter, type Movement, type Paged, type VoucherKind,
 } from "@/lib/inventory"
 import { formatAmount, parseAmount } from "@/lib/money"
-import { useSize } from "@/lib/size"
+import { LIST_PAGE, useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 import { Facts, GazeHost, GazeSlot, Money, Picker, Qty, useOpenReport, type Fact } from "./common"
@@ -119,7 +119,7 @@ export function StockScreen({ data, query, onQuery, filter, onFilter, page, onPa
             }
             onOpen={onOpen}
             openLabel={(row) => `افتح ${row.name}`}
-            pageSize={{ compact: 10, gaze: 3, gazeShort: 2 }}
+            pageSize={LIST_PAGE}
             page={page}
             onPageChange={onPage}
             total={data.total}
@@ -197,7 +197,7 @@ export function ItemScreen({ item, movements, movementsPage, onMovementsPage, ch
           {row.in_milli ? `+${formatMilli(row.in_milli)}` : `−${formatMilli(row.out_milli)}`}
         </span>
       )}
-      pageSize={{ compact: 10, gaze: 3, gazeShort: 2 }}
+      pageSize={LIST_PAGE}
       page={movementsPage}
       onPageChange={onMovementsPage}
       total={movements.total}

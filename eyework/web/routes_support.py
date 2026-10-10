@@ -57,6 +57,7 @@ __all__ = ["router"]
 router = APIRouter(prefix="/api/support", dependencies=[Depends(require_profession(Profession.SUPPORT))])
 
 Page = Query(1, ge=1, le=support.MAX_PAGE)
+Size = Query(support.PAGE_SIZE, ge=2, le=support.PAGE_SIZE)
 
 
 def _db(request: Request):
@@ -102,16 +103,16 @@ def home(request: Request, user_id: UUID = Depends(require_user)) -> dict:
 
 
 @router.get("/decide")
-def decide(request: Request, page: int = Page, user_id: UUID = Depends(require_user)) -> dict:
+def decide(request: Request, page: int = Page, size: int = Size, user_id: UUID = Depends(require_user)) -> dict:
     _read(request, user_id)
-    return support.decide_queue(_db(request), user_id, page)
+    return support.decide_queue(_db(request), user_id, page, size)
 
 
 @router.get("/tickets")
 def tickets(request: Request, view: Literal["open", "pending", "escalated", "resolved", "closed"] = Query("open"),
-            page: int = Page, user_id: UUID = Depends(require_user)) -> dict:
+            page: int = Page, size: int = Size, user_id: UUID = Depends(require_user)) -> dict:
     _read(request, user_id)
-    return support.list_tickets(_db(request), user_id, view, page)
+    return support.list_tickets(_db(request), user_id, view, page, size)
 
 
 # ── اللصق والتذكرة ──────────────────────────────────────────────────────
@@ -160,7 +161,8 @@ def follow_up(ticket_id: UUID, body: FollowUpBody, request: Request,
 @router.post("/tickets/{ticket_id}/classification")
 def classify(ticket_id: UUID, body: ClassifyBody, request: Request, user_id: UUID = Depends(require_user)) -> dict:
     _write(request, user_id)
-    return support.classify(_db(request), user_id, ticket_id, body.model_dump())
+    # الموضوع يتغيّر حين يُرسل (null يمحوه)؛ و«اعتمد المقترح» بلا موضوعٍ يُبقيه كما هو.
+    return support.classify(_db(request), user_id, ticket_id, body.model_dump(exclude_unset=True))
 
 
 # ── المسودة ─────────────────────────────────────────────────────────────
@@ -235,12 +237,12 @@ def reopen(ticket_id: UUID, body: RowVersionBody, request: Request, user_id: UUI
 @router.get("/kb")
 def list_articles(request: Request,
                   view: Literal["published", "attention", "drafts", "proposals", "archived"] = Query("published"),
-                  q: str | None = Query(None, max_length=200), page: int = Page,
+                  q: str | None = Query(None, max_length=200), page: int = Page, size: int = Size,
                   user_id: UUID = Depends(require_user)) -> dict:
     _read(request, user_id)
     if q:
         enforce(request.app.state.limiters.support_search, str(user_id))
-    return support.list_articles(_db(request), user_id, view, q, page)
+    return support.list_articles(_db(request), user_id, view, q, page, size)
 
 
 @router.get("/kb/{article_id}")
@@ -304,7 +306,9 @@ def get_settings(request: Request, user_id: UUID = Depends(require_user)) -> dic
 def save_settings(body: SupportSettingsBody, request: Request, user_id: UUID = Depends(require_user)) -> dict:
     _write(request, user_id)
     sla = None if body.sla is None else {k: v.model_dump() for k, v in body.sla.items()}
-    return support.save_settings(_db(request), user_id, body.signature, sla)
+    # التوقيع يتغيّر حين يُرسل وحده (null يمحوه)؛ وحفظ أهداف الوقت وحدها لا يمسّه.
+    signature = body.signature if "signature" in body.model_fields_set else support.KEEP
+    return support.save_settings(_db(request), user_id, signature, sla)
 
 
 @router.post("/notice", status_code=status.HTTP_204_NO_CONTENT)

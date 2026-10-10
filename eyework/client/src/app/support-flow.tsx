@@ -29,6 +29,7 @@ import { Notice } from "@/components/ui/notice"
 import { useToast } from "@/components/ui/toast"
 import { detail, errorCode, type ApiResult } from "@/lib/api"
 import { go } from "@/lib/router"
+import { LONG_LIST_PAGE, useServerPage } from "@/lib/size"
 import type { Choices, Me } from "@/lib/store"
 import * as sup from "@/lib/support"
 import { BASE, articleRoute, ticketRoute } from "@/lib/support"
@@ -129,13 +130,15 @@ function SettingsContainer({ setNotice }: { setNotice: SetNotice }) {
 
 function DecideContainer({ setNotice }: { setNotice: SetNotice }) {
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => sup.decideQueue(page + 1), [page], setNotice)
+  const size = useServerPage(LONG_LIST_PAGE, setPage)
+  const { data } = useLoad(() => sup.decideQueue(page + 1, size), [page, size], setNotice)
   return <DecideScreen data={data} page={page} onPage={setPage} onOpen={(row) => go(ticketRoute(row.id))} onOpenList={() => go(`${BASE}/open`)} onBack={() => go(BASE)} />
 }
 
 function TicketsContainer({ view, setNotice }: { view: sup.TicketView; setNotice: SetNotice }) {
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => sup.listTickets(view, page + 1), [view, page], setNotice)
+  const size = useServerPage(LONG_LIST_PAGE, setPage)
+  const { data } = useLoad(() => sup.listTickets(view, page + 1, size), [view, page, size], setNotice)
   const opening = view === "open" || view === "resolved" || view === "closed"
   return (
     <TicketsScreen
@@ -314,7 +317,8 @@ function TicketContainer({ id, sub, params, phrases, onChanged, setNotice }: {
           onAcceptSuggestion={async () => {
             if (!draft) return null
             const result = await sup.classify(id, ticket.row_version, {
-              category: draft.suggestion.category, priority: draft.suggestion.priority ?? ticket.priority, accept_draft_id: draft.id,
+              // الموضوع يبقى كما هو: الدالة تكتب ما يُرسل، فلو لم يُرسل لمُسح.
+              category: draft.suggestion.category, priority: draft.suggestion.priority ?? ticket.priority, subject: ticket.subject, accept_draft_id: draft.id,
             })
             if (result.status !== 200 || !result.data) return failed(result)
             setData(result.data)
@@ -553,7 +557,8 @@ function KbListContainer({ params, setNotice }: { params: URLSearchParams; setNo
   const view = (params.get("view") as sup.KbView | null) ?? "published"
   const [query, setQuery] = React.useState("")
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => sup.listArticles(view, query, page + 1), [view, query, page], setNotice)
+  const size = useServerPage(LONG_LIST_PAGE, setPage)
+  const { data } = useLoad(() => sup.listArticles(view, query, page + 1, size), [view, query, page, size], setNotice)
   return (
     <KbListScreen
       view={view}

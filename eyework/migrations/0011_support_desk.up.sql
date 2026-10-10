@@ -38,12 +38,19 @@ LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
        AND t !~ '[‎‏‪-‮⁦-⁩]'
 $$;
 
--- ما يكتبه الموظف أو يلصقه من كلام العميل: بلا بريدٍ ولا تسعة أرقامٍ متتالية فأكثر
--- (يُسمح بمسافةٍ أو شَرطةٍ واحدة بينها). يحذفها الخادم قبل الحفظ، وهذا الحاجز الثاني.
+-- ما يكتبه الموظف أو يلصقه من كلام العميل: بلا بريدٍ ولا رابطٍ (بمخطّطه، أو اسم موقعٍ يتبعه مسار) ولا
+-- تسعة أرقامٍ فأكثر، بينها حتى ثلاثةٌ من المسافات (كلّها عدا السطر) والشَّرطات والأقواس، أو بنقاطٍ بين
+-- مجموعاتٍ من رقمين فأكثر. يحذفها الخادم قبل الحفظ، وهذا الحاجز الثاني: نظير support_rules.contact_free
+-- حرفاً بحرف (اختبارٌ يقارنهما).
 CREATE FUNCTION ew_support_contact_free(t text) RETURNS boolean
 LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
     SELECT t !~ '[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+'
-       AND t !~ '([0-9٠-٩۰-۹][ -]?){8}[0-9٠-٩۰-۹]'
+       AND t !~* '(?<![a-z0-9])(https?://|www\.)[^[:space:]]'
+       AND t !~* '(?<![a-z0-9@.-])([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}[/?#]'
+       AND t !~ '([0-9٠-٩۰-۹０-９][ \u00a0\u1680\u2000-\u200b\u202f\u205f\u3000()\u2010-\u2015\u2212\uff0d-]{0,3}){8}[0-9٠-٩۰-۹０-９]'
+       AND NOT EXISTS (
+           SELECT 1 FROM regexp_matches(t, '(?<![0-9٠-٩۰-۹０-９.])[0-9٠-٩۰-۹０-９]{2,}(?:\.[0-9٠-٩۰-۹０-９]{2,})+(?![0-9٠-٩۰-۹０-９.])', 'g') AS m(x)
+            WHERE length(regexp_replace(m.x[1], '[^0-9٠-٩۰-۹０-９]', '', 'g')) >= 9)
 $$;
 
 -- ما يُرسَل أو يُنشر (الردّ والمقالة): قد يحمل هاتف جهة العمل أو بريدها، ولا يحمل
@@ -818,9 +825,11 @@ BEGIN
         RAISE EXCEPTION 'kb' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_citation_not_published';
     END IF;
     SELECT * INTO k FROM kb_versions WHERE article_id = NEW.article_id AND version = NEW.article_version;
-    IF strpos(ew_kb_norm(k.title || ' ' || k.issue || ' ' || coalesce(k.environment, '') || ' '
-                         || k.resolution || ' ' || coalesce(k.cause, '')),
-              ew_kb_norm(NEW.quote)) = 0 THEN
+    -- اقتباسٌ يصير بعد التوحيد أقلّ من ثمانية أحرف (تطويلٌ أو تشكيلٌ أو مسافات) لا يُسند شيئاً: كل نصٍّ يحويه.
+    IF length(ew_kb_norm(NEW.quote)) < 8
+       OR strpos(ew_kb_norm(k.title || ' ' || k.issue || ' ' || coalesce(k.environment, '') || ' '
+                            || k.resolution || ' ' || coalesce(k.cause, '')),
+                 ew_kb_norm(NEW.quote)) = 0 THEN
         RAISE EXCEPTION 'quote' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_citation_not_verbatim';
     END IF;
     RETURN NEW;
@@ -1319,8 +1328,9 @@ BEGIN
     IF latest IS NULL THEN
         RAISE EXCEPTION 'message' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_draft_needs_message';
     END IF;
+    -- ما فشل قبل أن يصل النموذج (سيمبول متوقّف أو مشغول، أو خطأٌ في الطريق) لا يُحسب: لا يُكلّف ولا يُنتج شيئاً.
     IF (SELECT count(*) FROM ai_requests
-         WHERE user_id = uid AND feature = 'SUPPORT_DRAFT' AND subject_id = p_ticket
+         WHERE user_id = uid AND feature = 'SUPPORT_DRAFT' AND subject_id = p_ticket AND ew_is_billable(outcome)
            AND started_at > now() - interval '24 hours') >= 8 THEN
         RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_ticket_draft_cap';
     END IF;
@@ -1382,7 +1392,9 @@ DECLARE
     ticket uuid;
 BEGIN
     r := ew_support_request_for(uid, p_request, NULL);
-    IF r.feature = 'SUPPORT_ARTICLE_PROPOSAL' AND p_outcome IN ('CANNOT_ANSWER', 'NOT_SUPPORT') THEN
+    -- DISCARDED: جاءت رسالةٌ أو مسودةٌ أحدث أثناء الاستدعاء فلم يُكتب شيء؛ يُغلق الطلب ولا يبقى مفتوحاً يحجز التالي.
+    IF (r.feature = 'SUPPORT_ARTICLE_PROPOSAL' AND p_outcome IN ('CANNOT_ANSWER', 'NOT_SUPPORT'))
+       OR p_outcome = 'DISCARDED' THEN
         PERFORM ew_ai_request_settle(p_request, p_outcome, NULL, p_usage);
     ELSE
         PERFORM ew_ai_request_fail(p_request, p_outcome, p_usage);
@@ -1951,7 +1963,8 @@ BEGIN
         RAISE EXCEPTION 'source' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_proposal_needs_source';
     END IF;
     IF (SELECT count(*) FROM ai_requests
-         WHERE user_id = uid AND feature = 'SUPPORT_ARTICLE_PROPOSAL' AND subject_id = p_ticket) >= 2 THEN
+         WHERE user_id = uid AND feature = 'SUPPORT_ARTICLE_PROPOSAL' AND subject_id = p_ticket
+           AND ew_is_billable(outcome)) >= 2 THEN
         RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_ticket_proposal_cap';
     END IF;
     RETURN ew_ai_request_open('SUPPORT_ARTICLE_PROPOSAL', 'SUPPORT_TICKET', p_ticket, NULL);

@@ -279,18 +279,22 @@ export function ResolveScreen({ ticket, onResolve, onBack }: {
   }
 
   if (unanswered) {
+    // «رجوع» في خانة «حُلّت» نفسها، و«أغلقها رغم ذلك» في المحتوى بعد التذكير: النظر الذي ضغط «حُلّت» لا يقع على
+    // اعتمادٍ ثانٍ في مكانه.
     return (
       <Screen title="قبل الحلّ"
         actions={
           <>
-            <Button id="resolve-cancel" icon={BackIcon} onClick={() => setUnanswered(null)}>رجوع</Button>
-            {unanswered.confirmable ? (
-              <Button id="resolve-confirm" variant="primary" commit icon={CheckCircle2} busy={busy} onClick={() => void resolve(true)} className="ms-auto">أغلقها رغم ذلك</Button>
-            ) : <span aria-hidden="true" />}
+            <span aria-hidden="true" />
+            <Button id="resolve-cancel" icon={BackIcon} onClick={() => setUnanswered(null)} className="ms-auto">رجوع</Button>
           </>
         }>
         <Alert tone="warning" title={unanswered.message}>{unanswered.reason}</Alert>
-        {unanswered.confirmable ? null : <p className="text-small text-muted-foreground">ردّ على العميل أولاً، أو اختر «حُلّت بالهاتف» أو «حُلّت حضورياً».</p>}
+        {unanswered.confirmable ? (
+          <Button id="resolve-confirm" variant="primary" commit icon={CheckCircle2} busy={busy} onClick={() => void resolve(true)} className="gaze:w-full self-start">
+            أغلقها رغم ذلك
+          </Button>
+        ) : <p className="text-small text-muted-foreground">ردّ على العميل أولاً، أو اختر «حُلّت بالهاتف» أو «حُلّت حضورياً».</p>}
         <FailAlert fail={fail} title="لم تُحلّ" />
       </Screen>
     )

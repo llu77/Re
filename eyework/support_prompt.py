@@ -384,7 +384,7 @@ def parse_draft(reply: object, refs: Mapping[str, tuple[str, int]], sources: Map
         article_id, version = refs[ref.strip()]
         quote = rules.normalize(_FIELD_LABEL.sub("", rules.normalize(quote)))
         source = sources[article_id]
-        if not 8 <= len(quote) <= 300 or kb_norm(quote) not in kb_norm(source):
+        if not 8 <= len(quote) <= 300 or len(kb_norm(quote)) < 8 or kb_norm(quote) not in kb_norm(source):
             raise DraftInvalid("QUOTE_NOT_FOUND")
         citations.append({"article_id": article_id, "version": version, "quote": quote})
         cited_sources.append(kb_norm(source))

@@ -64,7 +64,7 @@ LineNo = Annotated[int, Path(ge=1, le=999)]
 router = APIRouter(prefix="/api/inventory", dependencies=[Depends(require_profession(Profession.STOREKEEPER))])
 
 Page = Query(1, ge=1, le=MAX_PAGE)
-Size = Query(20, ge=4, le=20)
+Size = Query(20, ge=2, le=20)
 
 
 def _read(request: Request, user_id: UUID) -> None:

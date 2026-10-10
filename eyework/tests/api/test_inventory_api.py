@@ -462,7 +462,7 @@ def test_the_choices_carry_the_inventory_vocabulary(server, browser):
     client = browser()
     choices = expect(client.get("/api/choices"))["inventory"]
     assert [u["code"] for u in choices["units"]][:3] == ["PIECE", "BOX", "CARTON"]
-    assert choices["document_prefixes"]["ITEM"] == "ص" and choices["page_sizes"] == [4, 5, 10, 20]
+    assert choices["document_prefixes"]["ITEM"] == "ص" and choices["page_sizes"] == [2, 3, 4, 5, 10, 20]
     assert [r["code"] for r in choices["count_reasons"]["SURPLUS"]] == ["FOUND", "RECORDING_ERROR", "OTHER"]
 
 
