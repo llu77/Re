@@ -82,7 +82,9 @@ LANDING = """
     const key = (e) => e.id || (e.dataset && e.dataset.key) || '';
     // الزرّ نفسه بعد الضغطة آمن — إلا أن يصير زرّ اعتمادٍ لم يكنه (React يعيد العقدة نفسها حين
     // يبدّل «التالي» بـ«احفظ» في الخانة نفسها، فيعتمد ثبات النظر ما لم يُقصد).
-    const became = control.hasAttribute('data-commit') && !window.__activatedCommit;
+    // ...وكذلك اعتمادٌ صار اعتماداً آخر في العقدة نفسها («حُلّت» ثم «أغلقها رغم ذلك»): اسمه أو نصّه تغيّر.
+    const became = control.hasAttribute('data-commit')
+        && (!window.__activatedCommit || key(control) !== window.__activatedKey || control.textContent.trim() !== window.__activatedText);
     if (!became && (control === window.__activated || (key(control) && key(control) === window.__activatedKey))) return null;
     if (control.disabled || getComputedStyle(control).visibility === 'hidden') return null;
     const value = control.hasAttribute('data-value') || control.getAttribute('role') === 'radio' || control.classList.contains('chip');
@@ -111,7 +113,8 @@ NEAREST = """
             return Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
         };
         const nearest = controls.reduce((a, b) => distance(a) <= distance(b) ? a : b);
-        const became = nearest.hasAttribute('data-commit') && !window.__activatedCommit;
+        const became = nearest.hasAttribute('data-commit')
+            && (!window.__activatedCommit || key(nearest) !== window.__activatedKey || nearest.textContent.trim() !== window.__activatedText);
         const same = !became && (nearest === window.__activated || (key(nearest) && key(nearest) === window.__activatedKey));
         return { name: name(nearest), distance: Math.round(distance(nearest)),
                  commit: !same && nearest.hasAttribute('data-commit') };
@@ -155,7 +158,8 @@ class Flow:
         locator = self.page.locator(selector).first
         box = locator.bounding_box()
         locator.evaluate("(e) => { window.__activated = e; window.__activatedKey = e.id || e.dataset.key || '';"
-                         " window.__activatedCommit = e.hasAttribute('data-commit'); }")
+                         " window.__activatedCommit = e.hasAttribute('data-commit');"
+                         " window.__activatedText = e.textContent.trim(); }")
         inset = 8
         points = [
             [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2],

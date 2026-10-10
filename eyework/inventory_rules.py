@@ -81,8 +81,8 @@ COUNT_SCOPE_NAMES: dict[str, str] = {"ALL": "كل الأصناف", "CATEGORY": "
 DOCUMENT_PREFIXES: dict[str, str] = {
     "PURCHASE": "ش", "RETURN": "ر", "REVERSAL": "ع", "VOUCHER": "س", "ITEM": "ص", "COUNT": "ج",
 }
-#: أحجام الصفحات: 4 و5 للحجم الكبير، و10 و20 للعادي.
-PAGE_SIZES: tuple[int, ...] = (4, 5, 10, 20)
+#: أحجام الصفحات: 2 و3 للحجم الكبير (الشاشة القصيرة ثم العادية)، و10 و20 للعادي؛ والعميل يطلب ما يعرضه الجدول بالضبط.
+PAGE_SIZES: tuple[int, ...] = (2, 3, 4, 5, 10, 20)
 MAX_PAGE = 500
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")

@@ -92,16 +92,16 @@ def test_the_purge_forgets_ticket_texts_thirty_days_after_closing_and_the_ticket
     assert owner_scalar(owner, "SELECT count(*) FROM support_tickets WHERE id = %s", (old,)) == 0
 
 
-def test_an_untouched_proposal_is_discarded_after_thirty_days_and_deleted_after_sixty(owner, app, purge):
+def test_a_discarded_article_is_deleted_after_thirty_days(owner, app, purge):
     agent = desk_user(owner, b"purge-kb", app=app)
     article = scalar(app, agent, "SELECT ew_kb_create(gen_random_uuid(), 'الطابعة لا تطبع', 'الطابعة لا تطبع أيّ صفحة.',"
                                  " NULL, '1. أعد تشغيل الطابعة. 2. اطبع صفحة اختبار.', NULL, NULL)")
     with owner.transaction(), owner.cursor() as cursor:
         cursor.execute("ALTER TABLE kb_articles DISABLE TRIGGER USER")
-        cursor.execute("UPDATE kb_articles SET state = 'PROPOSED', updated_at = now() - interval '31 days' WHERE id = %s",
+        cursor.execute("UPDATE kb_articles SET state = 'DISCARDED', discarded_at = now() - interval '29 days' WHERE id = %s",
                        (article,))
         cursor.execute("ALTER TABLE kb_articles ENABLE TRIGGER USER")
-    assert purge()["kb_proposals_discarded"] == 1
+    assert purge()["kb_articles_deleted"] == 0
     with owner.transaction(), owner.cursor() as cursor:
         cursor.execute("ALTER TABLE kb_articles DISABLE TRIGGER USER")
         cursor.execute("UPDATE kb_articles SET discarded_at = now() - interval '31 days' WHERE id = %s", (article,))
@@ -122,3 +122,22 @@ def test_leaving_support_withdraws_live_replies_and_closes_the_tickets(owner, ap
     assert admin.set_profession("leaving@example.sa", "MARKETING") == 1
     assert owner_scalar(owner, "SELECT state FROM support_replies WHERE id = %s", (reply,)) == "WITHDRAWN"
     assert owner_scalar(owner, "SELECT close_reason FROM support_tickets WHERE id = %s", (t,)) == "PROFESSION_CHANGED"
+
+
+CONTACT_SAMPLES = (
+    "الطابعة لا تعمل", "اتصلوا بي على (050) 123-4567", "Tel: +966 (11) 234 – 5678", "050\u00a0123\u00a04567",
+    "050\u200b123\u200b4567", "جوال ０５５１２３٤٥٦٧", "رقمي 050.123.4567", "الآيبان SA03.8000.0000.6080.1016.7519",
+    "بريدي a.b@x.com", "الرابط accounts.example.com/reset?token=8f3a91", "الرابطhttps://portal.example.com/u?s=1",
+    "www.example.com", "الإصدار 10.0.19045.3803", "العنوان 192.168.1.10", "العنوان 192.168.100.200",
+    "الخطأ 0x80070005 والتحديث KB5034441", "الملف report.pdf وموقع example.com", "الخطأ بدأ 2024-10-09 12:30",
+)
+
+
+@pytest.mark.parametrize("text", CONTACT_SAMPLES)
+def test_the_contact_check_agrees_in_the_server_and_the_database_and_passes_whatever_masking_keeps(owner, text):
+    """الحاجز الثاني نظير الأول حرفاً بحرف، وكل ما يُبقيه الحذف يقبله؛ فلا يُرفض نصٌّ حذف الخادم ما فيه."""
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT ew_support_contact_free(%s), ew_support_contact_free(%s)", (text, support_rules.mask(text)[0]))
+        raw, masked = cursor.fetchone()
+    assert raw == support_rules.contact_free(text)
+    assert masked and support_rules.contact_free(support_rules.mask(text)[0])

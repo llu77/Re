@@ -1,8 +1,8 @@
 /*
  * PagedText — نصٌّ طويل بلا تمرير
  * ===============================
- * في الحجم الكبير لا تمرّ الشاشة، والنصّ الطويل (جواب سيمبول، مسوّدة ردّ) لا يُقصّ: يُقسم
- * صفحاتٍ عند نهايات الجمل، وتحته «السابق» و«التالي» ورقم الصفحة. وفي الحجم العادي يُعرض
+ * في الحجم الكبير لا تمرّ الشاشة، والنصّ الطويل (جواب سيمبول، مسوّدة ردّ، رسالةٌ ملصوقة) لا يُقصّ: يُقسم
+ * صفحاتٍ عند نهايات الجمل — وما طال من جملةٍ عند الكلمات — وتحته «السابق» و«التالي» ورقم الصفحة. وفي الحجم العادي يُعرض
  * كلّه (الصفحة تمرّ). التقسيم بعدد الحروف لا بقياس الشاشة: لا يتغيّر وحده بعد الرسم.
  */
 
@@ -33,11 +33,32 @@ export function sentences(text: string): string[] {
   return out
 }
 
-/** يقسم النصّ صفحاتٍ لا تزيد كلٌّ منها على `max` حرفاً إلا جملةً واحدةً أطول منه. */
+/** جملةٌ أطول من الصفحة (رسالةٌ ملصوقة بلا علامات) تُقطع عند الكلمات؛ وكلمةٌ أطول من الصفحة تُقطع بالحروف. */
+function pieces(sentence: string, max: number): string[] {
+  if ([...sentence].length <= max) return [sentence]
+  const out: string[] = []
+  let current = ""
+  for (const word of sentence.split(/(?<=\s)/)) {
+    if (current && [...current].length + [...word].length > max) {
+      out.push(current)
+      current = ""
+    }
+    let rest = word
+    while ([...rest].length > max) {
+      out.push([...rest].slice(0, max).join(""))
+      rest = [...rest].slice(max).join("")
+    }
+    current += rest
+  }
+  if (current) out.push(current)
+  return out
+}
+
+/** يقسم النصّ صفحاتٍ لا تزيد كلٌّ منها على `max` حرفاً: عند الجمل، وما طال من جملةٍ عند الكلمات. */
 export function paginate(text: string, max: number): string[] {
   const pages: string[] = []
   let current = ""
-  for (const sentence of sentences(text)) {
+  for (const sentence of sentences(text).flatMap((s) => pieces(s, max))) {
     if (current && [...current].length + [...sentence].length > max) {
       pages.push(current.trim())
       current = ""

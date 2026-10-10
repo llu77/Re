@@ -19,7 +19,7 @@ from eyework import config, support_notice
 from eyework.db import Database
 from eyework.tests.api.conftest import LOGIN_KEY, ORIGIN, add_user, expect, log_in
 from eyework.tests.conftest import app_url_for
-from eyework.tests.fakes import FakeGateway, draft_reply, model_reply, proposal_reply, review_reply
+from eyework.tests.fakes import FakeGateway, draft_reply, model_reply, review_reply
 from eyework.web.app import create_app
 
 AGENT = "agent@example.sa"
@@ -156,6 +156,14 @@ def test_a_draft_is_grounded_on_a_published_article_and_sends_no_identity(agent,
     # الأولوية المقترحة من الأثر والإلحاح، لا من نصّ النموذج.
     assert d["suggestion"]["priority"] == "URGENT" and d["suggestion"]["because"] == "توقّف العمل لأكثر من مستخدم"
     assert t["badges"]["draft_ready"] and expect(client.get(f"{BASE}/decide"))["total"] == 1
+    # «اعتمد المقترح» يغيّر الفئة والأولوية ولا يمسح موضوعاً كتبه الموظف.
+    t = expect(client.post(f"{BASE}/tickets/{t['id']}/classification",
+                           json={"expected_row_version": t["row_version"], "category": None, "priority": "NORMAL",
+                                 "subject": "الطابعة في الطابق الثاني"}))
+    t = expect(client.post(f"{BASE}/tickets/{t['id']}/classification",
+                           json={"expected_row_version": t["row_version"], "category": d["suggestion"]["category"],
+                                 "priority": d["suggestion"]["priority"], "accept_draft_id": d["id"]}))
+    assert (t["subject"], t["priority"]) == ("الطابعة في الطابق الثاني", "URGENT")
     call = gateway.calls[-1]
     assert call.feature == "SUPPORT_DRAFT" and "الطابعة تطبع صفحاتٍ فارغة" in call.user
     for forbidden in (LABEL, NAME, SIGNATURE, f"#{t['number']}", t["id"]):
@@ -175,6 +183,16 @@ def test_a_quote_that_is_not_in_the_article_is_refused_and_counted(agent, gatewa
         assert cursor.fetchall() == [("OUTPUT_INVALID",)]
     gateway.queue(model_reply("REFUSED"))
     assert draft(client, expect(client.get(f"{BASE}/tickets/{t['id']}"))).json()["code"] == "AI_REFUSED"
+    # فشلٌ غير متوقَّع في الطريق يُغلق الطلب أيضاً، فلا يحجز المسودة التالية حتى ينقضي أجله.
+    call = gateway.call
+    gateway.call = lambda request: (_ for _ in ()).throw(RuntimeError("انقطع الطريق"))
+    assert draft(client, expect(client.get(f"{BASE}/tickets/{t['id']}"))).status_code == 500
+    gateway.call = call
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT outcome FROM ai_requests WHERE user_id = %s AND feature = 'SUPPORT_DRAFT' ORDER BY started_at DESC"
+                       " LIMIT 1", (user_id,))
+        assert cursor.fetchone() == ("UPSTREAM_ERROR",)
+    assert draft(client, expect(client.get(f"{BASE}/tickets/{t['id']}"))).status_code == 201
 
 
 def test_a_draft_without_an_article_asks_for_information_and_can_be_rejected_and_redrafted(agent, gateway):
@@ -220,6 +238,20 @@ def test_a_reply_carries_greeting_and_signature_and_its_rule_flags_block_the_cop
     t = expect(client.post(f"{BASE}/replies/{reply['id']}/confirm", json={"sent": True}))
     assert (t["status"], t["resolution"], t["live_reply"]) == ("RESOLVED", "REPLIED", None)
     assert t["messages"][-1]["author"] == "AGENT" and t["messages"][-1]["body"] == reply["body"]
+
+
+def test_heeding_a_rule_flag_withdraws_the_reply_so_the_same_text_is_not_copied(agent):
+    client, _ = agent
+    accept(client)
+    t = ticket(client)
+    reply = expect(client.post(f"{BASE}/tickets/{t['id']}/replies", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER",
+        "core": "سنصلح الطابعة خلال 2 ساعات، ثم اطبعوا صفحة اختبار."}), 201)
+    flag = next(f for f in reply["flags"] if f["code"] == "PROMISE")
+    assert expect(client.post(f"{BASE}/flags/{flag['id']}", json={"action": "HEEDED"}))["state"] == "HEEDED"
+    copied = client.post(f"{BASE}/replies/{reply['id']}/release", json={"via": "COPY", "body_sha256": reply["body_sha256"]})
+    assert copied.status_code == 409
+    assert expect(client.get(f"{BASE}/tickets/{t['id']}"))["live_reply"] is None
 
 
 def test_symbols_review_of_an_edited_reply_gates_the_copy_until_decided(agent, gateway):
@@ -328,34 +360,16 @@ def test_the_knowledge_base_is_written_reviewed_published_and_searched(agent, ga
     assert stale.json()["detail"] == "تغيّرت المقالة منذ عرضها. راجعها مرة أخرى."
 
 
-def test_an_article_is_proposed_from_a_ticket_that_had_a_sent_reply(agent, gateway):
-    client, _ = agent
-    accept(client)
-    t = ticket(client)
-    no_source = client.post(f"{BASE}/kb/proposals", json={"ticket_id": t["id"]})
-    assert no_source.json()["code"] == "KB_SOURCE"
-    reply = expect(client.post(f"{BASE}/tickets/{t['id']}/replies", json={
-        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER",
-        "core": "أعيدوا تشغيل الطابعة ثم اطبعوا صفحة اختبار من قائمتها."}), 201)
-    for f in reply["flags"]:
-        expect(client.post(f"{BASE}/flags/{f['id']}", json={"action": "HEEDED"}))
-    expect(client.post(f"{BASE}/replies/{reply['id']}/release", json={"via": "COPY", "body_sha256": reply["body_sha256"]}))
-    expect(client.post(f"{BASE}/replies/{reply['id']}/confirm", json={"sent": True}))
-    gateway.queue(proposal_reply())
-    proposed = expect(client.post(f"{BASE}/kb/proposals", json={"ticket_id": t["id"]}), 201)
-    assert proposed["state"] == "PROPOSED" and proposed["versions"][0]["origin"] == "AI"
-    assert expect(client.get(f"{BASE}/home"))["counts"]["kb_attention"] == 1
-    gateway.queue(proposal_reply("NOT_ENOUGH", "", "", "", "", ""))
-    assert client.post(f"{BASE}/kb/proposals", json={"ticket_id": t["id"]}).json()["code"] == "KB_NOT_ENOUGH"
-
-
 def test_settings_keep_a_signature_and_service_targets_and_phrases_are_static(agent):
     client, _ = agent
     settings = expect(client.put(f"{BASE}/settings", json={"signature": SIGNATURE,
                                                           "sla": {"URGENT": {"first_reply_minutes": 30, "resolve_minutes": 240}}}))
     assert settings["signature"] == SIGNATURE and settings["sla"]["URGENT"] == {"first_reply_minutes": 30, "resolve_minutes": 240}
-    assert {u["kind"] for u in settings["ai_usage"]} == {"SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_PROPOSAL",
-                                                          "SUPPORT_ARTICLE_REVIEW"}
+    # حفظ أهداف الوقت وحدها (كما تفعل شاشتها) لا يمسح التوقيع؛ وnull صريحٌ يمسحه.
+    settings = expect(client.put(f"{BASE}/settings", json={"sla": {"HIGH": {"first_reply_minutes": 60, "resolve_minutes": 480}}}))
+    assert settings["signature"] == SIGNATURE and settings["sla"]["HIGH"] == {"first_reply_minutes": 60, "resolve_minutes": 480}
+    assert expect(client.put(f"{BASE}/settings", json={"signature": None}))["signature"] is None
+    assert {u["kind"] for u in settings["ai_usage"]} == {"SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_REVIEW"}
     bad = client.put(f"{BASE}/settings", json={"signature": "اتصل 0551234567"})
     assert (bad.status_code, bad.json()["code"]) == (422, "SIGNATURE")
     phrases = expect(client.get(f"{BASE}/phrases"))
@@ -379,11 +393,65 @@ def test_ask_symbol_reads_the_desk_counts_and_the_ticket_state_but_no_customer_t
     assert refused.status_code == 404
 
 
-def test_symbol_reviews_an_article_only_after_the_desk_notice(agent):
-    """مراجعة المقالة ترسل نصّها إلى Anthropic: قبل إشعار المكتب 409 NOTICE برسالته، والاعتماد بلا مراجعةٍ يبقى ممكناً."""
+def test_symbol_reviews_an_article_only_after_the_desk_notice(agent, owner):
+    """
+    مراجعة المقالة ترسل نصّها إلى Anthropic: قبل إشعار المكتب — أو بعد نسخةٍ أقدم من الحالية — 409 NOTICE برسالته،
+    والاعتماد بلا مراجعةٍ يبقى ممكناً.
+    """
     client, _ = agent
     a = article(client, publish=False)
-    refused = client.post("/api/ai/review", json={"feature": "SUPPORT_ARTICLE_REVIEW", "subject_kind": "KB_ARTICLE", "subject_id": a["id"]})
+    body = {"feature": "SUPPORT_ARTICLE_REVIEW", "subject_kind": "KB_ARTICLE", "subject_id": a["id"]}
+    refused = client.post("/api/ai/review", json=body)
     assert (refused.status_code, refused.json()["code"]) == (409, "NOTICE")
+    accept(client)
+    with owner.cursor() as cursor:
+        cursor.execute("UPDATE support_settings SET notice_version = '2025-01-01'")
+    old = client.post("/api/ai/review", json=body)
+    assert (old.status_code, old.json()["code"], old.json()["detail"]) == (409, "NOTICE", "اقرأ إشعار مكتب الدعم ووافق عليه أولاً.")
     published = expect(client.post(f"{BASE}/kb/{a['id']}/publish", json={"expected_row_version": a["row_version"], "version": 1}))
     assert published["state"] == "PUBLISHED"
+
+
+def test_the_lists_page_by_the_size_the_client_shows(agent):
+    """القوائم تُقسَّم بحجم صفحة العميل (3 في الحجم الكبير)، فلا يعرض الجدول أكثر ممّا أرسل الخادم ولا تأتي صفحته الثانية فارغة."""
+    client, _ = agent
+    accept(client)
+    for n in range(4):
+        ticket(client, text=f"الطابعة رقم {n + 1} في المكتب لا تطبع شيئاً منذ الصباح.")
+    first = expect(client.get(f"{BASE}/tickets", params={"view": "open", "size": 3}))
+    assert (len(first["items"]), first["pages"], first["total"]) == (3, 2, 4)
+    second = expect(client.get(f"{BASE}/tickets", params={"view": "open", "size": 3, "page": 2}))
+    assert len(second["items"]) == 1 and {r["id"] for r in second["items"]}.isdisjoint(r["id"] for r in first["items"])
+    assert expect(client.get(f"{BASE}/tickets", params={"view": "open"}))["pages"] == 1
+    assert client.get(f"{BASE}/tickets", params={"view": "open", "size": 7}).status_code == 422
+    for n in range(3):
+        article(client, title=f"الطابعة تطبع صفحاتٍ فارغة {n + 1}")
+    found = expect(client.get(f"{BASE}/kb", params={"q": "الطابعة", "size": 2}))
+    assert (len(found["items"]), found["pages"], found["total"]) == (2, 2, 3)
+    rest = expect(client.get(f"{BASE}/kb", params={"q": "الطابعة", "size": 2, "page": 2}))
+    assert len(rest["items"]) == 1
+
+
+def test_an_article_inserted_into_a_written_reply_is_kept_with_it_and_reviewed_with_it(agent, gateway):
+    """«أضف من قاعدة المعرفة»: المقالة تُحفظ مع الردّ فتراها مراجعة سيمبول وتعود إلى المحرّر؛ وغير المنشورة تُرفض."""
+    client, _ = agent
+    accept(client)
+    article(client, title="شاشة جهاز الاستقبال سوداء", issue="شاشة جهاز الاستقبال سوداء ولا تستجيب.",
+            resolution="1. افصل جهاز الاستقبال عن الكهرباء دقيقةً كاملة.\n2. أعد توصيله وانتظر ظهور الشعار.")
+    kb = article(client)   # مقالة الطابعة: الأقرب لرسالة العميل، فلا تُغني عن المدرجة
+    draft_one = article(client, title="مسودةٌ لم تُنشر بعد", publish=False)
+    t = ticket(client)
+    core = "افصلوا جهاز الاستقبال عن الكهرباء دقيقةً كاملة، ثم أعيدوا توصيله وانتظروا ظهور الشعار."
+    screen = expect(client.get(f"{BASE}/kb", params={"q": "جهاز الاستقبال"}))["items"][0]
+    refused = client.post(f"{BASE}/tickets/{t['id']}/replies", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER", "core": core,
+        "kb_article_ids": [draft_one["id"]]})
+    assert refused.status_code == 422
+    reply = expect(client.post(f"{BASE}/tickets/{t['id']}/replies", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER", "core": core,
+        "kb_article_ids": [screen["id"]]}), 201)
+    assert reply["kb_article_ids"] == [screen["id"]] and screen["id"] != kb["id"]
+    gateway.queue(review_reply())
+    expect(client.post("/api/ai/review", json={"feature": "SUPPORT_REPLY_REVIEW", "subject_kind": "SUPPORT_REPLY",
+                                               "subject_id": reply["id"]}))
+    assert "شاشة جهاز الاستقبال سوداء" in gateway.calls[-1].user

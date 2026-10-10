@@ -66,7 +66,6 @@ __all__ = [
     "mask_preview",
     "phrases",
     "prepare_reply",
-    "propose_article",
     "publish",
     "reject_draft",
     "release_reply",
@@ -79,6 +78,8 @@ __all__ = [
 ]
 
 PAGE_SIZE = 20
+#: أحجام صفحات القوائم: 2 و3 للحجم الكبير، و10 و20 للعادي (العميل يطلب ما يعرضه الجدول بالضبط).
+PAGE_SIZES = (2, 3, 4, 5, 10, 20)
 MAX_PAGE = 500
 TICKET_GONE = "التذكرة غير موجودة."
 ARTICLE_GONE = "المقالة غير موجودة."
@@ -93,7 +94,7 @@ KB_IDS_MAX = 3
 
 
 class SupportAiFailure(Exception):
-    """استدعاءٌ لسيمبول لم يُنتج شيئاً: النتيجة (REFUSED، OUTPUT_INVALID، UPSTREAM_*، DOWN، SLOTS، NOT_ENOUGH)."""
+    """استدعاءٌ لسيمبول لم يُنتج شيئاً: النتيجة (REFUSED، OUTPUT_INVALID، UPSTREAM_*، DOWN، SLOTS)."""
 
     def __init__(self, outcome: str, retry_after_seconds: int | None = None) -> None:
         super().__init__(outcome)
@@ -123,9 +124,15 @@ def _page(page: int) -> int:
     return page
 
 
-def _paged(rows: list[dict], items: list, page: int, total: int | None = None) -> dict:
+def _size(size: int) -> int:
+    if size not in PAGE_SIZES:
+        raise Invalid("PAGE", field="size")
+    return size
+
+
+def _paged(rows: list[dict], items: list, page: int, total: int | None = None, size: int = PAGE_SIZE) -> dict:
     total = rows[0]["total"] if rows else (total or 0)
-    return {"items": items, "page": page, "pages": max(1, -(-total // PAGE_SIZE)), "total": total}
+    return {"items": items, "page": page, "pages": max(1, -(-total // size)), "total": total}
 
 
 @contextmanager
@@ -168,7 +175,8 @@ SELECT t.id, t.number, t.status, t.priority, t.category, t.channel, t.customer_l
        d.id AS draft_id, d.based_on_message_id AS draft_based_on, d.result AS draft_result, d.body AS draft_body,
        d.rejected_at AS draft_rejected_at, d.suggested_priority,
        (SELECT r.state FROM support_replies r WHERE r.ticket_id = t.id AND r.state IN ('READY', 'RELEASED')) AS live_state,
-       (SELECT count(*) FROM support_flags f WHERE f.ticket_id = t.id AND f.state = 'OPEN') AS open_flags
+       (SELECT count(*) FROM support_flags f JOIN support_replies r ON r.id = f.reply_id
+         WHERE f.ticket_id = t.id AND f.state = 'OPEN' AND r.state = 'READY') AS open_flags
   FROM support_tickets t
   LEFT JOIN LATERAL (SELECT * FROM support_drafts x WHERE x.ticket_id = t.id ORDER BY x.seq DESC LIMIT 1) d ON true
 """
@@ -206,7 +214,7 @@ SELECT (SELECT count(*) FROM support_tickets t
        (SELECT count(*) FROM support_tickets WHERE status IN ('NEW', 'OPEN')) AS open,
        (SELECT count(*) FROM support_tickets WHERE status = 'PENDING') AS pending,
        (SELECT count(*) FROM support_tickets WHERE status = 'ESCALATED') AS escalated,
-       (SELECT count(*) FROM kb_articles WHERE state = 'PROPOSED' OR needs_review) AS kb_attention
+       (SELECT count(*) FROM kb_articles WHERE needs_review) AS kb_attention
 """
 _SETTINGS = "SELECT signature, notice_version FROM support_settings"
 _ENSURE_SETTINGS = "SELECT ew_support_close_due() AS closed"
@@ -261,23 +269,23 @@ def home(db: Database, user_id: UUID) -> dict:
     return {"counts": counts, "notice": support_notice.notice(settings.get("notice_version"))}
 
 
-def decide_queue(db: Database, user_id: UUID, page: int) -> dict:
-    page = _page(page)
+def decide_queue(db: Database, user_id: UUID, page: int, size: int = PAGE_SIZE) -> dict:
+    page, size = _page(page), _size(size)
     with db.session(user_id) as cursor:
         rows = _rows(cursor, _TICKET_COLUMNS.replace("SELECT t.id,", "SELECT count(*) OVER () AS total, t.id,", 1)
-                     + _DECIDE_WHERE + _ORDER + " LIMIT %s OFFSET %s", (PAGE_SIZE, (page - 1) * PAGE_SIZE))
-    return _paged(rows, [_ticket_row(row) for row in rows], page)
+                     + _DECIDE_WHERE + _ORDER + " LIMIT %s OFFSET %s", (size, (page - 1) * size))
+    return _paged(rows, [_ticket_row(row) for row in rows], page, size=size)
 
 
-def list_tickets(db: Database, user_id: UUID, view: str, page: int) -> dict:
+def list_tickets(db: Database, user_id: UUID, view: str, page: int, size: int = PAGE_SIZE) -> dict:
     if view not in _VIEWS:
         raise Invalid("VIEW", field="view")
-    page = _page(page)
+    page, size = _page(page), _size(size)
     order = " ORDER BY t.updated_at DESC, t.number DESC" if view in ("resolved", "closed") else _ORDER
     with db.session(user_id) as cursor:
         rows = _rows(cursor, _TICKET_COLUMNS.replace("SELECT t.id,", "SELECT count(*) OVER () AS total, t.id,", 1)
-                     + f" WHERE {_VIEWS[view]}" + order + " LIMIT %s OFFSET %s", (PAGE_SIZE, (page - 1) * PAGE_SIZE))
-    return _paged(rows, [_ticket_row(row) for row in rows], page)
+                     + f" WHERE {_VIEWS[view]}" + order + " LIMIT %s OFFSET %s", (size, (page - 1) * size))
+    return _paged(rows, [_ticket_row(row) for row in rows], page, size=size)
 
 
 # ── التذكرة ─────────────────────────────────────────────────────────────
@@ -334,6 +342,7 @@ def _reply_view(db: Database, user_id: UUID, cursor, reply: Mapping, language: s
         "body_sha256": bytes(reply["body_sha256"]).hex(), "state": reply["state"],
         "release_via": reply["release_via"], "at": _iso(reply["created_at"]),
         "needs_review": reply["origin"] in ("EDITED", "MANUAL") and reply["state"] == "READY",
+        "kb_article_ids": [str(k) for k in reply["kb_article_ids"]],
         "flags": flags,
     }
 
@@ -511,6 +520,8 @@ def follow_up(db: Database, user_id: UUID, closed_id: UUID, fields: Mapping) -> 
 def classify(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping) -> dict:
     subject = _subject(fields.get("subject"))
     with db.session(user_id) as cursor, _ticket_errors():
+        if "subject" not in fields:
+            subject = (_one(cursor, "SELECT subject FROM support_tickets WHERE id = %s", (ticket_id,)) or {}).get("subject")
         cursor.execute("SELECT ew_support_set_ticket(%s, %s, %s, %s, %s, %s)",
                        (ticket_id, fields["expected_row_version"], fields.get("category"), fields["priority"], subject,
                         fields.get("accept_draft_id")))
@@ -552,7 +563,7 @@ def _search(cursor, *queries: str | None) -> list[dict]:
     """أفضل المقالات المنشورة لنصوص البحث، بلا تكرار، بترتيبها."""
     found: dict[UUID, dict] = {}
     for query in queries:
-        text = " ".join((query or "").split())[:SEARCH_CHARS]
+        text = " ".join(rules.without_masks(query or "").split())[:SEARCH_CHARS]
         if len(text) < 2:
             continue
         for row in _rows(cursor, _SEARCH, (text, SEARCH_LIMIT)):
@@ -628,7 +639,8 @@ def request_draft(db: Database, runner: ReviewRunner, user_id: UUID, ticket_id: 
     sources = {str(row["article_id"]): _source(row) for row in found}
     try:
         reply = _call(runner, call)
-    except SupportAiFailure:
+    except Exception:
+        # أيّ فشلٍ قبل الجواب (المقعد، أو خطأٌ غير متوقَّع في الطريق) يُغلق الطلب، فلا يبقى مفتوحاً يحجز التالي.
         _finish(db, user_id, request_id, "UPSTREAM_ERROR", None)
         raise
     if reply.outcome != "OK":
@@ -685,7 +697,7 @@ SELECT a.id AS article_id, a.number, v.version, v.title, v.issue, v.environment,
   JOIN kb_versions v ON v.article_id = c.article_id AND v.version = c.article_version
  WHERE c.draft_id = %s
 """
-_PREPARE = "SELECT ew_support_prepare_reply(%s, %s, %s, %s, %s, %s, %s, %s, %s) AS id"
+_PREPARE = "SELECT ew_support_prepare_reply(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::uuid[]) AS id"
 
 
 def prepare_reply(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping, *, template: bool = False) -> dict:
@@ -727,7 +739,7 @@ def prepare_reply(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping,
         body = rules.compose_body(core, ticket["customer_label"], signature, language)
         flags = [] if template else rules.rule_flags(core, kind, language, grounding)
         cursor.execute(_PREPARE, (ticket_id, fields["expected_row_version"], fields["client_token"], draft_id, kind,
-                                  template, core, body, json.dumps(flags, ensure_ascii=False)))
+                                  template, core, body, json.dumps(flags, ensure_ascii=False), [str(k) for k in kb_ids]))
         reply_id = cursor.fetchone()["id"]
         reply = _one(cursor, _REPLY, (reply_id,))
         view = _reply_view(db, user_id, cursor, reply, language)
@@ -743,9 +755,17 @@ def _reply_or_404(cursor, reply_id: UUID) -> dict:
 
 
 def ack_flag(db: Database, user_id: UUID, flag_id: UUID, action: str, reason: str | None) -> dict:
+    """
+    «تابع رغم ذلك» (DISMISSED بسببه) أو «عدّل» (HEEDED). الأخذ بتنبيه ردٍّ جاهز يسحبه في المعاملة نفسها: ما يُنسخ
+    بعدها ردٌّ يُكتب من جديد، لا النصّ نفسه بلا سبب.
+    """
     with db.session(user_id) as cursor, _ticket_errors(FLAG_GONE):
         cursor.execute("SELECT ew_support_ack_flag(%s, %s, %s)", (flag_id, action, reason))
         flag = _one(cursor, "SELECT * FROM support_flags WHERE id = %s", (flag_id,))
+        if action == "HEEDED" and flag["reply_id"] is not None:
+            live = _one(cursor, "SELECT state FROM support_replies WHERE id = %s", (flag["reply_id"],))
+            if live is not None and live["state"] == "READY":
+                cursor.execute("SELECT ew_support_confirm_reply(%s, false)", (flag["reply_id"],))
     return _flag_view(flag)
 
 
@@ -782,14 +802,18 @@ def escalate(db: Database, user_id: UUID, ticket_id: UUID, fields: Mapping) -> d
         cursor.execute("SELECT ew_support_escalate(%s, %s, %s, %s)",
                        (ticket_id, fields["expected_row_version"], fields["target"], note))
     if fields.get("notify_customer"):
-        # «أبلغ العميل»: إفادةٌ جاهزة بلغته، تُنسخ وتُرسل كأيّ ردّ.
+        # «أبلغ العميل»: إفادةٌ جاهزة بلغته، تُنسخ وتُرسل كأيّ ردّ. التصعيد قد تمّ: إن تعذّر تجهيز الإفادة
+        # (توقيعٌ لا يُقبل مثلاً) عادت التذكرة مصعّدةً بلا ردّ، ولا يُقال للموظف إن التصعيد لم يتمّ.
         with db.session(user_id) as cursor:
             version = _one(cursor, "SELECT row_version FROM support_tickets WHERE id = %s", (ticket_id,))["row_version"]
             messages = _rows(cursor, _MESSAGES, (ticket_id,))
         language = _language(messages)
-        prepare_reply(db, user_id, ticket_id, {
-            "kind": "UPDATE", "expected_row_version": version, "client_token": uuid.uuid4(),
-            "core": rules.UPDATE_TEMPLATES["ESCALATED"][0 if language == "AR" else 1]}, template=True)
+        try:
+            prepare_reply(db, user_id, ticket_id, {
+                "kind": "UPDATE", "expected_row_version": version, "client_token": uuid.uuid4(),
+                "core": rules.UPDATE_TEMPLATES["ESCALATED"][0 if language == "AR" else 1]}, template=True)
+        except (Invalid, Conflict, pg_errors.IntegrityError) as error:
+            ai_log.event("support_escalation_notice_skipped", level="warning", reason=type(error).__name__)
     return _ticket_view(db, user_id, ticket_id)
 
 
@@ -832,13 +856,12 @@ SELECT count(*) OVER () AS total, a.id, a.number, a.state, a.published_version, 
 """
 _KB_VIEWS = {
     "published": "a.state = 'PUBLISHED'",
-    "attention": "(a.state = 'PROPOSED' OR a.needs_review)",
-    "drafts": "a.state IN ('DRAFT', 'PROPOSED')",
-    "proposals": "a.state = 'PROPOSED'",
+    "attention": "a.needs_review",
+    "drafts": "a.state = 'DRAFT'",
     "archived": "a.state = 'ARCHIVED'",
 }
 _VERSIONS = """
-SELECT version, title, issue, environment, resolution, cause, origin, created_at
+SELECT version, title, issue, environment, resolution, cause, created_at
   FROM kb_versions WHERE article_id = %s ORDER BY version DESC
 """
 
@@ -850,8 +873,8 @@ def _article_row(row: Mapping) -> dict:
             "reuse_count": row["reuse_count"], "row_version": row["row_version"], "updated_at": _iso(row["updated_at"])}
 
 
-def list_articles(db: Database, user_id: UUID, view: str, q: str | None, page: int) -> dict:
-    page = _page(page)
+def list_articles(db: Database, user_id: UUID, view: str, q: str | None, page: int, size: int = PAGE_SIZE) -> dict:
+    page, size = _page(page), _size(size)
     with db.session(user_id) as cursor:
         if q is not None and q.strip():
             query = " ".join(q.split())
@@ -861,12 +884,14 @@ def list_articles(db: Database, user_id: UUID, view: str, q: str | None, page: i
             rows = _rows(cursor, _ARTICLE_ROW + " WHERE a.id = ANY(%s)", (ids,))
             order = {article_id: n for n, article_id in enumerate(ids)}
             rows.sort(key=lambda row: order[row["id"]])
-            return {"items": [_article_row(r) for r in rows], "page": 1, "pages": 1, "total": len(rows)}
+            # أقرب عشر مقالات، مقسّمةً بحجم صفحة العميل كما تُقسّم القوائم.
+            items = [_article_row(r) for r in rows[(page - 1) * size:page * size]]
+            return {"items": items, "page": page, "pages": max(1, -(-len(rows) // size)), "total": len(rows)}
         if view not in _KB_VIEWS:
             raise Invalid("VIEW", field="view")
         rows = _rows(cursor, _ARTICLE_ROW + f" WHERE {_KB_VIEWS[view]} ORDER BY a.number DESC LIMIT %s OFFSET %s",
-                     (PAGE_SIZE, (page - 1) * PAGE_SIZE))
-    return _paged(rows, [_article_row(r) for r in rows], page)
+                     (size, (page - 1) * size))
+    return _paged(rows, [_article_row(r) for r in rows], page, size=size)
 
 
 def _article_view(db: Database, user_id: UUID, article_id: UUID) -> dict:
@@ -880,7 +905,7 @@ def _article_view(db: Database, user_id: UUID, article_id: UUID) -> dict:
     view = _article_row(row)
     view["versions"] = [{"version": v["version"], "title": v["title"], "issue": v["issue"],
                          "environment": v["environment"], "resolution": v["resolution"], "cause": v["cause"],
-                         "origin": v["origin"], "at": _iso(v["created_at"])} for v in versions]
+                         "at": _iso(v["created_at"])} for v in versions]
     view["source_ticket_id"] = None if row["source_ticket_id"] is None else str(row["source_ticket_id"])
     view["digest"] = None if digest is None else bytes(digest).hex()
     view["flags"] = [] if digest is None else reviewer.flags_for(db, user_id, "KB_ARTICLE", article_id, bytes(digest))
@@ -964,45 +989,6 @@ def mark_review(db: Database, user_id: UUID, article_id: UUID, expected_row_vers
     return _article_view(db, user_id, article_id)
 
 
-_RECORD_PROPOSAL = "SELECT ew_kb_record_proposal(%s, %s, %s, %s, %s, %s, %s) AS id"
-
-
-def propose_article(db: Database, runner: ReviewRunner, user_id: UUID, ticket_id: UUID) -> dict:
-    """«اقترح مقالة من هذه التذكرة»: سيمبول يكتب، والمقالة اقتراحٌ لا يُقرأ حتى تُعتمد."""
-    with db.session(user_id) as cursor, _ticket_errors():
-        cursor.execute("SELECT ew_kb_begin_proposal(%s) AS id", (ticket_id,))
-        request_id = cursor.fetchone()["id"]
-        thread_rows = _rows(cursor, _THREAD, (ticket_id,))
-    try:
-        reply = _call(runner, prompt.proposal_call(_thread(thread_rows)))
-    except SupportAiFailure:
-        _finish(db, user_id, request_id, "UPSTREAM_ERROR", None)
-        raise
-    if reply.outcome != "OK":
-        _finish(db, user_id, request_id, reply.outcome, reply.usage)
-        raise SupportAiFailure(reply.outcome, reply.retry_after_seconds)
-    try:
-        article = prompt.parse_proposal(reply.data)
-    except prompt.DraftInvalid as invalid:
-        ai_log.event("support_proposal_invalid", request_id=str(request_id), outcome=invalid.code)
-        _finish(db, user_id, request_id, "OUTPUT_INVALID", reply.usage)
-        raise SupportAiFailure("OUTPUT_INVALID") from invalid
-    if article is None:
-        _finish(db, user_id, request_id, "CANNOT_ANSWER", reply.usage)
-        raise SupportAiFailure("NOT_ENOUGH")
-    try:
-        with db.session(user_id) as cursor:
-            cursor.execute(_RECORD_PROPOSAL, (request_id, article["title"], article["issue"], article["environment"],
-                                              article["resolution"], article["cause"], json.dumps(reply.usage)))
-            article_id = cursor.fetchone()["id"]
-    except pg_errors.IntegrityError as error:
-        ai_log.event("support_proposal_unrecorded", level="critical", request_id=str(request_id),
-                     constraint=getattr(error.diag, "constraint_name", None))
-        _finish(db, user_id, request_id, "OUTPUT_INVALID", reply.usage)
-        raise SupportAiFailure("OUTPUT_INVALID") from error
-    return _article_view(db, user_id, article_id)
-
-
 _REJECTIONS = """
 SELECT reject_reason AS reason, count(*) AS count FROM support_drafts
  WHERE rejected_at > now() - make_interval(days => %s) GROUP BY reject_reason ORDER BY count(*) DESC, reject_reason
@@ -1041,14 +1027,17 @@ def get_settings(db: Database, user_id: UUID) -> dict:
         sla = {r["priority"]: {"first_reply_minutes": r["first_reply_minutes"], "resolve_minutes": r["resolve_minutes"]}
                for r in _rows(cursor, _SLA_TARGETS)}
         usage = [{"kind": code, **reviewer.usage(cursor, code)}
-                 for code in ("SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_PROPOSAL",
-                              "SUPPORT_ARTICLE_REVIEW")]
+                 for code in ("SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_REVIEW")]
     return {"signature": settings.get("signature"), "sla": sla, "ai_usage": usage,
             "notice": support_notice.notice(settings.get("notice_version"))}
 
 
-def save_settings(db: Database, user_id: UUID, signature: str | None, sla: Mapping | None) -> dict:
-    if signature is not None:
+#: «لم يُرسل»: يبقى الحقل كما هو.
+KEEP = object()
+
+
+def save_settings(db: Database, user_id: UUID, signature: str | None | object, sla: Mapping | None) -> dict:
+    if isinstance(signature, str):
         signature = rules.one_line(signature) or None
         if signature is not None and (not 2 <= len(signature) <= 60 or not rules.contact_free(signature)):
             raise Invalid("SIGNATURE", field="signature")
@@ -1060,6 +1049,8 @@ def save_settings(db: Database, user_id: UUID, signature: str | None, sla: Mappi
                 raise Invalid("SLA", field="sla")
             targets[priority] = [value["first_reply_minutes"], value["resolve_minutes"]]
     with db.session(user_id) as cursor:
+        if signature is KEEP:
+            signature = (_one(cursor, _SETTINGS) or {}).get("signature")
         cursor.execute("SELECT ew_support_save_settings(%s, %s)",
                        (signature, None if targets is None else json.dumps(targets)))
     return get_settings(db, user_id)
@@ -1089,7 +1080,7 @@ def phrases() -> dict:
 
 # ── المراجِع: الردّ والمقالة ────────────────────────────────────────────
 _REVIEW_REPLY = """
-SELECT r.id, r.ticket_id, r.kind, r.core, r.body_sha256, r.draft_id, r.state, r.origin
+SELECT r.id, r.ticket_id, r.kind, r.core, r.body_sha256, r.draft_id, r.state, r.origin, r.kb_article_ids
   FROM support_replies r WHERE r.id = %s
 """
 _LAST_CUSTOMER = """
@@ -1097,16 +1088,30 @@ SELECT body FROM support_messages WHERE ticket_id = %s AND author = 'CUSTOMER' O
 """
 
 
+def _require_current_notice(cursor) -> None:
+    """
+    مراجعتا الردّ والمقالة تمرّان بالمسار المشترك `/api/ai/review`، لا بحارس مسارات المكتب: فتُفحص هنا النسخة
+    الحالية من إشعار المكتب قبل أن يُفتح شيء (والقاعدة تفحص أن إشعاراً ما قُبل).
+    """
+    row = _one(cursor, "SELECT notice_version FROM support_settings")
+    if not support_notice.is_current(None if row is None else row["notice_version"]):
+        raise Conflict("NOTICE", detail="اقرأ إشعار مكتب الدعم ووافق عليه أولاً.")
+
+
 def _load_reply(cursor, user_id: UUID, kind: str, reply_id: UUID, _expected: int | None) -> Snapshot:
     """
-    الردّ كما يراه المراجِع: آخر رسالةٍ من العميل، ونوعه، وجمله، والمقالات التي اقتبست منها
-    مسودته؛ وإن لم تكن فأقرب ثلاثٍ منشورة لرسالة العميل.
+    الردّ كما يراه المراجِع: آخر رسالةٍ من العميل، ونوعه، وجمله، والمقالات التي اقتبست منها مسودته والتي أدرج
+    الموظف خطواتها؛ وإن لم تكن فأقرب ثلاثٍ منشورة لرسالة العميل.
     """
+    _require_current_notice(cursor)
     reply = _one(cursor, _REVIEW_REPLY, (reply_id,))
     if reply is None or reply["state"] != "READY" or reply["origin"] not in ("EDITED", "MANUAL"):
         raise NotFound("NOT_FOUND", reviewer.NO_REVIEW)
     last = (_one(cursor, _LAST_CUSTOMER, (reply["ticket_id"],)) or {}).get("body", "")
     rows = _rows(cursor, _DRAFT_SOURCES, (reply["draft_id"],)) if reply["draft_id"] else []
+    if reply["kb_article_ids"]:
+        cited = {row["title"] for row in rows}
+        rows += [row for row in _rows(cursor, _KB_PUBLISHED, (list(reply["kb_article_ids"]),)) if row["title"] not in cited]
     if not rows:
         rows = _search(cursor, last)[:3]
     articles = [(row["title"], prompt.article_text(row["title"], row["issue"], row["environment"], row["resolution"],
@@ -1124,6 +1129,7 @@ SELECT a.id, a.state, a.latest_version, a.published_version, v.title, v.issue, v
 
 def _load_article(cursor, user_id: UUID, kind: str, article_id: UUID, _expected: int | None) -> Snapshot:
     """آخر نسخةٍ من مقالةٍ لم تُنشر، وأقرب ثلاثٍ منشورةٍ إليها (غيرها)."""
+    _require_current_notice(cursor)
     row = _one(cursor, _REVIEW_ARTICLE, (article_id,))
     if row is None or row["state"] in ("ARCHIVED", "DISCARDED") or row["published_version"] == row["latest_version"]:
         raise NotFound("NOT_FOUND", reviewer.NO_REVIEW)
@@ -1200,7 +1206,7 @@ def _assistant_home(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str,
     return assistant.fit([
         f"بانتظار قرارك: {c['decide']}، والتذاكر المفتوحة: {c['open']}، وبانتظار العميل: {c['pending']}، "
         f"والمُصعَّدة: {c['escalated']}",
-        f"مقالاتٌ مقترحة أو تحتاج مراجعة: {c['kb_attention']}"])
+        f"مقالاتٌ تحتاج مراجعة: {c['kb_attention']}"])
 
 
 def _assistant_ticket(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str, ...]:

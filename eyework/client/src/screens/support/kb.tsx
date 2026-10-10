@@ -9,7 +9,7 @@
  */
 
 import * as React from "react"
-import { Archive, BookOpen, CheckCircle2, FilePlus2, Flag, FlagOff, Lightbulb, PencilLine, RefreshCw, Save, Search, Sparkles, Trash2 } from "lucide-react"
+import { Archive, BookOpen, CheckCircle2, FilePlus2, Flag, FlagOff, Lightbulb, PencilLine, RefreshCw, Save, Search, Trash2 } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { AIFlag } from "@/components/ui/ai-flag"
@@ -24,14 +24,14 @@ import { Stepper } from "@/components/ui/stepper"
 import { Tabs } from "@/components/ui/tabs"
 import { formatDay } from "@/lib/format"
 import {
-  ARTICLE_STATE, REJECT_REASON, type AiFlag, type Article, type ArticleFields, type ArticleRow, type Improve, type KbView, type Paged, type ReviewAnswer,
+  ARTICLE_STATE, REJECT_REASON, REVIEW_REASON, type AiFlag, type Article, type ArticleFields, type ArticleRow, type Improve, type KbView, type Paged, type ReviewAnswer,
 } from "@/lib/support"
-import { useSize } from "@/lib/size"
+import { LONG_LIST_PAGE, useSize } from "@/lib/size"
 
 import type { Fail } from "./common"
 
 const STATE_TONE: Record<ArticleRow["state"], "success" | "info" | "neutral" | "warning"> = {
-  PUBLISHED: "success", DRAFT: "neutral", PROPOSED: "info", ARCHIVED: "neutral", DISCARDED: "neutral",
+  PUBLISHED: "success", DRAFT: "neutral", ARCHIVED: "neutral", DISCARDED: "neutral",
 }
 
 function rowLine(row: ArticleRow): string {
@@ -45,7 +45,8 @@ function rowLine(row: ArticleRow): string {
 function ArticleTable({ caption, rows, total, page, onPage, onOpen, empty }: {
   caption: string
   rows: ArticleRow[]
-  total: number
+  /** مجموع صفوف الخادم إن كانت صفحاتها منه؛ بلا قيمةٍ تُقسَّم الصفوف هنا. */
+  total?: number
   page: number
   onPage: (page: number) => void
   onOpen: (row: ArticleRow) => void
@@ -65,7 +66,7 @@ function ArticleTable({ caption, rows, total, page, onPage, onOpen, empty }: {
       trailing={(row) => <Badge tone={row.needs_review ? "warning" : STATE_TONE[row.state]} className="gaze:hidden">{row.needs_review ? "تحتاج مراجعة" : ARTICLE_STATE[row.state]}</Badge>}
       onOpen={onOpen}
       openLabel={(row) => `افتح KB-${row.number}`}
-      pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+      pageSize={LONG_LIST_PAGE}
       page={page}
       onPageChange={onPage}
       total={total}
@@ -181,15 +182,15 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
       : <Button key="review" id="article-needs-review" icon={Flag} busy={busy === "review"} onClick={() => void run("review", () => onMarkReview(true))}>علّمها تحتاج مراجعة</Button>)
     actions.push(<Button key="archive" id="article-archive" icon={Archive} busy={busy === "archive"} onClick={() => void run("archive", () => onState("ARCHIVED"))}>أرشف</Button>)
   }
-  if (article.state === "DRAFT" || article.state === "PROPOSED") {
-    actions.push(<Button key="discard" id="article-discard" variant="danger-outline" icon={Trash2} busy={busy === "discard"} onClick={() => void run("discard", () => onState("DISCARDED"))}>{article.state === "PROPOSED" ? "تجاهل الاقتراح" : "تجاهل المسودة"}</Button>)
+  if (article.state === "DRAFT") {
+    actions.push(<Button key="discard" id="article-discard" variant="danger-outline" icon={Trash2} busy={busy === "discard"} onClick={() => void run("discard", () => onState("DISCARDED"))}>تجاهل المسودة</Button>)
   }
   const facts = (
     <p className="text-small text-muted-foreground">
       النسخة {latest.version}
       {article.published_version ? ` · المنشورة ${article.published_version}` : " · لم تُنشر بعد"}
       {latest.at ? ` · ${formatDay(latest.at)}` : ""}
-      {article.needs_review ? ` · تحتاج مراجعة${article.needs_review_reason ? `: ${article.needs_review_reason}` : ""}` : ""}
+      {article.needs_review ? ` · تحتاج مراجعة${article.needs_review_reason ? `: ${REVIEW_REASON[article.needs_review_reason] ?? ""}` : ""}` : ""}
     </p>
   )
   return (
@@ -222,14 +223,12 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
 
 const EMPTY: ArticleFields = { title: "", issue: "", environment: null, resolution: "", cause: null }
 
-export function ArticleEditor({ article, sourceTicket, onSave, onPropose, onBack }: {
+export function ArticleEditor({ article, sourceTicket, onSave, onBack }: {
   /** المقالة التي تُضاف إليها نسخة، أو null لمقالةٍ جديدة. */
   article: Article | null
   /** التذكرة التي تُكتب منها المقالة («ثغرات القاعدة»)، أو null. */
   sourceTicket: { id: string; number: number | null } | null
   onSave: (fields: ArticleFields) => Promise<Fail>
-  /** «اقترح سيمبول مقالة» من التذكرة. */
-  onPropose: (() => Promise<Fail>) | null
   onBack: () => void
 }) {
   const { size } = useSize()
@@ -281,11 +280,6 @@ export function ArticleEditor({ article, sourceTicket, onSave, onPropose, onBack
       {article ? "احفظ نسخةً جديدة" : "احفظ المقالة"}
     </Button>
   )
-  const propose = onPropose ? (
-    <Button id="article-propose" variant="secondary" icon={Sparkles} busy={busy === "propose"} onClick={() => void run("propose", onPropose)} className="self-start gaze:w-full">
-      اقترح سيمبول مقالة من التذكرة
-    </Button>
-  ) : null
   const failAlert = fail && !["title", "issue", "resolution", "environment", "cause"].includes(fail.field ?? "") ? <Alert tone="danger" title="لم تُحفظ" live>{fail.message}</Alert> : null
   const heading = article ? `تعديل KB-${article.number}` : sourceTicket?.number ? `مقالة من التذكرة #${sourceTicket.number}` : "مقالة جديدة"
   if (gaze) {
@@ -302,14 +296,13 @@ export function ArticleEditor({ article, sourceTicket, onSave, onPropose, onBack
         {step === 0 ? <>{title}{issue}</> : null}
         {step === 1 ? resolution : null}
         {step === 2 ? <>{environment}{cause}</> : null}
-        {step === 3 ? <>{save}{failAlert}{fail && !failAlert ? <Alert tone="danger" title="لم تُحفظ" live>{fail.message}</Alert> : null}{propose}</> : null}
+        {step === 3 ? <>{save}{failAlert}{fail && !failAlert ? <Alert tone="danger" title="لم تُحفظ" live>{fail.message}</Alert> : null}</> : null}
       </Screen>
     )
   }
   return (
     <Screen title={heading} back={{ id: "article-back", label: "رجوع", onClick: onBack }} actions={<div className="ms-auto">{save}</div>}>
       {failAlert}
-      {propose}
       {title}
       {issue}
       {environment}
@@ -333,7 +326,8 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
 }) {
   const { size } = useSize()
   const gaze = size === "gaze"
-  const [page, setPage] = React.useState(0)
+  // بمعرّف الصفحة لا رقمها: ملاحظاتٌ متأخرة (409 بعد «اعتمد المقالة») تُدرج قبل صفحة الاعتماد ولا تحلّ محلّها.
+  const [pageId, setPageId] = React.useState("summary")
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
   const flags = late ?? answer?.flags ?? article.flags
@@ -365,9 +359,10 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
   const failAlert = fail ? <Alert tone="danger" title="لم تُعتمد" live>{fail.message}</Alert> : null
   if (gaze) {
     // الملخّص أوّلاً (لا شيء يُضغط تحت نظرٍ وصل من «اعتمد»)، ثم ملاحظةٌ في كل صفحة، ثم «اعتمد المقالة» في أعلى آخرها.
-    const pages = [{ id: "summary" }, ...cards.map((_, i) => ({ id: `flag-${i}` })), { id: "publish" }]
-    const index = Math.min(page, pages.length - 1)
+    const pages = [{ id: "summary" }, ...flags.map((f) => ({ id: `flag-${f.id}` })), { id: "publish" }]
+    const index = Math.max(0, pages.findIndex((p) => p.id === pageId))
     const at = pages[index]
+    const setPage = (next: number) => setPageId(pages[next].id)
     const flagIndex = index - 1
     const decided = at.id.startsWith("flag-") ? flags[flagIndex].decision === "PROCEED" : !(at.id === "summary" && reviewing)
     return (
@@ -436,7 +431,7 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
       />
     )
   } else if (data && tab === "attention") {
-    body = <ArticleTable caption="تحتاج نظرة" rows={data.attention} total={data.attention.length} page={page} onPage={setPage} onOpen={onOpenArticle} empty={<EmptyState icon={BookOpen} title="لا مقالة تحتاج نظرة" />} />
+    body = <ArticleTable caption="تحتاج نظرة" rows={data.attention} page={page} onPage={setPage} onOpen={onOpenArticle} empty={<EmptyState icon={BookOpen} title="لا مقالة تحتاج نظرة" />} />
   }
   return (
     <Screen

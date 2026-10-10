@@ -13,10 +13,9 @@ import { Alert } from "@/components/ui/alert"
 import { BackIcon, Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
 import { Tabs } from "@/components/ui/tabs"
-import { useToast } from "@/components/ui/toast"
 import { PRIORITIES, PRIORITY, SLA_FIRST, SLA_RESOLVE, USAGE_KIND, type Priority, type Settings } from "@/lib/support"
 import { useSize } from "@/lib/size"
-import { GazeHost, Picker } from "@/screens/inventory/common"
+import { GazeHost, GazeSlot, Picker } from "@/screens/inventory/common"
 
 import type { Fail } from "./common"
 
@@ -30,7 +29,6 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
 }) {
   const { size } = useSize()
   const gaze = size === "gaze"
-  const toast = useToast()
   const [section, setSection] = React.useState<Section>("signature")
   const [signature, setSignature] = React.useState(settings.signature ?? "")
   const [sla, setSla] = React.useState(settings.sla)
@@ -38,14 +36,18 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
   const [busy, setBusy] = React.useState<string | null>(null)
   const [fail, setFail] = React.useState<Fail>(null)
 
+  // «حُفظت» سطرٌ تحت زرّ الحفظ لا إشعارٌ عائم: الإشعار يبقى حتى يُغلق ويغطّي أعلى الشاشة في الحجم الكبير.
+  const [saved, setSaved] = React.useState<string | null>(null)
   async function save(id: string, body: { signature?: string | null; sla?: Partial<Settings["sla"]> }) {
     setBusy(id)
     setFail(null)
+    setSaved(null)
     const result = await onSave(body)
     setBusy(null)
     setFail(result)
-    if (!result) toast.show({ title: "حُفظت الإعدادات", tone: "success" })
+    if (!result) setSaved(id)
   }
+  const savedLine = (id: string) => saved === id ? <p id="settings-saved" role="status" className="text-small font-semibold text-success">حُفظت الإعدادات.</p> : null
 
   const signatureBlock = (
     <div className="flex flex-col gap-tg">
@@ -55,6 +57,7 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
       <Button id="settings-save-signature" variant="primary" icon={Save} busy={busy === "signature"} onClick={() => void save("signature", { signature: signature.trim() || null })} className="self-start gaze:w-full">
         احفظ التوقيع
       </Button>
+      {savedLine("signature")}
     </div>
   )
 
@@ -77,10 +80,13 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
             {target(priority)}
           </>
         ) : PRIORITIES.map(target)}
+        <GazeSlot id="settings-save-sla-slot">
+          <Button id="settings-save-sla" variant="primary" icon={Save} busy={busy === "sla"} onClick={() => void save("sla", { sla })} className="self-start gaze:w-full">
+            احفظ الأهداف
+          </Button>
+          {savedLine("sla")}
+        </GazeSlot>
       </GazeHost>
-      <Button id="settings-save-sla" variant="primary" icon={Save} busy={busy === "sla"} onClick={() => void save("sla", { sla })} className="self-start gaze:w-full">
-        احفظ الأهداف
-      </Button>
     </div>
   )
   const usageBlock = (

@@ -33,7 +33,7 @@ import {
   type InventoryChoices, type ItemOption, type Paged, type Purchase, type PurchaseLine, type PurchaseRow, type PurchaseStatus, type Rep,
 } from "@/lib/inventory"
 import { formatAmount, parseAmount } from "@/lib/money"
-import { useSize } from "@/lib/size"
+import { LIST_PAGE, useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 import { Facts, GazeHost, GazeSlot, Money, Picker, Qty, useOpenReport, type Fact } from "./common"
@@ -95,7 +95,7 @@ export function PurchasesScreen({ data, status, onStatus, query, onQuery, page, 
             )}
             onOpen={onOpen}
             openLabel={(row) => `افتح ${row.label ?? "المسودة"}`}
-            pageSize={{ compact: 10, gaze: 3, gazeShort: 2 }}
+            pageSize={LIST_PAGE}
             page={page}
             onPageChange={onPage}
             total={data.total}

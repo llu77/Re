@@ -17,7 +17,7 @@ import { DataTable } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { detail, errorField, type ApiResult } from "@/lib/api"
 import { CATEGORY, PRIORITY, STATUS, slaText, ticketTitle, type Paged, type Priority, type TicketRow, type TicketStatus } from "@/lib/support"
-import { usePageSize } from "@/lib/size"
+import { LONG_LIST_PAGE, usePageSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 export type Fail = { message: string; field: string | null } | null
@@ -79,7 +79,7 @@ export function TicketTable({ caption, data, page, onPage, onOpen, empty }: {
       trailing={(row) => <StatusBadge status={row.status} className="gaze:hidden" />}
       onOpen={onOpen}
       openLabel={(row) => `افتح التذكرة ${row.number}`}
-      pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+      pageSize={LONG_LIST_PAGE}
       page={page}
       onPageChange={onPage}
       total={data.total}

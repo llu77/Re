@@ -58,7 +58,7 @@ export function SupportHome({ workspace, userName, home, onNavigate }: {
         </Button>
       ) : null}
       <HomeGrid workspace={workspace} onNavigate={onNavigate} counts={counts} />
-      <div className="tablet:hidden">
+      <div className={needsNotice ? "tablet:hidden gaze:hidden" : "tablet:hidden"}>
         <ButtonLink id="home-settings-phone" href={settings} icon={Settings2} onClick={(event) => { event.preventDefault(); onNavigate(settings) }} className="gaze:w-full">
           إعدادات الدعم
         </ButtonLink>

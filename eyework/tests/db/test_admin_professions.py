@@ -87,7 +87,7 @@ def test_leaving_marketing_cancels_open_campaigns_and_keeps_ready_ones(operator,
     move_to(app, seller, ready_one, "READY")
 
     assert admin.main(["set-profession", "--login", "seller@example.sa", "--profession", "STOREKEEPER"]) == 0
-    assert "وأُلغيت 1 حملةً مفتوحة" in capsys.readouterr().out
+    assert "وأُغلق 1 ممّا كان مفتوحاً في بوابته السابقة" in capsys.readouterr().out
     with operator.cursor() as cursor:
         cursor.execute("SELECT id, status FROM campaigns ORDER BY status")
         assert dict(cursor.fetchall()) == {open_one: "CANCELLED", ready_one: "READY"}

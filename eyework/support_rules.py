@@ -110,13 +110,30 @@ MASK_LINK = "[رابط محذوف]"
 MASK_NUMBER = "[رقم محذوف]"
 MASK_TOKENS = (MASK_EMAIL, "[رابط محذوف", MASK_NUMBER)
 
-_DIGIT = "[0-9٠-٩۰-۹]"
+_DIGIT = "[0-9٠-٩۰-۹０-９]"
+#: ما قد يفصل أرقام هاتفٍ أو حساب، حتى ثلاثةٍ متتالية: المسافات كلّها (ومنها غير الفاصلة والضيّقة والصفرية)
+#: عدا السطر الجديد، والشَّرطات، والأقواس. النقطة ليست منها: أرقام الإصدارات والعناوين (10.0.19045) تبقى.
+#: نظيرها في `ew_support_contact_free` حرفاً بحرف (اختبارٌ يقارنهما).
+_SEP = "[ \u00a0\u1680\u2000-\u200b\u202f\u205f\u3000()\u2010-\u2015\u2212\uff0d-]{0,3}"
 _EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
-_LINK = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
-#: تسعة أرقامٍ فأكثر (لاتينية أو عربية أو فارسية)، بينها مسافةٌ أو شَرطةٌ واحدة على الأكثر.
-_LONG_NUMBER = re.compile(rf"\+?(?:{_DIGIT}[ -]?){{8}}{_DIGIT}(?:[ -]?{_DIGIT})*")
-#: ما يُفحص في الردّ والمقالة: سبعة أرقامٍ فأكثر (هاتفٌ أو رقمٌ يُتّبع).
-_SEVEN_DIGITS = re.compile(rf"\+?(?:{_DIGIT}[ -]?){{6}}{_DIGIT}(?:[ -]?{_DIGIT})*")
+#: رابطٌ بمخطّطه ولو التصق بكلمةٍ قبله، أو اسم موقعٍ يتبعه مسارٌ أو استعلام (accounts.example.com/reset?…).
+_LINK = re.compile(r"(?i)(?<![a-z0-9])(?:https?://|www\.)\S+"
+                   r"|(?<![a-z0-9@.-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}[/?#]\S*")
+#: اسم موقعٍ بلا مسار بنطاقٍ شائع: يُفحص في الردّ (رابطٌ ليس في القاعدة) ولا يُحذف من كلام العميل.
+_DOMAIN = re.compile(r"(?i)(?<![a-z0-9@.-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+                     r"(?:com|net|org|sa|io|ly|co|me|info|app|dev|gov|edu|biz|ai|us|uk|ae|link|xyz|site|online|store|shop)"
+                     r"(?![a-z0-9-])")
+#: تسعة أرقامٍ فأكثر (لاتينية أو عربية أو فارسية أو عريضة) بينها فواصل `_SEP`.
+_LONG_NUMBER = re.compile(rf"[+(]?(?:{_DIGIT}{_SEP}){{8}}{_DIGIT}(?:{_SEP}{_DIGIT})*")
+#: ما يُفحص في الردّ والمقالة: سبعة أرقامٍ فأكثر (هاتفٌ أو رقمٌ يُتّبع)، لا ما التصق بحرفٍ قبله (KB5034441،
+#: 0x80070005)؛ أو مجموعاتٌ بنقاطٍ كلٌّ منها رقمان فأكثر (800.124.4444) بسبعة أرقامٍ فأكثر.
+_SEVEN_DIGITS = re.compile(rf"(?<![A-Za-z0-9٠-٩۰-۹０-９]){'[+(]'}?(?:{_DIGIT}{_SEP}){{6}}{_DIGIT}(?:{_SEP}{_DIGIT})*")
+#: مجموعاتٌ بنقاطٍ كلٌّ منها رقمان فأكثر (050.123.4567، آيبان منقّط): تُعدّ أرقامها؛ والإصدار 10.0.19045 لا يطابق.
+_DOTTED = re.compile(rf"(?<![0-9٠-٩۰-۹０-９.]){_DIGIT}{{2,}}(?:\.{_DIGIT}{{2,}})+(?![0-9٠-٩۰-۹０-９.])")
+
+
+def _digits(text: str) -> int:
+    return len(re.findall(_DIGIT, text))
 
 
 _HOST = re.compile(r"(?i)^(?:https?://)?(?:[^/@\s]*@)?([^/:?#\s]+)")
@@ -158,15 +175,24 @@ def mask(text: str) -> tuple[str, dict[str, int]]:
         counts["number"] += 1
         return MASK_NUMBER
 
+    def dotted(match: re.Match) -> str:
+        if _digits(match.group(0)) < 9:
+            return match.group(0)
+        counts["number"] += 1
+        return MASK_NUMBER
+
     text = _EMAIL.sub(email, text)
     text = _LINK.sub(link, text)
     text = _LONG_NUMBER.sub(number, text)
+    text = _DOTTED.sub(dotted, text)
     return text, counts
 
 
 def contact_free(text: str) -> bool:
-    """نظير `ew_support_contact_free`: بلا بريدٍ ولا تسعة أرقامٍ متتالية."""
-    return not _EMAIL.search(text) and not re.search(rf"(?:{_DIGIT}[ -]?){{8}}{_DIGIT}", text)
+    """نظير `ew_support_contact_free`: بلا بريدٍ ولا رابطٍ ولا تسعة أرقامٍ متتالية."""
+    return (not _EMAIL.search(text) and not _LINK.search(text)
+            and not re.search(rf"(?:{_DIGIT}{_SEP}){{8}}{_DIGIT}", text)
+            and all(_digits(m.group(0)) < 9 for m in _DOTTED.finditer(text)))
 
 
 def kb_clean(text: str) -> bool:
@@ -181,8 +207,10 @@ def kb_clean(text: str) -> bool:
 def contact_tokens(text: str) -> list[str]:
     """البريد والروابط والأرقام من سبعة فأكثر في نصّ ردٍّ أو مسودة، بترتيب ظهورها."""
     found: list[tuple[int, str]] = []
-    for pattern in (_EMAIL, _LINK, _SEVEN_DIGITS):
+    for pattern in (_EMAIL, _LINK, _DOMAIN, _SEVEN_DIGITS, _DOTTED):
         for match in pattern.finditer(text):
+            if pattern is _DOTTED and _digits(match.group(0)) < 7:
+                continue
             token = match.group(0).rstrip(".,،؛:)]»")
             if not any(start <= match.start() < start + len(seen) for start, seen in found):
                 found.append((match.start(), token))
@@ -193,9 +221,20 @@ def contact_tokens(text: str) -> list[str]:
 _ARABIC_LETTER = re.compile("[ء-يٮ-ۓۺ-ۼ]")
 
 
+_MASKED = re.compile(r"\[(?:بريد محذوف|رقم محذوف|رابط محذوف(?:: [^\]]*)?)\]")
+
+
+def without_masks(text: str) -> str:
+    """النصّ بلا علامات الحذف، للبحث في القاعدة: «رقم» و«بريد» في العلامة لا تجلب مقالاتٍ لا صلة لها."""
+    return _MASKED.sub(" ", text)
+
+
 def language_of(text: str) -> str:
-    """AR إن كانت الحروف العربية ثلث الحروف أو أكثر، وإلا EN (والنصّ بلا حروف عربيّ)."""
-    letters = [ch for ch in text if ch.isalpha()]
+    """
+    AR إن كانت الحروف العربية ثلث الحروف أو أكثر، وإلا EN (والنصّ بلا حروف عربيّ). علامات الحذف («[رقم محذوف]»)
+    لا تُعدّ: رسالةٌ إنجليزية حُذف منها بريدٌ تبقى إنجليزية.
+    """
+    letters = [ch for ch in _MASKED.sub(" ", text) if ch.isalpha()]
     if not letters:
         return "AR"
     arabic = sum(1 for ch in letters if _ARABIC_LETTER.match(ch))
@@ -204,21 +243,52 @@ def language_of(text: str) -> str:
 
 # ── تنبيهات القواعد ─────────────────────────────────────────────────────
 _PROMISE = re.compile(
-    r"خلال \d+ (?:دقيقة|دقائق|ساعة|ساعات|يوم|أيام)|غداً|غدا|اليوم نفسه|نضمن|مضمون|تعويض|استرداد|استرجاع المبلغ|مجاناً|مجانا"
+    # «غدا» كلمةٌ كاملة (بحرف عطفٍ أو سين قبلها)، فلا تُطابق «الغداء»؛ والباقي يُطابق داخل الكلمة («التعويض»، «مضمونة»).
+    r"خلال \d+ (?:دقيقة|دقائق|ساعة|ساعات|يوم|أيام)"
+    r"|(?<![ء-ي])[وفس]?(?:غداً|غدا)(?![ء-ي])"
+    r"|اليوم نفسه|نضمن|مضمون|تعويض|استرداد|استرجاع المبلغ|مجاناً|مجانا"
     r"|[0-9٠-٩]+ ?(?:ريال|ر\.س|٪|%)"
     r"|(?i:within \d+ (?:minutes?|hours?|days?)|guarantee\w*|refund\w*|compensat\w*|free of charge|\d+ ?(?:SAR|%))")
-SECRET_PHRASES = ("كلمة المرور", "كلمة السر", "رمز التحقق", "رمز التحقّق", "الرمز المرسل", "OTP", "رقم البطاقة", "CVV",
-                  "رقم الهوية", "الآيبان", "password", "verification code")
-_SECRET = re.compile("|".join(re.escape(phrase) for phrase in SECRET_PHRASES), re.IGNORECASE)
+SECRET_PHRASES = ("كلمة المرور", "كلمة السر", "الرقم السري", "رمز التحقق", "رمز التحقّق", "الرمز المرسل", "الرمز الذي وصل",
+                  "رمز الدخول", "OTP", "PIN", "رقم البطاقة", "CVV", "رقم الهوية", "الآيبان", "password", "passcode",
+                  "verification code", "one-time code", "one time code", "code you received", "code we sent")
+
+
+def _whole(phrase: str) -> str:
+    """
+    العبارة كلمةً كاملة («footprint» ليست OTP)؛ والعربية تقبل حرفاً واحداً ملتصقاً قبلها («برمز التحقق») وضميراً
+    بعدها («الرمز الذي وصلكم»).
+    """
+    if re.match("[ء-ي]", phrase):
+        return rf"(?:(?<![ء-ي])|(?<=\b[وفبلك])){re.escape(phrase)}(?:ك|كم|كن|ه|ها|ني|نا)?(?![ء-ي])"
+    return rf"(?<![A-Za-z0-9]){re.escape(phrase)}(?![A-Za-z0-9])"
+
+
+_SECRET = re.compile("|".join(_whole(phrase) for phrase in SECRET_PHRASES), re.IGNORECASE)
 #: ما يطلب من العميل أن يعطي شيئاً: «أرسلوا»، «زوّدونا»، «اكتبوا لنا»… في أوّل الكلمة، فـ«لا تشاركوا» تحذيرٌ لا
 #: طلب. جملةٌ تذكر كلمة المرور لتُغيَّر أو تُستعاد («اضغطوا «نسيت كلمة المرور»») لا تطلبها، وجملةٌ فيها فعل طلبٍ
 #: وسرٌّ تطلبه.
 _ASKS = re.compile(
     r"(?<![ء-ي])(?:أرسل|ارسل|ابعث|زوّد|زود|شارك|أعط|اعط|أخبر|اخبر|اكتب(?:وا)?\s+لنا|ضع(?:وا)?\s+(?:لنا|هنا)|"
-    r"أرفق|ارفق|انسخ(?:وا)?\s+لنا|نحتاج|نريد|يلزمنا|"
-    r"\bsend\b|\bshare\b|\bprovide\b|\bgive\s+us\b|\btell\s+us\b|\breply\s+with\b|\bwe\s+need\b)",
+    r"أرفق|ارفق|انسخ(?:وا)?\s+لنا|نحتاج|نريد|يلزمنا|اذكر|"
+    # المصدر في الطلب المهذّب: «نرجو إرسال…»، «يرجى تزويدنا…».
+    r"إرسال|ارسال|تزويد|مشاركة|إعطاء|اعطاء|إرفاق|ارفاق|إبلاغ|ابلاغ|ذكر|"
+    r"\bsend\b|\bshare\b|\bprovide\b|\bgive\s+us\b|\btell\s+us\b|\breply\s+with\b|\bwe\s+need\b|\bconfirm\s+your\b)",
     re.IGNORECASE,
 )
+#: نفيٌ قبل فعل الطلب في الجملة نفسها: «لا تشاركوا»، «ولن نطلب»، «عدم مشاركة»، "do not share"، "never send".
+_NEGATION = re.compile(r"(?<![ء-ي])[وف]?(?:لا|لن|لم|عدم|إياك[مٌ]?|اياك[م]?)(?![ء-ي])|\b(?:not|never|don't|dont|no one)\b",
+                       re.IGNORECASE)
+#: سؤالٌ عن قيمة السرّ نفسها: «ما رمز التحقق الذي وصلكم؟»، "what is your password?".
+_ASKS_VALUE = re.compile(r"(?<![ء-ي])(?:ما|ماهو|ماهي)(?![ء-ي])|\bwhat(?:'s|\s+is|\s+are)\b", re.IGNORECASE)
+
+
+def _asks_secret(clause: str, question: bool) -> bool:
+    """جملةٌ تطلب السرّ: فعل طلبٍ غير منفيّ، أو سؤالٌ عن قيمته."""
+    for verb in _ASKS.finditer(clause):
+        if not _NEGATION.search(clause[:verb.start()]):
+            return True
+    return question and bool(_ASKS_VALUE.search(clause))
 
 
 def _evidence(text: str) -> str | None:
@@ -248,10 +318,13 @@ def rule_flags(core: str, kind: str, customer_language: str, grounding: Iterable
         phrase = match.group(0)
         if not any(kb_norm(phrase) in source for source in sources):
             add("PROMISE", _evidence(phrase))
+    # كل جملةٍ وكل شطرٍ منها («أرسلوا صورة الشاشة، ولا تشاركوا كلمة المرور»: الطلب في شطرٍ والسرّ في آخر).
     for sentence in re.split(r"(?<=[.!؟?\n])\s*", core):
-        if _ASKS.search(sentence):
-            for match in _SECRET.finditer(sentence):
-                add("ASKS_SECRET", _evidence(match.group(0)))
+        question = sentence.rstrip().endswith(("؟", "?"))
+        for clause in re.split(r"[،,;؛]", sentence):
+            if _SECRET.search(clause) and _asks_secret(clause, question):
+                for match in _SECRET.finditer(clause):
+                    add("ASKS_SECRET", _evidence(match.group(0)))
     if kind == "ASK_INFO" and "؟" not in core and "?" not in core:
         add("NO_QUESTION", None)
     for token in contact_tokens(core):

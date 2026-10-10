@@ -31,7 +31,7 @@ import {
   type InventoryChoices, type Paged, type PurchaseRow, type Rep, type Return, type ReturnLine, type ReturnRow,
 } from "@/lib/inventory"
 import { formatAmount } from "@/lib/money"
-import { useSize } from "@/lib/size"
+import { LIST_PAGE, useSize } from "@/lib/size"
 
 import { Facts, GazeHost, GazeSlot, Money, Picker, Qty, useOpenReport, type Fact } from "./common"
 import type { Fail } from "./setup"
@@ -87,7 +87,7 @@ export function ReturnsScreen({ data, filter, onFilter, page, onPage, onOpen, on
             )}
             onOpen={onOpen}
             openLabel={(row) => `افتح ${row.label ?? "مسودة المرتجع"}`}
-            pageSize={{ compact: 10, gaze: 3, gazeShort: 2 }}
+            pageSize={LIST_PAGE}
             page={page}
             onPageChange={onPage}
             total={data.total}

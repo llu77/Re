@@ -8,7 +8,7 @@
  */
 
 import * as React from "react"
-import { ArrowUpRight, Ban, Check, CheckCircle2, ListChecks, Save, Sparkles } from "lucide-react"
+import { ArrowUpRight, Ban, Check, CheckCircle2, Copy, ListChecks, Save, Sparkles } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { Alert } from "@/components/ui/alert"
@@ -22,7 +22,7 @@ import {
 } from "@/lib/support"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
-import { GazeHost, Picker } from "@/screens/inventory/common"
+import { GazeHost, GazeSlot, Picker } from "@/screens/inventory/common"
 
 import { usePages, type Fail } from "./common"
 
@@ -162,6 +162,16 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
   const { busy, fail, run } = useRun()
   const targets = Object.keys(ESCALATION_TARGET) as EscalationTarget[]
   const noteOk = note.trim().length >= 10
+  const [copied, setCopied] = React.useState<"ok" | "failed" | null>(null)
+  // الملخّص يُنسخ داخل الضغطة نفسها لتلصقه في قناة الجهة التي تصعّد إليها (لا يرسل التطبيق شيئاً).
+  async function copyNote() {
+    try {
+      await navigator.clipboard.writeText(note)
+      setCopied("ok")
+    } catch {
+      setCopied("failed")
+    }
+  }
 
   const targetField = gaze ? (
     <GazeHost>
@@ -172,9 +182,19 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
       ids={Object.fromEntries(targets.map((t) => [t, `escalate-target-${t}`]))} />
   )
   const noteField = (
-    <Field label="ملاحظة التصعيد" hint={gaze ? undefined : "عشرة أحرفٍ على الأقل: المشكلة وما جُرّب."} error={fail?.field === "note" ? fail.message : null}>
-      <Textarea id="escalate-note" rows={gaze ? 4 : 5} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} />
-    </Field>
+    <div className="flex flex-col gap-tg">
+      <Field label="ملاحظة التصعيد" hint={gaze ? undefined : "عشرة أحرفٍ على الأقل: المشكلة وما جُرّب."} error={fail?.field === "note" ? fail.message : null}>
+        <Textarea id="escalate-note" rows={gaze ? 4 : 5} maxLength={1000} value={note} onChange={(event) => { setNote(event.target.value); setCopied(null) }} />
+      </Field>
+      <Button id="escalate-copy" icon={Copy} disabled={!noteOk} onClick={() => void copyNote()} className="self-start gaze:w-full">
+        انسخ ملخّص التصعيد
+      </Button>
+      {copied ? (
+        <p role="status" className={copied === "ok" ? "text-small font-semibold text-success" : "text-small font-semibold text-destructive"}>
+          {copied === "ok" ? "نُسخ الملخّص. الصقه في رسالتك إلى الجهة." : "تعذّر النسخ. حاول مرةً أخرى."}
+        </p>
+      ) : null}
+    </div>
   )
   const notifyField = (
     <RadioCards<"yes" | "no"> label="أبلغ العميل؟" options={[{ value: "yes", title: "نعم، بردٍّ يفيد بالإحالة" }, { value: "no", title: "لا الآن" }]} value={notify} onValueChange={setNotify}
@@ -245,9 +265,12 @@ export function RejectScreen({ onReject, onBack }: { onReject: (reason: RejectRe
       <FailAlert fail={fail} title="لم تُرفض" />
       <GazeHost>
         <Picker id="reject-reason" label="لماذا؟" options={reasons.map((r) => ({ value: r, label: REJECT_REASON[r] }))} value={reason} onValueChange={(v) => setReason(v as RejectReason)} />
-        <Field label="ملاحظة" hint={gaze ? undefined : "اختيارية، حتى 200 حرف."}>
-          <Input id="reject-note" autoComplete="off" maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
-        </Field>
+        {/* حقلٌ في المضيف يُخفى حين يُفتح المنتقي، فلا تقع خياراته فوق حقلٍ ظاهر. */}
+        <GazeSlot id="reject-note-field">
+          <Field label="ملاحظة" hint={gaze ? undefined : "اختيارية، حتى 200 حرف."}>
+            <Input id="reject-note" autoComplete="off" maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
+          </Field>
+        </GazeSlot>
       </GazeHost>
     </Screen>
   )
@@ -279,18 +302,22 @@ export function ResolveScreen({ ticket, onResolve, onBack }: {
   }
 
   if (unanswered) {
+    // «رجوع» في خانة «حُلّت» نفسها، و«أغلقها رغم ذلك» في المحتوى بعد التذكير: النظر الذي ضغط «حُلّت» لا يقع على
+    // اعتمادٍ ثانٍ في مكانه.
     return (
       <Screen title="قبل الحلّ"
         actions={
           <>
-            <Button id="resolve-cancel" icon={BackIcon} onClick={() => setUnanswered(null)}>رجوع</Button>
-            {unanswered.confirmable ? (
-              <Button id="resolve-confirm" variant="primary" commit icon={CheckCircle2} busy={busy} onClick={() => void resolve(true)} className="ms-auto">أغلقها رغم ذلك</Button>
-            ) : <span aria-hidden="true" />}
+            <span aria-hidden="true" />
+            <Button id="resolve-cancel" icon={BackIcon} onClick={() => setUnanswered(null)} className="ms-auto">رجوع</Button>
           </>
         }>
         <Alert tone="warning" title={unanswered.message}>{unanswered.reason}</Alert>
-        {unanswered.confirmable ? null : <p className="text-small text-muted-foreground">ردّ على العميل أولاً، أو اختر «حُلّت بالهاتف» أو «حُلّت حضورياً».</p>}
+        {unanswered.confirmable ? (
+          <Button id="resolve-confirm" variant="primary" commit icon={CheckCircle2} busy={busy} onClick={() => void resolve(true)} className="gaze:w-full self-start">
+            أغلقها رغم ذلك
+          </Button>
+        ) : <p className="text-small text-muted-foreground">ردّ على العميل أولاً، أو اختر «حُلّت بالهاتف» أو «حُلّت حضورياً».</p>}
         <FailAlert fail={fail} title="لم تُحلّ" />
       </Screen>
     )
@@ -347,9 +374,11 @@ export function ClassifyScreen({ ticket, onSave, onBack }: {
       <GazeHost>
         <Picker id="classify-category" label="الفئة" options={CATEGORIES.map((c) => ({ value: c, label: CATEGORY[c] }))} value={category} onValueChange={(v) => setCategory(v as Category)} />
         <Picker id="classify-priority" label="الأولوية" options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY[p] }))} value={priority} onValueChange={(v) => setPriority(v as Priority)} />
-        <Field label="الموضوع" error={fail?.field === "subject" ? fail.message : null}>
-          <Input id="classify-subject" autoComplete="off" maxLength={80} value={subject} onChange={(event) => setSubject(event.target.value)} />
-        </Field>
+        <GazeSlot id="classify-subject-field">
+          <Field label="الموضوع" error={fail?.field === "subject" ? fail.message : null}>
+            <Input id="classify-subject" autoComplete="off" maxLength={80} value={subject} onChange={(event) => setSubject(event.target.value)} />
+          </Field>
+        </GazeSlot>
       </GazeHost>
     </Screen>
   )

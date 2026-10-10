@@ -15,8 +15,6 @@ DELETE FROM ai_flags WHERE subject_kind IN ('SUPPORT_REPLY', 'KB_ARTICLE');
 DROP FUNCTION IF EXISTS ew_kb_review_record(uuid, jsonb, jsonb);
 DROP FUNCTION IF EXISTS ew_kb_current_digest(uuid);
 DROP FUNCTION IF EXISTS ew_kb_review_begin(uuid, smallint);
-DROP FUNCTION IF EXISTS ew_kb_record_proposal(uuid, text, text, text, text, text, jsonb);
-DROP FUNCTION IF EXISTS ew_kb_begin_proposal(uuid);
 DROP FUNCTION IF EXISTS ew_kb_search(text, integer);
 DROP FUNCTION IF EXISTS ew_kb_mark_review(uuid, integer, boolean);
 DROP FUNCTION IF EXISTS ew_kb_set_state(uuid, integer, text);
@@ -34,7 +32,7 @@ DROP FUNCTION IF EXISTS ew_support_release_reply(uuid, text, bytea);
 DROP FUNCTION IF EXISTS ew_support_ack_flag(uuid, text, text);
 DROP FUNCTION IF EXISTS ew_support_review_record(uuid, jsonb, jsonb);
 DROP FUNCTION IF EXISTS ew_support_review_begin(uuid);
-DROP FUNCTION IF EXISTS ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb);
+DROP FUNCTION IF EXISTS ew_support_prepare_reply(uuid, integer, uuid, uuid, text, boolean, text, text, jsonb, uuid[]);
 DROP FUNCTION IF EXISTS ew_support_reject_draft(uuid, text, text);
 DROP FUNCTION IF EXISTS ew_support_finish_call(uuid, text, jsonb);
 DROP FUNCTION IF EXISTS ew_support_record_draft(uuid, uuid, text, text, text, text, text, text, text, text, boolean,
@@ -67,7 +65,8 @@ DROP TABLE IF EXISTS support_ticket_transition;
 DROP TABLE IF EXISTS support_sla_targets;
 DROP TABLE IF EXISTS support_settings;
 
-DROP FUNCTION IF EXISTS ew_kb_version_update_guard();
+DROP FUNCTION IF EXISTS ew_support_events_keep();
+DROP FUNCTION IF EXISTS ew_support_event_update_guard();
 DROP FUNCTION IF EXISTS ew_kb_version_insert_guard();
 DROP FUNCTION IF EXISTS ew_kb_article_update_guard();
 DROP FUNCTION IF EXISTS ew_kb_article_insert_guard();

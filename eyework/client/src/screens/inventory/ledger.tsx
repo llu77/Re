@@ -20,7 +20,7 @@ import {
   type Expenses, type InventoryChoices, type LedgerEntry, type Paged, type PurchaseRow, type Summary, type Voucher,
 } from "@/lib/inventory"
 import { formatAmount, formatWhole } from "@/lib/money"
-import { useSize } from "@/lib/size"
+import { LONG_LIST_PAGE, useSize } from "@/lib/size"
 
 import { Money } from "./common"
 import { attentionItems } from "./home"
@@ -96,7 +96,7 @@ export function ExpensesScreen({ month, data, canNext, onPrevious, onNext, page,
           )}
           onOpen={onOpen}
           openLabel={(row) => `افتح ${LEDGER_KIND[row.kind]} ${row.document}`}
-          pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+          pageSize={LONG_LIST_PAGE}
           page={page}
           onPageChange={onPage}
           total={data.entries.total}
@@ -209,7 +209,7 @@ export function VouchersScreen({ data, page, onPage, choices, onOpenItem, onBack
           )}
           onOpen={onOpenItem}
           openLabel={(row) => `افتح ${row.item.name}`}
-          pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+          pageSize={LONG_LIST_PAGE}
           page={page}
           onPageChange={onPage}
           total={data.total}

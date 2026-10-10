@@ -29,10 +29,28 @@ NOTICE_DIGESTS = {"2026-10-09": "fc1525fc03958e7d6fdbfa83344d413f0801ec2f6c07efa
     ("جوالي ٠٥٥١٢٣٤٥٦٧ وهويتي 1012345678", "جوالي [رقم محذوف] وهويتي [رقم محذوف]", {"email": 0, "link": 0, "number": 2}),
     ("+966 55 123 4567", "[رقم محذوف]", {"email": 0, "link": 0, "number": 1}),
     ("الخطأ 0x80070005 والتحديث KB5034441", "الخطأ 0x80070005 والتحديث KB5034441", {"email": 0, "link": 0, "number": 0}),
+    # بأقواسٍ أو شَرطاتٍ أو مسافاتٍ مزدوجة أو غير فاصلة، أو بأرقامٍ عريضة، أو بنقاطٍ بين مجموعاتٍ من رقمين فأكثر.
+    ("اتصلوا بي على (050) 123-4567", "اتصلوا بي على [رقم محذوف]", {"email": 0, "link": 0, "number": 1}),
+    ("Tel: +966 (11) 234 – 5678", "Tel: [رقم محذوف]", {"email": 0, "link": 0, "number": 1}),
+    ("call me 050 123  4567 or 050\u00a0123\u00a04567", "call me [رقم محذوف] or [رقم محذوف]", {"email": 0, "link": 0, "number": 2}),
+    ("جوال ０５５１２３４５６７ ورقمي 050.123.4567", "جوال [رقم محذوف] ورقمي [رقم محذوف]", {"email": 0, "link": 0, "number": 2}),
+    ("الآيبان SA03.8000.0000.6080.1016.7519", "الآيبان SA[رقم محذوف]", {"email": 0, "link": 0, "number": 1}),
+    # رابطٌ بلا مخطّطٍ بمساره، ورابطٌ ملتصقٌ بكلمةٍ قبله.
+    ("الرابط accounts.example.com/reset?token=8f3a91 لا يعمل", "الرابط [رابط محذوف: accounts.example.com] لا يعمل", {"email": 0, "link": 1, "number": 0}),
+    ("افتحوا الرابطhttps://portal.example.com/u/ahmed?s=1", "افتحوا الرابط[رابط محذوف: portal.example.com]", {"email": 0, "link": 1, "number": 0}),
+    # ما يبقى: الإصدارات والعناوين القصيرة والملفات.
+    ("الإصدار 10.0.19045.3803 والعنوان 192.168.1.10 والملف report.pdf", "الإصدار 10.0.19045.3803 والعنوان 192.168.1.10 والملف report.pdf",
+     {"email": 0, "link": 0, "number": 0}),
 ])
 def test_mask_removes_contacts_and_long_numbers_but_keeps_error_codes(text, masked, counts):
     assert rules.mask(text) == (masked, counts)
     assert rules.mask(masked)[0] == masked
+
+
+def test_contact_tokens_find_bare_domains_and_dotted_numbers_but_not_error_codes():
+    text = ("ادخلوا إلى secure-login-help.com/reset أو اتصلوا 800.124.4444 أو (800) 124 4444، وزوروا example.com؛"
+            " والتحديث KB5034441 والخطأ 0x80070005 والإصدار 10.0.19045.3803.")
+    assert rules.contact_tokens(text) == ["secure-login-help.com/reset", "800.124.4444", "(800) 124 4444", "example.com"]
 
 
 def test_normalize_removes_hidden_marks_controls_and_extra_blank_lines():
@@ -45,6 +63,8 @@ def test_language_is_arabic_from_a_third_of_the_letters():
     assert rules.language_of("The printer نعم") == "EN"
     assert rules.language_of("الطابعة لا تعمل HP") == "AR"
     assert rules.language_of("12345") == "AR"
+    masked = rules.mask("Can't log in, my email is sara@example.com and my phone 0551234567")[0]
+    assert rules.language_of(masked) == "EN" and rules.language_of("[رقم محذوف] [رابط محذوف: example.com]") == "AR"
 
 
 # ── تنبيهات القواعد ─────────────────────────────────────────────────────
@@ -62,10 +82,32 @@ def test_rule_flags_find_promises_secrets_and_contacts_not_in_the_articles():
     ("زوّدونا برمز التحقق الذي وصلكم.", True),
     ("نحتاج رقم البطاقة لنتحقّق من الطلب.", True),
     ("Please send us your password so we can check.", True),
+    # الطلب المهذّب بالمصدر، والسؤال عن القيمة، وعبارة الرمز الذي وصل.
+    ("نرجو إرسال رمز التحقق الذي وصلكم لنكمل التحقق.", True),
+    ("يرجى تزويدنا برمز التحقق.", True),
+    ("ما رمز التحقق الذي وصلكم؟", True),
+    ("What is your password?", True),
+    ("Please send us the 6-digit code you received by SMS.", True),
+    # التحذير ليس طلباً، ولو جاء في شطرٍ بعد طلبٍ آخر؛ والكلمة التي تحوي OTP ليست OTP.
+    ("Please do not share your password or the verification code with anyone. Restart the laptop.", False),
+    ("أرسلوا لنا صورة الشاشة، ولا تشاركوا كلمة المرور مع أحد.", False),
+    ("لن نطلب منكم كلمة المرور أبداً، ولا نحتاج إليها.", False),
+    ("The footprint of the printer is small; send us a photo.", False),
+    ("هل وصلكم رمز التحقق؟", False),
+    ("اكتبوا رمز التحقق في التطبيق ثم اضغطوا دخول.", False),
 ])
 def test_a_secret_is_flagged_when_the_reply_asks_for_it_not_when_it_explains_a_reset(core, flagged):
     codes = [f["code"] for f in rules.rule_flags(core, "ANSWER", rules.language_of(core), ())]
     assert ("ASKS_SECRET" in codes) is flagged
+
+
+@pytest.mark.parametrize(("core", "flagged"), [
+    ("نتصل بكم غداً.", True), ("وغدا يصل الفني.", True), ("سنقدم لكم التعويض.", True), ("الخدمة مضمونة.", True),
+    ("أعيدوا التشغيل بعد وقت الغداء.", False), ("We will refund you.", True),
+])
+def test_a_promise_is_a_word_not_part_of_another(core, flagged):
+    codes = [f["code"] for f in rules.rule_flags(core, "ANSWER", rules.language_of(core), ())]
+    assert ("PROMISE" in codes) is flagged
 
 
 def test_a_promise_quoted_from_an_article_is_not_flagged():
@@ -134,6 +176,8 @@ def test_a_grounded_answer_is_accepted_with_its_quote_resolved_to_the_article():
     ({"citations": []}, "CITATIONS"),
     ({"citations": [{"article": "A2", "quote": "انزع الشريط اللاصق"}]}, "UNKNOWN_ARTICLE"),
     ({"citations": [{"article": "A1", "quote": "أعد تشغيل الحاسوب"}]}, "QUOTE_NOT_FOUND"),
+    ({"citations": [{"article": "A1", "quote": "ـــــــــَُِ   ـــ"}]}, "QUOTE_NOT_FOUND"),
+    ({"body": BODY + "\nادخلوا إلى secure-login-help.com/reset ثم اضغطوا «نسيت»."}, "CONTACT_NOT_IN_ARTICLE"),
     ({"body": BODY + "\nاتصلوا على 0112223344."}, "CONTACT_NOT_IN_ARTICLE"),
     ({"body": BODY + "\nأرسلوا رمز التحقق."}, "SECRET"),
     ({"body": "Please remove the protective tape and print a test page."}, "LANGUAGE"),
@@ -152,6 +196,12 @@ def test_a_draft_that_breaks_a_rule_is_refused_before_the_database(changes, code
 def test_the_greeting_and_sign_off_the_model_adds_are_removed():
     draft = prompt.parse_draft(_reply(body="مرحباً،\n" + BODY + "\nفريق الدعم"), REFS, {"art-1": SOURCE}, "AR", ())
     assert draft["body"] == BODY
+
+
+def test_only_a_greeting_or_sign_off_line_alone_is_removed():
+    assert prompt._strip_frame("Hi, please restart the router.\nThen print a test page.\nBest regards") == \
+        "Hi, please restart the router.\nThen print a test page."
+    assert prompt._strip_frame("Hello Sara,\nRestart the router.\nفريق الدعم") == "Restart the router."
 
 
 def test_the_ask_info_preset_needs_an_ask_info_reply():
@@ -179,12 +229,15 @@ def test_the_thread_keeps_the_newest_messages_and_always_the_last_customer_messa
     assert block.count("<message") <= prompt.THREAD_MESSAGES + 1
 
 
-def test_a_proposal_is_refused_with_contacts_and_accepted_clean():
-    with pytest.raises(prompt.DraftInvalid):
-        prompt.parse_proposal({"status": "PROPOSED", "title": "طابعة", "issue": "الطابعة لا تطبع أبداً.", "environment": "",
-                               "resolution": "اتصل على 0551234567 ليُصلح الطابعة.", "cause": ""})
-    assert prompt.parse_proposal({"status": "NOT_ENOUGH", "title": "", "issue": "", "environment": "", "resolution": "",
-                                  "cause": ""}) is None
+def test_the_thread_leaves_no_gap_when_a_message_does_not_fit():
+    block = prompt.thread_block([prompt.ThreadMessage("internal_note", "ملاحظة قديمة"),
+                                 prompt.ThreadMessage("internal_note", "طويلة " * 2000),
+                                 prompt.ThreadMessage("customer", "رسالة العميل")])
+    assert "رسالة العميل" in block and "ملاحظة قديمة" not in block and "طويلة" not in block
+
+
+def test_the_knowledge_base_search_ignores_the_masks():
+    assert rules.without_masks("[رقم محذوف] الطابعة [رابط محذوف: example.com] [بريد محذوف]").split() == ["الطابعة"]
 
 
 # ── الإشعار ─────────────────────────────────────────────────────────────

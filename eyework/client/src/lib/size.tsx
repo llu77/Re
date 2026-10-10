@@ -83,6 +83,26 @@ export function useShortScreen(): boolean {
   return useMatch(SHORT_QUERY)
 }
 
+/**
+ * أحجام صفحات القوائم التي يقسّمها الخادم. الجدول (`pageSize`) والحاوية التي تطلب الصفحة (`useServerPage`) يقرآن
+ * الحجم نفسه، فيعرض الجدول ما أرسله الخادم بالضبط: لو طلبت الحاوية عشرين والجدول يعرض ثلاثة في الحجم الكبير لقُصّ
+ * الباقي ولجاءت الصفحة الثانية فارغة.
+ */
+export const LIST_PAGE = { compact: 10, gaze: 3, gazeShort: 2 }
+export const LONG_LIST_PAGE = { compact: 20, gaze: 3, gazeShort: 2 }
+
+/** حجم صفحة قائمةٍ يقسّمها الخادم؛ وإن تغيّر (لوحة المفاتيح تقصّر الشاشة في الحجم الكبير) تعود القائمة إلى أوّل صفحة. */
+export function useServerPage(sizes: { compact: number; gaze: number; gazeShort?: number }, setPage: (page: number) => void): number {
+  const size = usePageSize(sizes)
+  const last = React.useRef(size)
+  React.useEffect(() => {
+    if (last.current === size) return
+    last.current = size
+    setPage(0)
+  }, [size, setPage])
+  return size
+}
+
 /** عدد الصفوف في صفحةٍ بحسب الحجم وطول الشاشة. */
 export function usePageSize(sizes: { compact: number; gaze: number; gazeShort?: number }): number {
   const { size } = useSize()

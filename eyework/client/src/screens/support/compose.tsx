@@ -38,14 +38,15 @@ export interface ComposeProps {
   /** من مسودة سيمبول («عدّل ثم أرسل») أو من صفحةٍ فارغة («اكتب الردّ بنفسك»). */
   fromDraft: boolean
   phrases: Phrases | null
-  onSearch: (query: string) => Promise<ArticleRow[]>
+  /** المقالات المنشورة المطابقة، أو رسالة الخادم إن تعذّر البحث. */
+  onSearch: (query: string) => Promise<ArticleRow[] | string>
   /** خطوات الحلّ من النسخة المنشورة للمقالة، أو رسالة الخادم. */
   onResolution: (articleId: string) => Promise<{ text: string } | { fail: string }>
   onPrepare: (body: { kind: ReplyKind; core: string; kb_article_ids: string[]; draft_id: string | null }) => Promise<Fail>
   onRedraft: () => void
   onBack: () => void
   /** ردٌّ سُحب ليُعدَّل: نصّه ونوعه بدل المسودة. */
-  initial?: { text: string; kind: ReplyKind } | null
+  initial?: { text: string; kind: ReplyKind; kbIds?: string[] } | null
 }
 
 /** يشطب الجمل المختارة، ويضمّ الباقي كما كان. */
@@ -67,9 +68,9 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
   const [text, setText] = React.useState(initial?.text ?? draft?.body ?? "")
   const [tool, setTool] = React.useState<Tool | null>(null)
   const [removed, setRemoved] = React.useState<Set<number>>(new Set())
-  const [kbIds, setKbIds] = React.useState<string[]>([])
+  const [kbIds, setKbIds] = React.useState<string[]>(initial?.kbIds ?? [])
   const [query, setQuery] = React.useState("")
-  const [found, setFound] = React.useState<ArticleRow[] | null>(null)
+  const [found, setFound] = React.useState<ArticleRow[] | string | null>(null)
   const [note, setNote] = React.useState<string | null>(null)
   const [fail, setFail] = React.useState<Fail>(null)
   const [busy, setBusy] = React.useState(false)
@@ -205,7 +206,7 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
           ابحث
         </Button>
       </div>
-      {found === null ? null : found.length === 0 ? <p className="text-small text-muted-foreground">لا مقالة منشورة تطابق.</p> : (
+      {found === null ? null : typeof found === "string" ? <p role="alert" className="text-small font-semibold text-destructive">{found}</p> : found.length === 0 ? <p className="text-small text-muted-foreground">لا مقالة منشورة تطابق.</p> : (
         <ul aria-label="المقالات" className="flex flex-col gap-tg">
           {found.slice(0, gaze ? 2 : 5).map((article) => (
             <li key={article.id}>

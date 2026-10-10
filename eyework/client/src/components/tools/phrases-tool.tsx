@@ -19,8 +19,12 @@ export interface PhraseEntry {
   en: string
 }
 
-export function PhrasesTool({ load }: { load: () => Promise<{ phrases: PhraseEntry[]; questions: PhraseEntry[] } | null> }) {
-  const [data, setData] = React.useState<{ phrases: PhraseEntry[]; questions: PhraseEntry[] } | null>(null)
+type Loaded = { phrases: PhraseEntry[]; questions: PhraseEntry[] }
+
+export function PhrasesTool({ load }: { load: () => Promise<Loaded | { fail: string }> }) {
+  const [data, setData] = React.useState<Loaded | null>(null)
+  const [fail, setFail] = React.useState<string | null>(null)
+  const [attempt, setAttempt] = React.useState(0)
   const [tab, setTab] = React.useState<"phrases" | "questions">("phrases")
   const [english, setEnglish] = React.useState(false)
   const [page, setPage] = React.useState(0)
@@ -29,12 +33,22 @@ export function PhrasesTool({ load }: { load: () => Promise<{ phrases: PhraseEnt
   React.useEffect(() => {
     let current = true
     void load().then((result) => {
-      if (current) setData(result)
+      if (!current) return
+      if ("fail" in result) setFail(result.fail)
+      else setData(result)
     })
     return () => {
       current = false
     }
-  }, [load])
+  }, [load, attempt])
+  if (fail && !data) {
+    return (
+      <div className="flex flex-col gap-tg">
+        <p role="alert" className="text-small font-semibold text-destructive">{fail}</p>
+        <Button id="phrases-retry" onClick={() => { setFail(null); setAttempt(attempt + 1) }}>حاول مرةً أخرى</Button>
+      </div>
+    )
+  }
   if (!data) return <p className="text-small text-muted-foreground">تُقرأ العبارات…</p>
   const items = tab === "phrases" ? data.phrases : data.questions
   const pages = Math.max(1, Math.ceil(items.length / size))

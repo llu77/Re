@@ -24,11 +24,13 @@ export type RejectReason = "WRONG_INFO" | "NOT_IN_KB" | "MISUNDERSTOOD" | "TONE"
 export type EscalationTarget = "TIER2" | "SUPERVISOR" | "VENDOR" | "FIELD_TECH" | "OTHER_TEAM"
 export type Resolution = "BY_PHONE" | "IN_PERSON" | "DUPLICATE" | "NOT_SUPPORT" | "NO_RESPONSE"
 export type DismissReason = "FALSE_ALARM" | "EMPLOYER_APPROVED" | "KB_OUTDATED" | "OTHER"
+/** وما يكتبه الخادم وحده: «CONFIRMED» حين تُحلّ التذكرة بلا ردٍّ على آخر رسالة. */
+export type DismissedReason = DismissReason | "CONFIRMED"
 export type ReleaseVia = "COPY" | "SHARE" | "SCRIPT"
 export type QuestionCode = "ERROR_TEXT" | "WHEN_STARTED" | "DEVICE" | "SCOPE" | "STEPS" | "TRIED" | "SCREENSHOT"
 export type TicketView = "open" | "pending" | "escalated" | "resolved" | "closed"
-export type KbView = "published" | "attention" | "drafts" | "proposals" | "archived"
-export type ArticleState = "DRAFT" | "PROPOSED" | "PUBLISHED" | "ARCHIVED" | "DISCARDED"
+export type KbView = "published" | "attention" | "drafts" | "archived"
+export type ArticleState = "DRAFT" | "PUBLISHED" | "ARCHIVED" | "DISCARDED"
 
 export interface Paged<T> {
   items: T[]
@@ -114,7 +116,7 @@ export interface RuleFlag {
   message: string
   reason: string
   evidence: string | null
-  dismiss_reason: DismissReason | null
+  dismiss_reason: DismissedReason | null
 }
 
 /** ملاحظة سيمبول بشكل جواب /api/ai/review. */
@@ -142,6 +144,8 @@ export interface Reply {
   release_via: ReleaseVia | null
   at: string | null
   needs_review: boolean
+  /** مقالاتٌ أدرج الموظف خطواتها في الردّ؛ تعود إلى المحرّر بـ«عدّل الردّ». */
+  kb_article_ids: string[]
   flags: RuleFlag[]
   ai_flags: AiFlag[]
 }
@@ -215,7 +219,6 @@ export interface ArticleVersion {
   environment: string | null
   resolution: string
   cause: string | null
-  origin: string
   at: string | null
 }
 
@@ -291,14 +294,18 @@ export const RESOLUTION: Record<Resolution, string> = {
 export const DISMISS_REASON: Record<DismissReason, string> = {
   FALSE_ALARM: "تنبيهٌ في غير محلّه", EMPLOYER_APPROVED: "جهة العمل موافقة", KB_OUTDATED: "المقالة قديمة", OTHER: "سببٌ آخر",
 }
+export const DISMISSED_REASON: Record<DismissedReason, string> = { ...DISMISS_REASON, CONFIRMED: "أكّدتَ الحلّ دون ردّ" }
 export const ARTICLE_STATE: Record<ArticleState, string> = {
-  DRAFT: "مسودة", PROPOSED: "مقترحة", PUBLISHED: "منشورة", ARCHIVED: "مؤرشفة", DISCARDED: "متروكة",
+  DRAFT: "مسودة", PUBLISHED: "منشورة", ARCHIVED: "مؤرشفة", DISCARDED: "متروكة",
 }
 export const AUTHOR: Record<Message["author"], string> = { CUSTOMER: "العميل", AGENT: "ردّك", NOTE: "ملاحظة داخلية" }
+export const REVIEW_REASON: Record<string, string> = {
+  DRAFT_WRONG_INFO: "رُفضت مسودةٌ اقتبست منها لمعلومةٍ خاطئة", DRAFT_OUTDATED: "رُفضت مسودةٌ اقتبست منها لأنها قديمة", EMPLOYEE: "علّمتَها بنفسك",
+}
 export const SLA_FIRST: Record<number, string> = { 30: "نصف ساعة", 60: "ساعة", 120: "ساعتان", 240: "٤ ساعات", 480: "٨ ساعات", 1440: "يوم" }
 export const SLA_RESOLVE: Record<number, string> = { 240: "٤ ساعات", 480: "٨ ساعات", 1440: "يوم", 2880: "يومان", 4320: "٣ أيام", 7200: "٥ أيام" }
 export const USAGE_KIND: Record<string, string> = {
-  SUPPORT_DRAFT: "المسودات", SUPPORT_REPLY_REVIEW: "مراجعة الردود", SUPPORT_ARTICLE_PROPOSAL: "اقتراح المقالات", SUPPORT_ARTICLE_REVIEW: "مراجعة المقالات",
+  SUPPORT_DRAFT: "المسودات", SUPPORT_REPLY_REVIEW: "مراجعة الردود", SUPPORT_ARTICLE_REVIEW: "مراجعة المقالات",
 }
 
 /** المدّة بالدقائق بكلماتٍ قصيرة: «35 د»، «3 س»، «2 ي». */
@@ -353,8 +360,8 @@ export function clientToken(): string {
 }
 
 export const home = () => get<Home>("/home")
-export const decideQueue = (page: number) => get<Paged<TicketRow>>("/decide", { page })
-export const listTickets = (view: TicketView, page: number) => get<Paged<TicketRow>>("/tickets", { view, page })
+export const decideQueue = (page: number, size: number) => get<Paged<TicketRow>>("/decide", { page, size })
+export const listTickets = (view: TicketView, page: number, size: number) => get<Paged<TicketRow>>("/tickets", { view, page, size })
 export const maskPreview = (text: string) => post<MaskPreview>("/mask-preview", { text })
 export const createTicket = (body: {
   client_token: string
@@ -393,11 +400,10 @@ export const resolve = (id: string, rowVersion: number, resolution: Resolution, 
   post<Ticket>(`/tickets/${id}/resolve`, { expected_row_version: rowVersion, resolution, confirmed })
 export const reopen = (id: string, rowVersion: number) => post<Ticket>(`/tickets/${id}/reopen`, { expected_row_version: rowVersion })
 
-export const listArticles = (view: KbView, q: string, page: number) => get<Paged<ArticleRow>>("/kb", { view, q: q.trim() || null, page })
+export const listArticles = (view: KbView, q: string, page: number, size = 20) => get<Paged<ArticleRow>>("/kb", { view, q: q.trim() || null, page, size })
 export const getArticle = (id: string) => get<Article>(`/kb/${id}`)
 export const createArticle = (fields: ArticleFields, token: string, sourceTicketId: string | null) =>
   post<Article>("/kb", { client_token: token, source_ticket_id: sourceTicketId, ...fields })
-export const proposeArticle = (ticketId: string) => post<Article>("/kb/proposals", { ticket_id: ticketId })
 export const addVersion = (id: string, rowVersion: number, fields: ArticleFields) => post<Article>(`/kb/${id}/versions`, { expected_row_version: rowVersion, ...fields })
 export const publishArticle = (id: string, rowVersion: number, version: number) => post<Article>(`/kb/${id}/publish`, { expected_row_version: rowVersion, version })
 export const setArticleState = (id: string, rowVersion: number, state: "ARCHIVED" | "DISCARDED") => post<Article>(`/kb/${id}/state`, { expected_row_version: rowVersion, state })

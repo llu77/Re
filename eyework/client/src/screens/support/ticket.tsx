@@ -12,7 +12,7 @@
 
 import * as React from "react"
 import {
-  ArrowUpRight, Ban, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, FilePlus2, MessageSquarePlus, MoreHorizontal, NotebookPen,
+  ArrowUpRight, Ban, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, FilePlus2, MessageSquarePlus, NotebookPen,
   PencilLine, RefreshCw, RotateCcw, Send, Sparkles, StickyNote, Undo2,
 } from "lucide-react"
 
@@ -21,14 +21,17 @@ import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { PagedText } from "@/components/ui/paged-text"
+import { useToast } from "@/components/ui/toast"
 import { formatDay, formatTime } from "@/lib/format"
 import {
-  AUTHOR, CATEGORY, CHANNEL, ESCALATION_TARGET, PRIORITY, REJECT_REASON, REPLY_KIND, ticketTitle, type Message, type RuleFlag, type Ticket,
+  AUTHOR, CATEGORY, CHANNEL, ESCALATION_TARGET, PRIORITY, REJECT_REASON, REPLY_KIND, ticketTitle, type DismissReason, type Message, type RuleFlag,
+  type Ticket,
 } from "@/lib/support"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 import { MaskedText, PriorityBadge, SlaBadge, StatusBadge, type Fail } from "./common"
+import { RuleFlagCard } from "./reply"
 
 export type TicketAction =
   | "compose-draft" | "compose-blank" | "ask" | "escalate" | "reject" | "resolve" | "customer" | "note" | "classify" | "redraft"
@@ -45,6 +48,8 @@ export interface TicketScreenProps {
   onAcceptSuggestion: () => Promise<Fail>
   onReopen: () => Promise<Fail>
   onReturnEscalation: () => Promise<Fail>
+  /** تنبيه قاعدةٍ على التذكرة (أولويةٌ أدنى من المقترحة): «تابع رغم ذلك» بسببه. */
+  onAckRule: (flag: RuleFlag, action: "HEEDED" | "DISMISSED", reason: DismissReason | null) => Promise<Fail>
   onAction: (action: TicketAction) => void
   onBack: () => void
   backLabel: string
@@ -65,18 +70,15 @@ function suggestionPending(ticket: Ticket): boolean {
   const draft = ticket.draft
   if (!draft || !draft.current) return false
   const s = draft.suggestion
-  if (!s.priority && !s.category) return false
   if (ticket.status === "RESOLVED" || ticket.status === "CLOSED") return false
+  // الموضوع الذي يقترحه سيمبول حين تُركت التذكرة بلا موضوع (كما يعد حقل التذكرة الجديدة).
+  if (!ticket.subject && draft.subject) return true
+  if (!s.priority && !s.category) return false
   return (s.priority !== null && s.priority !== ticket.priority) || (s.category !== null && s.category !== ticket.category)
 }
 
-function RuleFlagNote({ flag }: { flag: RuleFlag }) {
-  return (
-    <Alert tone={flag.state === "OPEN" ? "warning" : "info"} title={flag.message}>
-      {flag.reason}
-    </Alert>
-  )
-}
+/** قرارات الحجم الكبير في كل صفحة. */
+const DECISIONS_PER_PAGE = 4
 
 export function TicketScreen(props: TicketScreenProps) {
   const { ticket, drafting, draftFail, onRequestDraft, onSendAsIs, onAcceptSuggestion, onReopen, onReturnEscalation, onAction, onBack, backLabel } = props
@@ -95,6 +97,19 @@ export function TicketScreen(props: TicketScreenProps) {
   React.useEffect(() => {
     setPage(0)
   }, [ticket.status])
+  // رسالة القرار السابق («رُفضت المسودة») تُغلق حين تُقلَّب صفحات الحجم الكبير: لا تبقى فوق أعلى الصفحة التالية.
+  const toast = useToast()
+  const firstPage = React.useRef(true)
+  React.useEffect(() => {
+    if (firstPage.current) {
+      firstPage.current = false
+      return
+    }
+    if (gaze) {
+      toast.dismiss()
+      setFail(null)
+    }
+  }, [page, gaze, toast])
 
   async function run(id: string, action: () => Promise<Fail>) {
     setBusy(id)
@@ -124,6 +139,7 @@ export function TicketScreen(props: TicketScreenProps) {
         {current.suggestion.category && current.suggestion.priority ? " · " : null}
         {current.suggestion.priority ? `الأولوية: ${PRIORITY[current.suggestion.priority]}` : null}
       </p>
+      {!ticket.subject && current.subject ? <p className="text-flow">الموضوع: {current.subject}</p> : null}
       {current.suggestion.because ? <p className="text-small text-muted-foreground gaze:short:hidden">{current.suggestion.because}</p> : null}
       <div className="flex flex-wrap gap-tg gaze:flex-col">
         <Button id="ticket-accept-suggestion" variant="secondary" icon={CheckCircle2} busy={busy === "accept"} onClick={() => void run("accept", onAcceptSuggestion)}>
@@ -137,12 +153,17 @@ export function TicketScreen(props: TicketScreenProps) {
   ) : null
 
   const ticketFlags = ticket.flags.filter((f) => f.state === "OPEN")
-  const flagNotes = ticketFlags.length ? <div className="flex flex-col gap-tg">{ticketFlags.map((f) => <RuleFlagNote key={f.id} flag={f} />)}</div> : null
+  // «عدّل» على تنبيه الأولوية يفتح التصنيف؛ و«تابع رغم ذلك» يقرّه بسببه فلا يبقى مفتوحاً على التذكرة.
+  const flagNotes = ticketFlags.length ? (
+    <div className="flex flex-col gap-tg">
+      {ticketFlags.map((f) => <RuleFlagCard key={f.id} flag={f} gaze={gaze} onAck={(action, reason) => props.onAckRule(f, action, reason)} onEdit={() => onAction("classify")} />)}
+    </div>
+  ) : null
 
   const escalation = ticket.status === "ESCALATED" && ticket.escalation ? (
     <section aria-label="التصعيد" className="flex flex-col gap-1 rounded-card border border-warning-line bg-warning-tint p-pad">
       <p className="font-semibold">صُعّدت إلى {ESCALATION_TARGET[ticket.escalation.target]}</p>
-      <p className="text-small text-muted-foreground gaze:hidden">{ticket.escalation.note}</p>
+      <p className="text-small text-muted-foreground gaze:line-clamp-3">{ticket.escalation.note}</p>
     </section>
   ) : null
 
@@ -255,13 +276,25 @@ export function TicketScreen(props: TicketScreenProps) {
     type Page = { id: string; label: string; body: React.ReactNode }
     const pages: Page[] = []
     if (live) pages.push({ id: "reply", label: "الردّ", body: live })
-    if (suggestion) pages.push({ id: "suggestion", label: "الاقتراح", body: <>{suggestion}{flagNotes}</> })
-    else if (flagNotes) pages.push({ id: "flags", label: "تنبيه", body: flagNotes })
+    if (suggestion) pages.push({ id: "suggestion", label: "الاقتراح", body: suggestion })
+    if (flagNotes) pages.push({ id: "flags", label: "تنبيه", body: flagNotes })
     if (escalation) pages.push({ id: "escalation", label: "التصعيد", body: escalation })
     pages.push({ id: "message", label: "الرسالة", body: lastMessage })
+    // ما قبل آخر رسالة: رسائل العميل السابقة، وردودك المرسلة، وملاحظاتك الداخلية — نصّاً مقسّماً صفحات.
+    if (earlier.length && !ticket.texts_purged) {
+      const text = earlier.map((m) => `${AUTHOR[m.author]} · ${when(m.at)}\n${m.body}`).join("\n\n")
+      pages.push({ id: "thread", label: "المحادثة", body: <PagedText text={text} label="المحادثة" perPage={{ gaze: 240, gazeShort: 120 }} /> })
+    }
     if (drafting || current || draftAlert || askDraft || draftBlock) pages.push({ id: "draft", label: "المسودة", body: <>{draftAlert}{draftBlock}{askDraft}</> })
-    if (main.length) pages.push({ id: "decide", label: "قرارك", body: <div className="flex flex-col gap-tg [&>button]:w-full">{failAlert}{main}{more.length ? <Button id="decide-more" icon={MoreHorizontal} onClick={() => setPage(pages.findIndex((p) => p.id === "more"))}>المزيد</Button> : null}</div> })
-    if (more.length) pages.push({ id: "more", label: "المزيد", body: <div className="flex flex-col gap-tg [&>button]:w-full">{main.length ? null : failAlert}{more}</div> })
+    // القرارات أربعةً في كل صفحة (ومعها تنبيه الخطأ إن وُجد): ستّةٌ في صفحةٍ لا تتّسع لها أقصر الهواتف حين يلتفّ
+    // سطر الشارات أو يظهر التنبيه. والتالية «المزيد» بزرّ «التالي» في الشريط.
+    const decisions = [...main, ...more]
+    for (let start = 0; start < decisions.length; start += DECISIONS_PER_PAGE) {
+      pages.push({
+        id: `decide-${start}`, label: start === 0 ? "قرارك" : "المزيد",
+        body: <div className="flex flex-col gap-tg [&>button]:w-full">{decisions.slice(start, start + DECISIONS_PER_PAGE)}</div>,
+      })
+    }
     const index = Math.min(page, pages.length - 1)
     const at = pages[index]
     return (
@@ -274,7 +307,7 @@ export function TicketScreen(props: TicketScreenProps) {
             <Button id="ticket-prev" icon={BackIcon} onClick={index === 0 ? onBack : () => setPage(index - 1)}>
               {index === 0 ? backLabel : "السابق"}
             </Button>
-            {index < pages.length - 1 && at.id !== "decide" ? (
+            {index < pages.length - 1 ? (
               <Button id="ticket-next" variant="secondary" iconEnd={NextIcon} onClick={() => setPage(index + 1)}>
                 {pages[index + 1].label}
               </Button>
@@ -282,6 +315,8 @@ export function TicketScreen(props: TicketScreenProps) {
           </>
         }
       >
+        {/* ما لم يتمّ يُقال في الصفحة التي ضُغط فيها (الاقتراح أو القرارات)، ويُغلق حين تُقلَّب. */}
+        {failAlert}
         {at.body}
       </Screen>
     )

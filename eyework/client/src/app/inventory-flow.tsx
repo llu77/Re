@@ -33,6 +33,7 @@ import * as inv from "@/lib/inventory"
 import { BASE, countRoute, itemRoute, purchaseRoute, returnRoute, supplierRoute } from "@/lib/inventory"
 import { formatAmount, vatOnNet } from "@/lib/money"
 import { go } from "@/lib/router"
+import { LIST_PAGE, LONG_LIST_PAGE, useServerPage } from "@/lib/size"
 import type { Choices, Me } from "@/lib/store"
 import type { Workspace } from "@/lib/workspace"
 import { CountAddScreen, CountLineScreen, CountScreen, CountsScreen, NewCountScreen, type CountLineBody, type CountOpenBody } from "@/screens/inventory/counts"
@@ -199,7 +200,8 @@ function StockContainer({ path, setNotice }: { path: string; setNotice: SetNotic
   const filter = (params.get("filter") as inv.ItemFilter | null) ?? "all"
   const [query, setQuery] = React.useState("")
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => inv.listItems(query, filter, null, page + 1, 10), [query, filter, page], setNotice)
+  const size = useServerPage(LIST_PAGE, setPage)
+  const { data } = useLoad(() => inv.listItems(query, filter, null, page + 1, size), [query, filter, page, size], setNotice)
   return (
     <StockScreen
       data={data}
@@ -224,8 +226,9 @@ function StockContainer({ path, setNotice }: { path: string; setNotice: SetNotic
 
 function ItemContainer({ id, choices, setNotice }: { id: string; choices: inv.InventoryChoices; setNotice: SetNotice }) {
   const [page, setPage] = React.useState(0)
+  const size = useServerPage(LIST_PAGE, setPage)
   const item = useLoad(() => inv.getItem(id), [id], setNotice, () => go(`${BASE}/stock`, { replace: true }))
-  const movements = useLoad(() => inv.itemMovements(id, page + 1, 10), [id, page], setNotice)
+  const movements = useLoad(() => inv.itemMovements(id, page + 1, size), [id, page, size], setNotice)
   if (!item.data) return null
   const current = item.data
   return (
@@ -321,7 +324,8 @@ function SuppliersContainer({ setNotice }: { setNotice: SetNotice }) {
   const [query, setQuery] = React.useState("")
   const [page, setPage] = React.useState(0)
   const [archived, setArchived] = React.useState(false)
-  const { data } = useLoad(() => inv.listSuppliers(query, page + 1, 10, archived), [query, page, archived], setNotice)
+  const size = useServerPage(LIST_PAGE, setPage)
+  const { data } = useLoad(() => inv.listSuppliers(query, page + 1, size, archived), [query, page, archived, size], setNotice)
   return (
     <SuppliersScreen
       data={data}
@@ -411,7 +415,8 @@ function PurchasesContainer({ path, setNotice }: { path: string; setNotice: SetN
   const status = (queryOf(path).get("status")?.toUpperCase() as inv.PurchaseStatus | null) ?? "all"
   const [query, setQuery] = React.useState("")
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => inv.listPurchases(status === "all" ? null : status, query, page + 1, 10), [status, query, page], setNotice)
+  const size = useServerPage(LIST_PAGE, setPage)
+  const { data } = useLoad(() => inv.listPurchases(status === "all" ? null : status, query, page + 1, size), [status, query, page, size], setNotice)
   return (
     <PurchasesScreen
       data={data}
@@ -726,7 +731,8 @@ function ReturnsContainer({ path, setNotice }: { path: string; setNotice: SetNot
   const params = queryOf(path)
   const filter: ReturnsFilter = params.get("awaiting") ? "awaiting" : params.get("status") === "draft" ? "DRAFT" : "all"
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => inv.listReturns(filter === "DRAFT" ? "DRAFT" : null, filter === "awaiting", page + 1, 10), [filter, page], setNotice)
+  const size = useServerPage(LIST_PAGE, setPage)
+  const { data } = useLoad(() => inv.listReturns(filter === "DRAFT" ? "DRAFT" : null, filter === "awaiting", page + 1, size), [filter, page, size], setNotice)
   return (
     <ReturnsScreen
       data={data}
@@ -859,7 +865,8 @@ function ReturnContainer({ id, sub, choices, today, onDraft, setNotice }: {
 
 function CountsContainer({ summary, setNotice }: { summary: inv.Summary; setNotice: SetNotice }) {
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => inv.listCounts(page + 1, 10), [page], setNotice)
+  const size = useServerPage(LIST_PAGE, setPage)
+  const { data } = useLoad(() => inv.listCounts(page + 1, size), [page, size], setNotice)
   const open = summary.attention.open_count
   return (
     <CountsScreen
@@ -994,7 +1001,8 @@ function ExpensesContainer({ summary, setNotice }: { summary: inv.Summary; setNo
   const [month, setMonth] = React.useState(summary.month)
   const [page, setPage] = React.useState(0)
   const range = inv.monthRange(month)
-  const { data } = useLoad(() => inv.expenses(range.from, range.to, page + 1, 20), [month, page], setNotice)
+  const size = useServerPage(LONG_LIST_PAGE, setPage)
+  const { data } = useLoad(() => inv.expenses(range.from, range.to, page + 1, size), [month, page, size], setNotice)
   return (
     <ExpensesScreen
       month={month}
@@ -1023,7 +1031,8 @@ function TotalsContainer({ summary, setNotice }: { summary: inv.Summary; setNoti
 
 function VouchersContainer({ choices, setNotice }: { choices: inv.InventoryChoices; setNotice: SetNotice }) {
   const [page, setPage] = React.useState(0)
-  const { data } = useLoad(() => inv.listVouchers(page + 1, 10), [page], setNotice)
+  const size = useServerPage(LONG_LIST_PAGE, setPage)
+  const { data } = useLoad(() => inv.listVouchers(page + 1, size), [page, size], setNotice)
   return <VouchersScreen data={data} page={page} onPage={setPage} choices={choices} onOpenItem={(voucher) => go(itemRoute(voucher.item.id))} onBack={() => go(`${BASE}/stock`)} />
 }
 
