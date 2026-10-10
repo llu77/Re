@@ -1115,11 +1115,22 @@ SELECT body FROM support_messages WHERE ticket_id = %s AND author = 'CUSTOMER' O
 """
 
 
+def _require_current_notice(cursor) -> None:
+    """
+    مراجعتا الردّ والمقالة تمرّان بالمسار المشترك `/api/ai/review`، لا بحارس مسارات المكتب: فتُفحص هنا النسخة
+    الحالية من إشعار المكتب قبل أن يُفتح شيء (والقاعدة تفحص أن إشعاراً ما قُبل).
+    """
+    row = _one(cursor, "SELECT notice_version FROM support_settings")
+    if not support_notice.is_current(None if row is None else row["notice_version"]):
+        raise Conflict("NOTICE", detail="اقرأ إشعار مكتب الدعم ووافق عليه أولاً.")
+
+
 def _load_reply(cursor, user_id: UUID, kind: str, reply_id: UUID, _expected: int | None) -> Snapshot:
     """
     الردّ كما يراه المراجِع: آخر رسالةٍ من العميل، ونوعه، وجمله، والمقالات التي اقتبست منها
     مسودته؛ وإن لم تكن فأقرب ثلاثٍ منشورة لرسالة العميل.
     """
+    _require_current_notice(cursor)
     reply = _one(cursor, _REVIEW_REPLY, (reply_id,))
     if reply is None or reply["state"] != "READY" or reply["origin"] not in ("EDITED", "MANUAL"):
         raise NotFound("NOT_FOUND", reviewer.NO_REVIEW)
@@ -1142,6 +1153,7 @@ SELECT a.id, a.state, a.latest_version, a.published_version, v.title, v.issue, v
 
 def _load_article(cursor, user_id: UUID, kind: str, article_id: UUID, _expected: int | None) -> Snapshot:
     """آخر نسخةٍ من مقالةٍ لم تُنشر، وأقرب ثلاثٍ منشورةٍ إليها (غيرها)."""
+    _require_current_notice(cursor)
     row = _one(cursor, _REVIEW_ARTICLE, (article_id,))
     if row is None or row["state"] in ("ARCHIVED", "DISCARDED") or row["published_version"] == row["latest_version"]:
         raise NotFound("NOT_FOUND", reviewer.NO_REVIEW)

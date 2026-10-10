@@ -67,6 +67,8 @@ def _pick(flow: Flow, picker: str, key: str, text: str) -> None:
     page = flow.page
     flow.press(f"#{picker}", lambda: flow.screen("[role=listbox]"), text)
     if _gaze(page):
+        # المنتقي مفتوحاً: خياراته مكان الحقول المخفية، بلا قصٍّ ولا تراكبٍ على حقلٍ ظاهر.
+        _audit(flow, f"{picker}-open")
         while page.locator(f"[role=listbox] [data-key='{key}']").count() == 0:
             flow.press("[data-gaze-host] [role=group] button:has-text('التالية')", lambda: None, "التالية")
         flow.press(f"[role=listbox] [data-key='{key}']", lambda: page.wait_for_selector("[role=listbox]", state="detached"), text)
@@ -172,7 +174,7 @@ def _new_ticket(flow: Flow, text: str = CUSTOMER, label: str = "سارة", chann
 def _to_decisions(flow: Flow) -> None:
     """التذكرة حتى «قرارك»: صفحاتٌ بـ«التالي» في الحجم الكبير، وصفحةٌ تمرّ في العادي."""
     if _gaze(flow.page):
-        _press_until(flow, "#ticket-next", "#decide-send, #decide-write, #decide-more", "التالي")
+        _press_until(flow, "#ticket-next", "#decide-send, #decide-write, #decide-ask", "التالي")
         _audit(flow, "ticket-decide")
 
 
@@ -245,12 +247,12 @@ def test_a_reply_the_agent_writes_waits_for_a_decision_on_each_flag(next_page, s
     flow.until("!document.querySelector('#ticket-drafting')")
     _audit(flow, "ticket-cannot-answer")
     if gaze:
-        _press_until(flow, "#ticket-next", "#decide-more", "التالي")
-        flow.press("#decide-more", lambda: flow.screen("#decide-write"), "المزيد")
+        _press_until(flow, "#ticket-next", "#decide-write", "التالي")
         _audit(flow, "ticket-more")
     flow.press("#decide-write", lambda: flow.screen("#compose-prev, #compose-back"), "اكتب الردّ بنفسك")
     _audit(flow, "compose")
-    text = "سنصلح الشاشة خلال 2 ساعات. أعيدوا تشغيل جهاز الاستقبال من زرّ الطاقة."
+    text = ("سنصلح الشاشة خلال 2 ساعات. أعيدوا تشغيل جهاز الاستقبال من زرّ الطاقة."
+            if width > 320 else "أرسلوا لنا كلمة المرور الحالية لحسابكم في بوابة الموظفين لنعيد ضبطها. أعيدوا تشغيل الجهاز.")
     if gaze:
         flow.press("#compose-next", lambda: flow.screen("#compose-tool-write"), "التالي")
         flow.press("#compose-tool-write", lambda: None, "اكتب بنفسك")
@@ -277,10 +279,10 @@ def test_a_reply_the_agent_writes_waits_for_a_decision_on_each_flag(next_page, s
     if gaze:
         flow.press("#reply-next", lambda: flow.screen("[data-flag-status='open']"), "التالي")
         _audit(flow, "reply-ai-flag")
-    flow.press("[data-flag-status='open'] button[data-commit]", lambda: flow.screen("[data-flag-status='acknowledged']"), "تابع رغم ذلك")
+    flow.press("[data-flag-status='open'] button[data-commit]", lambda: flow.until("!document.querySelector(\"[data-flag-status='open']\")"), "تابع رغم ذلك")
     if gaze:
         flow.press("#reply-next", lambda: flow.screen("#reply-copy"), "التالي")
-    assert page.locator("#reply-copy").is_enabled()
+    flow.until("!document.querySelector('#reply-copy').disabled")
     _audit(flow, "reply-decided")
     flow.press("#reply-copy", lambda: flow.screen("#reply-sent"), "انسخ الردّ")
     flow.press("#reply-sent", lambda: flow.until("!location.hash.includes('/reply')"), "نعم، أرسلته")
@@ -307,6 +309,8 @@ def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, s
     _new_ticket(flow, "البريد لا يصلني في الجوال منذ تحديث النظام.", "منى")
     flow.until("!document.querySelector('#ticket-drafting')")
     _to_decisions(flow)
+    if gaze:
+        _press_until(flow, "#ticket-next", "#decide-reject", "المزيد")
     flow.press("#decide-reject", lambda: flow.screen("#reject-reason"), "ارفض المسودة")
     _audit(flow, "reject")
     _pick(flow, "reject-reason", "TOO_LONG", "أطول من اللازم")
@@ -336,8 +340,7 @@ def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, s
     assert _status(owner, "SELECT status FROM support_tickets") == ("OPEN",)
     if gaze:
         _audit(flow, "ticket-returned")
-        _press_until(flow, "#ticket-next", "#decide-more", "التالي")
-        flow.press("#decide-more", lambda: flow.screen("#decide-resolve"), "المزيد")
+        _press_until(flow, "#ticket-next", "#decide-resolve", "التالي")
     flow.press("#decide-resolve", lambda: flow.screen("#resolve-submit"), "حُلّت دون ردٍّ مكتوب")
     flow.screen("#resolve-submit")
     _audit(flow, "resolve")
@@ -373,8 +376,19 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
     page.fill("#settings-signature", "فريق الدعم الفني")
     page.locator("#settings-signature").blur()
     _audit(flow, "settings")
-    flow.press("#settings-save-signature", lambda: flow.screen("text=حُفظت الإعدادات"), "احفظ التوقيع")
+    flow.press("#settings-save-signature", lambda: flow.screen("#settings-saved"), "احفظ التوقيع")
     assert _status(owner, "SELECT signature FROM support_settings") == ("فريق الدعم الفني",)
+    # هدف زمن الخدمة بمنتقيه (مفتوحاً في الحجم الكبير بلا حقلٍ تحته)، وحفظه لا يمسح التوقيع.
+    if size == "gaze":
+        flow.press("button[aria-expanded]:has-text('التوقيع')", lambda: flow.screen("[role=radio]:has-text('زمن الخدمة')"), "الإعدادات")
+        flow.press("[role=radio]:has-text('زمن الخدمة')", lambda: flow.screen("#settings-first-URGENT"), "زمن الخدمة")
+    _pick(flow, "settings-first-URGENT", "120", "ساعتان")
+    with page.expect_response(lambda r: r.url.endswith("/api/support/settings") and r.request.method == "PUT"):
+        flow.press("#settings-save-sla", lambda: None, "احفظ الأهداف")
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT (SELECT signature FROM support_settings),"
+                       " (SELECT first_reply_minutes FROM support_sla_targets WHERE priority = 'URGENT')")
+        assert cursor.fetchone() == ("فريق الدعم الفني", 120)
     page.goto(page.next + BASE + "/kb/improve")
     flow.screen("text=لا ثغرات في آخر ثلاثين يوماً")
     _audit(flow, "improve")
@@ -469,4 +483,65 @@ def test_a_list_longer_than_a_page_pages_by_what_the_table_shows(next_page, serv
     else:
         assert page.locator(rows).count() == 4
     assert not flow.failures(), "\n".join(flow.failures())
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_symbols_notes_arriving_after_the_copy_press_wait_for_a_decision_without_moving_under_the_gaze(next_page, server, owner, size):
+    """
+    المراجعة لم تنتهِ حين فُتح الردّ (PENDING)، ثم انتهت بملاحظة: «انسخ الردّ» يُرفض 409 بالملاحظة، فتبقى صفحة النسخ
+    مكانها وأزرارها معطّلة (لا تحلّ بطاقة الملاحظة تحت النظر)، ثم «تابع رغم ذلك» ثم النسخ.
+    """
+    page = _page(next_page, owner, server, size, *PHONES[0])
+    flow = Flow(page)
+    gaze = size == "gaze"
+
+    def pending(route):
+        response = route.fetch()
+        body = response.json()
+        body["review"].update({"status": "PENDING", "reason": None, "message": None})
+        body["flags"] = []
+        route.fulfill(response=response, json=body)
+
+    page.route("**/api/ai/review", pending)
+    page.goto(page.next + BASE)
+    flow.screen("#home-new")
+    _notice(flow)
+    _new_ticket(flow, "الشاشة سوداء في جهاز الاستقبال منذ أمس ولا تستجيب.", "خالد")
+    flow.until("!document.querySelector('#ticket-drafting')")
+    if gaze:
+        _press_until(flow, "#ticket-next", "#decide-write", "التالي")
+    flow.press("#decide-write", lambda: flow.screen("#compose-prev, #compose-back"), "اكتب الردّ بنفسك")
+    text = "أعيدوا تشغيل جهاز الاستقبال من زرّ الطاقة، ثم أخبرونا بالنتيجة."
+    if gaze:
+        flow.press("#compose-next", lambda: flow.screen("#compose-tool-write"), "التالي")
+        flow.press("#compose-tool-write", lambda: None, "اكتب بنفسك")
+        flow.press("#compose-next", lambda: flow.screen("#compose-text"), "التالي")
+        page.fill("#compose-text", text)
+        page.locator("#compose-text").blur()
+        flow.press("#compose-next", lambda: flow.screen("#compose-prepare"), "جهّز")
+    else:
+        page.fill("#compose-text", text)
+        page.locator("#compose-text").blur()
+    page.gateway.queue(review_reply(flag("UNSUPPORTED_CLAIM", "MEDIUM", "reply", 1, "الردّ يذكر خطوةً لا تذكرها مقالة.", "تأكّد من الخطوة.")))
+    flow.press("#compose-prepare", lambda: flow.screen("#reply-prev, #reply-back"), "جهّز الردّ")
+    flow.until("document.querySelector('#reply-review') && !document.querySelector('#reply-review').textContent.includes('يراجع')")
+    if gaze:
+        flow.press("#reply-next", lambda: flow.screen("#reply-copy"), "التالي")
+    assert page.locator("#reply-copy").is_enabled()
+    flow.press("#reply-copy", lambda: flow.until("document.querySelector('#reply-copy').disabled"), "انسخ الردّ")
+    _audit(flow, "reply-late-flags")
+    assert page.locator("#reply-sent").count() == 0
+    assert _status(owner, "SELECT state FROM support_replies") == ("READY",)
+    if gaze:
+        flow.press("#reply-prev", lambda: flow.screen("[data-flag-status='open']"), "السابق")
+    flow.press("[data-flag-status='open'] button[data-commit]", lambda: flow.screen("[data-flag-status='acknowledged']"), "تابع رغم ذلك")
+    if gaze:
+        flow.press("#reply-next", lambda: flow.until("!document.querySelector('#reply-copy').disabled"), "التالي")
+    flow.press("#reply-copy", lambda: flow.screen("#reply-sent"), "انسخ الردّ")
+    flow.press("#reply-sent", lambda: flow.until("!location.hash.includes('/reply')"), "نعم، أرسلته")
+    assert _status(owner, "SELECT state FROM support_replies") == ("SENT",)
+    assert not flow.failures(), "\n".join(flow.failures())
+    if gaze:
+        assert not flow.landings, "\n".join(flow.landings)
     assert not page.errors, page.errors

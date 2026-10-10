@@ -22,7 +22,7 @@ import {
 } from "@/lib/support"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
-import { GazeHost, Picker } from "@/screens/inventory/common"
+import { GazeHost, GazeSlot, Picker } from "@/screens/inventory/common"
 
 import { usePages, type Fail } from "./common"
 
@@ -245,9 +245,12 @@ export function RejectScreen({ onReject, onBack }: { onReject: (reason: RejectRe
       <FailAlert fail={fail} title="لم تُرفض" />
       <GazeHost>
         <Picker id="reject-reason" label="لماذا؟" options={reasons.map((r) => ({ value: r, label: REJECT_REASON[r] }))} value={reason} onValueChange={(v) => setReason(v as RejectReason)} />
-        <Field label="ملاحظة" hint={gaze ? undefined : "اختيارية، حتى 200 حرف."}>
-          <Input id="reject-note" autoComplete="off" maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
-        </Field>
+        {/* حقلٌ في المضيف يُخفى حين يُفتح المنتقي، فلا تقع خياراته فوق حقلٍ ظاهر. */}
+        <GazeSlot id="reject-note-field">
+          <Field label="ملاحظة" hint={gaze ? undefined : "اختيارية، حتى 200 حرف."}>
+            <Input id="reject-note" autoComplete="off" maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
+          </Field>
+        </GazeSlot>
       </GazeHost>
     </Screen>
   )
@@ -351,9 +354,11 @@ export function ClassifyScreen({ ticket, onSave, onBack }: {
       <GazeHost>
         <Picker id="classify-category" label="الفئة" options={CATEGORIES.map((c) => ({ value: c, label: CATEGORY[c] }))} value={category} onValueChange={(v) => setCategory(v as Category)} />
         <Picker id="classify-priority" label="الأولوية" options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY[p] }))} value={priority} onValueChange={(v) => setPriority(v as Priority)} />
-        <Field label="الموضوع" error={fail?.field === "subject" ? fail.message : null}>
-          <Input id="classify-subject" autoComplete="off" maxLength={80} value={subject} onChange={(event) => setSubject(event.target.value)} />
-        </Field>
+        <GazeSlot id="classify-subject-field">
+          <Field label="الموضوع" error={fail?.field === "subject" ? fail.message : null}>
+            <Input id="classify-subject" autoComplete="off" maxLength={80} value={subject} onChange={(event) => setSubject(event.target.value)} />
+          </Field>
+        </GazeSlot>
       </GazeHost>
     </Screen>
   )

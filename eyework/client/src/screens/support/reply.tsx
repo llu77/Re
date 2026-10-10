@@ -72,9 +72,11 @@ function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
   }
   return (
     <section role="group" aria-label={flag.message} data-flag-status={open ? "open" : "acknowledged"} className={open ? "flex flex-col gap-tg rounded-card border border-warning-line bg-warning-tint p-pad" : "flex flex-col gap-tg rounded-card border border-border bg-muted p-pad"}>
-      <p className="text-small font-bold">تنبيه</p>
+      {/* في الحجم الكبير عنوان الشاشة «تنبيه 1 من 2»، والسبب ثلاثة أسطرٍ على الأكثر: ارتفاع البطاقة محدود مهما طال
+          الاقتباس، فتتّسع خيارات «سبب المتابعة» تحتها في أقصر الهواتف. */}
+      <p className="text-small font-bold gaze:hidden">تنبيه</p>
       <p className="font-semibold">{flag.message}</p>
-      <p className="text-small text-muted-foreground">{flag.reason}</p>
+      <p className="text-small text-muted-foreground gaze:line-clamp-3">{flag.reason}</p>
       {fail ? <Alert tone="danger" title="لم يُحفظ القرار" live>{fail.message}</Alert> : null}
       {open ? (
         // في الحجم الكبير القراران فوق المنتقي: خياراته تُفتح تحته، فما يقع عليه النظر بعد اختيار السبب هو
@@ -111,7 +113,9 @@ export function ReplyScreen(props: ReplyScreenProps) {
   const [fail, setFail] = React.useState<Fail>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [reading, setReading] = React.useState(false)
-  const [page, setPage] = React.useState(0)
+  // صفحات الحجم الكبير بمعرّفاتها لا بأرقامها: ملاحظاتٌ تصل متأخرةً (409 بعد «انسخ الردّ») تُدرج قبل صفحة النسخ
+  // ولا تحلّ محلّها تحت النظر — تبقى الصفحة كما هي وأزرارها معطّلة حتى يُقرَّر فيها.
+  const [pageId, setPageId] = React.useState("text")
   if (!reply) return null
   const released = reply.state === "RELEASED"
   const spoken = ticket.channel === "PHONE" || ticket.channel === "IN_PERSON"
@@ -300,9 +304,11 @@ export function ReplyScreen(props: ReplyScreenProps) {
       )
     }
     // النصّ أوّلاً (فقرةٌ لا تُضغط تحت نظرٍ وصل من «أرسل كما هي»)، ثم تنبيهٌ في كل صفحة، ثم النسخ.
-    const pages = [{ id: "text", label: "الردّ", body: <>{statusLine}{body}</> }, ...cards.map((card, i) => ({ id: `flag-${i}`, label: "تنبيه", body: card })), { id: "send", label: "النسخ", body: null }]
-    const index = Math.min(page, pages.length - 1)
+    const flagIds = [...reply.flags.map((f) => `rule-${f.id}`), ...aiFlags.map((f) => `ai-${f.id}`)]
+    const pages = [{ id: "text", label: "الردّ", body: <>{statusLine}{body}</> }, ...cards.map((card, i) => ({ id: flagIds[i], label: "تنبيه", body: card })), { id: "send", label: "النسخ", body: null }]
+    const index = Math.max(0, pages.findIndex((p) => p.id === pageId))
     const at = pages[index]
+    const setPage = (next: number) => setPageId(pages[next].id)
     const flagIndex = index - 1
     const isFlag = flagIndex >= 0 && flagIndex < cards.length
     const decided = !isFlag || (flagIndex < ruleCards.length ? reply.flags[flagIndex].state !== "OPEN" : aiFlags[flagIndex - ruleCards.length].decision === "PROCEED")

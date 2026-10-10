@@ -334,7 +334,8 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
 }) {
   const { size } = useSize()
   const gaze = size === "gaze"
-  const [page, setPage] = React.useState(0)
+  // بمعرّف الصفحة لا رقمها: ملاحظاتٌ متأخرة (409 بعد «اعتمد المقالة») تُدرج قبل صفحة الاعتماد ولا تحلّ محلّها.
+  const [pageId, setPageId] = React.useState("summary")
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
   const flags = late ?? answer?.flags ?? article.flags
@@ -366,9 +367,10 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
   const failAlert = fail ? <Alert tone="danger" title="لم تُعتمد" live>{fail.message}</Alert> : null
   if (gaze) {
     // الملخّص أوّلاً (لا شيء يُضغط تحت نظرٍ وصل من «اعتمد»)، ثم ملاحظةٌ في كل صفحة، ثم «اعتمد المقالة» في أعلى آخرها.
-    const pages = [{ id: "summary" }, ...cards.map((_, i) => ({ id: `flag-${i}` })), { id: "publish" }]
-    const index = Math.min(page, pages.length - 1)
+    const pages = [{ id: "summary" }, ...flags.map((f) => ({ id: `flag-${f.id}` })), { id: "publish" }]
+    const index = Math.max(0, pages.findIndex((p) => p.id === pageId))
     const at = pages[index]
+    const setPage = (next: number) => setPageId(pages[next].id)
     const flagIndex = index - 1
     const decided = at.id.startsWith("flag-") ? flags[flagIndex].decision === "PROCEED" : !(at.id === "summary" && reviewing)
     return (

@@ -391,12 +391,21 @@ def test_ask_symbol_reads_the_desk_counts_and_the_ticket_state_but_no_customer_t
     assert refused.status_code == 404
 
 
-def test_symbol_reviews_an_article_only_after_the_desk_notice(agent):
-    """مراجعة المقالة ترسل نصّها إلى Anthropic: قبل إشعار المكتب 409 NOTICE برسالته، والاعتماد بلا مراجعةٍ يبقى ممكناً."""
+def test_symbol_reviews_an_article_only_after_the_desk_notice(agent, owner):
+    """
+    مراجعة المقالة ترسل نصّها إلى Anthropic: قبل إشعار المكتب — أو بعد نسخةٍ أقدم من الحالية — 409 NOTICE برسالته،
+    والاعتماد بلا مراجعةٍ يبقى ممكناً.
+    """
     client, _ = agent
     a = article(client, publish=False)
-    refused = client.post("/api/ai/review", json={"feature": "SUPPORT_ARTICLE_REVIEW", "subject_kind": "KB_ARTICLE", "subject_id": a["id"]})
+    body = {"feature": "SUPPORT_ARTICLE_REVIEW", "subject_kind": "KB_ARTICLE", "subject_id": a["id"]}
+    refused = client.post("/api/ai/review", json=body)
     assert (refused.status_code, refused.json()["code"]) == (409, "NOTICE")
+    accept(client)
+    with owner.cursor() as cursor:
+        cursor.execute("UPDATE support_settings SET notice_version = '2025-01-01'")
+    old = client.post("/api/ai/review", json=body)
+    assert (old.status_code, old.json()["code"], old.json()["detail"]) == (409, "NOTICE", "اقرأ إشعار مكتب الدعم ووافق عليه أولاً.")
     published = expect(client.post(f"{BASE}/kb/{a['id']}/publish", json={"expected_row_version": a["row_version"], "version": 1}))
     assert published["state"] == "PUBLISHED"
 

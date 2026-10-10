@@ -12,7 +12,7 @@
 
 import * as React from "react"
 import {
-  ArrowUpRight, Ban, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, FilePlus2, MessageSquarePlus, MoreHorizontal, NotebookPen,
+  ArrowUpRight, Ban, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, FilePlus2, MessageSquarePlus, NotebookPen,
   PencilLine, RefreshCw, RotateCcw, Send, Sparkles, StickyNote, Undo2,
 } from "lucide-react"
 
@@ -77,6 +77,9 @@ function RuleFlagNote({ flag }: { flag: RuleFlag }) {
     </Alert>
   )
 }
+
+/** قرارات الحجم الكبير في كل صفحة. */
+const DECISIONS_PER_PAGE = 4
 
 export function TicketScreen(props: TicketScreenProps) {
   const { ticket, drafting, draftFail, onRequestDraft, onSendAsIs, onAcceptSuggestion, onReopen, onReturnEscalation, onAction, onBack, backLabel } = props
@@ -260,8 +263,15 @@ export function TicketScreen(props: TicketScreenProps) {
     if (escalation) pages.push({ id: "escalation", label: "التصعيد", body: escalation })
     pages.push({ id: "message", label: "الرسالة", body: lastMessage })
     if (drafting || current || draftAlert || askDraft || draftBlock) pages.push({ id: "draft", label: "المسودة", body: <>{draftAlert}{draftBlock}{askDraft}</> })
-    if (main.length) pages.push({ id: "decide", label: "قرارك", body: <div className="flex flex-col gap-tg [&>button]:w-full">{failAlert}{main}{more.length ? <Button id="decide-more" icon={MoreHorizontal} onClick={() => setPage(pages.findIndex((p) => p.id === "more"))}>المزيد</Button> : null}</div> })
-    if (more.length) pages.push({ id: "more", label: "المزيد", body: <div className="flex flex-col gap-tg [&>button]:w-full">{main.length ? null : failAlert}{more}</div> })
+    // القرارات أربعةً في كل صفحة (ومعها تنبيه الخطأ إن وُجد): ستّةٌ في صفحةٍ لا تتّسع لها أقصر الهواتف حين يلتفّ
+    // سطر الشارات أو يظهر التنبيه. والتالية «المزيد» بزرّ «التالي» في الشريط.
+    const decisions = [...main, ...more]
+    for (let start = 0; start < decisions.length; start += DECISIONS_PER_PAGE) {
+      pages.push({
+        id: `decide-${start}`, label: start === 0 ? "قرارك" : "المزيد",
+        body: <div className="flex flex-col gap-tg [&>button]:w-full">{failAlert}{decisions.slice(start, start + DECISIONS_PER_PAGE)}</div>,
+      })
+    }
     const index = Math.min(page, pages.length - 1)
     const at = pages[index]
     return (
@@ -274,7 +284,7 @@ export function TicketScreen(props: TicketScreenProps) {
             <Button id="ticket-prev" icon={BackIcon} onClick={index === 0 ? onBack : () => setPage(index - 1)}>
               {index === 0 ? backLabel : "السابق"}
             </Button>
-            {index < pages.length - 1 && at.id !== "decide" ? (
+            {index < pages.length - 1 ? (
               <Button id="ticket-next" variant="secondary" iconEnd={NextIcon} onClick={() => setPage(index + 1)}>
                 {pages[index + 1].label}
               </Button>
