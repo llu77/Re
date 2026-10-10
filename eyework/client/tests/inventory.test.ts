@@ -6,14 +6,13 @@ import { describe, expect, it } from "vitest"
 
 import { sectionOf } from "@/app/inventory-flow"
 import { countRoute, formatMilli, milliInput, monthLabel, monthRange, parseMilli, purchaseRoute, quantityText, shiftMonth, type Summary } from "@/lib/inventory"
-import { lineValue, unitPrice } from "@/lib/money"
 import { attentionItems } from "@/screens/inventory/home"
 
 const summary: Summary = {
   today: "2026-10-09", month: "2026-10",
   month_totals: { purchases: { net: 0, vat: 0, gross: 0 }, returns: { net: 0, vat: 0, gross: 0 }, reversals: { net: 0, vat: 0, gross: 0 }, net: { net: 0, vat: 0, gross: 0 } },
   stock_value: 0, settings: null,
-  attention: { drafts: 2, low_stock: 1, awaiting_credit_note: 1, credit_note_overdue: 0, uncounted: 0, open_count: { id: "c1", label: "ج-0003" } },
+  attention: { drafts: 3, purchase_drafts: 2, return_drafts: 1, low_stock: 1, awaiting_credit_note: 1, credit_note_overdue: 0, uncounted: 0, short_delivery: 1, open_count: { id: "c1", label: "ج-0003" } },
   counts: { items: 3, suppliers: 1, movements: 4 },
 }
 
@@ -29,6 +28,17 @@ describe("quantities in thousandths", () => {
     expect(parseMilli("3", true, 2500)).toBeNull()
   })
 
+  it("accepts zero only where it is asked for, in either digits, and a comma only as a thousands separator", () => {
+    expect(parseMilli("٠", false, undefined, { zero: true })).toBe(0)
+    expect(parseMilli("0.0", true, undefined, { zero: true })).toBe(0)
+    expect(parseMilli("", false, undefined, { zero: true })).toBeNull()
+    expect(parseMilli("٠", false)).toBeNull()
+    expect(parseMilli("1,250", false)).toBe(1250000)
+    expect(parseMilli("١٬٢٥٠", false)).toBe(1250000)
+    expect(parseMilli("2,5", true)).toBeNull()
+    expect(parseMilli("10,5", true)).toBeNull()
+  })
+
   it("formats thousandths without trailing zeros and with grouping", () => {
     expect(formatMilli(12000)).toBe("12")
     expect(formatMilli(2500)).toBe("2.5")
@@ -36,13 +46,6 @@ describe("quantities in thousandths", () => {
     expect(milliInput(1250500)).toBe("1250.5")
     expect(milliInput(null)).toBe("")
     expect(quantityText(2500, "كيلوغرام")).toBe("2.5 كيلوغرام")
-  })
-
-  it("derives a unit price and a line value with rounding", () => {
-    expect(unitPrice(100000, 10000)).toBe(10000)
-    expect(unitPrice(100, 3000)).toBe(33)
-    expect(unitPrice(100, 0)).toBeNull()
-    expect(lineValue(2500, 900)).toBe(2250)
   })
 })
 
@@ -73,9 +76,9 @@ describe("routes and sections", () => {
     expect(sectionOf("/settings")).toBe("home")
   })
 
-  it("lists what needs attention, the open count first and the overdue note before the waiting one", () => {
-    expect(attentionItems(summary).map((item) => item.id)).toEqual(["open-count", "drafts", "awaiting", "low"])
-    expect(attentionItems({ ...summary, attention: { ...summary.attention, credit_note_overdue: 1, open_count: null } }).map((item) => item.id)).toEqual(["drafts", "overdue", "low"])
+  it("lists what needs attention, the open count first, and an overdue note replaces the waiting one", () => {
+    expect(attentionItems(summary).map((item) => item.id)).toEqual(["open-count", "drafts", "return-drafts", "short", "awaiting", "low"])
+    expect(attentionItems({ ...summary, attention: { ...summary.attention, credit_note_overdue: 1, open_count: null } }).map((item) => item.id)).toEqual(["drafts", "return-drafts", "short", "overdue", "low"])
     expect(attentionItems(summary)[0].href).toBe("#/inventory/c/c1")
   })
 })

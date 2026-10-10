@@ -109,11 +109,13 @@ def _internal(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"code": "INTERNAL", "detail": "حدث خطأ. حاول مرة أخرى."})
 
 
-def _error(spec: ErrorSpec, field: str | None = None) -> JSONResponse:
+def _error(spec: ErrorSpec, field: str | None = None, extra: dict | None = None) -> JSONResponse:
     headers = {"Retry-After": str(spec.retry_after)} if spec.retry_after else None
     content = {"code": spec.code, "detail": spec.detail}
     if field is not None:
         content["field"] = field
+    if extra:
+        content.update(extra)
     return JSONResponse(status_code=spec.status, content=content, headers=headers)
 
 
@@ -250,7 +252,7 @@ def create_app(
 
     @app.exception_handler(service_errors.Invalid)
     def invalid(request: Request, exc: service_errors.Invalid) -> JSONResponse:
-        return _error(EDIT_REQUEST.get(exc.code) or INVENTORY_INVALID.get(exc.code, GENERIC), exc.field)
+        return _error(EDIT_REQUEST.get(exc.code) or INVENTORY_INVALID.get(exc.code, GENERIC), exc.field, exc.extra)
 
     @app.exception_handler(assistant.AssistantError)
     def assistant_error(request: Request, exc: assistant.AssistantError) -> JSONResponse:

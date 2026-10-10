@@ -86,14 +86,3 @@ export function invoiceTotals(lines: LineInput[], rateBp: number) {
     { net: 0, vat: 0, gross: 0 },
   )
 }
-
-/** سعر الوحدة من قيمة سطرٍ وكميته بالألف: 100000 هللة ÷ 10000 ← 10000 (مقرّباً). */
-export function unitPrice(valueHalalas: number, quantityMilli: number): number | null {
-  if (quantityMilli <= 0) return null
-  return Math.round((valueHalalas * 1000) / quantityMilli)
-}
-
-/** قيمة سطرٍ بكميةٍ بالألف وسعر وحدة: 2500 × 900 ← 2250 هللة (مقرّباً). */
-export function lineValue(quantityMilli: number, unitPriceHalalas: number): number {
-  return Math.round((quantityMilli * unitPriceHalalas) / 1000)
-}

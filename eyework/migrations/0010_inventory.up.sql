@@ -606,6 +606,18 @@ CREATE INDEX inv_review_flags_return ON inv_review_flags (return_id);
 -- المحفّزات
 -- ════════════════════════════════════════════════════════════════════════
 
+-- الصفّ لصاحب الجلسة قبل أن يُقرأ له أيّ صفٍّ آخر: حرّاس الإدراج تعمل بصلاحية المالك وقبل
+-- WITH CHECK، فبلا هذا يكشف اختلاف الخطأ مهنة حسابٍ آخر أو حال مستنده. بلا جلسة (المالك
+-- في الصيانة) لا فحص.
+CREATE FUNCTION ew_inv_own(p_user uuid) RETURNS void
+LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $$
+BEGIN
+    IF ew_current_user() IS NOT NULL AND p_user IS DISTINCT FROM ew_current_user() THEN
+        RAISE EXCEPTION 'owner' USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'inv_not_owner';
+    END IF;
+END
+$$;
+
 -- المهنة تُفحص حيث يقع الأثر. FOR SHARE يقف أمام admin set-profession كما في الحملة.
 CREATE FUNCTION ew_inv_require_storekeeper(p_user uuid) RETURNS void
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
@@ -620,6 +632,7 @@ $$;
 CREATE FUNCTION ew_inv_settings_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     IF TG_OP = 'INSERT' THEN
         PERFORM ew_inv_require_storekeeper(NEW.user_id);
         IF NEW.row_version <> 1 THEN
@@ -656,6 +669,7 @@ $$;
 CREATE FUNCTION ew_inv_supplier_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     IF TG_OP = 'INSERT' THEN
         PERFORM ew_inv_require_storekeeper(NEW.user_id);
         PERFORM pg_advisory_xact_lock(hashtextextended('eyework.inv_suppliers:' || NEW.user_id::text, 0));
@@ -688,6 +702,7 @@ CREATE TRIGGER trg_inv_supplier BEFORE INSERT OR UPDATE ON inv_suppliers
 CREATE FUNCTION ew_inv_category_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     IF TG_OP = 'INSERT' THEN
         PERFORM ew_inv_require_storekeeper(NEW.user_id);
         PERFORM pg_advisory_xact_lock(hashtextextended('eyework.inv_categories:' || NEW.user_id::text, 0));
@@ -721,6 +736,7 @@ CREATE TRIGGER trg_inv_category BEFORE INSERT OR UPDATE ON inv_categories
 CREATE FUNCTION ew_inv_supplier_rep_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     IF TG_OP = 'INSERT' THEN
         PERFORM ew_inv_require_storekeeper(NEW.user_id);
         IF NOT EXISTS (SELECT 1 FROM inv_suppliers WHERE id = NEW.supplier_id AND user_id = NEW.user_id AND is_active) THEN
@@ -762,6 +778,7 @@ CREATE TRIGGER trg_inv_supplier_rep BEFORE INSERT OR UPDATE ON inv_supplier_reps
 CREATE FUNCTION ew_inv_item_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     IF TG_OP = 'INSERT' THEN
         PERFORM ew_inv_require_storekeeper(NEW.user_id);
         PERFORM pg_advisory_xact_lock(hashtextextended('eyework.inv_items:' || NEW.user_id::text, 0));
@@ -782,7 +799,9 @@ BEGIN
         IF (NEW.unit, NEW.kind) IS DISTINCT FROM (OLD.unit, OLD.kind)
            AND (EXISTS (SELECT 1 FROM inv_movements WHERE item_id = OLD.id)
                 OR EXISTS (SELECT 1 FROM inv_purchase_lines WHERE item_id = OLD.id)
-                OR EXISTS (SELECT 1 FROM inv_vouchers WHERE item_id = OLD.id)) THEN
+                OR EXISTS (SELECT 1 FROM inv_vouchers WHERE item_id = OLD.id)
+                OR EXISTS (SELECT 1 FROM inv_count_lines l JOIN inv_count_sessions cs ON cs.id = l.session_id
+                            WHERE l.item_id = OLD.id AND cs.status = 'OPEN')) THEN
             RAISE EXCEPTION 'unit' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_item_unit_locked';
         END IF;
         IF OLD.is_active AND NOT NEW.is_active AND NEW.on_hand_milli > 0 THEN
@@ -814,6 +833,7 @@ CREATE TRIGGER trg_inv_item BEFORE INSERT OR UPDATE ON inv_items
 CREATE FUNCTION ew_inv_purchase_insert_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     PERFORM ew_inv_require_storekeeper(NEW.user_id);
     IF NEW.status <> 'DRAFT' OR NEW.row_version <> 1 OR NEW.number IS NOT NULL OR NEW.reversal_number IS NOT NULL THEN
         RAISE EXCEPTION 'draft' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_starts_as_draft';
@@ -899,6 +919,7 @@ DECLARE
     p    inv_purchases%ROWTYPE;
     item inv_items%ROWTYPE;
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     IF TG_OP = 'UPDATE' THEN
         IF ROW(NEW.purchase_id, NEW.user_id, NEW.line_no, NEW.created_at)
            IS DISTINCT FROM ROW(OLD.purchase_id, OLD.user_id, OLD.line_no, OLD.created_at) THEN
@@ -955,6 +976,7 @@ CREATE TRIGGER trg_inv_purchase_line BEFORE INSERT OR UPDATE ON inv_purchase_lin
 CREATE FUNCTION ew_inv_return_insert_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     PERFORM ew_inv_require_storekeeper(NEW.user_id);
     IF NEW.status <> 'DRAFT' OR NEW.row_version <> 1 OR NEW.number IS NOT NULL THEN
         RAISE EXCEPTION 'draft' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_starts_as_draft';
@@ -1032,6 +1054,7 @@ DECLARE
     unit     text;
     returned bigint;
 BEGIN
+    PERFORM ew_inv_own(NEW.user_id);
     IF TG_OP = 'UPDATE' THEN
         IF ROW(NEW.return_id, NEW.user_id, NEW.line_no, NEW.purchase_id, NEW.created_at)
            IS DISTINCT FROM ROW(OLD.return_id, OLD.user_id, OLD.line_no, OLD.purchase_id, OLD.created_at) THEN
@@ -1067,7 +1090,9 @@ BEGIN
         RAISE EXCEPTION 'remaining' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_return_exceeds_remaining';
     END IF;
     IF TG_OP = 'INSERT' THEN
-        IF (SELECT count(*) FROM inv_return_lines WHERE return_id = r.id) >= 40 THEN
+        -- «INSERT … ON CONFLICT DO UPDATE» على سطرٍ قائم يمرّ من هنا قبل التعارض: ليس سطراً جديداً.
+        IF NOT EXISTS (SELECT 1 FROM inv_return_lines WHERE return_id = r.id AND line_no = NEW.line_no)
+           AND (SELECT count(*) FROM inv_return_lines WHERE return_id = r.id) >= 40 THEN
             RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_line_cap';
         END IF;
         NEW.created_at := now();
@@ -1080,8 +1105,9 @@ $$;
 CREATE TRIGGER trg_inv_return_line BEFORE INSERT OR UPDATE ON inv_return_lines
     FOR EACH ROW EXECUTE FUNCTION ew_inv_return_line_guard();
 
--- الحركة تكتب أثرها في رصيد الصنف وقيمته تحت قفل صفّه. الصادر بالمتوسط الحالي:
--- قيمته نصيبه من القيمة مقرّباً، وكلّها إن خرج الرصيد كلّه، فلا تبقى قيمةٌ بلا كمية.
+-- الحركة تكتب أثرها في رصيد الصنف وقيمته تحت قفل صفّه. الصادر بالمتوسط الحالي (صرفٌ وعجز):
+-- قيمته نصيبه من القيمة مقرّباً؛ والمرتجع والقيد العكسي بتكلفة دخولهما ما لم يخرج من الصنف شيءٌ
+-- بعدهما؛ وكلّها إن خرج الرصيد كلّه، فلا تبقى قيمةٌ بلا كمية.
 -- جلسة الجرد: تُفتح وتُرحَّل وتُلغى بالدوالّ؛ وما يُعدَّل مباشرةً (العدّ المغلق والملاحظة)
 -- يُعدَّل وهي مفتوحة فقط، وكل تعديلٍ فيها أو في سطورها يزيد رقم صفّها.
 CREATE FUNCTION ew_inv_count_session_guard() RETURNS trigger
@@ -1153,7 +1179,14 @@ CREATE TRIGGER trg_inv_count_line BEFORE INSERT OR UPDATE ON inv_count_lines
 CREATE FUNCTION ew_inv_movement_insert() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
-    item inv_items%ROWTYPE;
+    item         inv_items%ROWTYPE;
+    basis        bigint;
+    line_cost    bigint;
+    bought       bigint;
+    prev_q       bigint;
+    prev_cost    bigint;
+    src_purchase uuid;
+    src_line     smallint;
 BEGIN
     SELECT * INTO item FROM inv_items WHERE id = NEW.item_id AND user_id = NEW.user_id FOR UPDATE;
     IF NOT FOUND THEN
@@ -1169,7 +1202,43 @@ BEGIN
         IF NEW.quantity_milli > item.on_hand_milli THEN
             RAISE EXCEPTION 'stock' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_negative_stock';
         END IF;
+        -- ما يعود إلى المورّد (مرتجعاً أو قيداً عكسياً) قبل أن يخرج من الصنف شيءٌ بعد دخوله يخرج
+        -- بالتكلفة التي دخل بها، فيعود المتوسط كما كان: فاتورةٌ عُكست أو دفعةٌ أُرجعت لا تُحمِّل فرق
+        -- سعرها على ما بقي في المخزن، والدفتر عُكس بمبلغها. ومن الرجوع الأخير لسطرٍ يخرج باقي تكلفته.
+        -- فإن خرج من الصنف بعد دخولها شيءٌ (صرفٌ أو عجزٌ أو غير مرتجعات السطر نفسه) فقد خرج بالمتوسط
+        -- الذي حملها، فيخرج الراجع بالمتوسط أيضاً: لا تبقى كميةٌ بلا قيمة. والصرف والعجز بالمتوسط دائماً.
+        IF NEW.kind IN ('REVERSAL_OUT', 'RETURN_OUT') THEN
+            IF NEW.kind = 'REVERSAL_OUT' THEN
+                SELECT l.purchase_id, l.line_no, l.cost_halalas, l.quantity_milli, 0, 0
+                  INTO src_purchase, src_line, line_cost, bought, prev_q, prev_cost
+                  FROM inv_purchase_lines l WHERE l.purchase_id = NEW.purchase_id AND l.line_no = NEW.purchase_line_no;
+            ELSE
+                SELECT l.purchase_id, l.line_no, l.cost_halalas, l.quantity_milli, coalesce(prev.q, 0), coalesce(prev.cost, 0)
+                  INTO src_purchase, src_line, line_cost, bought, prev_q, prev_cost
+                  FROM inv_return_lines x
+                  JOIN inv_purchase_lines l ON l.purchase_id = x.purchase_id AND l.line_no = x.line_no
+                  LEFT JOIN LATERAL (
+                      SELECT sum(y.quantity_milli) AS q, sum(y.cost_halalas) AS cost
+                        FROM inv_return_lines y JOIN inv_returns yr ON yr.id = y.return_id
+                       WHERE y.purchase_id = x.purchase_id AND y.line_no = x.line_no AND yr.status = 'POSTED') prev ON true
+                 WHERE x.return_id = NEW.return_id AND x.line_no = NEW.return_line_no;
+            END IF;
+            IF NOT EXISTS (
+                   SELECT 1 FROM inv_movements m
+                    WHERE m.item_id = NEW.item_id
+                      AND m.seq > (SELECT i.seq FROM inv_movements i WHERE i.kind = 'PURCHASE_IN'
+                                     AND i.purchase_id = src_purchase AND i.purchase_line_no = src_line)
+                      AND m.kind IN ('ISSUE_OUT', 'COUNT_OUT', 'REVERSAL_OUT', 'RETURN_OUT')
+                      AND NOT (m.kind = 'RETURN_OUT' AND EXISTS (
+                          SELECT 1 FROM inv_return_lines z
+                           WHERE z.return_id = m.return_id AND z.line_no = m.return_line_no
+                             AND z.purchase_id = src_purchase AND z.line_no = src_line))) THEN
+                basis := CASE WHEN NEW.quantity_milli = bought - prev_q THEN line_cost - prev_cost
+                              ELSE least(round(line_cost::numeric * NEW.quantity_milli / bought)::bigint, line_cost - prev_cost) END;
+            END IF;
+        END IF;
         NEW.value_halalas := CASE WHEN NEW.quantity_milli = item.on_hand_milli THEN item.stock_value_halalas
+                                  WHEN basis IS NOT NULL THEN least(greatest(basis, 0), item.stock_value_halalas)
                                   ELSE round(item.stock_value_halalas::numeric * NEW.quantity_milli / item.on_hand_milli)::bigint END;
         NEW.on_hand_after_milli := item.on_hand_milli - NEW.quantity_milli;
         NEW.value_after_halalas := item.stock_value_halalas - NEW.value_halalas;
@@ -1198,8 +1267,8 @@ CREATE TRIGGER trg_inv_vouchers_append_only BEFORE UPDATE ON inv_vouchers
 
 -- ولا يُحذف إلا مع حسابه: الحذف المتتالي من users يأتي من محفّز المفتاح الخارجي، فعمقه
 -- اثنان فأكثر؛ وحذفٌ مباشر (عمقه واحد) يُرفض، ولو من المالك. والمراجع داخل الحساب
--- تتتالى (ON DELETE CASCADE) ليُحذف الحساب كلّه في عبارةٍ واحدة؛ فالصنف والمورّد لا
--- يُحذفان مباشرةً أبداً (يُؤرشفان)، وإلا حذف تتاليهما أسطراً مسجّلة.
+-- تتتالى (ON DELETE CASCADE) ليُحذف الحساب كلّه في عبارةٍ واحدة؛ فالصنف والمورّد ومندوبه لا
+-- تُحذف مباشرةً أبداً (تُؤرشف)، وإلا حذف تتاليها أسطراً ومستنداتٍ مسجّلة.
 CREATE FUNCTION ew_inv_keep_record() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
@@ -1218,6 +1287,8 @@ CREATE TRIGGER trg_inv_vouchers_keep BEFORE DELETE ON inv_vouchers
 CREATE TRIGGER trg_inv_items_keep BEFORE DELETE ON inv_items
     FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
 CREATE TRIGGER trg_inv_suppliers_keep BEFORE DELETE ON inv_suppliers
+    FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
+CREATE TRIGGER trg_inv_supplier_reps_keep BEFORE DELETE ON inv_supplier_reps
     FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
 CREATE TRIGGER trg_inv_count_sessions_keep BEFORE DELETE ON inv_count_sessions
     FOR EACH ROW EXECUTE FUNCTION ew_inv_keep_record();
@@ -1311,7 +1382,8 @@ $$;
 
 CREATE FUNCTION ew_inv_return_digest(p_return uuid) RETURNS bytea
 LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
-    SELECT sha256(convert_to(coalesce(r.reason, '') || '#' || coalesce((
+    -- تاريخ الإرجاع منها: سيمبول يرى الأيام منذ الشراء، فتغييره محتوىً آخر.
+    SELECT sha256(convert_to(coalesce(r.reason, '') || '#' || coalesce(r.return_date::text, '') || '#' || coalesce((
                SELECT string_agg(ROW(rl.line_no, i.name_key, i.unit, rl.quantity_milli)::text, ';' ORDER BY rl.line_no)
                  FROM inv_return_lines rl
                  JOIN inv_purchase_lines l ON l.purchase_id = rl.purchase_id AND l.line_no = rl.line_no
@@ -1588,7 +1660,7 @@ END
 $$;
 
 -- يُسجّل المرتجع: لكل سطرٍ نصيبه من صافي سطره الأصلي وضريبته (والمرتجع الأخير
--- يأخذ الباقي بالهللة)، وخروجٌ من المخزون بالمتوسط، وقيدٌ سالب في الدفتر.
+-- يأخذ الباقي بالهللة)، وخروجٌ من المخزون بتكلفة دخوله (أو بالمتوسط إن صُرف بعده)، وقيدٌ سالب.
 CREATE FUNCTION ew_inv_post_return(p_return uuid, p_expected_row_version integer, p_ack text[]) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 <<post>>
@@ -1697,7 +1769,8 @@ END
 $$;
 
 -- القيد العكسي لفاتورةٍ سُجّلت خطأً: لا مرتجع منها، وكل صنفٍ فيها ما زال رصيده يكفي.
--- يُخرج كمياتها بالمتوسط، ويكتب قيداً سالباً بإجماليها بتاريخ اليوم، ورقماً من تسلسله.
+-- يُخرج كمياتها بتكلفة دخولها (أو بالمتوسط إن صُرف من الصنف بعدها)، ويكتب قيداً سالباً بإجماليها
+-- بتاريخ اليوم، ورقماً من تسلسله.
 CREATE FUNCTION ew_inv_reverse_purchase(p_purchase uuid, p_expected_row_version integer, p_reason text, p_note text)
 RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -1841,6 +1914,13 @@ BEGIN
         IF p_kind = 'OPENING' AND (EXISTS (SELECT 1 FROM inv_movements WHERE item_id = item.id) OR p_unit_cost_halalas IS NULL) THEN
             RAISE EXCEPTION 'opening' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_opening_not_first';
         END IF;
+        -- الصرف: سببه من القائمة، ومع «سببٌ آخر» ملاحظة (القيد inv_voucher_fields يحرسهما، وهذا رمزهما).
+        IF p_kind = 'ISSUE' AND (p_reason IS NULL OR p_reason NOT IN ('SALE', 'USE', 'DAMAGE', 'OTHER')) THEN
+            RAISE EXCEPTION 'reason' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_voucher_needs_reason';
+        END IF;
+        IF p_kind = 'ISSUE' AND p_reason = 'OTHER' AND p_note IS NULL THEN
+            RAISE EXCEPTION 'note' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_voucher_needs_note';
+        END IF;
     ELSE
         RAISE EXCEPTION 'kind' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_voucher_kind';
     END IF;
@@ -1883,6 +1963,10 @@ BEGIN
     PERFORM pg_advisory_xact_lock(hashtextextended('eyework.inv_count_sessions:' || uid::text, 0));
     IF EXISTS (SELECT 1 FROM inv_count_sessions WHERE user_id = uid AND status = 'OPEN') THEN
         RAISE EXCEPTION 'open' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_session_open';
+    END IF;
+    -- كل جلسةٍ تلتقط سطراً لكل منتجٍ وتبقى سجلّاً: عشرٌ في اليوم تكفي جرداً ومراجعته وإلغاءً.
+    IF (SELECT count(*) FROM inv_count_sessions WHERE user_id = uid AND created_at > now() - interval '1 day') >= 10 THEN
+        RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_count_daily_cap';
     END IF;
     IF p_scope NOT IN ('ALL', 'CATEGORY', 'LOW', 'SELECTED') OR (p_scope = 'CATEGORY') <> (p_category IS NOT NULL)
        OR (p_scope = 'SELECTED') <> (cardinality(coalesce(p_items, '{}')) > 0) THEN
@@ -2165,7 +2249,12 @@ DECLARE
     uid    uuid := ew_current_user();
     digest bytea;
 BEGIN
-    PERFORM ew_inv_require_storekeeper(uid);
+    -- قفل المستخدم للتحديث قبل المسودة: ew_ai_request_open يطلبه بعدها، والتسجيل يأخذ المستخدم
+    -- ثم المسودة؛ فبالترتيب المعاكس يتشابك الاثنان.
+    PERFORM 1 FROM users WHERE id = uid AND is_active AND profession = 'STOREKEEPER' FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'profession' USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'inv_needs_storekeeper';
+    END IF;
     IF num_nonnulls(p_purchase, p_return) <> 1 THEN
         RAISE EXCEPTION 'target' USING ERRCODE = 'check_violation', CONSTRAINT = 'inv_one_document';
     END IF;
@@ -2388,7 +2477,7 @@ GRANT EXECUTE ON FUNCTION ew_inv_post_purchase(uuid, integer, text[]), ew_inv_po
                           ew_inv_count_refresh(uuid), ew_inv_count_post(uuid, integer, date), ew_inv_count_cancel(uuid, integer) TO eyework_app;
 
 -- داخليّة: تستدعيها دوالّ المالك ومحفّزاته وحدها.
-REVOKE ALL ON FUNCTION ew_inv_require_storekeeper(uuid), ew_inv_next_no(uuid, text), ew_inv_lock_items(uuid[]),
+REVOKE ALL ON FUNCTION ew_inv_own(uuid), ew_inv_require_storekeeper(uuid), ew_inv_next_no(uuid, text), ew_inv_lock_items(uuid[]),
                        ew_inv_check_ack(uuid, uuid, text[]), ew_inv_rep_ok(uuid, uuid, uuid),
                        ew_inv_count_voucher(uuid, inv_items, bigint, bigint, text, text, date, uuid, uuid) FROM PUBLIC;
 

@@ -66,7 +66,7 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
     <Screen
       title={first ? "قبل أوّل فاتورة" : "إعدادات المخزن"}
       description={first ? "سؤالٌ واحد عن الضريبة، واسم مخزنك." : undefined}
-      back={{ id: "settings-back", label: first ? "الرئيسية" : "رجوع", onClick: onBack }}
+      back={first ? undefined : { id: "settings-back", label: "رجوع", onClick: onBack }}
       end={onCategories && !first ? { id: "settings-categories", label: "التصنيفات", icon: Tags, onClick: onCategories } : undefined}
       actions={
         <Button id="settings-save" variant="primary" commit icon={Save} busy={busy} onClick={() => void save()}>
@@ -91,7 +91,7 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
         />
       )}
       <Field label="اسم المخزن" error={fail?.field === "store_name" ? fail.message : null} required>
-        <Input id="settings-store-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+        <Input id="settings-store-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
       </Field>
       <Field label="الموقع" hint="اختياري: المدينة أو الحيّ أو رقم المستودع." className="gaze:short:hidden">
         <Input id="settings-store-location" value={location} maxLength={120} onChange={(event) => setLocation(event.target.value)} />
@@ -179,6 +179,7 @@ export function CategoriesScreen({ categories, onAdd, onToggle, onBack }: {
                   variant={category.is_active ? "danger-outline" : "outline"}
                   commit
                   icon={category.is_active ? Archive : ArchiveRestore}
+                  aria-label={`${category.is_active ? "أرشف" : "أعد"} ${category.name}`}
                   onClick={() => void onToggle(category).then((result) => setFail(result))}
                 >
                   {category.is_active ? "أرشف" : "أعد"}

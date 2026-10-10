@@ -113,7 +113,8 @@ export function DocumentReview(props: ReviewProps) {
       {line.text}
     </p>
   )
-  const again = answer?.review.status === "PENDING" || answer?.review.status === "UNAVAILABLE" || (answer && answer.review.status === "DONE" && false) ? (
+  // تحقّقٌ لما ينتظر، وإعادةٌ لما لم يتمّ — ومنه تنبيهاتٌ لم تُقرأ أصلاً.
+  const again = answer?.review.status === "PENDING" || answer?.review.status === "UNAVAILABLE" || (flags === null && !reviewing) ? (
     <Button id="review-again" icon={RefreshCw} busy={reviewing} onClick={onReviewAgain}>
       {answer?.review.status === "PENDING" ? "تحقّق" : "أعد المحاولة"}
     </Button>

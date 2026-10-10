@@ -2,7 +2,8 @@
  * رئيسية أمين المخزون
  * ===================
  * أزرار المالك السبعة كما في الرئيسية المشتركة (HomeGrid)، وفوقها سطران من الخادم (/summary):
- * «يحتاج انتباهك» (المسودات، وما تحت حدّ الطلب، والمرتجعات بلا إشعارٍ دائن، وجلسة الجرد المفتوحة)
+ * «يحتاج انتباهك» (جلسة الجرد المفتوحة، والمسودات، ونقص التسليم بلا مرتجع، والإشعارات الدائنة المتأخّرة أو المنتظرة،
+ * وما تحت حدّ الطلب، وما لم يُجرد منذ تسعين يوماً)
  * و«هذا الشهر» (المشتريات والمرتجعات). في الحجم العادي كل بندٍ رابطٌ آمن إلى قائمته؛ وفي الحجم الكبير
  * سطرٌ واحد يُقرأ (أوّل البنود وعدد ما بعده، أو «لا شيء ينتظرك»): الأزرار السبعة وشريط التبويب أحد عشر هدفاً، ورابط
  * الإعدادات الثاني عشر.
@@ -29,7 +30,9 @@ export function attentionItems(summary: Summary): AttentionItem[] {
   const a = summary.attention
   const items: AttentionItem[] = []
   if (a.open_count) items.push({ id: "open-count", text: `جلسة جرد مفتوحة ${a.open_count.label}`, href: countRoute(a.open_count.id) })
-  if (a.drafts) items.push({ id: "drafts", text: `مسودات لم تُسجَّل: ${a.drafts}`, href: `${BASE}/purchases?status=draft` })
+  if (a.purchase_drafts) items.push({ id: "drafts", text: `فواتير لم تُسجَّل: ${a.purchase_drafts}`, href: `${BASE}/purchases?status=draft` })
+  if (a.return_drafts) items.push({ id: "return-drafts", text: `مرتجعات لم تُسجَّل: ${a.return_drafts}`, href: `${BASE}/returns?status=draft` })
+  if (a.short_delivery) items.push({ id: "short", text: `فواتير وصل منها أقلّ ولم يُرجَع الفرق: ${a.short_delivery}`, href: `${BASE}/returns/new` })
   if (a.credit_note_overdue) items.push({ id: "overdue", text: `إشعارات دائنة تأخّرت: ${a.credit_note_overdue}`, href: `${BASE}/returns?awaiting=1` })
   else if (a.awaiting_credit_note) items.push({ id: "awaiting", text: `مرتجعات تنتظر إشعاراً دائناً: ${a.awaiting_credit_note}`, href: `${BASE}/returns?awaiting=1` })
   if (a.low_stock) items.push({ id: "low", text: `منتجات تحت حدّ الطلب: ${a.low_stock}`, href: `${BASE}/stock?filter=low` })
@@ -73,7 +76,7 @@ export function InventoryHome({ workspace, userName, summary, onNavigate }: {
           ) : (
             <>
               {items.length ? (
-                <ul className="flex flex-col gap-1.5 text-small">
+                <ul className="flex flex-col gap-tg-min text-small">
                   {items.slice(0, 4).map((item) => (
                     <li key={item.id}>
                       <a href={item.href} data-safe="" onClick={(event) => { event.preventDefault(); onNavigate(item.href) }} className="inline-flex min-h-ctl items-center font-semibold text-warning underline decoration-2 underline-offset-4">

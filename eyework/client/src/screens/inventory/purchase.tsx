@@ -149,6 +149,8 @@ export interface PurchaseEditorProps {
   onSupplierQuery: (query: string) => void
   /** مندوبو المورّد المختار، أو null وهم يُقرؤون. */
   reps: Rep[] | null
+  /** المورّد المختار الآن (قبل حفظه في الحجم الكبير): تُحمَّل مندوبوه ليُقترح افتراضيُّهم. */
+  onSupplierChosen: (supplierId: string | null) => void
   itemOptions: ComboboxOption[]
   /** المنتجات المطابقة بأسعارها بأساس المسودة. */
   items: ItemOption[]
@@ -198,12 +200,31 @@ function lineDraft(line: PurchaseLine): LineDraft {
   }
 }
 
+/*
+ * زرّا الإنشاء السريع. في الحجم الكبير يُعرضان في شريط الإجراءات لا في البطاقة: الخيار «جديد باسم»
+ * يُضغط في قائمةٍ تحلّ محلّ الحقول، فلو جاء «أنشئ» في البطاقة لوقع تحت النظر نفسه.
+ */
+function quickButtons(kind: "supplier" | "item", label: string, busy: boolean, onCancel: () => void) {
+  return (
+    <>
+      <Button id={`quick-${kind}-cancel`} icon={X} onClick={onCancel}>
+        إلغاء
+      </Button>
+      <Button id={`quick-${kind}-create`} type="submit" form={`quick-${kind}-form`} variant="primary" commit icon={Plus} busy={busy}>
+        {label}
+      </Button>
+    </>
+  )
+}
+
 /* منتجٌ جديد من سطر الفاتورة: الاسم والوحدة وسعر الشراء وفئة الضريبة؛ والباقي من بطاقته لاحقاً. */
-function QuickItemCard({ name: initialName, choices, onCreate, onCancel }: {
+function QuickItemCard({ name: initialName, choices, onCreate, onCancel, inBar, onBusy }: {
   name: string
   choices: InventoryChoices
   onCreate: (body: QuickItem) => Promise<string | null>
   onCancel: () => void
+  inBar: boolean
+  onBusy: (busy: boolean) => void
 }) {
   const [name, setName] = React.useState(initialName)
   const [unit, setUnit] = React.useState<string | null>(null)
@@ -220,19 +241,22 @@ function QuickItemCard({ name: initialName, choices, onCreate, onCancel }: {
     const halalas = parseAmount(price)
     if (halalas === null) return setFail("اكتب سعر الشراء للوحدة، مثل 45.50.")
     setBusy(true)
+    onBusy(true)
     setFail(null)
     const message = await onCreate({ name: trimmed, unit, price_halalas: halalas, vat_category: vat })
     setBusy(false)
+    onBusy(false)
     if (message) setFail(message)
   }
 
   return (
-    <section aria-labelledby="quick-item" className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:border-0 gaze:bg-transparent gaze:p-0">
+    <form id="quick-item-form" noValidate aria-labelledby="quick-item" onSubmit={(event) => { event.preventDefault(); void submit() }}
+          className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:border-0 gaze:bg-transparent gaze:p-0">
       <h3 id="quick-item" className="text-lead font-semibold gaze:hidden">منتجٌ جديد بسعره</h3>
       <GazeHost>
         <GazeSlot id="quick-item-name">
           <Field label="اسم المنتج" required>
-            <Input id="quick-item-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+            <Input id="quick-item-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
           </Field>
         </GazeSlot>
         <Picker id="quick-item-unit" label="الوحدة" options={units} value={unit} onValueChange={setUnit} required />
@@ -248,22 +272,17 @@ function QuickItemCard({ name: initialName, choices, onCreate, onCancel }: {
           {fail}
         </Alert>
       ) : null}
-      <div className="grid grid-cols-2 gap-tg">
-        <Button id="quick-item-cancel" icon={X} onClick={onCancel}>
-          إلغاء
-        </Button>
-        <Button id="quick-item-create" variant="primary" commit icon={Plus} busy={busy} onClick={() => void submit()}>
-          أنشئ المنتج
-        </Button>
-      </div>
-    </section>
+      {inBar ? null : <div className="grid grid-cols-2 gap-tg">{quickButtons("item", "أنشئ المنتج", busy, onCancel)}</div>}
+    </form>
   )
 }
 
-function QuickSupplierCard({ name: initialName, onCreate, onCancel }: {
+function QuickSupplierCard({ name: initialName, onCreate, onCancel, inBar, onBusy }: {
   name: string
   onCreate: (body: QuickSupplier) => Promise<string | null>
   onCancel: () => void
+  inBar: boolean
+  onBusy: (busy: boolean) => void
 }) {
   const [name, setName] = React.useState(initialName)
   const [vat, setVat] = React.useState("")
@@ -272,16 +291,19 @@ function QuickSupplierCard({ name: initialName, onCreate, onCancel }: {
   async function submit() {
     if ([...name.trim()].length < 2) return setFail("اكتب اسم المورّد.")
     setBusy(true)
+    onBusy(true)
     setFail(null)
     const message = await onCreate({ name: name.trim(), vat_number: vat.trim() || null })
     setBusy(false)
+    onBusy(false)
     if (message) setFail(message)
   }
   return (
-    <section aria-labelledby="quick-supplier" className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:border-0 gaze:bg-transparent gaze:p-0">
+    <form id="quick-supplier-form" noValidate aria-labelledby="quick-supplier" onSubmit={(event) => { event.preventDefault(); void submit() }}
+          className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:border-0 gaze:bg-transparent gaze:p-0">
       <h3 id="quick-supplier" className="text-lead font-semibold gaze:hidden">مورّدٌ جديد</h3>
       <Field label="اسم المورّد" required>
-        <Input id="quick-supplier-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+        <Input id="quick-supplier-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
       </Field>
       <Field label="الرقم الضريبي" hint="اختياري الآن؛ والباقي من بطاقة المورّد.">
         <Input id="quick-supplier-vat" numeric inputMode="numeric" value={vat} maxLength={15} onChange={(event) => setVat(event.target.value)} />
@@ -291,20 +313,13 @@ function QuickSupplierCard({ name: initialName, onCreate, onCancel }: {
           {fail}
         </Alert>
       ) : null}
-      <div className="grid grid-cols-2 gap-tg">
-        <Button id="quick-supplier-cancel" icon={X} onClick={onCancel}>
-          إلغاء
-        </Button>
-        <Button id="quick-supplier-create" variant="primary" commit icon={Plus} busy={busy} onClick={() => void submit()}>
-          أنشئ المورّد
-        </Button>
-      </div>
-    </section>
+      {inBar ? null : <div className="grid grid-cols-2 gap-tg">{quickButtons("supplier", "أنشئ المورّد", busy, onCancel)}</div>}
+    </form>
   )
 }
 
 export function PurchaseEditor(props: PurchaseEditorProps) {
-  const { purchase, choices, today, supplierOptions, onSupplierQuery, reps, itemOptions, items, onItemQuery, onHeader, onCreateSupplier, onCreateItem,
+  const { purchase, choices, today, supplierOptions, onSupplierQuery, reps, onSupplierChosen, itemOptions, items, onItemQuery, onHeader, onCreateSupplier, onCreateItem,
           onAddLine, onPatchLine, onRemoveLine, onDiscard, onReview, onBack, focusLine = null } = props
   const { size } = useSize()
   const gaze = size === "gaze"
@@ -314,6 +329,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const [supplierQuery, setSupplierQuery] = React.useState(purchase.supplier?.name ?? "")
   const [creatingSupplier, setCreatingSupplier] = React.useState<string | null>(null)
   const [rep, setRep] = React.useState<string>(purchase.rep?.id ?? "")
+  // مورّدٌ اختير للتوّ: حين يصل مندوبوه يُختار افتراضيُّهم («الافتراضي في الفاتورة» في بطاقة المورّد).
+  const wantDefault = React.useRef(false)
   const [invoiceNo, setInvoiceNo] = React.useState(purchase.supplier_invoice_no ?? "")
   const [invoiceDate, setInvoiceDate] = React.useState(purchase.invoice_date ?? today)
   const [receivedOn, setReceivedOn] = React.useState(purchase.received_on ?? "")
@@ -325,6 +342,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const initialLine = focusLine ? purchase.lines.find((line) => line.line_no === focusLine) : undefined
   const [line, setLine] = React.useState<LineDraft>(initialLine ? lineDraft(initialLine) : EMPTY_LINE)
   const [creatingItem, setCreatingItem] = React.useState<string | null>(null)
+  const [quickBusy, setQuickBusy] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [fail, setFail] = React.useState<Fail>(null)
   const [discarding, setDiscarding] = React.useState(false)
@@ -436,6 +454,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       {creatingSupplier !== null ? (
         <QuickSupplierCard
           name={creatingSupplier}
+          inBar={gaze}
+          onBusy={setQuickBusy}
           onCancel={() => setCreatingSupplier(null)}
           onCreate={async (body) => {
             const result = await onCreateSupplier(body)
@@ -459,6 +479,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
             onValueChange={(option) => {
               setSupplier(option)
               setRep("")
+              wantDefault.current = option !== null
+              onSupplierChosen(option?.value ?? null)
               if (!gaze) void onHeader({ supplier_id: option?.value ?? null, rep_id: null }).then(setFail)
             }}
             query={supplierQuery}
@@ -475,6 +497,15 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       )}
     </GazeSlot>
   )
+  React.useEffect(() => {
+    if (!wantDefault.current || !reps) return
+    wantDefault.current = false
+    const preferred = reps.find((r) => r.is_default && r.is_active)
+    if (!preferred) return
+    setRep(preferred.id)
+    if (!gaze) void onHeader({ rep_id: preferred.id }).then(setFail)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reps])
   const repField = supplier ? (
     <Picker
       id="purchase-rep"
@@ -551,6 +582,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
     <QuickItemCard
       name={creatingItem}
       choices={choices}
+      inBar={gaze}
+      onBusy={setQuickBusy}
       onCancel={() => setCreatingItem(null)}
       onCreate={async (body) => {
         const result = await onCreateItem(body)
@@ -655,9 +688,12 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       <Screen
         title={title}
         description={step === 3 && !creatingItem && savedLines.length ? <span>الإجمالي حتى الآن <Money halalas={totals.gross} className="font-semibold text-foreground" /></span> : undefined}
+        // حذف المسودة في الخطوة الأولى كما في الحجم العادي: لا تبقى مسودةٌ لا تُحذف (والحدّ عشرون).
+        end={step === 0 && creatingItem === null && creatingSupplier === null ? { id: "purchase-discard", label: "احذف المسودة", danger: true, icon: Trash, onClick: () => setDiscarding(true) } : undefined}
         above={<Stepper steps={STEPS} current={step} />}
         actions={
-          creatingItem !== null || creatingSupplier !== null ? undefined : (
+          creatingSupplier !== null ? quickButtons("supplier", "أنشئ المورّد", quickBusy, () => setCreatingSupplier(null))
+          : creatingItem !== null ? quickButtons("item", "أنشئ المنتج", quickBusy, () => setCreatingItem(null)) : (
             <>
               <Button id="purchase-prev" icon={BackIcon} busy={busy === "header"} onClick={step === 0 ? onBack : step === 3 && index > 0 ? () => void goToLine(index - 1) : () => setStep(step - 1)}>
                 {step === 0 ? "الرئيسية" : step === 3 && index > 0 ? "السطر السابق" : STEPS[step - 1].label}
@@ -754,8 +790,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
                 </span>
                 <Money halalas={saved.net_halalas + saved.vat_halalas} className="font-bold" />
                 <span className="flex gap-tg-min">
-                  <Button icon={PencilLine} onClick={() => { setLine(lineDraft(saved)); onItemQuery("") }}>عدّل</Button>
-                  <Button variant="danger-outline" commit icon={Trash} busy={busy === "remove"} onClick={() => void removeLine(saved.line_no)}>احذف</Button>
+                  <Button icon={PencilLine} aria-label={`عدّل السطر ${saved.line_no}: ${saved.item.name}`} onClick={() => { setLine(lineDraft(saved)); onItemQuery("") }}>عدّل</Button>
+                  <Button variant="danger-outline" commit icon={Trash} busy={busy === "remove"} aria-label={`احذف السطر ${saved.line_no}: ${saved.item.name}`} onClick={() => void removeLine(saved.line_no)}>احذف</Button>
                 </span>
               </li>
             ))}
@@ -827,13 +863,14 @@ export function PurchaseView({ purchase, choices, onReturn, onReverse, onOpenRet
         { id: "no", header: "#", numeric: true, cell: (row) => row.line_no },
         { id: "item", header: "المنتج", cell: (row) => row.item.name },
         { id: "qty", header: "الكمية", numeric: true, cell: (row) => `${formatMilli(row.quantity_milli)} ${row.item.unit_name}` },
+        { id: "received", header: "وصل", numeric: true, cell: (row) => formatMilli(row.received_quantity_milli ?? row.quantity_milli) },
         { id: "price", header: "سعر الوحدة", numeric: true, cell: (row) => formatAmount(row.unit_price_halalas) },
         { id: "net", header: "قبل الضريبة", numeric: true, cell: (row) => formatAmount(row.net_halalas) },
         { id: "vat", header: "الضريبة", numeric: true, cell: (row) => formatAmount(row.vat_halalas) },
         { id: "remaining", header: "بقي للإرجاع", numeric: true, cell: (row) => formatMilli(row.remaining_milli) },
       ]}
       primary={(row) => `${row.line_no}. ${row.item.name}`}
-      secondary={(row) => `${formatMilli(row.quantity_milli)} ${row.item.unit_name} × ${formatAmount(row.unit_price_halalas)}${row.remaining_milli !== row.quantity_milli ? ` · بقي ${formatMilli(row.remaining_milli)}` : ""}`}
+      secondary={(row) => `${formatMilli(row.quantity_milli)} ${row.item.unit_name} × ${formatAmount(row.unit_price_halalas)}${row.received_quantity_milli !== null && row.received_quantity_milli !== row.quantity_milli ? ` · وصل ${formatMilli(row.received_quantity_milli)}` : ""}${row.remaining_milli !== row.quantity_milli ? ` · بقي ${formatMilli(row.remaining_milli)}` : ""}`}
       trailing={(row) => <span className="num font-bold" dir="ltr">{formatAmount(row.net_halalas + row.vat_halalas)}</span>}
       pageSize={{ compact: 40, gaze: 3, gazeShort: 2 }}
     />
@@ -960,7 +997,7 @@ export function ReverseScreen({ purchase, choices, onReverse, onBack }: {
         <Picker id="reverse-reason" label="السبب" options={choices.reversal_reasons.map((r) => ({ value: r.code, label: r.name }))} value={reason} onValueChange={setReason} error={fail?.field === "reason" ? fail.message : null} required />
         <GazeSlot id="reverse-note">
           <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={fail?.field === "note" ? fail.message : null}>
-            <Input id="reverse-note" value={note} maxLength={280} onChange={(event) => setNote(event.target.value)} />
+            <Input id="reverse-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} />
           </Field>
         </GazeSlot>
       </GazeHost>

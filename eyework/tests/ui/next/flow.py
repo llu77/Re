@@ -16,6 +16,13 @@
 
 from __future__ import annotations
 
+MOTION = """
+() => document.documentElement.dataset.size !== 'gaze' ? [] : document.getAnimations()
+    .filter((a) => a.playState === 'running')
+    .map((a) => a.animationName || a.transitionProperty
+         || (a.effect && a.effect.target ? a.effect.target.tagName.toLowerCase() : 'animation'))
+"""
+
 AUDIT = """
 () => {
     const gaze = document.documentElement.dataset.size === 'gaze';
@@ -73,7 +80,10 @@ LANDING = """
     const control = element && element.closest('button, a[href], input, textarea, select, [role=radio], [role=option]');
     if (!control) return null;
     const key = (e) => e.id || (e.dataset && e.dataset.key) || '';
-    if (control === window.__activated || (key(control) && key(control) === window.__activatedKey)) return null;
+    // الزرّ نفسه بعد الضغطة آمن — إلا أن يصير زرّ اعتمادٍ لم يكنه (React يعيد العقدة نفسها حين
+    // يبدّل «التالي» بـ«احفظ» في الخانة نفسها، فيعتمد ثبات النظر ما لم يُقصد).
+    const became = control.hasAttribute('data-commit') && !window.__activatedCommit;
+    if (!became && (control === window.__activated || (key(control) && key(control) === window.__activatedKey))) return null;
     if (control.disabled || getComputedStyle(control).visibility === 'hidden') return null;
     const value = control.hasAttribute('data-value') || control.getAttribute('role') === 'radio' || control.classList.contains('chip');
     if (control.hasAttribute('data-commit') || value) return control.id || control.textContent.trim();
@@ -101,7 +111,8 @@ NEAREST = """
             return Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
         };
         const nearest = controls.reduce((a, b) => distance(a) <= distance(b) ? a : b);
-        const same = nearest === window.__activated || (key(nearest) && key(nearest) === window.__activatedKey);
+        const became = nearest.hasAttribute('data-commit') && !window.__activatedCommit;
+        const same = !became && (nearest === window.__activated || (key(nearest) && key(nearest) === window.__activatedKey));
         return { name: name(nearest), distance: Math.round(distance(nearest)),
                  commit: !same && nearest.hasAttribute('data-commit') };
     });
@@ -123,13 +134,19 @@ class Flow:
 
     def fonts(self) -> None:
         self.page.evaluate("() => document.fonts.ready.then(() => true)")
-        # وتنتهي حركات الظهور قبل القياس: حوارٌ يُكبَّر من 0.98 تقيس أزراره أصغر ممّا هي.
-        self.page.evaluate("() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))).then(() => true)")
+        # وتنتهي حركات الظهور قبل القياس: حوارٌ يُكبَّر من 0.98 تقيس أزراره أصغر ممّا هي. المنتهية وحدها:
+        # دوّارة «جارٍ…» بلا نهاية تنتظر طلبها لا الزمن، وانتظارها بلا حدّ يعلّق الاختبار بلا رسالة.
+        self.page.evaluate("""() => Promise.all(document.getAnimations()
+            .filter((a) => a.effect && a.effect.getComputedTiming().iterations !== Infinity)
+            .map((a) => a.finished.catch(() => null))).then(() => true)""")
 
     def audit(self, label: str) -> dict:
+        # «لا حركة» في الحجم الكبير: ما يتحرّك لحظة القياس يُعدّ قبل انتظار الحركات.
+        motion = self.page.evaluate(MOTION)
         self.fonts()
         result = self.page.evaluate(AUDIT)
         result["label"] = label
+        result["motion"] = motion
         self.audits.append(result)
         return result
 
@@ -137,7 +154,8 @@ class Flow:
         """نقرةٌ ثم فحصُ ما تحت موضعها حين تستقرّ الحالة التالية."""
         locator = self.page.locator(selector).first
         box = locator.bounding_box()
-        locator.evaluate("(e) => { window.__activated = e; window.__activatedKey = e.id || e.dataset.key || ''; }")
+        locator.evaluate("(e) => { window.__activated = e; window.__activatedKey = e.id || e.dataset.key || '';"
+                         " window.__activatedCommit = e.hasAttribute('data-commit'); }")
         inset = 8
         points = [
             [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2],
@@ -167,6 +185,8 @@ class Flow:
                 failures.append(f"{audit['label']}: {audit['enabled']} أهداف مفعّلة")
             if audit["gaze"] and audit["vertical"]:
                 failures.append(f"{audit['label']}: تمرير")
+            if audit["gaze"] and audit["motion"]:
+                failures.append(f"{audit['label']} motion: {audit['motion']}")
             if audit["horizontal"]:
                 failures.append(f"{audit['label']}: تمرير أفقي")
         return failures

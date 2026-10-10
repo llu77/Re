@@ -202,7 +202,8 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
   const [discarding, setDiscarding] = React.useState(false)
   const error = (field: string) => (fail?.field === field ? fail.message : null)
   const chosen = draft.lines.filter((line) => line.quantity_milli > 0)
-  const gross = chosen.reduce((sum, line) => sum + Math.round((line.quantity_milli * line.unit_price_halalas) / 1000), 0)
+  // من الخادم بصيغة التسجيل نفسها: حصّةٌ من صافي السطر بعد الخصم وضريبته.
+  const totals = draft.totals ?? { net: 0, vat: 0, gross: 0 }
 
   async function setQuantity(line: ReturnLine, milli: number) {
     setBusy(`line-${line.line_no}`)
@@ -284,7 +285,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
               icon={Save}
               busy={busy === `line-${line.line_no}`}
               onClick={() => {
-                const milli = text.trim() === "" || text.trim() === "0" ? 0 : parseMilli(text, true, left)
+                const milli = text.trim() === "" ? 0 : parseMilli(text, true, left, { zero: true })
                 if (milli === null) setFail({ message: "كميةٌ لا تزيد على ما بقي.", field: `line-${line.line_no}` })
                 else void setQuantity(line, milli)
               }}
@@ -298,6 +299,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
             value={Math.floor(line.quantity_milli / 1000)}
             max={Math.floor(left / 1000)}
             unit={line.item.unit_name}
+            disabled={busy !== null}
             onChange={(value) => void setQuantity(line, value * 1000)}
           />
         )}
@@ -310,7 +312,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
       <Picker id="return-reason" label="سبب الإرجاع" options={choices.return_reasons.map((r) => ({ value: r.code, label: r.name }))} value={reason} onValueChange={(value) => { setReason(value); if (!gaze) void onHeader({ reason: value }).then(setFail) }} error={error("reason")} required />
       <GazeSlot id="return-note">
         <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")}>
-          <Input id="return-note" value={note} maxLength={280} onChange={(event) => setNote(event.target.value)} onBlur={() => { if (!gaze) void commitHeader() }} />
+          <Input id="return-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} onBlur={() => { if (!gaze) void commitHeader() }} />
         </Field>
       </GazeSlot>
       <Picker
@@ -335,7 +337,8 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
   ) : null
   const summary = (
     <p className="text-flow font-semibold" aria-live="polite">
-      يُرجَع من <span className="num">{chosen.length}</span> أسطر بقيمة <Money halalas={gross} /> قبل الضريبة.
+      يُرجَع من <span className="num">{chosen.length}</span> أسطر: <Money halalas={totals.net} /> قبل الضريبة، والإجمالي{" "}
+      <Money halalas={totals.gross} />.
     </p>
   )
   const header = `${draft.purchase.supplier_name ?? ""} · ${draft.purchase.label}`
@@ -353,6 +356,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
       <Screen
         title={step === 0 ? `السطر ${current + 1} من ${lines.length}` : "سبب الإرجاع"}
         description={header}
+        end={step === 0 ? { id: "return-discard", label: "احذف المسودة", danger: true, icon: Trash, onClick: () => setDiscarding(true) } : undefined}
         above={<Stepper steps={STEPS} current={step} />}
         actions={
           <>
@@ -386,6 +390,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
         ) : (
           reasonFields
         )}
+        {discardDialog}
       </Screen>
     )
   }

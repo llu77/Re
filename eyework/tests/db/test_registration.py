@@ -219,7 +219,8 @@ def test_the_web_role_reads_only_its_own_profession(owner, app):
 
 
 # ew_riyadh_today يستدعيه الويب منذ 0010 (تنبيه «تاريخٌ قديم» يقيس بيوم الرياض): لا يكشف إلا التاريخ.
-@pytest.mark.parametrize("statement", ["SELECT * FROM professions", "SELECT birth_date FROM users"])
+# ew_ai_spend ما زالت داخلية: تُستدعى من دوالّ القاعدة لا من الويب.
+@pytest.mark.parametrize("statement", ["SELECT * FROM professions", "SELECT birth_date FROM users", "SELECT ew_ai_spend(false)"])
 def test_the_web_role_cannot_read_professions_birth_dates_or_internal_helpers(owner, app, statement):
     as_user(app, make_user(owner, login=b"keeper", profession="STOREKEEPER"))
     with pytest.raises(errors.InsufficientPrivilege), app.cursor() as cursor:
