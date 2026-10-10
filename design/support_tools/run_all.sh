@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reproduces every check cited in support_spec.md §4.6 on a scratch database, then drops it.
 set -uo pipefail
-R=/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/redesign
+R=design
 S=$R/support_sql; C=$S/checks; T=$R/support_tools/db.sh; O=$S/dumps
 export PGPASSWORD=eyework_dev_owner
 OWN="psql -qX -v ON_ERROR_STOP=1 -h localhost -U eyework_owner -d support_spec_check"

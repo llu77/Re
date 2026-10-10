@@ -1,6 +1,6 @@
 import socket, subprocess, sys, time
 from playwright.sync_api import sync_playwright
-HERE='/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/redesign/v2'
+HERE='design/v2'
 with socket.socket() as s:
     s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]
 srv = subprocess.Popen([sys.executable, "-I", HERE+"/tools/serve.py", HERE+"/client/dist-demo", str(port)])

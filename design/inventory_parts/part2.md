@@ -979,7 +979,7 @@ Client unit tests (vitest, `eyework/client/tests`):
 
 ## 12. Evidence (scratch, not part of the repo)
 
-All under `/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/redesign/`:
+All under `design/`:
 
 - **`inventory_sql/`:**
   - `NEXT_inventory.up.sql`, `NEXT_inventory.down.sql`: the exact SQL in §4.3 and §4.4.

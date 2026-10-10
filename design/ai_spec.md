@@ -2152,7 +2152,7 @@ Decisions taken here, with their reasons, that are no longer open:
 
 ## 13. Evidence (scratch, not part of the repo)
 
-Under `/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/redesign/ai_sql/`:
+Under `design/ai_sql/`:
 
 | File | What |
 |---|---|

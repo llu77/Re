@@ -1388,7 +1388,7 @@ The sign-up walk in `test_portals.test_signing_up_from_the_link_to_the_portal` m
 
 ## 13. Evidence (scratch, not part of the repo)
 
-All under `/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/redesign/registration_check/`:
+All under `design/registration_check/`:
 
 - `migrations/0007_open_registration.up.sql` and `.down.sql`: the exact SQL in §6.
 - `scripts/build_down.py`: generates the down file from main's 0005 so its restored functions match word for word.

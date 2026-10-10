@@ -6,7 +6,7 @@
 # Compares the pg_dump --schema-only snapshots. Leaves the database at NEXT for the checks.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")/.." && pwd)
-WT=/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/reg_v2_main
+WT=reg_v2_main
 DB=reg_v2_test
 OUT="$HERE/evidence"
 mkdir -p "$OUT"

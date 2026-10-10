@@ -19,6 +19,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 APP = ROOT / "eyework"
 _SKIP = {".git", "__pycache__", ".venv", "venv", "node_modules", ".pytest_cache"}
+#: ما في جذر المستودع وليس من المنصّة: التطبيق نفسه، وأرشيف تصميمه (`design/`: المواصفات ومسوّدات SQL والنماذج
+#: الأولى التي بُني منها؛ يذكر التطبيق ولا يُشغَّل).
+_NOT_PLATFORM = {"eyework", "design"}
 
 
 def _files(base: Path, suffixes: tuple[str, ...]):
@@ -30,7 +33,7 @@ def _files(base: Path, suffixes: tuple[str, ...]):
 def _platform_modules() -> set[str]:
     modules = {path.stem for path in ROOT.glob("*.py")}
     modules |= {path.name for path in ROOT.iterdir()
-                if path.is_dir() and path.name != "eyework" and not path.name.startswith(".")
+                if path.is_dir() and path.name not in _NOT_PLATFORM and not path.name.startswith(".")
                 and path.name not in _SKIP}
     return modules
 

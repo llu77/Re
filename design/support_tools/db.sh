@@ -2,7 +2,7 @@
 # Scratch verification for the support-desk migration. Usage: db.sh fresh|up|down|dump <file>|psql
 set -euo pipefail
 DB=support_spec_check
-DIR=/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/redesign/support_sql
+DIR=design/support_sql
 export PGPASSWORD=eyework_dev_owner
 OWN="psql -qX -v ON_ERROR_STOP=1 -h localhost -U eyework_owner -d $DB"
 case "$1" in

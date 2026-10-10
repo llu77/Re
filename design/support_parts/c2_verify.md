@@ -11,7 +11,7 @@ UPDATE support_tickets SET status = 'CLOSED', close_reason = 'PROFESSION_CHANGED
 
 ### 5.6 Verified on PostgreSQL 16.13 (scratch database `support_spec_check`, dropped afterwards)
 
-Base: main's 0001–0006 (unchanged since `fa84cd1`), then the registration track's current `NEXT_open_registration` from `registration_sql/next/` (its `ew_begin_generation` is identical to the draft 0007's). The script `scratchpad/redesign/support_tools/run_all.sh` reproduces everything below.
+Base: main's 0001–0006 (unchanged since `fa84cd1`), then the registration track's current `NEXT_open_registration` from `registration_sql/next/` (its `ew_begin_generation` is identical to the draft 0007's). The script `design/support_tools/run_all.sh` reproduces everything below.
 
 - **Schema cycle.**
   - Up, then down: the `pg_dump --schema-only` snapshot equals the base snapshot.

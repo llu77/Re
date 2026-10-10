@@ -14,7 +14,7 @@ import threading
 import psycopg
 from psycopg import errors
 
-WT = "/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/reg_v2_main"
+WT = "reg_v2_main"
 sys.path.insert(0, WT)
 from eyework.tests.conftest import UNUSABLE_HASH, as_user, create_campaign, make_user  # noqa: E402
 

@@ -1956,12 +1956,12 @@ Decisions taken in this version, with their reasons, that are no longer open:
 
 ## 13. Evidence (scratch, not part of the repo)
 
-All paths are under `/tmp/claude-0/-home-user-Re/8edf39e1-5004-507f-af63-684fde9b0af5/scratchpad/redesign/`.
+All paths are under `design/`.
 
 - **`registration_sql/next/NEXT_open_registration.up.sql` and `.down.sql`:** the exact SQL in §6.
 - **`registration_sql/scripts/`:**
   - `build_down.py` generates the down from main's 0005.
-  - `cycle.sh` runs the up/down/up and empty/up cycle with the repo's runner from the worktree `scratchpad/reg_v2_main` (`d543356`) on `reg_v2_test`.
+  - `cycle.sh` runs the up/down/up and empty/up cycle with the repo's runner from the worktree `reg_v2_main` (`d543356`) on `reg_v2_test`.
   - `check_next.py` runs the 29 functional checks as `eyework_app`.
 - **`registration_sql/evidence/`:**
   - `cycle.txt`: three comparisons, all identical.
