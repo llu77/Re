@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 import json
 import logging
 import time
@@ -126,13 +127,44 @@ def _load(cursor, user_id: UUID, kind: str, subject_id: UUID, expected_row_versi
     return Snapshot({"lines": lines}, bytes(row["digest"]))
 
 
+def _fixture(cursor, user_id: UUID) -> UUID:
+    """موضوعٌ نموذجي بدور المالك، لاختبار المحمّل على ما يحمّله فعلاً."""
+    cursor.execute("INSERT INTO ai_api_docs (user_id, body) VALUES (%s, 'شاي\nسكر') RETURNING id", (user_id,))
+    return cursor.fetchone()[0]
+
+
 FEATURE = ReviewFeature(
     code="STOCK_REVIEW", kinds=frozenset({"CHECK_DOC"}), profession=Profession.STOREKEEPER, catalogue=CATALOGUE,
     begin_sql="SELECT request_id, digest FROM ai_api_review_begin(%s)",
     record_sql="SELECT ai_api_review_record(%s, %s, %s) AS outcome",
     digest_sql="SELECT ai_api_digest(%s) AS digest",
-    load=_load, payload_keys=frozenset({"lines", "line", "item", "unit_cost"}),
+    load=_load, payload_keys=frozenset({"lines", "line", "item", "unit_cost"}), fixture=_fixture,
 )
+
+
+def _keys(value, found: set[str]) -> set[str]:
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            found.add(key)
+            _keys(inner, found)
+    elif isinstance(value, (list, tuple)):
+        for inner in value:
+            _keys(inner, found)
+    return found
+
+
+def check_loader_keys(db, user_id: UUID, feature: ReviewFeature, subject_id: UUID) -> None:
+    """
+    ما يحمّله المحمّل فعلاً (المواصفة §6.2): مفاتيحه، على عمقها كلّه، هي المعلَنة بالضبط،
+    وليس فيها مفتاح هوية. كل أداة مراجعةٍ تُسجَّل تستدعي هذا على موضوعٍ من `fixture`.
+    """
+    from eyework.tests.architecture.test_rules import _identity_key
+
+    with db.session(user_id) as cursor:
+        snapshot = feature.load(cursor, user_id, sorted(feature.kinds)[0], subject_id, None)
+    found = _keys(snapshot.payload, set())
+    assert found == set(feature.payload_keys), found ^ set(feature.payload_keys)
+    assert not [key for key in found if _identity_key(key)]
 
 
 # ── التجهيزات ───────────────────────────────────────────────────────────
@@ -212,14 +244,15 @@ def _doc(owner, user_id: UUID, body: str = "شاي\nسكر\nأرز") -> UUID:
 
 
 def _review(client, doc: UUID, *, feature: str = "STOCK_REVIEW", kind: str = "CHECK_DOC", row_version: int | None = 1):
-    body = {"feature": feature, "kind": kind, "subject_id": str(doc)}
+    body = {"feature": feature, "subject_kind": kind, "subject_id": str(doc)}
     if row_version is not None:
         body["expected_row_version"] = row_version
     return client.post("/api/ai/review", json=body)
 
 
-def _decide(client, flag_id: str, action: str, digest: str | None = None):
-    body = {"action": action}
+def _decide(client, flag_id: str, choice: str, digest: str | None = None):
+    """الجسم كما في المواصفة §8.2؛ `digest=None` يُسقط الحقل ليُختبر رفضه."""
+    body = {"choice": choice}
     if digest is not None:
         body["digest"] = digest
     return client.post(f"/api/ai/flags/{flag_id}/decision", json=body)
@@ -336,7 +369,7 @@ def test_a_late_result_is_stored_and_caught_at_commit_until_the_user_proceeds(ke
     assert decided["decision"] == "PROCEED" and decided["flag_id"] == shown["id"]
     assert expect(_commit(client, doc)) == {"closed": 1}
 
-    closed = _decide(client, shown["id"], "EDIT")
+    closed = _decide(client, shown["id"], "EDIT", _digest("شاي\nسكر\nأرز"))
     assert closed.status_code == 409 and closed.json()["code"] == "FLAG_CLOSED"
 
 
@@ -472,15 +505,55 @@ def test_edit_proceed_and_undo_follow_their_rules(keeper, owner, browser, gatewa
     stale = _decide(client, shown["id"], "PROCEED", "0" * 64)
     assert stale.status_code == 409 and stale.json() == {"code": "FLAG_STALE", "detail": reviewer.FLAG_STALE}
     other_client, _ = _signed_in(owner, browser, OTHER)
-    assert _decide(other_client, shown["id"], "PROCEED").status_code == 404
-    assert _decide(client, str(uuid4()), "PROCEED").status_code == 404
+    assert _decide(other_client, shown["id"], "PROCEED", digest).status_code == 404
+    assert _decide(client, str(uuid4()), "PROCEED", digest).status_code == 404
 
     with owner.cursor() as cursor:
         cursor.execute("SELECT choice FROM ai_flag_decisions ORDER BY id")
         assert [row[0] for row in cursor.fetchall()] == ["EDIT", "PROCEED", "UNDO"]
         cursor.execute("UPDATE ai_api_docs SET body = 'شاي\nسكر' WHERE id = %s", (doc,))
-    changed = _decide(client, shown["id"], "PROCEED")
+    # بصمة الملاحظة نفسها، لكن الموضوع تغيّر بعدها: لا قرار على ما لم يعد يُرى.
+    changed = _decide(client, shown["id"], "PROCEED", digest)
     assert changed.status_code == 409 and changed.json()["code"] == "FLAG_STALE"
+
+
+def test_a_decision_needs_the_digest_and_a_registered_feature(keeper, owner, gateway, monkeypatch):
+    client, user_id = keeper
+    doc = _doc(owner, user_id)
+    gateway.queue(review_reply(flag(line=1)))
+    (shown,) = expect(_review(client, doc))["flags"]
+    missing = _decide(client, shown["id"], "PROCEED")
+    assert missing.status_code == 422 and missing.json()["code"] == "INVALID"
+    monkeypatch.delitem(reviewer.FEATURES, "STOCK_REVIEW")
+    gone = _decide(client, shown["id"], "PROCEED", _digest("شاي\nسكر\nأرز"))
+    assert gone.status_code == 404 and gone.json()["detail"] == reviewer.NO_REVIEW
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM ai_flag_decisions")
+        assert cursor.fetchone()[0] == 0
+
+
+def test_a_reply_the_provider_processed_but_the_record_refused_is_closed_billable(keeper, owner, gateway, monkeypatch):
+    """خطأٌ بعد ردٍّ معالَج (قيدٌ في القاعدة أو عطلٌ) يُغلق OUTPUT_INVALID بأرقامه: دُفع ثمنه فيُعدّ."""
+    client, user_id = keeper
+    doc = _doc(owner, user_id)
+    broken = replace(FEATURE, record_sql="SELECT 1 / 0 AS outcome WHERE %s::text <> '' AND %s::text <> ''"
+                                         " AND %s::text <> ''")
+    monkeypatch.setitem(reviewer.FEATURES, "STOCK_REVIEW", broken)
+    gateway.queue(review_reply(flag(line=1)))
+    body = expect(_review(client, doc))
+    assert (body["review"]["status"], body["review"]["reason"]) == ("UNAVAILABLE", "FAILED")
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT outcome, ew_is_billable(outcome), input_tokens FROM ai_requests WHERE subject_id = %s",
+                       (doc,))
+        outcome, billable, tokens = cursor.fetchone()
+    assert (outcome, billable) == ("OUTPUT_INVALID", True) and tokens is not None
+
+
+def test_the_stand_in_loader_emits_exactly_its_declared_keys(keeper, owner, server):
+    _, user_id = keeper
+    with owner.cursor() as cursor:
+        doc = FEATURE.fixture(cursor, user_id)
+    check_loader_keys(server.state.db, user_id, FEATURE, doc)
 
 
 # ── البوّابات والمدخلات ───────────────────────────────────────────────
@@ -488,7 +561,7 @@ def test_the_consent_gate_covers_the_review_and_not_the_decision(owner, browser,
     client, user_id = _signed_in(owner, browser, terms=False)
     response = _review(client, _doc(owner, user_id))
     assert response.status_code == 403 and response.json()["code"] == "TERMS"
-    assert _decide(client, str(uuid4()), "EDIT").status_code == 404
+    assert _decide(client, str(uuid4()), "EDIT", "0" * 64).status_code == 404
 
 
 def test_another_profession_is_forbidden_and_unknown_features_or_kinds_are_not_found(owner, browser, stand_in):
@@ -497,7 +570,9 @@ def test_another_profession_is_forbidden_and_unknown_features_or_kinds_are_not_f
     assert forbidden.status_code == 403 and forbidden.json()["code"] == "PROFESSION"
     client, user_id = _signed_in(owner, browser)
     doc = _doc(owner, user_id)
-    assert _review(client, doc, feature="SUPPORT_REPLY_REVIEW").status_code == 404
+    # أداة مهنةٍ أخرى مسجّلة 403؛ وما لا يُعرف 404.
+    assert _review(client, doc, feature="SUPPORT_REPLY_REVIEW").status_code == 403
+    assert _review(client, doc, feature="NOT_A_FEATURE").status_code == 404
     assert _review(client, doc, kind="RETURN").status_code == 404
 
 

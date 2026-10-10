@@ -43,3 +43,9 @@ def test_a_name_occurring_twice_is_masked_twice_and_a_url_among_arabic_is_cut_at
 
 def test_an_eight_digit_number_and_an_empty_name_are_left_alone():
     assert redact("الطلب 12345678 وصل", names=("",)) == ("الطلب 12345678 وصل", 0)
+
+
+def test_a_date_before_a_time_or_a_number_is_not_one_long_number():
+    assert redact("2026-10-09 12:34") == ("2026-10-09 12:34", 0)
+    assert redact("التاريخ 2026-10-09 0551234567") == ("التاريخ 2026-10-09 [رقم]", 1)
+    assert redact("الرقم 20261009123 كتبه") == ("الرقم [رقم] كتبه", 1)   # أحد عشر رقماً متّصلة ليست تاريخاً

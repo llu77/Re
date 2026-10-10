@@ -150,6 +150,64 @@ UPDATE ai_requests SET finished_at = now(), outcome = 'ABANDONED'
 _PURGE_AI_REQUESTS = "DELETE FROM ai_requests WHERE started_at < now() - interval '30 days'"
 #: تنبيهٌ لم يُعتمد عمله في ثلاثين يوماً لا قرار ينتظره.
 _PURGE_AI_OPEN_FLAGS = "DELETE FROM ai_flags WHERE closed_at IS NULL AND created_at < now() - interval '30 days'"
+#: مسودات المخزون الخاملة ثلاثين يوماً (كل تعديلٍ في الأسطر يحدّث رأسها). المسجَّل لا يُحذف
+#: إلا مع حسابه (inv_record_is_permanent).
+_PURGE_INV_PURCHASE_DRAFTS = "DELETE FROM inv_purchases WHERE status = 'DRAFT' AND updated_at < now() - interval '30 days'"
+_PURGE_INV_RETURN_DRAFTS = "DELETE FROM inv_returns WHERE status = 'DRAFT' AND updated_at < now() - interval '30 days'"
+#: مكتب الدعم (0011): الإغلاق الآلي، ثم نصوص التذكرة بعد ثلاثين يوماً من إغلاقها، ثم التذكرة
+#: وسجلّها بعد سنة، ثم المقالات المتروكة بعد ثلاثين يوماً. بلا جلسة: لا يُنسب شيءٌ منها إلى أحد.
+_SUPPORT_CLOSE_RESOLVED = """
+UPDATE support_tickets SET status = 'CLOSED', close_reason = 'AFTER_RESOLVED'
+ WHERE status = 'RESOLVED' AND resolved_at < now() - interval '4 days'
+"""
+_SUPPORT_CLOSE_IDLE = """
+UPDATE support_tickets SET status = 'CLOSED', close_reason = 'IDLE'
+ WHERE status <> 'CLOSED' AND last_activity_at < now() - interval '90 days'
+"""
+_SUPPORT_WITHDRAW = """
+UPDATE support_replies r SET state = 'WITHDRAWN', withdrawn_at = now()
+  FROM support_tickets t
+ WHERE t.id = r.ticket_id AND t.status = 'CLOSED' AND r.state IN ('READY', 'RELEASED')
+"""
+#: نصوص التذكرة بعد ثلاثين يوماً من إغلاقها (الشرط نفسه في الخطوات الستّ).
+_SUPPORT_PURGE_FLAG_QUOTES = """
+UPDATE support_flags f SET evidence = NULL FROM support_tickets t
+ WHERE t.id = f.ticket_id AND f.evidence IS NOT NULL
+   AND t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
+"""
+_SUPPORT_PURGE_DRAFTS = """
+DELETE FROM support_drafts d USING support_tickets t
+ WHERE t.id = d.ticket_id AND t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
+"""
+_SUPPORT_PURGE_REPLIES = """
+DELETE FROM support_replies r USING support_tickets t
+ WHERE t.id = r.ticket_id AND t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
+"""
+_SUPPORT_PURGE_MESSAGES = """
+DELETE FROM support_messages m USING support_tickets t
+ WHERE t.id = m.ticket_id AND t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
+"""
+_SUPPORT_PURGE_ESCALATIONS = """
+DELETE FROM support_escalations e USING support_tickets t
+ WHERE t.id = e.ticket_id AND t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
+"""
+_SUPPORT_TEXTS_EVENT = """
+INSERT INTO support_events (user_id, ticket_id, event, actor)
+SELECT t.user_id, t.id, 'TEXTS_PURGED', 'SYSTEM' FROM support_tickets t
+ WHERE t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
+"""
+_SUPPORT_TEXTS_MARK = """
+UPDATE support_tickets t SET subject = NULL, customer_label = NULL, texts_purged_at = now()
+ WHERE t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
+"""
+_SUPPORT_PURGE_TICKETS = "DELETE FROM support_tickets WHERE status = 'CLOSED' AND closed_at < now() - interval '365 days'"
+_SUPPORT_PURGE_DISCARDED = "DELETE FROM kb_articles WHERE state = 'DISCARDED' AND discarded_at < now() - interval '30 days'"
+#: خروج الحساب من الدعم الفني: تُسحب ردوده الحيّة وتُغلق تذاكره المفتوحة (لا تُحذف؛ يمحو
+#: purge نصوصها بعد ثلاثين يوماً).
+_SUPPORT_LEAVE_REPLIES = "UPDATE support_replies SET state = 'WITHDRAWN', withdrawn_at = now() WHERE user_id = %s AND state IN ('READY', 'RELEASED')"
+_SUPPORT_LEAVE_TICKETS = """
+UPDATE support_tickets SET status = 'CLOSED', close_reason = 'PROFESSION_CHANGED' WHERE user_id = %s AND status <> 'CLOSED'
+"""
 
 
 class AdminError(Exception):
@@ -244,10 +302,11 @@ def set_name(raw_login: str, raw_name: str | None) -> None:
 
 def set_profession(raw_login: str, raw_profession: str) -> int:
     """
-    ينقل الحساب إلى بوابة مهنةٍ أخرى، ويُرجع عدد الحملات المفتوحة التي أُلغيت.
+    ينقل الحساب إلى بوابة مهنةٍ أخرى، ويُرجع عدد ما أُغلق: الحملات المفتوحة أو التذاكر.
 
     حين يغادر التسويق تُلغى حملاته غير المنتهية في المعاملة نفسها (ويحذف محفّز
-    الإلغاء صورها)؛ الحملات الجاهزة تبقى إلى الاحتفاظ المعتاد.
+    الإلغاء صورها)؛ الحملات الجاهزة تبقى إلى الاحتفاظ المعتاد. وحين يغادر الدعم الفني
+    تُسحب ردوده التي لم تُرسل وتُغلق تذاكره، وتُمحى نصوصها في موعدها.
     """
     key, _ = _settings()
     profession = _profession(raw_profession)
@@ -260,6 +319,10 @@ def set_profession(raw_login: str, raw_profession: str) -> int:
         cancelled = 0
         if current == Profession.MARKETING.value:
             cursor.execute(_CANCEL_OPEN_CAMPAIGNS, (user_id,))
+            cancelled = cursor.rowcount
+        if current == Profession.SUPPORT.value:
+            cursor.execute(_SUPPORT_LEAVE_REPLIES, (user_id,))
+            cursor.execute(_SUPPORT_LEAVE_TICKETS, (user_id,))
             cancelled = cursor.rowcount
         cursor.execute(_SET_PROFESSION, (profession.value, user_id))
         return cancelled
@@ -336,7 +399,21 @@ def purge() -> dict[str, int]:
                                 # بهذا الترتيب: يُغلق المهجور قبل أن يُحذف القديم، وتُحذف التنبيهات
                                 # المفتوحة بعد أن يُفكّ ما يبقى منها عن دفترٍ حُذف.
                                 ("ai_abandoned", _PURGE_AI_ABANDONED), ("ai_requests", _PURGE_AI_REQUESTS),
-                                ("ai_open_flags", _PURGE_AI_OPEN_FLAGS)):
+                                ("ai_open_flags", _PURGE_AI_OPEN_FLAGS),
+                                ("inv_purchase_drafts", _PURGE_INV_PURCHASE_DRAFTS),
+                                ("inv_return_drafts", _PURGE_INV_RETURN_DRAFTS),
+                                ("support_closed_resolved", _SUPPORT_CLOSE_RESOLVED),
+                                ("support_closed_idle", _SUPPORT_CLOSE_IDLE),
+                                ("support_replies_withdrawn", _SUPPORT_WITHDRAW),
+                                ("support_flag_quotes", _SUPPORT_PURGE_FLAG_QUOTES),
+                                ("support_drafts", _SUPPORT_PURGE_DRAFTS),
+                                ("support_replies", _SUPPORT_PURGE_REPLIES),
+                                ("support_messages", _SUPPORT_PURGE_MESSAGES),
+                                ("support_escalations", _SUPPORT_PURGE_ESCALATIONS),
+                                ("support_texts_events", _SUPPORT_TEXTS_EVENT),
+                                ("support_texts_purged", _SUPPORT_TEXTS_MARK),
+                                ("support_tickets", _SUPPORT_PURGE_TICKETS),
+                                ("kb_articles_deleted", _SUPPORT_PURGE_DISCARDED)):
             cursor.execute(statement)
             counts[name] = cursor.rowcount
     return counts
@@ -379,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "set-profession":
             cancelled = set_profession(args.login, args.profession)
             print("نُقل الحساب إلى بوابة " + NAMES[Profession(args.profession)]
-                  + (f"، وأُلغيت {cancelled} حملةً مفتوحة" if cancelled else ""))
+                  + (f"، وأُغلق {cancelled} ممّا كان مفتوحاً في بوابته السابقة (حملاتٌ أو تذاكر)" if cancelled else ""))
         elif args.command == "issue-signup-codes":
             print("\n".join(issue_signup_codes(args.count, args.hours, args.label)))
         elif args.command == "set-name":

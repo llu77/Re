@@ -1,34 +1,13 @@
-import { afterEach, vi } from "vitest"
-import { cleanup } from "@testing-library/react"
-
 /*
- * jsdom بلا `matchMedia`، وframer-motion يسأله عن «تقليل الحركة». `setReducedMotion`
- * يحدّد الجواب.
+ * jsdom لا يعرف <dialog>.showModal ولا close: بديلٌ يضع السمة open ويرفعها، يكفي لاختبار
+ * ما تفعله المكوّنات حولهما (التركيز، Escape، الإغلاق). السلوك الحقيقي يُختبر في Chromium.
  */
-let reduced = false
 
-export function setReducedMotion(next: boolean) {
-  reduced = next
+if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute("open", "")
+  }
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.removeAttribute("open")
+  }
 }
-
-Object.defineProperty(window, "matchMedia", {
-  configurable: true,
-  value: (query: string) => ({
-    get matches() {
-      return query.includes("prefers-reduced-motion") ? reduced : false
-    },
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  }),
-})
-
-afterEach(() => {
-  cleanup()
-  reduced = false
-  vi.restoreAllMocks()
-})

@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import itertools
 import threading
 from collections import deque
 from dataclasses import replace
@@ -18,7 +19,7 @@ from dataclasses import replace
 from eyework.copy_rules import check_copy
 from eyework.copywriter import CopyOutcome
 from eyework.prompt import CopyRequest
-from eyework.prompt_kit import ModelCall, ModelReply
+from eyework.prompt_kit import ModelCall, ModelReply, ToolCall
 
 TITLE = "حقيبة جلدية بنية أنيقة"
 DESCRIPTION = "حقيبة يد من الجلد البني بتصميمٍ بسيط وأنيق، تتّسع للأغراض اليومية ولها حزام كتف."
@@ -81,12 +82,46 @@ def flag(check: str = "PRICE_IMPLAUSIBLE", severity: str = "HIGH", field: str = 
             "suggestion": suggestion}
 
 
+#: مسودة دعمٍ بلا مقالة: طلب معلوماتٍ بسؤال، كما يكتبها سيمبول حين لا تجيب القاعدة.
+ASK_BODY = "لنساعدكم بسرعة، ما نصّ رسالة الخطأ كما تظهر على الشاشة؟"
+
+
+def draft_reply(status: str = "CANNOT_ANSWER", kind: str = "ASK_INFO", body: str = ASK_BODY,
+                citations: tuple[dict, ...] = (), subject: str = "الطابعة لا تطبع", category: str = "PRINTING",
+                impact: str = "SINGLE", urgency: str = "DEGRADED", security: bool = False, escalate: str = "NONE",
+                note: str = "لا مقالة في القاعدة عن هذه المشكلة.") -> ModelReply:
+    """جواب مسودة الدعم بحقوله الأحد عشر."""
+    return model_reply("OK", {"status": status, "reply_kind": kind, "body": body, "citations": list(citations),
+                              "subject": subject, "category": category, "impact": impact, "urgency": urgency,
+                              "security_concern": security, "escalate": escalate, "note_to_employee": note})
+
+
 def review_reply(*flags: dict) -> ModelReply:
     return model_reply("OK", {"flags": list(flags)})
 
 
-def assistant_reply(status: str = "ANSWER", answer: str = ANSWER, used: tuple[str, ...] = ("T1", "SCREEN")) -> ModelReply:
-    return model_reply("OK", {"status": status, "answer": answer, "used": list(used)})
+def assistant_reply(status: str = "ANSWER", answer: str = ANSWER, used: tuple[str, ...] = ("SCREEN",),
+                    open: str = "NONE") -> ModelReply:
+    return model_reply("OK", {"status": status, "answer": answer, "used": list(used), "open": open})
+
+
+_TOOL_USE_IDS = itertools.count(1)
+
+
+def tool_requests(*requests: tuple[str, dict]) -> ModelReply:
+    """
+    المساعد يطلب أداةً أو أكثر في دورٍ واحد كما تعيدها البوّابة الحقيقية: `stop_reason = tool_use`، وكتل
+    `tool_use` بمعرّفاتٍ فريدة، ومحتوى الدور (بكتلة تفكيرٍ قبلها) ليُعاد كما هو.
+    """
+    calls = tuple(ToolCall(f"toolu_fake_{next(_TOOL_USE_IDS)}", name, dict(tool_input)) for name, tool_input in requests)
+    content = ({"type": "thinking", "thinking": "", "signature": "sig_fake"},
+               *({"type": "tool_use", "id": call.id, "name": call.name, "input": call.input} for call in calls))
+    return replace(model_reply("OK", None, stop_reason="tool_use"), tool_calls=calls, content=content)
+
+
+def tool_request(name: str, tool_input: dict | None = None) -> ModelReply:
+    """المساعد يطلب أداةً واحدة."""
+    return tool_requests((name, tool_input or {}))
 
 
 class FakeGateway:
@@ -118,6 +153,8 @@ class FakeGateway:
             reply = self.replies.popleft()
         elif request.feature == "ASSISTANT":
             reply = assistant_reply()
+        elif request.feature == "SUPPORT_DRAFT":
+            reply = draft_reply()
         else:
             reply = review_reply()
         return replace(reply, usage={**reply.usage, "prompt_version": request.prompt_version})

@@ -1,9 +1,13 @@
 """
-«اسأل سيمبول»: المساعد في الزرّ العائم
-=====================================
-يجيب عن سؤالٍ واحد عن عمل الموظف من مصدرين لا غير: مهامّ مهنته ومهاراتها
-المترجمة من مصادرها، وبيانات الشاشة التي يسأل منها. لا أدوات فلا يفعل شيئاً؛
-ويقول إنه لا يعرف حين لا يعرف.
+«سيمبول»: المساعد في زرّ المحادثة العائم
+=======================================
+يحادث الموظف عن عمله من مصدرين لا غير: بيانات الشاشة التي يسأل منها، وأدوات
+قراءةٍ يطلبها (`TOOLS`: المنتجات، الحملات، قاعدة المعرفة، حاسبة الضريبة…)؛ ولا
+يشرح له مهنته، فهو يعرفها. الأدوات في `tools` كما توثّقها Anthropic: يطلبها النموذج
+(`tool_use`)، فتعمل بهوية الجلسة وتحت العزل، وما تعيده يمرّ بالإخفاء ثم يعود في
+`tool_result` بمعرّف طلبه (وخطأ المدخل بـ`is_error`)؛ وأداتان على الأكثر لكل سؤال،
+والوقت كلّه داخل عقد الطلب. ولا يفعل شيئاً بنفسه: يقترح شاشةً (`DESTINATIONS`)
+فيظهر زرٌّ يضغطه الموظف. ويقول إنه لا يعرف حين لا يعرف.
 
 **العميل يرسل نوع الشاشة ومعرّفها لا بياناتها.** سجلّ الشاشات (`SCREENS`)
 يحمّل البيانات بهوية الجلسة وتحت العزل، بنودٌ كاملة حتى ثلاثة آلاف حرف ثم
@@ -22,20 +26,34 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal, InvalidOperation
+from typing import Any, Mapping
 from uuid import UUID
 
-from eyework import ai_log
-from eyework.ai_limits import QUESTION_LENGTH, SCREEN_DATA_CHARS
-from eyework.assistant_prompt import Parsed, ScreenContext, call as build_call, check_question, parse
+from eyework import ai_log, clock
+from eyework.ai_limits import ASSISTANT as ASSISTANT_CALL, FEATURES, QUESTION_LENGTH, SCREEN_DATA_CHARS
+from eyework.assistant_prompt import (
+    DONT_KNOW_TEXT, HISTORY_MAX, QUERY_MAX, Destination, Parsed, ScreenContext, Tool, ToolError, call as build_call,
+    check_answer, check_question, parse,
+)
 from eyework.db import Database
+from eyework.inventory_rules import halalas_words, normalise_digits, vat_split
 from eyework.model_gateway import Guard
-from eyework.professions import PORTALS, Profession
+from eyework.professions import Profession
 from eyework.prompt_kit import Gateway
 from eyework.redact import redact
 from eyework.reviewer import usage
 from eyework.service_errors import Invalid, NotFound
 
-__all__ = ["SCREENS", "AssistantError", "ScreenContext", "ask", "choices", "fit", "register"]
+__all__ = [
+    "DESTINATIONS", "MAX_TOOL_CALLS", "QUERY_MAX", "SCREENS", "TOOLS", "AssistantError", "Destination", "ScreenContext",
+    "Tool", "ToolError", "ask", "choices", "fit", "register", "register_destinations", "register_tool",
+]
+
+#: أداتان على الأكثر لكل سؤال (معاً أو واحدةً بعد أخرى): ثلاثة استدعاءاتٍ للنموذج على الأكثر في عقد الطلب.
+MAX_TOOL_CALLS = 2
+#: ما يبقى من عقد الطلب لاستدعاءٍ آخر: إن لم يبقَ فلا أداة بعد.
+_LEASE_SECONDS = FEATURES["ASSISTANT"].lease_seconds
 
 NO_SCREEN = "لا شاشة بهذا الاسم في بوابتك."
 #: لا بيانات عملٍ في الرئيسية لمهنةٍ لم تصل أدواتها بعد (الحزمتان 3 و4).
@@ -142,7 +160,7 @@ HOME = ScreenContext(
     kind="HOME", profession=None, title="الرئيسية",
     labels=("حسابي",),
     extra_labels={Profession.MARKETING: ("حملة جديدة", "حملاتي")},
-    ready_questions=("من أين أبدأ عملي اليوم؟", "ما أهمّ مهامّ مهنتي؟"),
+    ready_questions=("من أين أبدأ عملي اليوم؟",),
     needs_id=False, load=_home,
 )
 CAMPAIGN = ScreenContext(
@@ -160,8 +178,127 @@ def register(screen: ScreenContext) -> None:
     SCREENS[screen.kind] = screen
 
 
+TOOLS: dict[str, Tool] = {}
+DESTINATIONS: dict[Profession, tuple[Destination, ...]] = {}
+
+
+def register_tool(tool: Tool) -> None:
+    TOOLS[tool.name] = tool
+
+
+def register_destinations(profession: Profession, destinations: tuple[Destination, ...]) -> None:
+    """وجهات مهنةٍ بمعرّفات بنود رئيسيتها في العميل (lib/workspace.ts، يقارنهما اختبار)."""
+    DESTINATIONS[profession] = destinations
+
+
+def tools_for(profession: Profession) -> tuple[Tool, ...]:
+    return tuple(tool for tool in TOOLS.values() if tool.serves(profession))
+
+
 register(HOME)
 register(CAMPAIGN)
+
+
+# ── أدوات المساعد المشتركة وأدوات التسويق ────────────────────────────────
+#: ما تفهمه حاسبة الضريبة من basis، وما يُعرض للموظف تحت الجواب.
+_BASIS_SHOWN = {"before_vat": "قبل الضريبة", "including_vat": "شاملاً الضريبة", "both": ""}
+
+
+def _amount(value: Any) -> Decimal:
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise ToolError("amount_sar ليس رقماً. اكتب المبلغ بالريال رقماً، مثل 115 أو 99.5.") from None
+    if not amount.is_finite() or not Decimal("0.01") <= amount <= Decimal("100000000"):
+        raise ToolError("المبلغ خارج ما تحسبه الأداة: من 0.01 إلى مئة مليون ريال. اسأل الموظف عن المبلغ الصحيح.")
+    return amount
+
+
+def _vat(cursor, user_id: UUID, tool_input: Mapping[str, Any]) -> tuple[str, ...]:
+    """الضريبة 15% على مبلغٍ بالريال، بالتقريب نفسه في القاعدة وحاسبة المخزون: قبلها، أو شاملةً لها، أو القراءتان."""
+    halalas = int((_amount(tool_input["amount_sar"]) * 100).to_integral_value())
+    basis = tool_input["basis"]
+    lines = []
+    if basis in ("before_vat", "both"):
+        net, vat, gross = vat_split(halalas, "net", "S")
+        lines.append(f"{halalas_words(halalas)} قبل الضريبة: الضريبة {halalas_words(vat)}، والإجمالي {halalas_words(gross)}.")
+    if basis in ("including_vat", "both"):
+        g_net, g_vat, g_gross = vat_split(halalas, "gross", "S")
+        lines.append(f"{halalas_words(halalas)} شاملةً الضريبة: قبلها {halalas_words(g_net)}، والضريبة {halalas_words(g_vat)}.")
+    return tuple(lines)
+
+
+def _vat_shown(tool_input: Mapping[str, Any]) -> str:
+    try:
+        amount = format(Decimal(str(tool_input["amount_sar"])).normalize(), "f")
+    except (InvalidOperation, ValueError):
+        amount = str(tool_input["amount_sar"])
+    basis = _BASIS_SHOWN.get(tool_input.get("basis", "both"), "")
+    return f"{amount} ريال" + (f"، {basis}" if basis else "")
+
+
+#: أحدث ثماني حملات، وواحدةٌ بعدها تُعرف بها الزيادة.
+_CAMPAIGNS_SHOWN = 8
+_CAMPAIGN_LIST = """
+SELECT c.status, v.title, c.budget_sar, c.days, c.updated_at::date AS updated
+  FROM campaigns c
+  LEFT JOIN copy_versions v ON v.id = c.current_version_id
+ WHERE c.status <> 'CANCELLED'
+ ORDER BY c.updated_at DESC, c.id
+ LIMIT %s
+"""
+
+
+def _campaigns(cursor, user_id: UUID, tool_input: Mapping[str, Any]) -> tuple[str, ...]:
+    cursor.execute(_CAMPAIGN_LIST, (_CAMPAIGNS_SHOWN + 1,))
+    rows = cursor.fetchall()
+    if not rows:
+        return ("لا حملات بعد.",)
+    lines = []
+    for row in rows[:_CAMPAIGNS_SHOWN]:
+        line = f"«{row['title'] or 'بلا نصّ بعد'}» — {STATUS_NAMES.get(row['status'], row['status'])}"
+        if row["budget_sar"] is not None:
+            line += f"، الميزانية {row['budget_sar']} ريال"
+        if row["days"] is not None:
+            line += f" لـ{row['days']} يوماً"
+        lines.append(line + f" (آخر تعديل {row['updated'].isoformat()})")
+    if len(rows) > _CAMPAIGNS_SHOWN:
+        lines.append(f"هذه أحدث {_CAMPAIGNS_SHOWN} حملات؛ وفي «حملاتي» حملاتٌ أقدم.")
+    return fit(lines)
+
+
+register_tool(Tool(
+    name="calculate_vat", profession=None,
+    description=(
+        "تحسب ضريبة القيمة المضافة في السعودية بالنسبة الأساسية 15% لمبلغٍ بالريال، بالتقريب نفسه في فواتير "
+        "التطبيق، وتعيد المبلغ قبل الضريبة والضريبة والإجمالي شاملاً لها. استدعِها كلما سأل الموظف عن ضريبة مبلغٍ "
+        "أو عن مبلغٍ قبل الضريبة أو بعدها، ولا تحسب الضريبة بنفسك. basis = before_vat إن قال إن المبلغ قبل "
+        "الضريبة، وincluding_vat إن قال إنه شاملٌ لها، وboth إن لم يقل فتعود القراءتان. لا تعرف الأداة نوع المنتج "
+        "ولا إعفاءه ولا النسبة الصفرية: تحسب بالنسبة الأساسية وحدها."
+    ),
+    properties={
+        "amount_sar": {"type": "number", "description": "المبلغ بالريال السعودي رقماً، مثل 115 أو 99.5، من 0.01 إلى "
+                                                        "مئة مليون. الأرقام العربية (١١٥) تُكتب رقماً."},
+        "basis": {"type": "string", "enum": ["before_vat", "including_vat", "both"],
+                  "description": "before_vat: المبلغ قبل الضريبة. including_vat: المبلغ شاملٌ الضريبة. both: لم يذكر "
+                                 "الموظف ذلك."},
+    },
+    label="حاسبة الضريبة", run=_vat, shown=_vat_shown,
+))
+register_tool(Tool(
+    name="list_campaigns", profession=Profession.MARKETING,
+    description=(
+        "تعيد حملات الموظف غير الملغاة، الأحدث تعديلاً أولاً، ثماني على الأكثر: عنوان النصّ وحالة الحملة وميزانيتها "
+        "بالريال ومدّتها بالأيام وتاريخ آخر تعديل، وتقول إن كانت هناك حملاتٌ أقدم. استدعِها حين يسأل الموظف عن حملاته "
+        "أو حالتها أو ما ينتظر موافقته أو ميزانياتها ولم يكن ذلك في <screen>. لا تعيد نتائج النشر ولا حملات غيره. لا "
+        "تحتاج مدخلاً."
+    ),
+    properties={}, label="حملاتك", run=_campaigns,
+))
+register_destinations(Profession.MARKETING, (
+    Destination("new", "حملة جديدة"),
+    Destination("campaigns", "حملاتي"),
+))
 
 
 def choices() -> dict:
@@ -175,12 +312,54 @@ def _fail(db: Database, user_id: UUID, request_id: UUID, outcome: str, usage_jso
         cursor.execute(_FAIL, (request_id, outcome, None if usage_json is None else json.dumps(usage_json)))
 
 
+def _history(history: list | tuple | None) -> tuple[tuple[str, str], ...]:
+    """آخر ثلاثة أسئلةٍ بأجوبتها كما يرسلها العميل: كلٌّ يُفحص ويُخفى كالسؤال."""
+    if not history:
+        return ()
+    turns = []
+    for question, answer in list(history)[-HISTORY_MAX:]:
+        try:
+            question = check_question(question)
+        except Invalid:
+            raise Invalid("HISTORY", field="history") from None
+        turns.append((redact(question)[0], redact(check_answer(answer))[0]))
+    return tuple(turns)
+
+
+def _add_usage(total: dict | None, usage_json: dict | None) -> dict | None:
+    """مجموع ما استهلكته استدعاءات السؤال الواحد، للدفتر: الأعداد تُجمع، والباقي من آخر استدعاء."""
+    if usage_json is None:
+        return total
+    if total is None:
+        return dict(usage_json)
+    merged = dict(usage_json)
+    for key, value in total.items():
+        if isinstance(value, int) and isinstance(usage_json.get(key), int):
+            merged[key] = value + usage_json[key]
+    return merged
+
+
+def _run_tool(db: Database, user_id: UUID, tool: Tool, tool_input: Mapping[str, Any]) -> tuple[tuple[str, ...], bool]:
+    """(الأسطر بعد الإخفاء، وهل هي خطأ مدخل): الأداة بهوية الجلسة وتحت العزل."""
+    with db.session(user_id) as cursor:
+        try:
+            lines, error = tuple(tool.run(cursor, user_id, tool_input)), False
+        except ToolError as failure:
+            lines, error = (str(failure),), True
+    return tuple(redact(line)[0] for line in lines), error
+
+
+def _key(name: str, tool_input: Mapping[str, Any]) -> tuple[str, str]:
+    """الأداة ومدخلها بترتيبٍ ثابت: لا تُستدعى أداةٌ بالمدخل نفسه مرتين."""
+    return name, json.dumps(tool_input, sort_keys=True, ensure_ascii=False)
+
+
 def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind: str, screen_id: UUID | None,
-        question: str | None, ready: int | None) -> dict:
+        question: str | None, ready: int | None, history: list | tuple | None = None) -> dict:
     """
-    سؤالٌ واحد: الشاشة من السجلّ بمهنة الجلسة، والسؤال بعد فحصه وإخفائه (أو
-    سؤالٌ جاهز بفهرسه)، ثم الحارس، ثم صفّ الدفتر، ثم النموذج، ثم الفحص، ثم
-    الإغلاق. ما يفشل يُغلق محسوباً ويرفع `AssistantError` برمزه.
+    سؤالٌ في محادثة: الشاشة من السجلّ بمهنة الجلسة، والسؤال والمحادثة بعد فحصهما وإخفائهما (أو
+    سؤالٌ جاهز بفهرسه)، ثم الحارس، ثم صفّ الدفتر، ثم النموذج — ومعه الأدوات التي يطلبها، أداتان على
+    الأكثر — ثم الفحص، ثم الإغلاق. ما يفشل يُغلق محسوباً ويرفع `AssistantError` برمزه.
     """
     screen = SCREENS.get(screen_kind)
     if screen is None:
@@ -193,11 +372,20 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
         sent, masks = screen.ready_questions[ready], 0
     else:
         sent, masks = redact(check_question(question or ""))
+    turns_asked = _history(history)
 
     reason = guard.acquire()
     if reason is not None:
         ai_log.event("assistant_unavailable", reason=reason)
         raise AssistantError("AI_UNAVAILABLE" if reason == "DOWN" else "AI_BUSY", 30)
+    called = False
+    started = clock.monotonic()
+    usage_total: dict | None = None
+    turns: list[dict] = []
+    asked: list[tuple[str, str]] = []
+    used_tools: list[dict] = []
+    parsed: Parsed | None = None
+    codes: tuple[str, ...] = ()
     try:
         with db.session(user_id) as cursor:
             cursor.execute(_PROFESSION)
@@ -208,32 +396,76 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
             lines = tuple(redact(line)[0] for line in screen.load(cursor, user_id, screen_id))
             cursor.execute(_BEGIN)
             request_id = cursor.fetchone()["request"]
-        portal = PORTALS[profession]
-        try:
-            reply = gateway.call(build_call(portal, screen, profession, lines, sent))
-        except Exception:
-            _fail(db, user_id, request_id, "UPSTREAM_ERROR", None)
-            raise
-        guard.record(reply)
+        tools = tools_for(profession)
+        by_name = {tool.name: tool for tool in tools}
+        destinations = DESTINATIONS.get(profession, ())
+        while True:
+            try:
+                reply = gateway.call(build_call(screen, profession, lines, sent, history=turns_asked,
+                                                turns=tuple(turns), tools=tools, destinations=destinations))
+            except Exception:
+                _fail(db, user_id, request_id, "UPSTREAM_ERROR", usage_total)
+                raise
+            called = True
+            guard.record(reply)
+            usage_total = _add_usage(usage_total, reply.usage)
+            if reply.outcome != "OK":
+                break
+            if not reply.tool_calls:
+                parsed, codes = parse(reply.data, destinations)
+                break
+            keys = [_key(request.name, request.input) for request in reply.tool_calls]
+            elapsed = clock.monotonic() - started
+            if len(asked) + len(keys) > MAX_TOOL_CALLS or len(set(keys)) < len(keys) or set(keys) & set(asked) \
+                    or elapsed + ASSISTANT_CALL.deadline_seconds > _LEASE_SECONDS:
+                # أداةٌ ثالثة، أو مكرّرة، أو لا وقت لاستدعاءٍ آخر: لا جواب من البيانات هذه المرة.
+                parsed, codes = Parsed("DONT_KNOW", DONT_KNOW_TEXT, ()), ()
+                ai_log.event("assistant_tool_stop", screen=screen.kind, tools=len(asked))
+                break
+            results = []
+            for request, key in zip(reply.tool_calls, keys):
+                tool = by_name.get(request.name)
+                if tool is None:
+                    # الوضع الصارم لا يسمّي إلا أداةً أُرسلت؛ وهذا حارسٌ لا يُتوقّع.
+                    found, error = ("لا أداة بهذا الاسم في بوابتك.",), True
+                else:
+                    try:
+                        found, error = _run_tool(db, user_id, tool, request.input)
+                    except Exception:
+                        _fail(db, user_id, request_id, "UPSTREAM_ERROR", usage_total)
+                        raise
+                    if not error:
+                        used_tools.append({"name": tool.name, "label": tool.label, "input": tool.shown(request.input)})
+                asked.append(key)
+                result = {"type": "tool_result", "tool_use_id": request.id, "content": "\n".join(found) or "لا نتيجة."}
+                if error:
+                    result["is_error"] = True
+                results.append(result)
+                ai_log.event("assistant_tool", screen=screen.kind, tool=request.name, outcome="ERROR" if error else "OK")
+            # دور المساعد كما عاد (بكتل التفكير وطلبات الأدوات)، ثم النتائج كلّها في رسالةٍ واحدة بمعرّفاتها.
+            turns.append({"role": "assistant", "content": list(reply.content)})
+            turns.append({"role": "user", "content": results})
     finally:
-        guard.release()
+        # شاشةٌ مرفوضة أو سقفٌ أو انهيارٌ قبل الجواب: لم يُسجَّل شيءٌ في القاطع، فيعود إذن التجربة.
+        guard.release(called=called)
 
     if reply.outcome != "OK":
-        _fail(db, user_id, request_id, reply.outcome, reply.usage)
+        _fail(db, user_id, request_id, reply.outcome, usage_total)
         raise AssistantError(_ERROR_FOR[reply.outcome], reply.retry_after_seconds)
-    parsed, codes = parse(reply.data, portal)
     if parsed is None:
-        _fail(db, user_id, request_id, "OUTPUT_INVALID", reply.usage)
+        _fail(db, user_id, request_id, "OUTPUT_INVALID", usage_total)
         ai_log.event("assistant_invalid", screen=screen.kind, drop_codes=",".join(codes))
         raise AssistantError("AI_INVALID")
     with db.session(user_id) as cursor:
         cursor.execute(_FINISH, (request_id, "OK" if parsed.status == "ANSWER" else parsed.status,
-                                 json.dumps(reply.usage)))
+                                 json.dumps(usage_total)))
         allowance = usage(cursor, "ASSISTANT")
-    ai_log.event("assistant_answered", screen=screen.kind, outcome=parsed.status, masks=masks)
-    return _answer(parsed, sent, allowance)
+    ai_log.event("assistant_answered", screen=screen.kind, outcome=parsed.status, masks=masks, tools=len(used_tools))
+    place = next((d for d in destinations if d.id == parsed.open), None)
+    return _answer(parsed, sent, allowance, used_tools, place)
 
 
-def _answer(parsed: Parsed, sent: str, allowance: dict) -> dict:
-    return {"status": parsed.status, "text": parsed.text, "question_sent": sent, "sources": parsed.sources,
-            "usage": allowance}
+def _answer(parsed: Parsed, sent: str, allowance: dict, used_tools: list[dict] | None = None,
+            place: Destination | None = None) -> dict:
+    return {"status": parsed.status, "text": parsed.text, "question_sent": sent, "usage": allowance,
+            "tools": used_tools or [], "open": None if place is None else {"id": place.id, "label": place.label}}

@@ -37,12 +37,15 @@ from fastapi.staticfiles import StaticFiles
 from psycopg import errors as pg_errors
 
 from eyework import assistant, campaigns, config, images, service_errors
+# استيراد خدمتي المخزون والدعم يسجّل أدوات مراجعتهما وشاشات مساعدهما قبل أن تُبنى المسارات.
+from eyework import inventory  # noqa: F401
+from eyework import support
 from eyework.copywriter import AnthropicCopywriter, Copywriter
 from eyework.db import Database
 from eyework.model_gateway import AnthropicGateway, Guard
 from eyework.prompt_kit import Gateway
 from eyework.reviewer import ReviewRunner
-from eyework.web import routes_ai, routes_auth, routes_campaigns, routes_portal
+from eyework.web import routes_ai, routes_auth, routes_campaigns, routes_inventory, routes_portal, routes_support
 from eyework.web.deps import Limiters
 from eyework.web.errors import (
     AI_ASSISTANT,
@@ -51,8 +54,12 @@ from eyework.web.errors import (
     EDIT_REQUEST,
     GENERIC,
     IMAGE,
+    INVENTORY_INVALID,
     REGISTRATION,
     REGISTRATION_CONSTRAINTS,
+    SUPPORT_AI,
+    SUPPORT_CONSTRAINTS,
+    SUPPORT_INVALID,
     ErrorSpec,
 )
 
@@ -61,6 +68,9 @@ __all__ = ["create_app"]
 logger = logging.getLogger("eyework.web")
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
+#: الواجهة الجديدة مبنيةً (eyework/client، `npm run build`): تُخدم تحت /next/ بجانب الواجهة
+#: القائمة حتى حزمة التبديل، إن كانت مبنية؛ نشرٌ بلا بنائها يخدم الواجهة القائمة وحدها.
+CLIENT_DIST = Path(__file__).resolve().parent.parent / "client" / "dist"
 JSON_BODY_LIMIT = 16 * 1024
 #: المساران الوحيدان اللذان يحملان صورة: حدّهما في المسار نفسه لا هنا.
 _IMAGE_UPLOAD = re.compile(r"^(POST /api/campaigns|PUT /api/campaigns/[0-9a-f-]{36}/image)$")
@@ -103,11 +113,18 @@ def _internal(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"code": "INTERNAL", "detail": "حدث خطأ. حاول مرة أخرى."})
 
 
-def _error(spec: ErrorSpec, field: str | None = None) -> JSONResponse:
+def _support(request: Request) -> bool:
+    """مسارات مكتب الدعم: رسائلها بأسماء التذكرة والمقالة لا الحملة."""
+    return request.url.path.startswith("/api/support")
+
+
+def _error(spec: ErrorSpec, field: str | None = None, extra: dict | None = None) -> JSONResponse:
     headers = {"Retry-After": str(spec.retry_after)} if spec.retry_after else None
     content = {"code": spec.code, "detail": spec.detail}
     if field is not None:
         content["field"] = field
+    if extra:
+        content.update(extra)
     return JSONResponse(status_code=spec.status, content=content, headers=headers)
 
 
@@ -215,6 +232,9 @@ def create_app(
         if constraint in REGISTRATION_CONSTRAINTS:
             field = REGISTRATION_CONSTRAINTS[constraint]
             return _error(REGISTRATION[field], field)
+        # إشعار المكتب يحجز مراجعة سيمبول للردّ والمقالة أيضاً (/api/ai/review)، لا مسارات المكتب وحدها.
+        if (_support(request) or constraint == "support_notice_required") and constraint in SUPPORT_CONSTRAINTS:
+            return _error(SUPPORT_CONSTRAINTS[constraint])
         return _error(CONSTRAINTS.get(constraint, GENERIC))
 
     @app.exception_handler(pg_errors.InsufficientPrivilege)
@@ -222,11 +242,15 @@ def create_app(
         # القاعدة ترفض أداةً لغير مهنتها حتى لو تجاوز الطلبُ حاجز المسار.
         constraint = getattr(exc.diag, "constraint_name", None) or ""
         logger.warning("صلاحية %s على %s", constraint or "غير مسمّاة", request.url.path)
+        if _support(request) and constraint in SUPPORT_CONSTRAINTS:
+            return _error(SUPPORT_CONSTRAINTS[constraint])
         return _error(CONSTRAINTS.get(constraint, GENERIC))
 
     @app.exception_handler(pg_errors.NoDataFound)
     def no_data(request: Request, exc: pg_errors.NoDataFound) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "detail": "الحملة غير موجودة."})
+        detail = ("لم يُعثر على المستند." if request.url.path.startswith("/api/inventory")
+                  else "لم يُعثر عليه." if _support(request) else "الحملة غير موجودة.")
+        return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "detail": detail})
 
     # أصناف الخدمات المشتركة (service_errors؛ والحملات تعيد تصديرها): الحملة تكتفي
     # بالرسالة الافتراضية، والملاحظة والشاشة تسمّيان نفسيهما.
@@ -243,7 +267,16 @@ def create_app(
 
     @app.exception_handler(service_errors.Invalid)
     def invalid(request: Request, exc: service_errors.Invalid) -> JSONResponse:
-        return _error(EDIT_REQUEST.get(exc.code, GENERIC), exc.field)
+        if _support(request) and exc.code in SUPPORT_INVALID:
+            return _error(SUPPORT_INVALID[exc.code], exc.field, exc.extra)
+        return _error(EDIT_REQUEST.get(exc.code) or INVENTORY_INVALID.get(exc.code, GENERIC), exc.field, exc.extra)
+
+    @app.exception_handler(support.SupportAiFailure)
+    def support_ai_failure(request: Request, exc: support.SupportAiFailure) -> JSONResponse:
+        spec = SUPPORT_AI.get(exc.outcome, SUPPORT_AI["UPSTREAM_ERROR"])
+        if exc.retry_after_seconds:
+            spec = ErrorSpec(spec.status, spec.code, spec.detail, exc.retry_after_seconds)
+        return _error(spec)
 
     @app.exception_handler(assistant.AssistantError)
     def assistant_error(request: Request, exc: assistant.AssistantError) -> JSONResponse:
@@ -286,8 +319,13 @@ def create_app(
 
     app.include_router(routes_auth.router)
     app.include_router(routes_campaigns.router)
+    app.include_router(routes_inventory.router)
+    app.include_router(routes_support.router)
     app.include_router(routes_portal.router)
     app.include_router(routes_ai.router)
+    # الواجهة الجديدة تحت /next/ قبل الجذر: المسارات تُطابَق بترتيبها، وسياسة المحتوى نفسها.
+    if CLIENT_DIST.is_dir():
+        app.mount("/next", StaticFiles(directory=CLIENT_DIST, html=True), name="next")
     # أخيراً: كل ما لم يطابق مساراً أعلاه ملفٌّ ساكن. بلا شرط: نشرٌ بلا مجلد
     # الواجهة يفشل عند الإقلاع لا أن يعمل بلا واجهة.
     app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

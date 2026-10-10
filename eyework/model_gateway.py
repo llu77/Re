@@ -9,9 +9,13 @@
 
 **شكل الطلب ثابت.** النموذج `claude-opus-5-5` عبر `client.beta.messages`
 بالبديل من جهة الخادم والمخرجات المنظّمة والجهد الصريح. لا `thinking`
-(التفكير دائمٌ على هذا النموذج، وتحديده يعيد 400)، ولا أدوات ولا إجبار
-(400 كذلك)، ولا معاملات عيّنة. `max_retries=0`: محاولةٌ انتهت مهلتها ربما
-فُوتر، وإعادتها خفيةً تُخفي ذلك عن السقوف.
+(التفكير دائمٌ على هذا النموذج، وتحديده يعيد 400)، ولا إجبار على أداة
+(`tool_choice` من نوع any/tool يعيد 400 كذلك)، ولا معاملات عيّنة. أدوات القراءة
+في `tools` حين يحملها الطلب (المساعد)، صارمةً (`strict`)، والجواب الأخير بالمخرجات
+المنظّمة نفسها: طلب أداةٍ يعود بـ`stop_reason = tool_use` وكتلها، ويُعاد محتوى
+دور المساعد كما هو (بكتل التفكير) قبل نتائج الأدوات في الاستدعاء التالي.
+`max_retries=0`: محاولةٌ انتهت مهلتها ربما فُوتر، وإعادتها خفيةً تُخفي ذلك عن
+السقوف.
 
 **البثّ من جهة الخادم وحده** للاستدعاءات الطويلة (مسودات الدعم): يُفحص الوقت
 مع كل حدث، وبعد المهلة يُغلق الردّ وتُسجَّل مهلةٌ محسوبة. لا يصل العميل حرفٌ
@@ -41,7 +45,7 @@ from eyework.ai_limits import (
     BREAKER_WINDOW_SECONDS,
     STREAM_TIMEOUT_SECONDS,
 )
-from eyework.prompt_kit import Gateway, ModelCall, ModelReply
+from eyework.prompt_kit import Gateway, ModelCall, ModelReply, ToolCall
 
 __all__ = [
     "BETAS",
@@ -182,6 +186,14 @@ def _read(message, request: ModelCall, request_id: str | None) -> ModelReply:
                           thinking_tokens=thinking)
     if message.stop_reason == "max_tokens":
         return ModelReply("OUTPUT_INVALID", None, usage, "max_tokens", None, True, None, thinking_tokens=thinking)
+    if message.stop_reason == "tool_use":
+        # طلب أدوات: كتل tool_use بمدخلٍ يطابق مخطّطها (strict)، ومحتوى الدور كما عاد ليُعاد في الاستدعاء التالي.
+        calls = tuple(ToolCall(block.id, block.name, dict(block.input))
+                      for block in message.content if block.type == "tool_use")
+        if not calls:
+            return ModelReply("OUTPUT_INVALID", None, usage, "tool_use", None, True, None, thinking_tokens=thinking)
+        return ModelReply("OK", None, usage, "tool_use", None, True, None, thinking_tokens=thinking,
+                          tool_calls=calls, content=tuple(message.content))
     text = next((block.text for block in message.content if block.type == "text"), None)
     try:
         parsed = json.loads(text) if text is not None else None
@@ -201,16 +213,19 @@ class AnthropicGateway:
 
     @staticmethod
     def params(request: ModelCall) -> dict:
-        """جسم الطلب كما يغادر. ما ليس هنا لا يُرسل."""
-        return {
+        """جسم الطلب كما يغادر. ما ليس هنا لا يُرسل؛ و`tools` حين يحملها الطلب وحده."""
+        params = {
             "model": MODEL,
             "max_tokens": request.max_tokens,
             "betas": list(BETAS),
             "fallbacks": "default",
             "output_config": {"effort": request.effort, "format": {"type": "json_schema", "schema": request.schema}},
             "system": list(request.system),
-            "messages": [{"role": "user", "content": request.user}],
+            "messages": [{"role": "user", "content": request.user}, *request.turns],
         }
+        if request.tools:
+            params["tools"] = list(request.tools)
+        return params
 
     def _stream(self, params: dict, deadline: float):
         """
@@ -271,6 +286,10 @@ class Breaker:
     قاطع دارةٍ واحد لكل عملية. يفتح بعد `failures` إخفاقاتٍ متتالية من المزوّد
     في `window_seconds`، ويبقى مفتوحاً `open_seconds`؛ ثم يسمح باستدعاءٍ واحد
     تجريبي: نجاحه يغلقه، وفشله يفتحه من جديد. نجاحٌ في أيّ وقتٍ يغلقه.
+
+    إذن التجربة يُعاد إن لم يُستدعَ به شيء (`cancel_trial`: مراجعةٌ مخزونة، أو سقفٌ،
+    أو لا مقعد)، وإلا فإذنٌ لم يُستعمل يُبطل العمل حتى إعادة التشغيل. وإن ضاع
+    الإذن رغم ذلك عاد بعد مدّة فتحٍ أخرى.
     """
 
     def __init__(self, *, failures: int = BREAKER_FAILURES, window_seconds: float = BREAKER_WINDOW_SECONDS,
@@ -282,6 +301,7 @@ class Breaker:
         self._recent: deque[float] = deque()
         self._opened_at: float | None = None
         self._trialing = False
+        self._trial_at: float | None = None
 
     @property
     def is_open(self) -> bool:
@@ -293,10 +313,21 @@ class Breaker:
         with self._lock:
             if self._opened_at is None:
                 return True
-            if now - self._opened_at >= self._open_seconds and not self._trialing:
+            if now - self._opened_at < self._open_seconds:
+                return False
+            # تجربةٌ واحدة في كل مدّة فتح: إذنٌ قائم لم يُسجَّل له شيء يُجدَّد بعد مدّة فتحٍ أخرى.
+            if not self._trialing or now - (self._trial_at or now) >= self._open_seconds:
                 self._trialing = True
+                self._trial_at = now
                 return True
             return False
+
+    def cancel_trial(self) -> None:
+        """إذن تجربةٍ أُخذ ولم يُستدعَ به شيء يعود، فتأخذه الضغطة التالية."""
+        with self._lock:
+            if self._opened_at is not None and self._trialing:
+                self._trialing = False
+                self._trial_at = None
 
     def record(self, reply: ModelReply) -> None:
         failed = reply.outcome in _TRIPPING and not (
@@ -309,9 +340,12 @@ class Breaker:
                 self._trialing = False
                 return
             if self._opened_at is not None:
-                # فشل الاستدعاء التجريبي: يبقى مفتوحاً مدّةً كاملة أخرى.
-                self._opened_at = now
-                self._trialing = False
+                # فشل الاستدعاء التجريبي: يبقى مفتوحاً مدّةً كاملة أخرى. وفشلُ استدعاءٍ بدأ
+                # قبل الفتح لا يمدّه: المدّة ستّون ثانية من الفتح لا من آخر فشلٍ يصل.
+                if self._trialing:
+                    self._opened_at = now
+                    self._trialing = False
+                    self._trial_at = None
                 return
             self._recent.append(now)
             while self._recent and self._recent[0] <= now - self._window:
@@ -325,6 +359,7 @@ class Breaker:
             self._recent.clear()
             self._opened_at = None
             self._trialing = False
+            self._trial_at = None
 
 
 class Guard:
@@ -342,11 +377,16 @@ class Guard:
         if not self.breaker.allow():
             return "DOWN"
         if not self._slots.acquire(blocking=False):
+            # إذنٌ بلا مقعد: يعود إلى القاطع فلا تضيع التجربة على ضغطةٍ لم تستدعِ شيئاً.
+            self.breaker.cancel_trial()
             return "BUSY"
         return None
 
-    def release(self) -> None:
+    def release(self, *, called: bool = True) -> None:
+        """يعيد المقعد؛ و`called=False` حين لم يصل الاستدعاء إلى المزوّد فيعود إذن التجربة معه."""
         self._slots.release()
+        if not called:
+            self.breaker.cancel_trial()
 
     def record(self, reply: ModelReply) -> None:
         self.breaker.record(reply)

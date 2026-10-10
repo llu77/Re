@@ -29,7 +29,9 @@ import psycopg
 import pytest
 from psycopg import errors
 
+from eyework import ai_text
 from eyework.tests.conftest import as_user, create_campaign, make_user, register_open
+from eyework.tests.db.test_generation_caps import begin, finish
 from eyework.tests.db.test_state_machine import blocked_on_a_lock
 
 # ── المسار البديل ───────────────────────────────────────────────────────
@@ -516,18 +518,47 @@ def test_ew_ai_spend_counts_every_ledger_and_the_new_account_share(owner, app, k
         assert cursor.fetchone() == (4, 3)
 
 
-def test_the_global_cap_counts_requests_campaigns_and_tombstones_together(owner, app, keeper):
+def test_the_global_cap_counts_requests_campaigns_and_tombstones_together(owner, app, keeper, marketer):
+    """الألفان من الدفاتر الثلاثة معاً: محاولة حملة، واستدعاء أداة، وأثر محذوف — والألفان بعدها رفض."""
+    campaign = create_campaign(app, marketer, with_image=False)
     with owner.cursor() as cursor:
-        cursor.execute("INSERT INTO attempt_tombstones (started_at, outcome)"
-                       " SELECT now(), 'OK' FROM generate_series(1, 2000 - ew_ai_spend(false)::int)")
+        cursor.execute(
+            "INSERT INTO generation_attempts (campaign_id, user_id, kind, image_sha256, started_at, finished_at,"
+            " outcome, new_account) VALUES (%s, %s, 'INITIAL', sha256('x'::bytea), now() - interval '1 hour',"
+            " now() - interval '1 hour', 'OK', false)", (campaign, marketer))
+    seed_requests(owner, keeper, 1)
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO attempt_tombstones (started_at, outcome) SELECT now(), 'OK' FROM generate_series(1, 1997)")
+        cursor.execute("SELECT ew_ai_spend(false)")
+        assert cursor.fetchone()[0] == 1999
+    request = ask(app, keeper)                                        # الألفان لم يكتملا بعد
+    fail(app, keeper, request)                                        # يُغلق غير محسوب فلا يحجز صاحبه
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO attempt_tombstones (started_at, outcome) VALUES (now(), 'OK')")
     assert constraint_of(lambda: ask(app, keeper)) == "generation_global_cap"
 
 
 def test_campaign_generation_counts_the_shared_spend(owner):
-    """ew_begin_generation يعدّ بالدالّة الموحّدة نفسها، فلا سقفان يختلفان."""
+    """ew_begin_generation يعدّ بالدالّة الموحّدة نفسها، فلا سقفان يختلفان (الفحص السريع على النصّ)."""
     body = owner_scalar(owner, "SELECT prosrc FROM pg_proc WHERE proname = 'ew_begin_generation'")
     assert "ew_ai_spend(false) >= 2000" in body
     assert "fresh AND ew_ai_spend(true) >= 400" in body
+
+
+def test_campaign_generation_is_refused_once_the_ai_ledger_fills_the_global_cap(owner, app, keeper, marketer):
+    """السلوك لا النصّ: ألفا استدعاءٍ للأدوات في اليوم تغلق توليد الحملات أيضاً."""
+    campaign = create_campaign(app, marketer)
+    seed_requests(owner, keeper, 1999)
+    attempt = begin(app, marketer, campaign)                          # الألفان لم يكتملا بعد
+    finish(app, marketer, attempt, outcome="OUTPUT_INVALID")          # محاولةٌ محسوبة بلا نسخة: صارت ألفين
+    assert constraint_of(lambda: begin(app, marketer, campaign)) == "generation_global_cap"
+
+
+def test_a_fresh_account_is_refused_once_new_accounts_ai_requests_fill_their_share(owner, app, keeper):
+    fresh, _ = register_open(app, "fresh@example.sa")
+    campaign = create_campaign(app, fresh)
+    seed_requests(owner, keeper, 400, new_account=True)
+    assert constraint_of(lambda: begin(app, fresh, campaign)) == "generation_new_accounts_cap"
 
 
 def test_every_ledger_with_a_new_account_flag_is_counted_by_ew_ai_spend(owner):
@@ -649,3 +680,43 @@ def test_an_undo_and_a_commit_racing_on_one_flag_are_serialized(owner, app, app_
     else:
         assert outcome["lead"][0] == "UNDO"
         assert (outcome["follow"], status, trail) == ("ai_flags_undecided", "DRAFT", ["PROCEED", "UNDO"])
+
+
+# ── فحص النصّ: الخادم أشدّ من الجدول ─────────────────────────────────────
+#: جملةٌ لكل قاعدة في الطرفين (المواصفة §3.5): ما يقبله `ai_text.check` يجب أن يقبله
+#: `ew_ai_text_ok`، وإلا رفض قيدُ الجدول ملاحظةً مرّت من الخادم وأسقط التسجيل كلّه.
+TEXT_CORPUS = [
+    "سعر الوحدة في السطر 3 أعلى بعشرة أضعاف من آخر شراءٍ للصنف.",
+    "رمز الصنف \u200eSKU-12\u200e كُتب بعلامة اتجاه في الجملة.",
+    "رمز الصنف \u200fSKU-12\u200f كُتب بعلامة اتجاه في الجملة.",
+    "رمز الصنف \u061cSKU-12 كُتب بعلامة اتجاه عربية في الجملة.",
+    "فيه محرف تضمين \u202a خفي داخل الجملة الطويلة.",
+    "فيه محرف عزل \u2066 خفي داخل الجملة الطويلة.",
+    "فيه محرف تحكّم\x07 داخل الجملة الطويلة هنا.",
+    "سطرٌ أول طويل بما يكفي هنا.\nسطرٌ ثانٍ.",
+    "فيه وسم <b> في منتصف الجملة الطويلة.",
+    "زر الموقع https://x.example قبل الاعتماد.",
+    "راسل البريد a.b@example.com قبل الاعتماد.",
+    "تواصل مع @supplier قبل الاعتماد الآن.",
+    "رقم الحساب 1234 5678 9012 لا يخصّ المورّد.",
+    "قصير",
+    "طويل " * 40,
+    "Unit price on line 3 looks ten times too high.",
+    "يا سارة، سعر الوحدة أعلى من المعتاد.",
+    "فيه رمزٌ تعبيري 😀 في الجملة الطويلة.",
+    "  سعر  الوحدة في السطر 3 أعلى من المعتاد. ",
+]
+
+
+def test_every_reason_the_server_accepts_the_table_accepts(owner):
+    accepted = []
+    for text in TEXT_CORPUS:
+        normalized, codes = ai_text.check(text, 12, 160)
+        if codes:
+            continue
+        accepted.append(text)
+        assert owner_scalar(owner, "SELECT ew_ai_text_ok(%s, 12, 160)", (normalized,)), text
+    assert accepted == [TEXT_CORPUS[0], TEXT_CORPUS[-1]]
+    # والعكس لا يلزم: الجدول يقبل ما يرفضه الخادم (النداء مثلاً)، لكنه يرفض علامات الاتجاه أيضاً.
+    assert owner_scalar(owner, "SELECT ew_ai_text_ok(%s, 12, 160)", ("يا سارة، سعر الوحدة أعلى من المعتاد.",))
+    assert not owner_scalar(owner, "SELECT ew_ai_text_ok(%s, 12, 160)", (TEXT_CORPUS[1],))

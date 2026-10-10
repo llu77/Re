@@ -1,0 +1,217 @@
+/*
+ * إعداد المخزن وإعداداته وتصنيفاته
+ * ===============================
+ * أوّل مرة: سؤال ضريبة المشتريات (أسعار الشراء قبل الضريبة أم شاملة؛ يُقفل بعد أوّل فاتورة
+ * مسجّلة) واسم المخزن (الافتراضي «المخزن الرئيسي») وموقعه. والإعدادات نفسها بعد ذلك، ومنها
+ * التصنيفات: تُضاف بالاسم وتُؤرشف ولا تُحذف (المنتجات تشير إليها).
+ */
+
+import * as React from "react"
+import { Archive, ArchiveRestore, Plus, Save, Tags } from "lucide-react"
+
+import { Screen } from "@/components/shell/screen"
+import { Alert } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Field, Input } from "@/components/ui/input"
+import { RadioCards } from "@/components/ui/radio-cards"
+import type { Category, Settings } from "@/lib/inventory"
+import { useSize } from "@/lib/size"
+
+export type Fail = { message: string; field: string | null } | null
+
+export interface SettingsBody {
+  cost_includes_vat: boolean
+  store_name: string | null
+  store_location: string | null
+  expected_row_version?: number
+}
+
+export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
+  /** null في الإعداد الأوّل. */
+  settings: Settings | null
+  onSave: (body: SettingsBody) => Promise<Fail>
+  onBack: () => void
+  onCategories: (() => void) | null
+}) {
+  const first = settings === null
+  // أساس تكلفة المخزون: هل تستردّ المنشأة ضريبة مشترياتها؟ لا جواب مسبق في الإعداد الأوّل: الخطأ فيه
+  // يُقفل بعد أوّل فاتورة ويُبقي قيمة المخزون أعلى أو أدنى بـ15%.
+  const [basis, setBasis] = React.useState<"net" | "gross" | null>(settings ? (settings.cost_includes_vat ? "gross" : "net") : null)
+  const [name, setName] = React.useState(settings?.store_name ?? "المخزن الرئيسي")
+  const [location, setLocation] = React.useState(settings?.store_location ?? "")
+  const [busy, setBusy] = React.useState(false)
+  const [fail, setFail] = React.useState<Fail>(null)
+  const [saved, setSaved] = React.useState(false)
+  const locked = Boolean(settings?.cost_basis_locked)
+
+  async function save() {
+    const trimmed = name.trim()
+    if (basis === null) {
+      setFail({ message: "اختر: هل منشأتك مسجّلة في ضريبة القيمة المضافة؟", field: "cost_includes_vat" })
+      return
+    }
+    if ([...trimmed].length < 2) {
+      setFail({ message: "اكتب اسم المخزن (حرفان على الأقل).", field: "store_name" })
+      return
+    }
+    setBusy(true)
+    setFail(null)
+    const result = await onSave({
+      cost_includes_vat: basis === "gross",
+      store_name: trimmed,
+      store_location: location.trim() || null,
+      ...(settings ? { expected_row_version: settings.row_version } : {}),
+    })
+    setBusy(false)
+    if (result) setFail(result)
+    else setSaved(true)
+  }
+
+  return (
+    <Screen
+      title={first ? "قبل أوّل فاتورة" : "إعدادات المخزن"}
+      back={first ? undefined : { id: "settings-back", label: "رجوع", onClick: onBack }}
+      end={onCategories && !first ? { id: "settings-categories", label: "التصنيفات", icon: Tags, onClick: onCategories } : undefined}
+      actions={
+        <Button id="settings-save" variant="primary" commit icon={Save} busy={busy} disabled={basis === null} onClick={() => void save()}>
+          {first ? "احفظ وابدأ" : "احفظ"}
+        </Button>
+      }
+    >
+      {locked ? (
+        <p className="text-flow">
+          <span className="text-muted-foreground">تكلفة المخزون: </span>
+          <span className="font-semibold">{basis === "gross" ? "شاملةً الضريبة" : "قبل الضريبة"}</span>
+        </p>
+      ) : (
+        <div data-block="" className="flex flex-col gap-1">
+          <p id="settings-basis-label" className="text-small font-medium text-muted-foreground">هل منشأتك مسجّلة في ضريبة القيمة المضافة؟</p>
+          <RadioCards<"net" | "gross">
+            label="هل منشأتك مسجّلة في ضريبة القيمة المضافة وتخصم ضريبة مشترياتها في إقرارها؟"
+            value={basis}
+            onValueChange={(value) => {
+              setBasis(value)
+              setFail(null)
+            }}
+            columns={1}
+            ids={{ net: "settings-basis-net", gross: "settings-basis-gross" }}
+            options={[
+              { value: "net", title: "نعم، مسجّلة وتخصمها" },
+              { value: "gross", title: "لا، غير مسجّلة" },
+            ]}
+          />
+        </div>
+      )}
+      <Field label="اسم المخزن" error={fail?.field === "store_name" ? fail.message : null} required>
+        <Input id="settings-store-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
+      </Field>
+      {/* الموقع اختياري: في الحجم الكبير يُكتب من «إعدادات المخزن» بعد البدء (السؤال والاسم وحدهما في الشاشة). */}
+      <Field label="الموقع" className={first ? "gaze:hidden" : "gaze:short:hidden"}>
+        <Input id="settings-store-location" value={location} maxLength={120} onChange={(event) => setLocation(event.target.value)} />
+      </Field>
+      {fail && fail.field !== "store_name" ? (
+        <Alert tone="danger" title="لم يُحفظ" live>
+          {fail.message}
+        </Alert>
+      ) : null}
+      {saved ? (
+        <p role="status" className="text-small font-semibold text-success">
+          حُفظت الإعدادات.
+        </p>
+      ) : null}
+    </Screen>
+  )
+}
+
+/* ── التصنيفات ───────────────────────────────────────────────────── */
+
+export function CategoriesScreen({ categories, onAdd, onToggle, onBack }: {
+  categories: Category[]
+  onAdd: (name: string) => Promise<Fail>
+  onToggle: (category: Category) => Promise<Fail>
+  onBack: () => void
+}) {
+  const { size } = useSize()
+  const gaze = size === "gaze"
+  const [name, setName] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const [fail, setFail] = React.useState<Fail>(null)
+  const [page, setPage] = React.useState(0)
+  const perPage = gaze ? 3 : 50
+  const pages = Math.max(1, Math.ceil(categories.length / perPage))
+  const current = Math.min(page, pages - 1)
+  const visible = categories.slice(current * perPage, current * perPage + perPage)
+
+  async function add() {
+    const trimmed = name.trim()
+    if ([...trimmed].length < 2) {
+      setFail({ message: "اكتب اسم التصنيف (حرفان على الأقل).", field: "name" })
+      return
+    }
+    setBusy(true)
+    setFail(null)
+    const result = await onAdd(trimmed)
+    setBusy(false)
+    if (result) setFail(result)
+    else setName("")
+  }
+
+  return (
+    <Screen
+      title="التصنيفات"
+      back={{ id: "categories-back", label: "الإعدادات", onClick: onBack }}
+    >
+      <div className="flex items-end gap-tg">
+        <Field label="تصنيفٌ جديد" error={fail?.field === "name" ? fail.message : null} className="flex-1">
+          <Input id="category-name" value={name} maxLength={40} onChange={(event) => setName(event.target.value)} />
+        </Field>
+        <Button id="category-add" variant="secondary" commit icon={Plus} busy={busy} onClick={() => void add()}>
+          أضف
+        </Button>
+      </div>
+      {fail && fail.field !== "name" ? (
+        <Alert tone="danger" title="لم يتمّ" live>
+          {fail.message}
+        </Alert>
+      ) : null}
+      {categories.length === 0 ? (
+        <EmptyState icon={Tags} title="لا تصنيفات بعد" />
+      ) : (
+        <ul id="categories-list" aria-label="التصنيفات" className="flex flex-col gap-tg-min">
+          {visible.map((category) => (
+            <li key={category.id} className="flex min-h-ctl items-center justify-between gap-tg rounded-card bg-card shadow-card px-3 py-1">
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate font-semibold">{category.name}</span>
+                <span className="text-small text-muted-foreground">
+                  <span className="num">{category.items ?? 0}</span> منتج{category.is_active ? "" : " · مؤرشف"}
+                </span>
+              </span>
+              {gaze ? null : (
+                <Button
+                  variant={category.is_active ? "danger-outline" : "outline"}
+                  commit
+                  icon={category.is_active ? Archive : ArchiveRestore}
+                  aria-label={`${category.is_active ? "أرشف" : "أعد"} ${category.name}`}
+                  onClick={() => void onToggle(category).then((result) => setFail(result))}
+                >
+                  {category.is_active ? "أرشف" : "أعد"}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {pages > 1 ? (
+        <div className="grid grid-cols-2 gap-tg gaze:gap-x-6">
+          <Button disabled={current === 0} onClick={() => setPage(current - 1)}>
+            السابقة
+          </Button>
+          <Button disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>
+            التالية
+          </Button>
+        </div>
+      ) : null}
+    </Screen>
+  )
+}

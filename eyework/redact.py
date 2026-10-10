@@ -27,8 +27,10 @@ _EMAIL = re.compile(r"[^\s@<>]+@[^\s@<>]+\.[A-Za-z0-9-]+")
 _URL = re.compile(r"(?:https?://|www\.)[^\s،؟]+", re.IGNORECASE)
 #: الآيبان السعودي: SA ثم 22 خانة، بمسافاتٍ أو بدونها.
 _IBAN = re.compile(r"\bSA\s?\d{2}(?:\s?[0-9A-Z]{4}){5}\b", re.IGNORECASE)
-#: تسعة أرقامٍ فأكثر، بينها مسافةٌ أو شرطةٌ واحدة على الأكثر، وقبلها + اختيارية.
-_LONG_NUMBER = re.compile(r"\+?\d(?:[ -]?\d){8,}")
+#: تسعة أرقامٍ فأكثر، بينها مسافةٌ أو شرطةٌ واحدة على الأكثر، وقبلها + اختيارية؛ ولا يبدأ في وسط رقم.
+_LONG_NUMBER = re.compile(r"(?<!\d)\+?\d(?:[ -]?\d){8,}")
+#: تاريخٌ بصيغة سنة-شهر-يوم: يُحجب عن مطابقة الأرقام الطويلة، فلا يُقرأ «2026-10-09 12:34» رقم هاتف.
+_DATE = re.compile(r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)")
 _MASKS = ((_EMAIL, "[بريد]"), (_URL, "[رابط]"), (_IBAN, "[حساب]"), (_LONG_NUMBER, "[رقم]"))
 
 
@@ -43,9 +45,13 @@ def redact(text: str, names: tuple[str, ...] = ()) -> tuple[str, int]:
     """
     text = unicodedata.normalize("NFC", text)
     probe = text.translate(_DIGITS)
+    # للأرقام الطويلة وحدها: التواريخ مسافاتٌ بطول مواضعها، فلا يمتدّ رقمٌ عبر تاريخٍ ولا يبدأ به.
+    dateless = probe
+    for match in _DATE.finditer(probe):
+        dateless = dateless[:match.start()] + " " * (match.end() - match.start()) + dateless[match.end():]
     spans: list[tuple[int, int, str]] = []
     for pattern, mask in _MASKS:
-        for match in pattern.finditer(probe):
+        for match in pattern.finditer(dateless if pattern is _LONG_NUMBER else probe):
             if _free(spans, match.start(), match.end()):
                 spans.append((match.start(), match.end(), mask))
     for name in names:

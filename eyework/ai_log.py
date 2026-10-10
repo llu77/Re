@@ -28,7 +28,7 @@ FIELDS = frozenset({
     "input_tokens", "output_tokens", "thinking_tokens", "cache_read", "cache_write",
     "latency_ms", "stop_reason", "refusal_category",
     "flags_kept", "flags_dropped", "drop_codes", "masks",
-    "status", "reason", "constraint", "screen", "kind",
+    "status", "reason", "constraint", "screen", "kind", "tool", "tools",
 })
 _LEVELS = {
     "debug": logging.DEBUG, "info": logging.INFO, "warning": logging.WARNING,

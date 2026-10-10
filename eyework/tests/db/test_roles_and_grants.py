@@ -43,11 +43,27 @@ ALL_TABLES = frozenset({
     # 0009: أدوات النموذج وسقوفها (للمالك وحده)، ودفتر استدعاءاته، وتنبيهات المراجِع
     # وقرارات أصحابها (يقرؤها الويب صفوفَه وحدها، ويكتبها بالدوالّ).
     "ai_features", "ai_requests", "ai_flags", "ai_flag_decisions",
+    # 0010: المخزون — الإعداد والعدّادات (للمالك وحده) والموردون والأصناف والفواتير وأسطرها
+    # والمرتجعات وأسطرها والسندات والحركات ودفتر المشتريات وتنبيهات القواعد.
+    "inv_settings", "inv_counters", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases",
+    "inv_purchase_lines", "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines",
+    "inv_movements", "inv_ledger", "inv_review_flags",
+    # 0011: مكتب الدعم الفني.
+    "support_settings", "support_sla_targets", "support_ticket_transition", "support_tickets", "support_messages",
+    "kb_articles", "kb_versions", "support_drafts", "support_draft_citations", "support_replies", "support_flags",
+    "support_escalations", "support_events",
 })
 READABLE = frozenset({
     "campaign_transition", "campaigns", "generation_attempts", "copy_versions", "campaign_images",
     # 0009: القراءة بالجدول كلّه تحت عزل الصفّ؛ لا سياسة كتابةٍ لدور الويب عليها.
     "ai_requests", "ai_flags", "ai_flag_decisions",
+    # 0010: القراءة بالجدول كلّه تحت عزل الصفّ، والكتابة بالأعمدة المسمّاة أو بالدوالّ وحدها.
+    "inv_settings", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases", "inv_purchase_lines",
+    "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines", "inv_movements", "inv_ledger",
+    "inv_review_flags",
+    # 0011: كل جداول المكتب عدا آلة الحالات (تُقرأ عبر الدوالّ).
+    "support_settings", "support_sla_targets", "support_tickets", "support_messages", "kb_articles", "kb_versions",
+    "support_drafts", "support_draft_citations", "support_replies", "support_flags", "support_escalations", "support_events",
 })
 IDENTITY_TABLES = ("public.users", "public.sessions", "public.activation_tokens",
                    "public.passkeys", "public.passkey_challenges")
@@ -63,6 +79,35 @@ COLUMN_WRITES = {
     },
     ("campaign_images", "INSERT"): {"campaign_id", "user_id", "jpeg", "width", "height", "sha256"},
     ("campaign_images", "UPDATE"): {"jpeg", "width", "height", "sha256"},
+    # 0010: ما يكتبه الويب في المخزون؛ الأرقام والأرصدة والحالات والمجاميع تكتبها الدوالّ والمحفّزات.
+    ("inv_settings", "INSERT"): {"user_id", "cost_includes_vat", "store_name", "store_location"},
+    ("inv_settings", "UPDATE"): {"cost_includes_vat", "store_name", "store_location"},
+    ("inv_suppliers", "INSERT"): {"user_id", "name", "vat_number", "cr_number", "phone", "note"},
+    ("inv_suppliers", "UPDATE"): {"name", "vat_number", "cr_number", "phone", "note", "is_active"},
+    ("inv_supplier_reps", "INSERT"): {"user_id", "supplier_id", "name", "mobile", "is_default"},
+    ("inv_supplier_reps", "UPDATE"): {"name", "mobile", "is_default", "is_active"},
+    ("inv_categories", "INSERT"): {"user_id", "name"},
+    ("inv_categories", "UPDATE"): {"name", "is_active"},
+    ("inv_items", "INSERT"): {"user_id", "name", "supplier_code", "barcode", "kind", "unit", "category_id", "vat_category",
+                              "vat_exemption_reason", "price_halalas", "selling_price_halalas", "selling_price_includes_vat",
+                              "reorder_level_milli", "target_level_milli", "preferred_supplier_id", "note"},
+    ("inv_items", "UPDATE"): {"name", "supplier_code", "barcode", "kind", "unit", "category_id", "vat_category",
+                              "vat_exemption_reason", "price_halalas", "selling_price_halalas", "selling_price_includes_vat",
+                              "reorder_level_milli", "target_level_milli", "preferred_supplier_id", "note", "is_active"},
+    ("inv_purchases", "INSERT"): {"user_id", "supplier_id", "supplier_invoice_no", "invoice_date", "prices_include_vat",
+                                  "printed_total_halalas", "printed_vat_halalas", "note", "rep_id", "delivery_note_no", "received_on"},
+    ("inv_purchases", "UPDATE"): {"supplier_id", "supplier_invoice_no", "invoice_date", "prices_include_vat",
+                                  "printed_total_halalas", "printed_vat_halalas", "note", "rep_id", "delivery_note_no", "received_on"},
+    ("inv_purchase_lines", "INSERT"): {"purchase_id", "user_id", "item_id", "quantity_milli", "unit_price_halalas", "discount_halalas",
+                                       "vat_category", "received_quantity_milli"},
+    ("inv_purchase_lines", "UPDATE"): {"item_id", "quantity_milli", "unit_price_halalas", "discount_halalas", "vat_category",
+                                       "received_quantity_milli"},
+    ("inv_returns", "INSERT"): {"user_id", "purchase_id", "return_date", "reason", "note", "rep_id"},
+    ("inv_returns", "UPDATE"): {"return_date", "reason", "note", "rep_id", "credit_note_no", "credit_note_date"},
+    ("inv_count_sessions", "UPDATE"): {"blind", "note"},
+    ("inv_count_lines", "UPDATE"): {"counted_milli", "unit_cost_halalas", "reason", "note"},
+    ("inv_return_lines", "INSERT"): {"return_id", "user_id", "line_no", "quantity_milli"},
+    ("inv_return_lines", "UPDATE"): {"quantity_milli"},
 }
 APP_FUNCTIONS = frozenset({
     "ew_login_lookup", "ew_open_session", "ew_resolve_session", "ew_revoke_session",
@@ -83,6 +128,25 @@ APP_FUNCTIONS = frozenset({
     # 0009: قرار صاحب التنبيه، وإغلاق استدعاءٍ لم يُنتج شيئاً، وحصّته من كل أداة،
     # وسؤال المساعد بدايةً ونهاية.
     "ew_ai_decide", "ew_ai_request_fail", "ew_ai_my_usage", "ew_assistant_begin", "ew_assistant_finish",
+    # 0010: الأفعال (التسجيل والعكس والسندات وحذف السطور ونبذ المسودة ومراجعة سيمبول بدايةً
+    # وتسجيلاً)، والحساب والبصمات وتنبيهات القواعد بصلاحية من يسأل، وتاريخ الرياض لتنبيه «تاريخٌ قديم».
+    "ew_inv_post_purchase", "ew_inv_post_return", "ew_inv_reverse_purchase", "ew_inv_stock_voucher",
+    "ew_inv_remove_purchase_line", "ew_inv_remove_return_line", "ew_inv_discard_draft",
+    "ew_inv_review_begin", "ew_inv_review_record",
+    "ew_inv_count_open", "ew_inv_count_add_item", "ew_inv_count_refresh", "ew_inv_count_post", "ew_inv_count_cancel",
+    "ew_inv_text_ok", "ew_inv_qty_ok", "ew_inv_vat_bp", "ew_inv_doc_no_ok", "ew_inv_doc_key", "ew_inv_name_key", "ew_inv_phone_ok",
+    "ew_inv_purchase_calc", "ew_inv_purchase_digest", "ew_inv_return_digest", "ew_inv_purchase_flags",
+    "ew_inv_return_flags", "ew_inv_flag_keys", "ew_riyadh_today",
+    # 0011: واجهة المكتب، ودوالّ القيود والأعمدة المولّدة.
+    "ew_support_accept_notice", "ew_support_save_settings", "ew_support_create_ticket", "ew_support_add_message",
+    "ew_support_set_ticket", "ew_support_begin_draft", "ew_support_record_draft", "ew_support_finish_call",
+    "ew_support_reject_draft", "ew_support_prepare_reply", "ew_support_review_begin", "ew_support_review_record",
+    "ew_support_ack_flag", "ew_support_release_reply", "ew_support_confirm_reply", "ew_support_escalate",
+    "ew_support_return_escalation", "ew_support_resolve", "ew_support_reopen", "ew_support_follow_up", "ew_support_close_due",
+    "ew_kb_create", "ew_kb_add_version", "ew_kb_publish", "ew_kb_set_state", "ew_kb_mark_review", "ew_kb_search",
+    "ew_kb_review_begin", "ew_kb_current_digest", "ew_kb_review_record",
+    "ew_support_text_ok", "ew_support_contact_free", "ew_support_kb_clean", "ew_kb_norm", "ew_support_priority_for",
+    "ew_support_priority_rank",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
     "ew_current_user", "ew_budget_allowed", "ew_is_billable", "ew_jpeg_has_no_metadata",
 })
@@ -94,8 +158,8 @@ INTERNAL_FUNCTIONS = frozenset({
     "ew_version_insert_guard", "ew_version_becomes_current", "ew_forbid_update", "ew_attempt_settle_once",
     # 0004: لمس الصورة عند استبدالها.
     "ew_image_touch",
-    # 0005: أثر المحاولة المحذوفة، وتاريخ الرياض.
-    "ew_attempt_tombstone", "ew_riyadh_today",
+    # 0005: أثر المحاولة المحذوفة. (تاريخ الرياض صار للويب في 0010.)
+    "ew_attempt_tombstone",
     # 0008: حسابٌ مفتوحٌ جديد، وما يمنع تسجيلاً بطريقٍ الآن (من الدفتر وحده).
     "ew_new_open_account", "ew_registration_blocker",
     # 0009: فحص نصّ النموذج، وأثر الاستدعاء المحذوف وحارس التنبيه، والسقوف والدفتر
@@ -103,6 +167,20 @@ INTERNAL_FUNCTIONS = frozenset({
     "ew_ai_text_ok", "ew_ai_request_tombstone", "ew_ai_flag_guard", "ew_ai_spend", "ew_ai_request_open",
     "ew_ai_request_settle", "ew_ai_lock_subject", "ew_ai_flags_put", "ew_ai_gate", "ew_ai_forget_subject",
     "ew_ai_erase_subject",
+    # 0010: المهنة، والرقم التالي، وقفل الأصناف، وفحص الإقرار، وحرّاس الجداول ومحفّزات الثبات.
+    "ew_inv_own", "ew_inv_require_storekeeper", "ew_inv_next_no", "ew_inv_lock_items", "ew_inv_check_ack", "ew_inv_rep_ok", "ew_inv_count_voucher",
+    "ew_inv_settings_guard", "ew_inv_supplier_guard", "ew_inv_supplier_rep_guard", "ew_inv_category_guard", "ew_inv_item_guard",
+    "ew_inv_purchase_insert_guard", "ew_inv_purchase_guard", "ew_inv_purchase_line_guard", "ew_inv_return_insert_guard",
+    "ew_inv_return_guard", "ew_inv_return_line_guard", "ew_inv_count_session_guard", "ew_inv_count_line_guard",
+    "ew_inv_movement_insert", "ew_inv_keep_record", "ew_inv_keep_posted_lines",
+    # 0011: المحفّزات والداخلية.
+    "ew_support_me", "ew_support_require_notice", "ew_support_ticket_for", "ew_support_log", "ew_support_request_for",
+    "ew_kb_version_digest", "ew_support_settings_defaults", "ew_support_ticket_insert_guard", "ew_support_ticket_update_guard",
+    "ew_support_ticket_status_event", "ew_support_message_insert_guard", "ew_support_draft_insert_guard",
+    "ew_support_draft_update_guard", "ew_support_citation_guard", "ew_support_draft_grounded", "ew_support_reply_insert_guard",
+    "ew_support_reply_update_guard", "ew_support_flag_insert_guard", "ew_support_flag_update_guard",
+    "ew_kb_article_insert_guard", "ew_kb_article_update_guard", "ew_kb_version_insert_guard",
+    "ew_support_event_update_guard", "ew_support_events_keep",
 })
 
 
@@ -219,6 +297,13 @@ def test_app_holds_no_delete_or_truncate_on_any_table(owner):
     "TRUNCATE ai_requests",
     "TRUNCATE ai_flags",
     "TRUNCATE ai_flag_decisions",
+    *[f"{verb} {table}" for verb in ("DELETE FROM", "TRUNCATE") for table in (
+        "inv_settings", "inv_counters", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases",
+        "inv_purchase_lines", "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines",
+        "inv_movements", "inv_ledger", "inv_review_flags",
+        "support_settings", "support_sla_targets", "support_ticket_transition", "support_tickets", "support_messages",
+        "kb_articles", "kb_versions", "support_drafts", "support_draft_citations", "support_replies", "support_flags",
+        "support_escalations", "support_events")],
 ])
 def test_app_delete_and_truncate_are_refused(app, two_users, statement):
     """المنح في الكتالوج قد يغيب ويبقى الحذف ممكناً بطريقٍ آخر؛ المحاولة نفسها تُرفض."""

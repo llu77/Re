@@ -51,7 +51,7 @@ def review(body: ReviewBody, request: Request, user_id: UUID = Depends(require_c
     if feature is not None and auth.profession_of(state.db, user_id) is not feature.profession:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail=dict(_PROFESSION))
     try:
-        return reviewer.review(state.db, state.review_runner, user_id, body.feature, body.kind,
+        return reviewer.review(state.db, state.review_runner, user_id, body.feature, body.subject_kind,
                                body.subject_id, body.expected_row_version)
     except Invalid as exc:
         # الفحص الحتمي لمسار العمل: لا استدعاء ولا صفّ، والحقل يعود ليُفتح.
@@ -63,16 +63,17 @@ def decide(flag_id: UUID, body: DecisionBody, request: Request, user_id: UUID = 
     """«عدّل» أو «تابع رغم ذلك» أو «تراجع». لا يُرسَل شيء، فلا بوّابة موافقة."""
     state = request.app.state
     enforce(state.limiters.mutation, str(user_id))
-    return reviewer.decide(state.db, user_id, flag_id, body.action, body.digest)
+    return reviewer.decide(state.db, user_id, flag_id, body.choice, body.digest)
 
 
 @router.post("/assistant")
 def ask(body: AssistantBody, request: Request, user_id: UUID = Depends(require_current_terms)) -> dict:
-    """سؤالٌ واحد عن العمل من شاشةٍ بعينها. الطلب كلّه ينتظر الجواب."""
+    """سؤالٌ في محادثةٍ عن العمل من شاشةٍ بعينها، بأسئلتها السابقة. الطلب كلّه ينتظر الجواب وأدواته."""
     state = request.app.state
     enforce(state.limiters.ai, str(user_id))
     try:
         return assistant.ask(state.db, state.gateway, state.ai_guard, user_id, body.screen.kind, body.screen.id,
-                             body.question, body.ready_question)
+                             body.question, body.ready_question,
+                             [(turn.question, turn.answer) for turn in body.history])
     except Invalid as exc:
         return _invalid(AI_INVALID.get(exc.code, GENERIC), exc.field)

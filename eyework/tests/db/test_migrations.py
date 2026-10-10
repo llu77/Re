@@ -38,6 +38,12 @@ SNAPSHOT_MUST_COVER = (
     # 0008 و0009: العزل مفروضٌ على الدفترين — على المالك أيضاً.
     "ALTER TABLE ONLY public.registration_ledger FORCE ROW LEVEL SECURITY;",
     "ALTER TABLE ONLY public.ai_requests FORCE ROW LEVEL SECURITY;",
+    # 0010: دفتر المشتريات مفروضٌ عزله، ونسيان تنبيهات سيمبول مع المسودة المنبوذة.
+    "ALTER TABLE ONLY public.inv_ledger FORCE ROW LEVEL SECURITY;",
+    "CREATE TRIGGER trg_inv_purchases_forget_ai",
+    # 0011: التذاكر مفروضٌ عزلها، ونسيان ما قاله سيمبول مع الردّ المحذوف.
+    "ALTER TABLE ONLY public.support_tickets FORCE ROW LEVEL SECURITY;",
+    "CREATE TRIGGER trg_support_replies_forget_ai",
 )
 
 
@@ -310,7 +316,7 @@ def test_0008_down_refuses_while_open_accounts_exist(connection, owner, app):
     from eyework.tests.conftest import register_open
 
     assert register_open(app, "blocker@example.sa")[1] == "OK"
-    assert migrate_down(connection, target="0008") == 1
+    assert migrate_down(connection, target="0008") == 3   # 0011 ثم 0010 ثم 0009
     with pytest.raises(psycopg.errors.RaiseException, match="1 حساباً") as caught:
         migrate_down(connection, target="0007")
     assert "DELETE FROM users WHERE open_registered" in (caught.value.diag.message_hint or "")
@@ -319,7 +325,7 @@ def test_0008_down_refuses_while_open_accounts_exist(connection, owner, app):
     with owner.cursor() as cursor:
         cursor.execute("DELETE FROM users WHERE open_registered")
     assert migrate_down(connection, target="0007") == 1
-    assert migrate_up(connection) == 2
+    assert migrate_up(connection) == 4   # 0008 و0009 و0010 و0011
 
 
 def test_0008_down_waits_for_an_open_account_being_created_and_still_refuses(connection, owner_url, app_url):
@@ -332,7 +338,7 @@ def test_0008_down_waits_for_an_open_account_being_created_and_still_refuses(con
     from eyework.tests.conftest import register_open
     from eyework.tests.db.test_state_machine import blocked_on_a_lock
 
-    assert migrate_down(connection, target="0008") == 1
+    assert migrate_down(connection, target="0008") == 3   # 0011 ثم 0010 ثم 0009
     outcome = {}
 
     def roll_back() -> None:
@@ -380,7 +386,7 @@ def test_0009_down_leaves_the_days_billable_requests_as_tombstones(connection, o
         expected = cursor.fetchall()
     assert [row[1] for row in expected] == ["REFUSED", "OK"]
 
-    assert migrate_down(connection, target="0008") == 1
+    assert migrate_down(connection, target="0008") == 3   # 0011 ثم 0010 ثم 0009
 
     with owner.cursor() as cursor:
         cursor.execute("SELECT started_at, outcome, new_account FROM attempt_tombstones ORDER BY started_at")

@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-from eyework.reviewer import ISOLATE, headline, parse_flags
+import json
+
+from eyework.ai_limits import EVIDENCE_BYTES, EVIDENCE_LINE_CHARS
+from eyework.reviewer import ISOLATE, fit_evidence, headline, parse_flags
 from eyework.reviewer_prompt import Catalogue, Check
 
 REASON = "سعر الوحدة في السطر 3 (45 ريالاً) أعلى بعشرة أضعاف من آخر شراءٍ للصنف (4.50 ريال)."
@@ -105,6 +108,17 @@ def test_more_than_three_flags_keep_the_first_three_high_first_then_model_order(
     assert [(item["severity"], item["line"], item["field"]) for item in kept] == [
         ("HIGH", 2, "unit_cost"), ("HIGH", 3, "unit_cost"), ("MEDIUM", 1, "unit")]
     assert dropped == ["EXCESS", "EXCESS"]
+
+
+def test_server_built_evidence_fits_the_tables_cap():
+    """اسم صنفٍ طويل لا يُسقط التسجيل بقيد `ai_flag_evidence`: السطر يُقصّ، والزائد عن البايتات يُسقَط."""
+    payload = {"lines": [{"line": 1, "item": "صنف " * 100}]}
+    (kept,), dropped = parse_flags({"flags": [_flag(line=1)]}, CATALOGUE, "PURCHASE", payload)
+    assert dropped == [] and len(kept["evidence"]) == 1
+    assert len(kept["evidence"][0]) == EVIDENCE_LINE_CHARS and kept["evidence"][0].endswith("…")
+    three = fit_evidence(["ع" * EVIDENCE_LINE_CHARS] * 5)
+    assert len(three) == 2 and len(json.dumps(three, ensure_ascii=False).encode("utf-8")) <= EVIDENCE_BYTES
+    assert fit_evidence(["قصير", "قصيرٌ آخر"]) == ["قصير", "قصيرٌ آخر"]
 
 
 def test_a_reply_without_a_flags_list_is_a_shape_problem():

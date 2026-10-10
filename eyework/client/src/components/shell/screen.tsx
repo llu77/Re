@@ -1,0 +1,101 @@
+/*
+ * Screen — إطار كل شاشة عمل
+ * =========================
+ * بنمط iOS: صفٌّ علويٌّ بخانتين ثابتتين («رجوع» نصّاً بسهمه في البداية، وفي النهاية ما يغادر أو يتقدّم)
+ * حين تحتاجه الشاشة، ثم ما فوق العنوان (الخطوات)، ثم العنوان الكبير (h1، يُركَّز عند الوصول فيُعلَن ما
+ * تغيّر) بالعلامة في آخر سطره، ثم المحتوى، ثم شريط الإجراءات بخانتين ثابتتين. لا شرح تحت العنوان: سطره
+ * لبياناتٍ (اسم المورّد، الشهر، الحالة) لا لوصف الشاشة.
+ *
+ *   • الحجم العادي: الصفحة تمرّ، والصفّ العلوي لاصقٌ بزجاجٍ خفيف، وشريط الإجراءات في آخر المحتوى.
+ *   • الحجم الكبير: لا تمرير. الشاشة تملأ ما بين الرأس وشريط التبويب، والمحتوى يأخذ الباقي ويُقصّ
+ *     لا يمرّ (والاختبار يرفض ما يُقصّ)، وشريط الإجراءات في الأسفل.
+ */
+
+import * as React from "react"
+
+import { PageTitle } from "@/components/brand/page-title"
+
+import { Slots, TopButton, type TopAction } from "@/components/shell/slots"
+import { ToastLine, useToastMessage } from "@/components/ui/toast"
+import { useSize } from "@/lib/size"
+import { cn } from "@/lib/utils"
+
+export interface ScreenProps {
+  title: string
+  description?: React.ReactNode
+  /** «رجوع» في خانة البداية من الصفّ العلوي. */
+  back?: TopAction
+  /** خانة النهاية من الصفّ العلوي: «ألغِ الحملة»، «التالي»، «النسخة السابقة». */
+  end?: TopAction
+  /** فوق العنوان: الخطوات أو شارة الحالة. */
+  above?: React.ReactNode
+  /** بجانب العنوان في الآيباد والحاسوب: إجراءٌ ثانٍ. */
+  aside?: React.ReactNode
+  /** شريط الإجراءات. */
+  actions?: React.ReactNode
+  /** تملأ الشاشة في الحجم العادي أيضاً فيبقى شريط إجراءاتها في أسفلها («حسابي» وتأكيداه). */
+  fill?: boolean
+  children: React.ReactNode
+  className?: string
+}
+
+export function Screen({ title, description, back, end, above, aside, actions, fill = false, children, className }: ScreenProps) {
+  const { size } = useSize()
+  const heading = React.useRef<HTMLHeadingElement>(null)
+  React.useEffect(() => {
+    heading.current?.focus({ preventScroll: true })
+  }, [title])
+
+  const gaze = size === "gaze"
+  // الحجم الكبير: رسالة ما تمّ سطرٌ مكان الوصف، لا نافذةٌ تطفو فوق الأهداف.
+  const toast = useToastMessage()
+  const status = gaze && toast ? <ToastLine message={toast} /> : null
+  return (
+    <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", fill && "fill-screen", className)}>
+      {/* الصفّ العلوي ابنٌ مباشر لجذر الشاشة: اللصق (sticky) يبقى ما بقيت الشاشة، لا مجموعة العنوان وحدها. */}
+      {back || end ? (
+        // الحجم الكبير: تحت الصفّ العلوي عنوانٌ من سطرٍ وحده (بلا خطواتٍ فوقه ولا وصفٍ تحته) يبقى بينه وبين أوّل هدفٍ في
+        // المحتوى 8px أخرى، فبين مساحتي إصابتهما 24 على الأقل.
+        <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mb-sec -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]", gaze && "-mb-tg", gaze && !above && !description && !status && "pb-2")}>
+          <Slots top start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-tg-min">
+        {above}
+        <div className="flex flex-wrap items-end justify-between gap-tg">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <PageTitle ref={heading} tabIndex={-1} mark="phone" className="focus-visible:outline-none">
+              {title}
+            </PageTitle>
+            {status ?? (description ? <div className="text-flow text-muted-foreground gaze:text-small">{description}</div> : null)}
+          </div>
+          {aside ? <div className="hidden flex-wrap gap-tg tablet:flex">{aside}</div> : null}
+        </div>
+      </div>
+      {/* في الحجم الكبير المحتوى يُقصّ ولا يمرّ؛ وحدّ القصّ أوسع منه بمساحة الإصابة الخفيّة (حشوٌ يقابله هامشٌ
+          سالب): الصفّ الأول والأخير يُصابان كاملَين. وبين العنوان والمحتوى 16px لا فجوة هدفين: العنوان نصٌّ بين
+          الصفّ العلوي وأوّل هدفٍ في المحتوى، فبين مساحتي إصابتهما 8 وارتفاعه و16 ناقص 24 (24 على الأقل بعنوانٍ من سطر). */}
+      <div
+        className={cn(
+          "flex flex-col gap-sec",
+          gaze &&
+            "mb-[calc(-1*var(--hit-pad))] mt-[calc(1rem-var(--tg)-var(--hit-pad))] min-h-0 flex-1 gap-tg overflow-hidden py-[var(--hit-pad)]",
+          // في الآيباد بجانب العنوان إجراءٌ (`aside`): هدفٌ فوق المحتوى، فبينهما فجوة هدفين.
+          gaze && aside && "tablet:mt-[calc(-1*var(--hit-pad))]",
+          fill && "flex-1",
+        )}
+      >
+        {children}
+      </div>
+      {actions ? <ScreenActions>{actions}</ScreenActions> : null}
+    </div>
+  )
+}
+
+export function ScreenActions({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div data-screen-actions="" className={cn("flex flex-wrap items-center gap-tg", "gaze:shrink-0 gaze:flex-nowrap gaze:gap-x-6 gaze:[&>*]:flex-1 gaze:[&>*]:px-3 gaze:[&_svg]:hidden", className)}>
+      {children}
+    </div>
+  )
+}

@@ -1,0 +1,132 @@
+/*
+ * هيكل البوابة في jsdom: شريط التبويب في الهاتف، والشريط الجانبي من 744px، وسكّة الحجم الكبير.
+ * المعرّفات والمسارات هي التي تقرؤها اختبارات Chromium (test_shell.py)؛ هنا تُثبَّت بلا متصفّح.
+ */
+
+import { render, screen, within } from "@testing-library/react"
+import { afterEach, describe, expect, it } from "vitest"
+
+import { AppProviders } from "@/app/providers"
+import { WorkspaceShell } from "@/components/shell/workspace-shell"
+import type { ChatApi } from "@/lib/chat"
+import { WORKSPACES } from "@/lib/workspace"
+
+const NAV = ["nav-home", "nav-sections", "nav-tools", "nav-account"]
+
+/** استعلامات الوسائط بعرض الإطار: `(min-width: …rem)` وحدها تصدق فوقه. */
+function viewport(width: number) {
+  window.matchMedia = (query: string): MediaQueryList => {
+    const min = /min-width:\s*([\d.]+)rem/.exec(query)
+    const matches = min ? width >= parseFloat(min[1]) * 16 : false
+    return {
+      matches, media: query, onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
+    }
+  }
+}
+
+const tools = { supportContact: null }
+const chat: ChatApi = { screen: { kind: "HOME", id: null }, ready: ["ماذا أبدأ به اليوم؟"], questionMax: 300, remaining: 60 }
+
+function shell(size: "compact" | "gaze", current: string | null = "home") {
+  return render(
+    <AppProviders size={size}>
+      <WorkspaceShell workspace={WORKSPACES.MARKETING} current={current} userName="علي" onNavigate={() => {}} tools={tools} chat={chat}>
+        <p>المحتوى</p>
+      </WorkspaceShell>
+    </AppProviders>,
+  )
+}
+
+const ids = (root: HTMLElement) => [...root.querySelectorAll("a, button")].map((e) => e.id)
+
+afterEach(() => {
+  document.body.innerHTML = ""
+})
+
+describe("the workspace shell", () => {
+  it("gives a phone the four tab-bar entries, all safe, and no sidebar", () => {
+    viewport(390)
+    shell("compact")
+    const nav = screen.getByRole("navigation", { name: "أقسام البوابة" })
+    expect(ids(nav)).toEqual(NAV)
+    expect(within(nav).getByText("الرئيسية").closest("a")?.getAttribute("href")).toBe("#/marketing")
+    expect(within(nav).getByText("حسابي").closest("a")?.getAttribute("href")).toBe("#/account")
+    expect([...nav.querySelectorAll("a, button")].every((e) => e.hasAttribute("data-safe"))).toBe(true)
+    expect(nav.querySelector("#nav-home")?.getAttribute("aria-current")).toBe("page")
+    expect(document.querySelector("#sidebar")).toBeNull()
+    // زرّ سيمبول عائمٌ بجانب الشريط في الصفّ نفسه (خارج قائمة البنود)، آمنٌ، واسمه «اسأل سيمبول» لقارئ الشاشة.
+    const launcher = document.querySelector("#nav-chat") as HTMLElement
+    expect(nav.contains(launcher)).toBe(false)
+    expect(nav.parentElement?.contains(launcher)).toBe(true)
+    expect(launcher.hasAttribute("data-safe")).toBe(true)
+    expect(screen.getByRole("button", { name: "اسأل سيمبول" })).toBe(launcher)
+  })
+
+  it("puts Symbol beside the two gaze-size tab-bar entries, never over the content", () => {
+    viewport(390)
+    shell("gaze")
+    const nav = screen.getByRole("navigation", { name: "أقسام البوابة" })
+    expect(ids(nav)).toEqual(["nav-home", "nav-account"])
+    expect(document.querySelectorAll("#nav-chat")).toHaveLength(1)
+    const launcher = document.querySelector("#nav-chat") as HTMLElement
+    expect(nav.parentElement?.contains(launcher)).toBe(true)
+    expect(launcher.className).not.toContain("fixed")
+    expect(launcher.getAttribute("aria-label")).toBe("اسأل سيمبول")
+    // في الحجم الكبير بلا aria-haspopup: سمة الزرّ لـ«الانتقال إلى العنصر».
+    expect(launcher.hasAttribute("aria-haspopup")).toBe(false)
+  })
+
+  it("gives a tablet the sidebar with the entries, the tools and help, the floating Symbol, and no tab bar", () => {
+    viewport(744)
+    shell("compact", "new")
+    const sidebar = document.querySelector("#sidebar") as HTMLElement
+    expect(ids(sidebar)).toEqual(["nav-home", "nav-entry-new", "nav-entry-campaigns", "nav-tools", "nav-help", "nav-account"])
+    expect(sidebar.contains(document.querySelector("#nav-chat"))).toBe(false)
+    expect(sidebar.querySelector("#nav-entry-new")?.getAttribute("aria-current")).toBe("page")
+    expect(sidebar.querySelector("#nav-entry-new")?.getAttribute("href")).toBe("#/marketing/new")
+    expect([...sidebar.querySelectorAll("a, button")].every((e) => e.hasAttribute("data-safe"))).toBe(true)
+    expect(document.querySelector("#nav-sections")).toBeNull()
+    expect(document.querySelectorAll("nav[aria-label='أقسام البوابة']")).toHaveLength(1)
+  })
+
+  it("keeps the gaze-size rail to four entries, Symbol in place of the tools", () => {
+    viewport(1024)
+    shell("gaze", null)
+    const sidebar = document.querySelector("#sidebar") as HTMLElement
+    expect(ids(sidebar)).toEqual(["nav-home", "nav-sections", "nav-chat", "nav-account"])
+    expect(document.querySelectorAll("#nav-chat")).toHaveLength(1)
+    expect(sidebar.querySelector("#nav-account")?.getAttribute("aria-current")).toBe("page")
+  })
+
+  it("renders the list pane beside the screen only on a wide touch frame", () => {
+    viewport(744)
+    const tablet = render(
+      <AppProviders size="compact">
+        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} chat={chat} pane={<p>القائمة</p>}>
+          <p>الحملة</p>
+        </WorkspaceShell>
+      </AppProviders>,
+    )
+    expect(tablet.queryByText("القائمة")).toBeNull()
+    tablet.unmount()
+    viewport(1280)
+    const wide = render(
+      <AppProviders size="compact">
+        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} chat={chat} pane={<p>القائمة</p>}>
+          <p>الحملة</p>
+        </WorkspaceShell>
+      </AppProviders>,
+    )
+    expect(wide.getByText("القائمة")).toBeTruthy()
+    wide.unmount()
+    const gaze = render(
+      <AppProviders size="gaze">
+        <WorkspaceShell workspace={WORKSPACES.MARKETING} current="campaigns" userName="علي" onNavigate={() => {}} tools={tools} chat={chat} pane={<p>القائمة</p>}>
+          <p>الحملة</p>
+        </WorkspaceShell>
+      </AppProviders>,
+    )
+    expect(gaze.queryByText("القائمة")).toBeNull()
+  })
+})

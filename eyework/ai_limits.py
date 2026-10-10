@@ -35,6 +35,9 @@ __all__ = [
     "QUESTION_LENGTH",
     "QUOTE_LENGTH",
     "READY_QUESTIONS_MAX",
+    "EVIDENCE_BYTES",
+    "EVIDENCE_LINE_CHARS",
+    "EVIDENCE_LINES",
     "REASON_LENGTH",
     "REVIEW",
     "REVIEW_PROMPT_VERSION",
@@ -42,6 +45,7 @@ __all__ = [
     "SCREEN_DATA_CHARS",
     "STREAM_TIMEOUT_SECONDS",
     "SUGGESTION_LENGTH",
+    "SUPPORT_PROMPT_VERSION",
     "CallSettings",
     "FeatureLimits",
 ]
@@ -83,16 +87,16 @@ class CallSettings:
 
 #: تُرفع عند أيّ تغييرٍ في نصّ التعليمات أو المخطّط أو الإعدادات.
 REVIEW_PROMPT_VERSION = "rv-2026-10-09.1"
-ASSISTANT_PROMPT_VERSION = "as-2026-10-09.1"
+ASSISTANT_PROMPT_VERSION = "as-2026-10-10.3"
 
 #: المراجِع: داخل ضغطة الاعتماد، فجهدٌ منخفض ومهلةٌ قصيرة. ينتظره الطلب
 #: `REVIEW_WAIT_SECONDS` ثم يكمل في الخلفية حتى مهلته.
 REVIEW = CallSettings("low", 3_000, 30.0, False, REVIEW_PROMPT_VERSION)
 #: المساعد: الطلب كلّه ينتظره، بحالة انشغالٍ على زرّ «اسأل».
 ASSISTANT = CallSettings("low", 3_000, 25.0, False, ASSISTANT_PROMPT_VERSION)
-#: مسودات الدعم (الحزمة 4): أطول، فتُبثّ من جهة الخادم ويُفحص الوقت مع كل حدث.
-#: نسخة تعليماتها في مواصفة الدعم.
-DRAFT = CallSettings("medium", 8_000, 120.0, True, "support")
+SUPPORT_PROMPT_VERSION = "sd-2026-10-10.1"
+#: مسودات الدعم: أطول، فتُبثّ من جهة الخادم ويُفحص الوقت مع كل حدث. والطلب كلّه ينتظرها.
+DRAFT = CallSettings("medium", 8_000, 120.0, True, SUPPORT_PROMPT_VERSION)
 
 #: ما ينتظره طلب «راجع» قبل أن يجيب PENDING ويترك المراجعة تكمل. قيمة بدايةٍ
 #: تُقاس لا تُحفظ: بوّابة الإصدار p90 ≤ 12 ثانية على التجهيزات.
@@ -112,6 +116,11 @@ BREAKER_OPEN_SECONDS = 60.0
 MAX_FLAGS = 3
 REASON_LENGTH = (12, 160)
 SUGGESTION_LENGTH = (8, 140)
+#: شواهد الملاحظة التي يبنيها الخادم: ثلاثة أسطر، كلٌّ حتى هذا الطول، والمجموع بشكل
+#: JSON لا يتجاوز بايتات قيد الجدول `ai_flag_evidence` فلا يرفض التسجيلَ اسمُ صنفٍ طويل.
+EVIDENCE_LINES = 3
+EVIDENCE_LINE_CHARS = 120
+EVIDENCE_BYTES = 600
 ANSWER_LENGTH = (1, 320)
 ANSWER_MAX_LINES = 6
 #: سؤال المساعد بعد التوحيد والقصّ.

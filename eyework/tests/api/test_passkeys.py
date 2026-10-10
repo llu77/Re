@@ -174,7 +174,7 @@ def test_add_options_ask_for_a_saved_key_named_by_the_login_without_attestation(
     """
     options = expect(add_options(seller, "Seller@Example.SA"))
     user = _user_id(owner)
-    assert options["rp"] == {"id": "testserver", "name": "صياغة"}
+    assert options["rp"] == {"id": "testserver", "name": "Symbol Work"}
     # معرّف المستخدم في المفتاح ليس رقم الحساب.
     assert unb64(options["user"]["id"]) == passkeys.user_handle(LOGIN_KEY, user)
     assert unb64(options["user"]["id"]) != user.bytes

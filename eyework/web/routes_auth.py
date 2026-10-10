@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
-from eyework import assistant, auth, campaigns, money, passkeys, reviewer, terms, ui_size
+from eyework import assistant, auth, campaigns, inventory_rules, money, passkeys, reviewer, terms, ui_size
 from eyework.copy_rules import EDIT_NOTE_MAX, MAX_PRESETS, PRESET_CONFLICTS, EditPreset
 from eyework.professions import NAMES, TAGLINES, Profession
 from eyework.web.deps import (
@@ -347,6 +347,8 @@ def choices(request: Request) -> dict:
     settings = request.app.state.settings
     return {
         **money.choices(),
+        # يبقى كما في المواصفة §7.11 ويعني «ليس مغلقاً»: التفصيل في registration.mode.
+        "registration_open": settings.registration != "closed",
         "registration": {
             "mode": settings.registration,
             "name_max": auth.NAME_MAX,
@@ -360,6 +362,7 @@ def choices(request: Request) -> dict:
         "notice": terms.notice(),
         # حدّ سؤال المساعد والأسئلة الجاهزة لكل شاشة: ثابتةٌ في الخادم لا في الواجهة.
         "assistant": assistant.choices(),
+        "inventory": inventory_rules.choices(),
         "professions": [{"code": p.value, "name": NAMES[p], "tagline": TAGLINES[p]} for p in Profession],
         "edit_presets": [preset.value for preset in EditPreset],
         "preset_conflicts": [sorted(p.value for p in pair) for pair in PRESET_CONFLICTS],

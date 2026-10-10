@@ -33,7 +33,14 @@
 
     <!-- ── الدخول ─────────────────────────────────────────────────── -->
     <section class="screen" data-screen="login" hidden>
-        <header class="bar bar--top"><div class="slot"></div><p class="step"></p><div class="slot"></div></header>
+        <!-- «حساب جديد» حين يكون التسجيل بلا رابطٍ مفتوحاً (portal.js يظهره)، في خانة الشريط
+             العلوي كـ«حسابي» في الرئيسية: لا يطيل المحتوى في أصغر إطار، وإن أجاب الخادم بتنبيهٍ
+             بقي «حسناً» أقرب ما إلى نظرٍ باقٍ عليه، لا «ادخل». -->
+        <header class="bar bar--top">
+            <div class="slot"></div>
+            <p class="step"></p>
+            <div class="slot"><button class="btn" type="button" id="login-signup" data-safe hidden>حساب جديد</button></div>
+        </header>
         <form class="content dense" id="login-form" novalidate>
             <h2 tabindex="-1">تسجيل الدخول</h2>
             <div class="field-group">
@@ -52,7 +59,7 @@
                 <button class="btn btn--commit" type="submit" id="login-submit" data-commit>ادخل</button>
                 <button class="btn" type="button" id="login-passkey" data-safe>ادخل بمفتاح المرور</button>
             </div>
-            <p class="help">تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك أو أعطاك رابط التسجيل.</p>
+            <p class="help" id="login-help">تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك أو أعطاك رابط التسجيل.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </form>
         <footer class="bar bar--bottom"><div class="slot"></div><div class="slot"></div></footer>
@@ -81,7 +88,7 @@
     </section>
 
 
-    <!-- ── التسجيل: برابطٍ من المشغّل، خطوةً خطوة، والبيانات في الذاكرة حتى الأخيرة ── -->
+    <!-- ── التسجيل: برابطٍ من المشغّل أو من «حساب جديد»، خطوةً خطوة، والبيانات في الذاكرة حتى الأخيرة ── -->
     <section class="screen" data-screen="signup-notice" hidden>
         <header class="bar bar--top">
             <div class="slot"><button class="btn" type="button" data-back data-safe>رجوع</button></div>
@@ -193,7 +200,7 @@
         </header>
         <div class="content">
             <h2 tabindex="-1">المهنة</h2>
-            <p class="help">تُفتح بها بوابتك. تغييرها بعد التسجيل بطلبٍ ممّن أعطاك الرابط.</p>
+            <p class="help" id="signup-profession-help">تُفتح بها بوابتك. تغييرها بعد التسجيل بطلبٍ ممّن أعطاك الرابط.</p>
             <div class="rows" id="signup-professions" role="group" aria-label="المهن"></div>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
@@ -236,7 +243,7 @@
             <p class="line" id="signup-review-birth"></p>
             <p class="line" id="signup-review-profession"></p>
             <p class="line">اسم الدخول: <bdi dir="ltr" class="login-name" id="signup-review-email"></bdi></p>
-            <p class="help">لا يصل هذا البريدَ شيء، ولا يُستردّ الحساب به. إن نُسيت كلمة المرور فرابطٌ جديد ممّن أعطاك رابط التسجيل.</p>
+            <p class="help" id="signup-email-help">لا يصل هذا البريدَ شيء، ولا يُستردّ الحساب به. إن نُسيت كلمة المرور فرابطٌ جديد ممّن أعطاك رابط التسجيل.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
         <footer class="bar bar--bottom">

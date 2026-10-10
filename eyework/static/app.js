@@ -253,6 +253,7 @@ async function route() {
 /* كل عرضٍ لشاشة الدخول من هنا: زرّ مفتاح المرور وخياراته معها، ولو عُرضت بتنبيه. */
 function renderLogin() {
     const section = UI.show('login');
+    renderLoginRegistration(section);
     offerPasskey($('login-passkey'));
     return section;
 }

@@ -26,13 +26,22 @@ from __future__ import annotations
 import concurrent.futures as futures
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 from uuid import UUID
 
 from psycopg import errors as pg_errors
 
 from eyework import ai_log, ai_text
-from eyework.ai_limits import AI_SLOTS, MAX_FLAGS, REASON_LENGTH, REVIEW_WAIT_SECONDS, SUGGESTION_LENGTH
+from eyework.ai_limits import (
+    AI_SLOTS,
+    EVIDENCE_BYTES,
+    EVIDENCE_LINE_CHARS,
+    EVIDENCE_LINES,
+    MAX_FLAGS,
+    REASON_LENGTH,
+    REVIEW_WAIT_SECONDS,
+    SUGGESTION_LENGTH,
+)
 from eyework.db import Database
 from eyework.model_gateway import Guard
 from eyework.professions import Profession
@@ -42,12 +51,15 @@ from eyework.service_errors import Conflict, NotFound
 
 __all__ = [
     "FEATURES",
+    "KIND_FEATURES",
     "FLAGS_UNDECIDED",
     "MESSAGES",
     "ReviewFeature",
     "ReviewRunner",
     "Snapshot",
     "decide",
+    "feature_for",
+    "flags_for",
     "flags_undecided",
     "headline",
     "parse_flags",
@@ -117,10 +129,20 @@ class ReviewFeature:
     load: Callable[[Any, UUID, str, UUID, int | None], Snapshot]
     #: مفاتيح الموضوع المعلَنة: اختبارٌ يقارنها بقائمة المنع (لا اسم ولا بريد ولا معرّف).
     payload_keys: frozenset[str]
+    #: (المؤشّر بدور المالك، صاحب الحساب) ← معرّف موضوعٍ نموذجي. اختبارٌ يشغّل المحمّل
+    #: عليه ويقارن مفاتيح ما حمّله فعلاً بـ`payload_keys` وبقائمة المنع (المواصفة §6.2).
+    fixture: Callable[[Any, UUID], UUID] | None = None
 
 
 #: يملؤه كل مسار عمل عند استيراده؛ فارغٌ قبل الحزمة الثالثة.
 FEATURES: dict[str, ReviewFeature] = {}
+#: أداةٌ تخدم نوعين بدالّتي بدءٍ وبصمةٍ مختلفتين (المخزون: الفاتورة والمرتجع) تسجّل
+#: نظيرها لكل نوعٍ هنا؛ وإلا فالأداة نفسها لكل أنواعها.
+KIND_FEATURES: dict[tuple[str, str], ReviewFeature] = {}
+
+
+def feature_for(code: str, kind: str) -> ReviewFeature | None:
+    return KIND_FEATURES.get((code, kind)) or FEATURES.get(code)
 
 # ── العبارات ────────────────────────────────────────────────────────────
 _STORED_REVIEW = """
@@ -235,9 +257,22 @@ def _one_flag(item: object, catalogue: Catalogue, kind: str, lines: frozenset[in
         suggestion, codes = ai_text.check(item["suggestion"], *SUGGESTION_LENGTH)
         if codes:
             return f"SUGGESTION_{codes[0]}"
-    evidence = [str(line_text) for line_text in tuple(check.evidence(payload, line))[:3]]
     return {"check": check.code, "severity": item["severity"], "field": item["field"], "line": line,
-            "reason": reason, "suggestion": suggestion, "evidence": evidence}
+            "reason": reason, "suggestion": suggestion, "evidence": fit_evidence(check.evidence(payload, line))}
+
+
+def fit_evidence(lines: Iterable[object]) -> list[str]:
+    """
+    شواهد الخادم ضمن قيد الجدول: ثلاثة أسطرٍ على الأكثر، كلٌّ مقصوصٌ إلى حدّه بعلامة
+    القصّ، ثم يُسقَط آخرها ما دام مجموعها بشكل JSON يتجاوز البايتات المسموحة.
+    """
+    evidence = []
+    for text in tuple(lines)[:EVIDENCE_LINES]:
+        text = str(text)
+        evidence.append(text if len(text) <= EVIDENCE_LINE_CHARS else text[:EVIDENCE_LINE_CHARS - 1] + "…")
+    while evidence and len(json.dumps(evidence, ensure_ascii=False).encode("utf-8")) > EVIDENCE_BYTES:
+        evidence.pop()
+    return evidence
 
 
 def parse_flags(reply: object, catalogue: Catalogue, kind: str, payload: Mapping) -> tuple[list[dict], list[str]]:
@@ -319,6 +354,7 @@ def _job(db: Database, runner: ReviewRunner, user_id: UUID, feature: ReviewFeatu
     """المهمّة في الخلفية بهوية الطلب الموثَّق؛ لا معرّف من النموذج ولا من الموضوع."""
 
     def run() -> _Result:
+        reply: ModelReply | None = None
         try:
             reply = runner.call(build_call(feature.catalogue, kind, snapshot.payload))
             if reply.outcome != "OK":
@@ -335,17 +371,24 @@ def _job(db: Database, runner: ReviewRunner, user_id: UUID, feature: ReviewFeatu
             ai_log.event("review_recorded", feature=feature.code, request_id=str(request_id), outcome=outcome)
             return _Result("DONE", None, rows) if outcome == "OK" else _Result("UNAVAILABLE", "FAILED", [])
         except Exception as error:
-            # الصفّ المفتوح يحجز صاحبه عن المراجعة ما بقي عقده؛ يُغلق محسوباً.
-            ai_log.event("review_failed", level="error", feature=feature.code, request_id=str(request_id),
-                         outcome=type(error).__name__)
+            # الصفّ المفتوح يحجز صاحبه عن المراجعة ما بقي عقده؛ يُغلق محسوباً. وما عالجه
+            # المزوّد ثم تعذّر تسجيله (خطأ خادمٍ أو قيدٍ في القاعدة) يُغلق OUTPUT_INVALID
+            # بما استُهلك: استدعاءٌ دُفع ثمنه يُعدّ في السقوف، ولا يُسجَّل انقطاعاً لم يقع.
+            processed = reply is not None and reply.processed
+            constraint = getattr(getattr(error, "diag", None), "constraint_name", None)
+            ai_log.event("review_failed", level="critical" if processed else "error", feature=feature.code,
+                         request_id=str(request_id), outcome=type(error).__name__, constraint=constraint)
             try:
-                _fail(db, user_id, request_id, "UPSTREAM_ERROR", None)
+                if processed:
+                    _fail(db, user_id, request_id, "OUTPUT_INVALID", reply.usage)
+                else:
+                    _fail(db, user_id, request_id, "UPSTREAM_ERROR", None)
             except Exception:
                 ai_log.event("review_fail_unrecorded", level="error", feature=feature.code,
                              request_id=str(request_id))
             raise
         finally:
-            runner.guard.release()
+            runner.guard.release(called=reply is not None)
 
     return run
 
@@ -405,7 +448,7 @@ def review(db: Database, runner: ReviewRunner, user_id: UUID, feature_code: str,
     حُجز مقعدٌ (أو عاد «غير متاح» من غير أن يُفتح شيء) وفُتح صفّ الدفتر. بعد
     الإيداع تُرسل المهمّة إلى الحوض ويُنتظر حتى `wait_seconds`.
     """
-    feature = FEATURES.get(feature_code)
+    feature = feature_for(feature_code, kind)
     if feature is None or kind not in feature.kinds:
         raise NotFound("NOT_FOUND", NO_REVIEW)
     reason = runner.guard.acquire()
@@ -436,6 +479,8 @@ def review(db: Database, runner: ReviewRunner, user_id: UUID, feature_code: str,
             except RuntimeError:
                 _fail(db, user_id, request_id, "UPSTREAM_ERROR", None)
                 result = _Result("UNAVAILABLE", "DOWN", [])
+                runner.guard.release(called=False)
+                slot_held = False
             else:
                 handed_over = True
                 try:
@@ -447,15 +492,18 @@ def review(db: Database, runner: ReviewRunner, user_id: UUID, feature_code: str,
         return _response(db, user_id, feature, kind, subject_id, digest, result)
     finally:
         if slot_held and not handed_over:
-            runner.guard.release()
+            # مراجعةٌ مخزونة أو سقفٌ أو رفض: لم يُستدعَ شيء، فيعود المقعد وإذن التجربة معه.
+            runner.guard.release(called=False)
 
 
 # ── القرارات والبوّابة ─────────────────────────────────────────────────
-def decide(db: Database, user_id: UUID, flag_id: UUID, action: str, digest: str | None) -> dict:
+def decide(db: Database, user_id: UUID, flag_id: UUID, choice: str, digest: str) -> dict:
     """
-    «عدّل» أو «تابع رغم ذلك» أو «تراجع» على ملاحظة صاحب الجلسة. بصمةٌ أرسلها
-    العميل تُقارن ببصمة الملاحظة، وبصمة الموضوع الآن تُقارن بها عبر دالّة مسار
-    العمل: اختلافٌ ⇒ FLAG_STALE؛ وملاحظةٌ أُغلقت بالاعتماد ⇒ FLAG_CLOSED.
+    «عدّل» أو «تابع رغم ذلك» أو «تراجع» على ملاحظة صاحب الجلسة. البصمة التي
+    عُرضت عليها الملاحظة تُقارن ببصمة الملاحظة، وبصمة الموضوع الآن تُقارن بها
+    عبر دالّة مسار العمل: اختلافٌ ⇒ FLAG_STALE؛ وملاحظةٌ أُغلقت بالاعتماد ⇒
+    FLAG_CLOSED. وملاحظةٌ لأداةٍ غير مسجَّلة في هذه العملية لا تُقرَّر: لا سبيل إلى
+    بصمة موضوعها الآن.
     """
     with db.session(user_id) as cursor:
         cursor.execute(_FLAG, (flag_id,))
@@ -465,18 +513,28 @@ def decide(db: Database, user_id: UUID, flag_id: UUID, action: str, digest: str 
         if row["closed_at"] is not None:
             raise Conflict("FLAG_CLOSED", FLAG_CLOSED)
         stored = bytes(row["content_digest"])
-        if digest is not None and bytes.fromhex(digest) != stored:
+        if bytes.fromhex(digest) != stored:
             raise Conflict("FLAG_STALE", FLAG_STALE)
-        feature = FEATURES.get(row["feature"])
-        if feature is not None:
-            cursor.execute(feature.digest_sql, (row["subject_id"],))
-            current = cursor.fetchone()["digest"]
-            if current is None or bytes(current) != stored:
-                raise Conflict("FLAG_STALE", FLAG_STALE)
-        cursor.execute(_DECIDE, (flag_id, action))
+        feature = feature_for(row["feature"], row["subject_kind"])
+        if feature is None:
+            raise NotFound("NOT_FOUND", NO_REVIEW)
+        cursor.execute(feature.digest_sql, (row["subject_id"],))
+        current = cursor.fetchone()["digest"]
+        if current is None or bytes(current) != stored:
+            raise Conflict("FLAG_STALE", FLAG_STALE)
+        cursor.execute(_DECIDE, (flag_id, choice))
         decided = cursor.fetchone()
-    ai_log.event("flag_decided", outcome=action)
+    ai_log.event("flag_decided", outcome=choice)
     return {"flag_id": str(flag_id), "decision": decided["choice"], "decided_at": decided["decided_at"].isoformat()}
+
+
+def flags_for(db: Database, user_id: UUID, kind: str, subject_id: UUID, digest: bytes) -> list[dict]:
+    """ملاحظات سيمبول المحفوظة على هذا المحتوى بقراراتها، بشكل جواب المراجعة؛ لعرضها بلا استدعاء."""
+    with db.session(user_id) as cursor:
+        cursor.execute(_DISPLAY_NAME)
+        name = cursor.fetchone()["name"]
+        rows = _rows(cursor, _FLAGS_FOR_DIGEST, (kind, subject_id, digest))
+    return [_flag_view(row, name) for row in rows]
 
 
 def undecided_flags(db: Database, user_id: UUID, kind: str, subject_id: UUID, digest: bytes) -> list[dict]:

@@ -65,6 +65,13 @@ class Limiters:
     #: تغيير طريقة الاستخدام، والموافقة على نسخةٍ جديدة: لكل حساب.
     ui_size_user: RateLimiter
     terms_user: RateLimiter
+    #: قراءات المخزون (البحث أثناء الكتابة والصفحات) لكل حساب.
+    inventory_read: RateLimiter
+    #: مكتب الدعم لكل حساب: القراءات، واللصق (معاينة الحذف والتذكرة والرسالة)، والبحث في
+    #: قاعدة المعرفة. وما يكلّف مالاً (سيمبول) بحدّ `ai` ثم بسقوف القاعدة.
+    support_read: RateLimiter
+    support_paste: RateLimiter
+    support_search: RateLimiter
 
     @classmethod
     def default(cls) -> "Limiters":
@@ -95,6 +102,10 @@ class Limiters:
             registration_check_net=RateLimiter(RateLimit(30, 3600.0)),
             ui_size_user=RateLimiter(RateLimit(30, 3600.0)),
             terms_user=RateLimiter(RateLimit(10, 3600.0)),
+            inventory_read=RateLimiter(RateLimit(240, 60.0)),
+            support_read=RateLimiter(RateLimit(300, 60.0)),
+            support_paste=RateLimiter(RateLimit(60, 60.0)),
+            support_search=RateLimiter(RateLimit(60, 60.0)),
         )
 
 

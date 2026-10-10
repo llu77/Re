@@ -4,6 +4,7 @@
 عقد النظر نفسه (انظر test_gaze.py) على الشاشات الجديدة، عند كل إطار:
 
   • التسجيل من رابط المشغّل إلى بوابة المهنة، شاشةً شاشة، بقاعدة الهبوط.
+  • التسجيل بلا رابط من «حساب جديد» في شاشة الدخول: الخطوات نفسها بلا رمز، وحسابٌ «مفتوح».
   • رئيسية كل بوابة، وكل مهمّةٍ وكل مهارةٍ فيها — أطولها في أصغر إطار.
   • رئيسية التسويق بصفحة حملاتٍ كاملة.
   • حذف الحساب بخطوتين، والرجوع دون حذف.
@@ -12,9 +13,11 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from eyework import auth, campaigns, professions
+from eyework import auth, campaigns, professions, terms
 from eyework.tests.conftest import add_version, create_campaign
 from eyework.tests.ui.conftest import DESKTOP, HANDHELD, LOGIN, LOGIN_KEY, VIEWPORTS
 from eyework.tests.ui.flow import Flow
@@ -66,18 +69,8 @@ def _issue_code(owner) -> str:
     return code
 
 
-# ── التسجيل ──────────────────────────────────────────────────────────────
-@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
-def test_signing_up_from_the_link_to_the_portal(page_factory, server, owner, width, height):
-    code = _issue_code(owner)
-    page = page_factory(width, height, session=False)
-    flow = Flow(page, server["base"])
-    page.goto(f"{server['base']}/#signup={code}")
-    flow.screen("signup-notice")
-    # الرمز يُمحى من شريط العنوان قبل أيّ شيء.
-    assert code not in page.url
-    flow.audit("signup-notice")
-
+def _walk_the_steps(flow: Flow, page) -> None:
+    """من «أوافق وأتابع» إلى كلمة المرور المكتوبة: الخطوات نفسها برابطٍ وبدونه."""
     flow.press("#signup-agree", lambda: flow.screen("signup-name"), "أوافق وأتابع")
     flow.audit("signup-name")
     page.fill("#signup-name-input", "سارة  العتيبي")
@@ -115,6 +108,21 @@ def test_signing_up_from_the_link_to_the_portal(page_factory, server, owner, wid
     flow.press("#signup-review-next", lambda: flow.screen("signup-password"), "التالي: كلمة المرور")
     flow.audit("signup-password")
     page.fill("#signup-password-input", "Strong-Password-2026-y")
+
+
+# ── التسجيل ──────────────────────────────────────────────────────────────
+@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+def test_signing_up_from_the_link_to_the_portal(page_factory, server, owner, width, height):
+    code = _issue_code(owner)
+    page = page_factory(width, height, session=False)
+    flow = Flow(page, server["base"])
+    page.goto(f"{server['base']}/#signup={code}")
+    flow.screen("signup-notice")
+    # الرمز يُمحى من شريط العنوان قبل أيّ شيء.
+    assert code not in page.url
+    flow.audit("signup-notice")
+
+    _walk_the_steps(flow, page)
     # لا شيء يُرسل قبل الخطوة الأخيرة: فحص الرمز وحده.
     assert _posts(page, server["base"]) == ["/api/auth/signup-code"]
     # قبل «أنشئ حسابي»: نجاحه يحمّل الصفحة من جديد فيمحو سجلّ المؤقّتات والمستمعين.
@@ -134,6 +142,82 @@ def test_signing_up_from_the_link_to_the_portal(page_factory, server, owner, wid
         cursor.execute("SELECT display_name, birth_date::text, profession, self_registered FROM users"
                        " WHERE login_hmac = %s", (auth.login_hmac(LOGIN_KEY, "sara.worker@example.sa"),))
         assert cursor.fetchone() == ("سارة العتيبي", "1991-03-21", "STOREKEEPER", True)
+
+
+@pytest.mark.parametrize(("width", "height"), VIEWPORTS, ids=IDS)
+def test_signing_up_without_a_link_from_the_sign_in_screen(page_factory, server, owner, width, height):
+    """الوضع المفتوح (إعداد خادم الاختبارات): «حساب جديد» في شاشة الدخول يفتح الخطوات نفسها بلا رمز."""
+    page = page_factory(width, height, session=False)
+    flow = Flow(page, server["base"])
+    # جسم طلب التسجيل كما يرسله العميل: الحجم الكبير ونسخة الإشعار المعروضة، وبلا رمز.
+    bodies: list[str] = []
+    page.on("request", lambda request: bodies.append(request.post_data)
+            if request.url.endswith("/api/auth/register") else None)
+    page.goto(f"{server['base']}/")
+    flow.screen("login")
+    # سطر المساعدة يسمّي بريد المشغّل: بلا رابطٍ لا «مَن أعطاك الرابط».
+    assert "help@example.sa" in page.text_content("#login-help")
+    assert "رابط" not in page.text_content("#login-help")
+    flow.audit("login-open")
+    flow.press("#login-signup", lambda: flow.screen("signup-notice"), "حساب جديد")
+    flow.audit("signup-notice")
+    _walk_the_steps(flow, page)
+    assert "help@example.sa" in page.text_content("#signup-email-help")
+    # سؤال التوفّر وحده قبل الخطوة الأولى، ولا رمز يُفحص، ولا يُرسَل شيءٌ قبل الأخيرة؛ وما قبلهما
+    # طلب خيارات مفتاح المرور الذي تطلبه شاشة الدخول حين تُعرض.
+    checks = [url for _, url in page.requests if url.endswith("/api/auth/registration")]
+    assert checks == [f"{server['base']}/api/auth/registration"]
+    assert _posts(page, server["base"]) == ["/api/auth/passkey/options"]
+    _gaze_safe(page)
+    flow.press("#signup-create", lambda: flow.until(
+        "document.querySelector('#home-portal') && document.querySelector('#home-portal').textContent"
+        " === 'بوابة أمين المخزون'"), "أنشئ حسابي")
+    flow.audit("home-storekeeper")
+    assert _posts(page, server["base"]) == ["/api/auth/passkey/options", "/api/auth/register"]
+    _gaze_safe(page)
+    (sent,) = [json.loads(body) for body in bodies]
+    assert "code" not in sent
+    assert (sent["ui_size"], sent["terms_version"]) == ("GAZE", terms.TERMS_VERSION)
+
+    assert not _failures(flow), "\n".join(_failures(flow))
+    if (width, height) != DESKTOP:
+        assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+    with owner.cursor() as cursor:
+        # حسابٌ «مفتوح» بالحجم الكبير وبنسخة الإشعار التي عُرضت، وفي الدفتر صفّه بلا رابط.
+        cursor.execute("SELECT display_name, birth_date::text, profession, self_registered, open_registered,"
+                       " ui_size, terms_version FROM users WHERE login_hmac = %s",
+                       (auth.login_hmac(LOGIN_KEY, "sara.worker@example.sa"),))
+        assert cursor.fetchone() == ("سارة العتيبي", "1991-03-21", "STOREKEEPER", True, True, "GAZE",
+                                     terms.TERMS_VERSION)
+        cursor.execute("SELECT via, outcome FROM registration_ledger")
+        assert cursor.fetchall() == [("OPEN", "OK")]
+
+
+def test_a_full_day_is_said_on_the_sign_in_screen_before_the_first_step(page_factory, server, owner):
+    """مئةٌ وخمسون بلا رابط في أربعٍ وعشرين ساعة: «حساب جديد» تسمع الجواب قبل أن تكتب شيئاً."""
+    with owner.cursor() as cursor:
+        cursor.execute("INSERT INTO registration_ledger (occurred_at, via, outcome)"
+                       " SELECT now() - interval '1 hour', 'OPEN', 'OK' FROM generate_series(1, 150)")
+    page = page_factory(session=False)
+    flow = Flow(page, server["base"])
+    page.goto(f"{server['base']}/")
+    flow.screen("login")
+    alert = ".screen[data-screen='login'] .alert"
+    flow.press("#login-signup", lambda: page.wait_for_selector(f"{alert}:not([hidden])"), "حساب جديد")
+    assert page.text_content(f"{alert} .alert__text") == "اكتمل عدد الحسابات الجديدة لهذا اليوم. حاول غداً."
+    # «حسناً» لا تعيد السؤال: الجواب قيل، و«حساب جديد» تعيده متى شاء صاحبه.
+    flow.press(f"{alert} [data-ack]", lambda: page.wait_for_selector(alert, state="hidden"), "حسناً")
+    flow.screen("login")
+    checks = [url for _, url in page.requests if url.endswith("/api/auth/registration")]
+    assert checks == [f"{server['base']}/api/auth/registration"]
+    # لا تسجيل ولا فحص رمز: ما أُرسل هو خيارات مفتاح المرور التي تطلبها شاشة الدخول كلّما رُسمت.
+    assert set(_posts(page, server["base"])) == {"/api/auth/passkey/options"}
+    assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM users WHERE login_hmac <> %s", (auth.login_hmac(LOGIN_KEY, LOGIN),))
+        assert cursor.fetchone()[0] == 0
 
 
 def test_a_used_link_says_so_on_the_sign_in_screen(page_factory, server, owner):

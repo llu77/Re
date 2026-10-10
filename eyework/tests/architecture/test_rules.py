@@ -93,16 +93,17 @@ def test_only_the_image_module_decodes_images():
     assert importers == ["images.py", "scripts/make_icons.py"]
 
 
-#: من يحقّ له لمس القاعدة. طبقة الويب تصلها عبر `auth` و`campaigns` والمراجِع
-#: والمساعد؛ و`web/app.py` يُنشئ التجمّع ويترجم أخطاءه.
-DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py",
-                    "assistant.py"}
+#: من يستورد psycopg مباشرةً، بالضبط: `db.py` يفتح الجلسات، و`admin.py` و`migrations/run.py`
+#: بدور المالك، و`campaigns.py` و`reviewer.py` و`inventory.py` و`support.py` يترجمون أخطاء القيود، و`web/app.py` يُنشئ
+#: التجمّع ويترجم أخطاءه. سائر الخدمات (`auth` و`passkeys` والمساعد) تصل القاعدة عبر
+#: `eyework.db` وحده؛ وقاعدة المسارات في `test_web_routes_never_touch_the_database_directly`.
+DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py", "inventory.py",
+                    "support.py"}
 
 
 def test_database_access_is_confined():
     importers = {_rel(p) for p in _production_python() if "psycopg" in _tops(p) or "psycopg_pool" in _tops(p)}
-    assert importers <= DATABASE_ALLOWED, f"وصولٌ إلى القاعدة خارج حدوده: {importers - DATABASE_ALLOWED}"
-    assert "db.py" in importers
+    assert importers == DATABASE_ALLOWED, f"مستوردو psycopg تغيّروا: {importers ^ DATABASE_ALLOWED}"
 
 
 def test_web_routes_never_touch_the_database_directly():
@@ -116,7 +117,7 @@ def test_web_routes_never_touch_the_database_directly():
 PURE = ("states.py", "money.py", "arabic_numbers.py", "copy_rules.py", "prompt.py", "passwords.py",
         "clock.py", "rate_limit.py", "professions.py", "terms.py", "ui_size.py", "service_errors.py",
         "prompt_kit.py", "ai_limits.py", "ai_text.py", "redact.py", "grounding.py", "reviewer_prompt.py",
-        "assistant_prompt.py", "ai_log.py")
+        "assistant_prompt.py", "ai_log.py", "inventory_rules.py", "inventory_flags.py", "inventory_prompt.py")
 IMPURE = {"fastapi", "starlette", "psycopg", "psycopg_pool", "anthropic", "PIL"}
 
 
@@ -348,11 +349,12 @@ def test_the_users_name_never_reaches_the_model():
 # ── طبقة الذكاء الاصطناعي ─────────────────────────────────────────────
 AI_MODULES = ("model_gateway.py", "prompt_kit.py", "ai_limits.py", "ai_text.py", "redact.py", "grounding.py",
               "reviewer_prompt.py", "reviewer.py", "assistant_prompt.py", "assistant.py", "ai_log.py",
-              "web/routes_ai.py", "scripts/ai_eval.py")
-PROMPT_MODULES = ("prompt_kit.py", "reviewer_prompt.py", "assistant_prompt.py")
+              "web/routes_ai.py", "scripts/ai_eval.py", "inventory_prompt.py")
+PROMPT_MODULES = ("prompt_kit.py", "reviewer_prompt.py", "assistant_prompt.py", "inventory_prompt.py")
 #: من يسجّل عبر `ai_log` وحده: لا `logging` ولا `print`، فلا يتسرّب نصٌّ إلى السجلّ.
 AI_LOG_ONLY = ("model_gateway.py", "prompt_kit.py", "ai_text.py", "redact.py", "grounding.py", "reviewer_prompt.py",
-               "reviewer.py", "assistant_prompt.py", "assistant.py", "web/routes_ai.py")
+               "reviewer.py", "assistant_prompt.py", "assistant.py", "web/routes_ai.py", "inventory_prompt.py",
+               "inventory.py")
 #: ما يعيد هذا النموذج 400 عليه، أو لا تحتاجه هذه الأدوات: لا يظهر حرفياً في وحداتها.
 _FORBIDDEN_REQUEST_KEYS = {"thinking", "budget_tokens", "tool_choice"}
 #: مفاتيح لا تدخل موضوعاً يُرسل (المواصفة §6.2).
@@ -419,12 +421,21 @@ def _identity_key(key: str) -> bool:
     return any(key == word or key.startswith(word + "_") or key.endswith("_" + word) for word in IDENTITY_KEYS)
 
 
-def test_registered_review_loaders_declare_no_identity_fields():
+def test_registered_review_loaders_declare_no_identity_fields_and_carry_a_fixture():
+    """
+    المفاتيح المعلَنة تُفحص هنا (المسار السريع)؛ وما يحمّله المحمّل فعلاً يُقارن بها في
+    `tests/api/test_ai_review.py::check_loader_keys` على موضوعٍ من `fixture` — فلا تُسجَّل
+    أداةٌ بلا موضعٍ نموذجي يُشغَّل عليه محمّلها.
+    """
+    import eyework.inventory  # noqa: F401 — يسجّل STOCK_REVIEW للفاتورة وللمرتجع
     from eyework import reviewer
 
-    for code, feature in reviewer.FEATURES.items():
+    assert "STOCK_REVIEW" in reviewer.FEATURES and ("STOCK_REVIEW", "RETURN") in reviewer.KIND_FEATURES
+    every = {**reviewer.FEATURES, **{f"{code}/{kind}": feature for (code, kind), feature in reviewer.KIND_FEATURES.items()}}
+    for code, feature in every.items():
         found = sorted(key for key in feature.payload_keys if _identity_key(key))
         assert not found, f"{code}: {found}"
+        assert feature.fixture is not None, f"{code}: أداة مراجعةٍ بلا موضوعٍ نموذجي"
 
 
 def test_screen_loader_sql_selects_no_identity_columns():
@@ -443,8 +454,10 @@ def test_screen_loader_sql_selects_no_identity_columns():
 def test_the_model_call_has_no_identity_fields():
     from eyework.prompt_kit import ModelCall
 
+    # الأدوات تعريفاتٌ ثابتة لكل مهنة، وأدوار حلقتها طلبات النموذج ونتائج الأدوات بعد الإخفاء: لا هوية فيهما.
     assert {field.name for field in dataclasses.fields(ModelCall)} == {
         "feature", "system", "user", "schema", "effort", "max_tokens", "deadline_seconds", "stream", "prompt_version",
+        "tools", "turns",
     }
 
 

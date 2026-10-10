@@ -74,6 +74,19 @@ jobs:
           python -m eyework.migrations.run down --all
           python -m eyework.migrations.run up
 
+      # الواجهة الجديدة مبنيةً قبل اختبارات المتصفّح: tests/ui/next يفشل بدونها لا يتجاوز.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: eyework/client/package-lock.json
+
+      - name: بناء الواجهة الجديدة
+        working-directory: eyework/client
+        run: |
+          npm ci --no-fund --no-audit
+          npm run build
+
       - name: الاختبارات
         run: python -m pytest eyework/tests -q
 

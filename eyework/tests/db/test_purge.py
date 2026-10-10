@@ -303,3 +303,47 @@ def test_closed_flags_are_kept_unlinked_with_their_decisions_when_their_request_
                        "       (SELECT count(*) FROM ai_flag_decisions d WHERE d.flag_id = f.id)"
                        "  FROM ai_flags f ORDER BY check_code")
         assert cursor.fetchall() == [(kept, None, True, False, REASON, 1), (erased, None, True, True, None, 1)]
+
+
+def test_inventory_drafts_idle_for_thirty_days_go_and_posted_documents_stay(owner, app, purge):
+    """مسودة فاتورةٍ ومسودة مرتجعٍ خاملتان منذ ٣١ يوماً تُحذفان بأسطرهما؛ والحديثة والمسجّلة تبقيان ولو قدمت."""
+    keeper = make_user(owner, login=b"keeper", profession="STOREKEEPER")
+    as_user(app, keeper)
+    with app.cursor() as cursor:
+        cursor.execute("INSERT INTO inv_settings (user_id, cost_includes_vat) VALUES (ew_current_user(), false)")
+        cursor.execute("INSERT INTO inv_suppliers (user_id, name) VALUES (ew_current_user(), 'مؤسسة النور') RETURNING id")
+        supplier = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO inv_items (user_id, name, kind, unit, price_halalas, vat_category)"
+                       " VALUES (ew_current_user(), 'كرتونة ماء', 'STOCK', 'CARTON', 1000, 'S') RETURNING id")
+        item = cursor.fetchone()[0]
+
+        def purchase(number: str) -> UUID:
+            cursor.execute("INSERT INTO inv_purchases (user_id, supplier_id, supplier_invoice_no, invoice_date, printed_total_halalas)"
+                           " VALUES (ew_current_user(), %s, %s, ew_riyadh_today(), 1150) RETURNING id", (supplier, number))
+            created = cursor.fetchone()[0]
+            cursor.execute("INSERT INTO inv_purchase_lines (purchase_id, user_id, item_id, quantity_milli, unit_price_halalas, vat_category)"
+                           " VALUES (%s, ew_current_user(), %s, 1000, 1000, 'S')", (created, item))
+            return created
+
+        idle, fresh, posted = purchase("P-1"), purchase("P-2"), purchase("P-3")
+        cursor.execute("SELECT row_version FROM inv_purchases WHERE id = %s", (posted,))
+        version = cursor.fetchone()[0]
+        cursor.execute("SELECT ew_inv_post_purchase(%s, %s, ew_inv_flag_keys(%s, NULL))", (posted, version, posted))
+        cursor.execute("INSERT INTO inv_returns (user_id, purchase_id, reason) VALUES (ew_current_user(), %s, 'EXCESS') RETURNING id",
+                       (posted,))
+        idle_return = cursor.fetchone()[0]
+    month = timedelta(days=31)
+    with guards_off(owner, "inv_purchases", "trg_inv_purchase_guard"), owner.cursor() as cursor:
+        cursor.execute("UPDATE inv_purchases SET updated_at = now() - %s WHERE id IN (%s, %s)", (month, idle, posted))
+    with guards_off(owner, "inv_returns", "trg_inv_return_guard"), owner.cursor() as cursor:
+        cursor.execute("UPDATE inv_returns SET updated_at = now() - %s WHERE id = %s", (month, idle_return))
+
+    counts = purge()
+    assert (counts["inv_purchase_drafts"], counts["inv_return_drafts"]) == (1, 1)
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT id FROM inv_purchases ORDER BY supplier_invoice_no")
+        assert [row[0] for row in cursor.fetchall()] == [fresh, posted]
+        cursor.execute("SELECT count(*) FROM inv_purchase_lines WHERE purchase_id = %s", (idle,))
+        assert cursor.fetchone()[0] == 0
+        cursor.execute("SELECT count(*) FROM inv_returns")
+        assert cursor.fetchone()[0] == 0
