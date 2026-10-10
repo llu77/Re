@@ -20,7 +20,7 @@ import * as React from "react"
 import { Eye, EyeOff, Fingerprint, Hand, LogIn, Maximize2, Minimize2, ScanEye, UserPlus } from "lucide-react"
 
 import { PageTitle } from "@/components/brand/page-title"
-import { Logo } from "@/components/brand/marks"
+import { Logo, PageBrand } from "@/components/brand/marks"
 import { Slots } from "@/components/shell/slots"
 import { Button, NextIcon, BackIcon } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -55,17 +55,20 @@ export function SizeToggle() {
  * البوابة («حجمٌ أكبر» في البداية، وفي النهاية ما يغادر أو يعود)، ثم المحتوى. في الحجم الكبير
  * بارتفاع الشاشة بلا تمرير.
  */
-export function AuthFrame({ end, toggle = true, children, className }: {
+export function AuthFrame({ end, toggle = true, brand = true, children, className }: {
   end?: React.ReactNode
   toggle?: boolean
+  /** شعار الصفحة تحت الصفّ العلوي؛ إلا في الترحيب، فالشعار عنوانه. */
+  brand?: boolean
   children: React.ReactNode
   className?: string
 }) {
   const { size } = useSize()
   return (
     <div className={cn("mx-auto flex w-full max-w-md flex-col px-edge pb-safe pt-safe", size === "gaze" ? "h-dvh overflow-hidden" : "min-h-dvh", className)}>
-      <header>
+      <header className="flex flex-col gap-tg-min">
         <Slots top start={toggle ? <SizeToggle /> : undefined} end={end} />
+        {brand ? <PageBrand /> : null}
       </header>
       {children}
     </div>
@@ -78,13 +81,13 @@ export type RegistrationMode = "open" | "code" | "closed"
 
 export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationMode; onSignup: () => void; onLogin: () => void }) {
   return (
-    <AuthFrame>
+    <AuthFrame brand={false}>
       {/* الزرّان بعد الاسم مباشرةً: «ادخل» في أعلى الشاشة يقع بعد الانتقال على حقول الدخول، و«ادخل» الذي
           يعتمد في أسفل شاشة الدخول. */}
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
-        {/* الشعار عنوان الترحيب، واسمه «Symbol Work» لقارئ الشاشة. */}
-        <h1 className="flex items-center">
-          <Logo size="lg" decorative={false} />
+        {/* الشعار عنوان الترحيب في وسطه كما في أعلى كل صفحة، واسمه «Symbol Work» لقارئ الشاشة. */}
+        <h1 className="flex items-center justify-center">
+          <Logo size="hero" decorative={false} />
         </h1>
         <div className="flex flex-col gap-tg">
           {mode === "open" ? (
