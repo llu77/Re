@@ -6,10 +6,11 @@
  * يغيّر بياناتٍ؛ ما قرأه سيمبول بأدواته سطورٌ تحته («بحث في المنتجات: «ماء»»)، والشاشة التي يقترحها
  * زرٌّ يفتحها الموظف بنفسه («افتح «المخزون»»). لا شرح في الورقة ولا سطر مصدر.
  *
- *   الحجم العادي: فقاعاتٌ بنمط «Message Bubble» (framecn، 21st.dev: https://21st.dev/@framecn/components/message-bubble،
- *                بشروط 21st.dev ورخصة صفحة المكوّن): الوارد رماديّ والصادر بالأساسي وزاويةٌ أصغر في جهة صاحبه؛
- *                التخطيط وحده: بلا حركة ظهورٍ ولا مؤقّتٍ ولا <style> محقون. والأسئلة الجاهزة رقائق تحت التحية،
- *                وحقل السؤال في ذيل الورقة.
+ *   الحجم العادي: بنمط «Agent Chat» (serafimcloud، 21st.dev: https://21st.dev/@serafimcloud/components/agent-chat،
+ *                بشروط 21st.dev ورخصة صفحة المكوّن): سؤال الموظف فقاعةٌ هادئة في جهته، وجواب سيمبول نصٌّ بلا فقاعة
+ *                بجانب صورته، وما قرأه رقائق صغيرة تحته. وقبل أول سؤال: صورة سيمبول والتحية في الوسط والأسئلة الجاهزة
+ *                صفوفٌ تحتها. وحقل السؤال صندوقٌ مدوّر يكبر مع النصّ وزرّ الإرسال دائرةٌ في طرفه (Enter يرسل، وShift+Enter
+ *                سطرٌ جديد). التخطيط وحده: بلا حركة ظهورٍ ولا مؤقّتٍ ولا <style> محقون.
  *   الحجم الكبير: الورقة الشاشة كلّها بلا تمرير، وثلاث صفحات: البداية (الأسئلة الجاهزة، و«اكتب سؤالك» في
  *                الصفّ الأخير)، والكتابة (الحقل و«أرسل»)، والجواب (آخر جوابٍ بصفحاته، و«سؤالٌ جديد» في الصفّ
  *                الأخير نفسه، وبينه وبين الذيل فجوة هدفين: `mb-2` فوق فجوة الأقسام). وفي خانة الذيل الأولى ما
@@ -17,7 +18,7 @@
  */
 
 import * as React from "react"
-import { MessageSquarePlus, PenLine, Search, Send, Wrench } from "lucide-react"
+import { ArrowUp, MessageSquarePlus, PenLine, Search, Send, Wrench } from "lucide-react"
 
 import { SymbolMark } from "@/components/brand/marks"
 import { Alert } from "@/components/ui/alert"
@@ -51,19 +52,26 @@ function sectionName(workspace: Workspace, current: string | null): string {
   return workspace.home.find((entry) => entry.id === current)?.label ?? "حسابك"
 }
 
-/** علامة سيمبول في دائرة: بجانب كل جوابٍ منه. */
-function Avatar() {
+/** صورة سيمبول: علامته في دائرةٍ بيضاء بحدٍّ هادئ؛ كبيرةٌ في التحية وصغيرةٌ بجانب كل جواب. */
+function Avatar({ large = false }: { large?: boolean }) {
   return (
-    <span aria-hidden="true" className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-card shadow-card">
-      <SymbolMark className="size-3.5" />
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full bg-card shadow-sm shadow-black/5 ring-1 ring-border",
+        large ? "size-12" : "mt-0.5 size-7",
+      )}
+    >
+      <SymbolMark className={large ? "size-6" : "size-3.5"} />
     </span>
   )
 }
 
+/** سؤال الموظف: فقاعةٌ هادئة في جهته. */
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <p className="max-w-[85%] whitespace-pre-line rounded-[1.375rem] rounded-ee-md bg-primary px-3.5 py-2 leading-relaxed text-primary-foreground">
+      <p className="max-w-[85%] whitespace-pre-line break-words rounded-2xl rounded-ee-md bg-muted px-3.5 py-2 leading-relaxed text-foreground">
         <span className="sr-only">سؤالك: </span>
         {text}
       </p>
@@ -71,14 +79,15 @@ function UserBubble({ text }: { text: string }) {
   )
 }
 
-/** ما قرأه سيمبول بأدواته: سطورٌ تحت الجواب، لا أهداف. */
+/** ما قرأه سيمبول بأدواته: رقائق صغيرة تحت الجواب، لا أهداف. */
 function AnswerNotes({ turn }: { turn: ChatTurn }) {
   if (!turn.tools.length) return null
   return (
-    <ul aria-label="ما قرأه سيمبول" className="flex flex-col gap-0.5 text-small leading-snug text-muted-foreground">
+    <ul aria-label="ما قرأه سيمبول" className="flex flex-wrap gap-1.5">
       {turn.tools.map((tool) => (
-        <li key={`${tool.name}:${tool.input}`} className="flex items-start gap-1.5">
-          <Search aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
+        <li key={`${tool.name}:${tool.input}`}
+          className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-small leading-snug text-muted-foreground">
+          <Search aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={2} />
           <span className="min-w-0">{toolLine(tool)}</span>
         </li>
       ))}
@@ -86,17 +95,13 @@ function AnswerNotes({ turn }: { turn: ChatTurn }) {
   )
 }
 
-function bubbleTone(turn: ChatTurn | null): string {
-  return turn && turn.status !== "ANSWER" ? "bg-muted text-muted-foreground" : "bg-muted text-foreground"
-}
-
-/** جوابٌ في المحادثة (الحجم العادي): الفقاعة، ثم ما قرأه، ثم زرّ الشاشة المقترحة. */
-function SymbolBubble({ turn, onOpen }: { turn: ChatTurn; onOpen: (turn: ChatTurn) => void }) {
+/** جواب سيمبول (الحجم العادي): نصٌّ بلا فقاعة بجانب صورته، ثم ما قرأه، ثم زرّ الشاشة المقترحة. */
+function SymbolMessage({ turn, onOpen }: { turn: ChatTurn; onOpen: (turn: ChatTurn) => void }) {
   return (
     <div className="flex items-start gap-2.5">
       <Avatar />
-      <div className="flex min-w-0 max-w-[90%] flex-col items-start gap-2">
-        <p className={cn("whitespace-pre-line rounded-[1.375rem] rounded-ss-md px-3.5 py-2 leading-relaxed", bubbleTone(turn))}>
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+        <p className={cn("whitespace-pre-line break-words leading-relaxed", turn.status === "ANSWER" ? "text-foreground" : "text-muted-foreground")}>
           <span className="sr-only">سيمبول: </span>
           {turn.text}
         </p>
@@ -111,11 +116,12 @@ function SymbolBubble({ turn, onOpen }: { turn: ChatTurn; onOpen: (turn: ChatTur
   )
 }
 
+/** قبل أول سؤال: صورة سيمبول والتحية في الوسط. */
 function Greeting({ userName, section }: { userName: string | null; section: string }) {
   return (
-    <div className="flex items-start gap-2.5">
-      <Avatar />
-      <p className="min-w-0 max-w-[90%] rounded-[1.375rem] rounded-ss-md bg-muted px-3.5 py-2 leading-relaxed text-foreground">
+    <div className="flex flex-col items-center gap-3 pt-2 text-center">
+      <Avatar large />
+      <p className="text-lead font-semibold text-foreground">
         {userName ? `أهلاً ${userName}، ` : "أهلاً، "}كيف أساعدك في «{section}»؟
       </p>
     </div>
@@ -134,6 +140,7 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
   const [view, setView] = React.useState<GazeView>("start")
   const [back, setBack] = React.useState<GazeView>("start")
   const end = React.useRef<HTMLDivElement>(null)
+  const input = React.useRef<HTMLTextAreaElement>(null)
   const latest = turns.length ? turns[turns.length - 1] : null
   const remaining = remainingOf(chat, usage)
   const section = sectionName(workspace, current)
@@ -151,6 +158,14 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
     }
     opened.current = open
   }, [open, turns.length])
+
+  // الحجم العادي: الحقل يكبر مع النصّ، ارتفاعه من محتواه حتى خمسة أسطر (`max-h-32`) ثم يمرّ داخله.
+  React.useLayoutEffect(() => {
+    const field = input.current
+    if (!open || gaze || !field) return
+    field.style.height = "auto"
+    field.style.height = `${field.scrollHeight}px`
+  }, [open, gaze, draft])
 
   // الحجم العادي: آخر ما في المحادثة ظاهرٌ بعد كل سؤالٍ وجواب.
   React.useLayoutEffect(() => {
@@ -223,6 +238,10 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
         <div className="flex h-full flex-col gap-tg">
           {view === "start" ? (
             <>
+              <p className="flex items-center gap-2.5 text-lead font-semibold text-foreground">
+                <Avatar />
+                <span className="min-w-0">{userName ? `أهلاً ${userName}، ` : "أهلاً، "}كيف أساعدك؟</span>
+              </p>
               {chat.ready.length ? (
                 <ul aria-label="أسئلةٌ جاهزة" className="flex flex-col gap-tg">
                   {chat.ready.map((question, index) => (
@@ -277,16 +296,24 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
           ) : latest ? (
             <>
               <section aria-label="جواب سيمبول" className="flex min-h-0 flex-col gap-tg-min">
-                <p className="truncate text-small text-muted-foreground">
-                  سؤالك: <span className="text-foreground">{latest.question}</span>
+                {/* سؤال الموظف فقاعةٌ هادئة في جهته بسطرٍ واحد، ثم صورة سيمبول واسمه، ثم جوابه نصّاً بعرض الورقة:
+                    «السابق» و«التالي» تحته بعرضها. */}
+                <div className="flex justify-end">
+                  <p className="max-w-[85%] truncate rounded-2xl rounded-ee-md bg-card px-3 py-1.5 text-small text-foreground shadow-sm shadow-black/5 ring-1 ring-border">
+                    <span className="sr-only">سؤالك: </span>
+                    {latest.question}
+                  </p>
+                </div>
+                <p className="flex items-center gap-2 text-small font-semibold text-foreground">
+                  <Avatar />
+                  سيمبول
                 </p>
-                {/* الفقاعة على النصّ وحده: «السابق» و«التالي» تحتها بعرض الورقة. */}
                 <PagedText
                   key={latest.id}
                   label="جواب سيمبول"
                   text={latest.text}
                   perPage={{ gaze: 150, gazeShort: 80 }}
-                  className={cn("rounded-card px-pad py-3", bubbleTone(latest))}
+                  className={cn("leading-relaxed", latest.status === "ANSWER" ? "text-foreground" : "text-muted-foreground")}
                 />
                 <AnswerNotes turn={latest} />
                 {place ? (
@@ -314,21 +341,39 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
     )
   }
 
+  // Enter يرسل وShift+Enter سطرٌ جديد؛ وأثناء تركيب الحروف (لوحة اليابانية والصينية) لا يرسل.
+  function onComposerKey(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault()
+      event.currentTarget.form?.requestSubmit()
+    }
+  }
+
   const composer = (
     <form noValidate onSubmit={submit} className="flex w-full basis-full flex-col gap-2">
       {failure}
       <Field label={<span className="sr-only">سؤالك</span>} hint={hint} error={tooLong ? `السؤال أطول من ${chat.questionMax} حرف.` : null}>
-        <div className="flex items-end gap-tg">
+        {/* صندوقٌ مدوّر: الحقل يكبر مع النصّ إلى خمسة أسطر، وزرّ الإرسال دائرةٌ في طرفه. */}
+        <div className="flex items-end gap-2 rounded-[1.25rem] border border-control bg-card py-1.5 pe-1.5 ps-3.5 shadow-sm shadow-black/5 focus-within:border-primary">
           <Textarea
-            rows={2}
+            ref={input}
+            rows={1}
             value={draft}
             placeholder={`اسأل عن عملك في «${section}»`}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-w-0 flex-1"
+            onKeyDown={onComposerKey}
+            className="max-h-32 min-h-0 flex-1 rounded-none border-0 bg-transparent px-0 py-1.5 shadow-none outline-none focus-visible:outline-none"
           />
-          <Button type="submit" variant="primary" commit icon={Send} busy={pending !== null} disabled={!draft.trim() || tooLong || exhausted}>
-            أرسل
-          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            commit
+            aria-label="أرسل"
+            icon={ArrowUp}
+            busy={pending !== null}
+            disabled={!draft.trim() || tooLong || exhausted}
+            className="size-ctl shrink-0 rounded-full p-0"
+          />
         </div>
       </Field>
     </form>
@@ -350,12 +395,12 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
         </>
       }
     >
-      <div role="log" aria-label="المحادثة مع سيمبول" aria-live="polite" className="flex flex-col gap-4">
+      <div role="log" aria-label="المحادثة مع سيمبول" aria-live="polite" className="flex flex-col gap-5">
         {turns.length === 0 ? <Greeting userName={userName} section={section} /> : null}
         {turns.map((turn) => (
           <React.Fragment key={turn.id}>
             <UserBubble text={turn.question} />
-            <SymbolBubble turn={turn} onOpen={openPlace} />
+            <SymbolMessage turn={turn} onOpen={openPlace} />
           </React.Fragment>
         ))}
         {pending !== null ? (
@@ -363,22 +408,21 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
             <UserBubble text={pending} />
             <div className="flex items-start gap-2.5">
               <Avatar />
-              <p className="rounded-[1.375rem] rounded-ss-md bg-muted px-3.5 py-2 text-muted-foreground">سيمبول يكتب…</p>
+              <p className="leading-relaxed text-muted-foreground">سيمبول يكتب…</p>
             </div>
           </>
         ) : null}
         {turns.length === 0 && pending === null && chat.ready.length ? (
-          <div className="flex flex-col gap-2 ps-[2.375rem]">
-            <ul aria-label="أسئلةٌ جاهزة" className="flex flex-wrap gap-tg">
-              {chat.ready.map((question, index) => (
-                <li key={question} className="min-w-0">
-                  <Button variant="secondary" commit disabled={exhausted} onClick={() => void send({ ready: index }, question)} className="rounded-full text-start text-small">
-                    {question}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul aria-label="أسئلةٌ جاهزة" className="flex flex-col gap-2">
+            {chat.ready.map((question, index) => (
+              <li key={question}>
+                <Button commit width="full" iconEnd={ForwardArrow} disabled={exhausted} onClick={() => void send({ ready: index }, question)}
+                  className="justify-between text-start font-normal">
+                  {question}
+                </Button>
+              </li>
+            ))}
+          </ul>
         ) : null}
         <div ref={end} />
       </div>

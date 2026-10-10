@@ -1,10 +1,11 @@
 """
 المساعد: المطالبة وقراءة الجواب
 ===============================
-كل حالةٍ من الأربع، وفحص السند (الشاشة أو الأدوات وحدهما) والطول والأسطر،
+كل حالةٍ من الثلاث، وفحص السند (الشاشة أو الأدوات وحدهما) والطول والأسطر،
 والنصّ الثابت للحالتين، وأن لا شيء من مهامّ المهنة ومهاراتها يصل النموذج،
-والسؤال بعد الإخفاء، وأن الطلب بلا مفتاح `tools` (الأداة تُطلب في الجواب
-المنظَّم)، وأن بيانات الشاشة والمحادثة ونتائج الأدوات لا تدخل إلا رسالة المستخدم.
+والسؤال بعد الإخفاء، وأن الأدوات تُرسل في `tools` صارمةً بلا إجبار (توثيق
+Anthropic)، وأن بيانات الشاشة والمحادثة لا تدخل إلا رسالة المستخدم، ونتائج الأدوات
+إلا أدوار حلقة الأدوات بعدها.
 """
 
 from __future__ import annotations
@@ -42,15 +43,16 @@ HOME = ScreenContext(kind="HOME", profession=None, title="الرئيسية", lab
                      ready_questions=("من أين أبدأ عملي اليوم؟",), needs_id=False, load=lambda *args: ())
 
 
-TOOLS = (Tool(name="ITEMS", profession=Profession.STOREKEEPER, description="المنتجات المطابقة", input_hint="اسم المنتج",
-              label="بحث في المنتجات", run=lambda *args: ()),
-         Tool(name="VAT", profession=None, description="ضريبة مبلغ", input_hint="المبلغ", label="حاسبة الضريبة",
-              run=lambda *args: ()))
+TOOLS = (Tool(name="search_items", profession=Profession.STOREKEEPER, description="المنتجات المطابقة.",
+              properties={"query": {"type": "string", "description": "اسم المنتج"}}, label="بحث في المنتجات",
+              run=lambda *args: ()),
+         Tool(name="list_low_stock_items", profession=Profession.STOREKEEPER, description="تحت حدّ الطلب.",
+              properties={}, label="المنتجات تحت حدّ الطلب", run=lambda *args: ()))
 PLACES = (Destination("stock", "المخزون"), Destination("purchase", "فاتورة شراء جديدة"))
 
 
-def _reply(status="ANSWER", answer=ANSWER, used=("SCREEN",), tool="NONE", tool_input="", open="NONE"):
-    return {"status": status, "answer": answer, "used": list(used), "tool": tool, "tool_input": tool_input, "open": open}
+def _reply(status="ANSWER", answer=ANSWER, used=("SCREEN",), open="NONE"):
+    return {"status": status, "answer": answer, "used": list(used), "open": open}
 
 
 # ── المطالبة ────────────────────────────────────────────────────────────
@@ -64,7 +66,8 @@ def test_nothing_from_the_professions_tasks_or_skills_reaches_the_model(professi
     """الموظف يعرف مهنته؛ وما يُنقل من O*NET يحتاج نسبةً لا يحملها الجواب."""
     portal = PORTALS[profession]
     request = call(HOME, profession, (), "من أين أبدأ عملي اليوم؟", tools=TOOLS, destinations=PLACES)
-    sent = "".join(block["text"] for block in request.system) + request.user + json.dumps(request.schema)
+    sent = ("".join(block["text"] for block in request.system) + request.user + json.dumps(request.schema)
+            + json.dumps(request.tools, ensure_ascii=False))
     texts = (portal.summary, *(task.ar for task in portal.tasks), *(task.source_text for task in portal.tasks),
              *(f"{skill.name}: {skill.note}" for skill in portal.skills))
     assert not [text for text in texts if data(text) in sent]
@@ -75,7 +78,7 @@ def test_the_screen_data_and_question_live_only_in_the_user_message():
     assert CANARY in request.user and "من أين أبدأ عملي اليوم؟" in request.user
     assert CANARY not in json.dumps(request.system, ensure_ascii=False)
     assert CANARY not in json.dumps(request.schema)
-    assert request.system[0]["text"] == ASSISTANT_SYSTEM and len(ASSISTANT_SYSTEM) == 1983
+    assert request.system[0]["text"] == ASSISTANT_SYSTEM and len(ASSISTANT_SYSTEM) == 2009
     assert request.system[1]["cache_control"] == {"type": "ephemeral"} and "cache_control" not in request.system[0]
     assert "<label>حملة جديدة</label>" in request.user and "<label>حسابي</label>" in request.user
     assert request.user.endswith("<question>من أين أبدأ عملي اليوم؟</question>")
@@ -86,45 +89,56 @@ def test_screen_labels_are_per_profession_on_the_shared_home():
     assert "<label>حملة جديدة</label>" not in keeper.user and "<label>حسابي</label>" in keeper.user
 
 
-def test_the_request_has_no_tools_key_and_the_assistants_settings():
-    """الأداة تُطلب في الجواب المنظَّم لا بمفتاح `tools`: بوّابة النموذج كما هي."""
+def test_the_tools_ride_in_the_tools_key_strict_without_forcing_and_the_assistants_settings():
+    """«Define tools» و«Strict tool use»: الأدوات في `tools` بتعريفها كاملاً وصارمة؛ و`tool_choice` يبقى auto (any/tool يعيد 400)."""
     request = call(HOME, Profession.STOREKEEPER, (), "من أين أبدأ؟", tools=TOOLS, destinations=PLACES)
     body = AnthropicGateway.params(request)
-    assert "tools" not in body and "tool_choice" not in body and "thinking" not in body
+    assert body["tools"] == [tool.definition() for tool in TOOLS] and all(tool["strict"] for tool in body["tools"])
+    assert body["tools"][0]["input_schema"] == {"type": "object", "properties": {"query": {"type": "string",
+                                                "description": "اسم المنتج"}}, "additionalProperties": False,
+                                                "required": ["query"]}
+    assert body["tools"][1]["input_schema"] == {"type": "object", "properties": {}, "additionalProperties": False}
+    assert "tool_choice" not in body and "thinking" not in body
+    assert "tools" not in AnthropicGateway.params(call(HOME, Profession.STOREKEEPER, (), "س"))
     assert (request.feature, request.effort, request.max_tokens, request.stream) == ("ASSISTANT", "low", 3000, False)
-    assert request.deadline_seconds == 25.0 and request.prompt_version == ASSISTANT.prompt_version == "as-2026-10-10.2"
+    assert request.deadline_seconds == 25.0 and request.prompt_version == ASSISTANT.prompt_version == "as-2026-10-10.3"
 
 
-def test_the_tools_and_destinations_ride_in_the_cached_profession_block():
+def test_the_destinations_ride_in_the_cached_profession_block_and_the_tools_do_not():
     request = call(HOME, Profession.STOREKEEPER, (), "س", tools=TOOLS, destinations=PLACES)
     cached = request.system[1]["text"]
-    assert cached.startswith(profession_block(Profession.STOREKEEPER) + "<tools>")
-    assert '<tool name="ITEMS" input="اسم المنتج">المنتجات المطابقة</tool>' in cached
-    assert '<destination id="stock">المخزون</destination>' in cached
-    assert "<tools>" not in request.user and "<destinations>" not in request.user
+    assert cached == profession_block(Profession.STOREKEEPER) + (
+        '<destinations><destination id="stock">المخزون</destination>'
+        '<destination id="purchase">فاتورة شراء جديدة</destination></destinations>\n')
+    assert "search_items" not in json.dumps(request.system, ensure_ascii=False)
+    assert "<destinations>" not in request.user
 
 
-def test_the_conversation_and_tool_results_live_in_the_user_message_before_the_question():
+def test_the_conversation_lives_in_the_user_message_and_tool_results_in_the_turns_after_it():
+    """«Handle tool calls»: دور المساعد بطلبه كما عاد، ثم نتائج الأدوات أوّل رسالة المستخدم بمعرّفاتها."""
     history = (("كم بقي من الماء؟", "بقي 12 كرتوناً."),)
-    results = (("ITEMS", "ماء", ("ماء 330 مل: الرصيد 12 كرتون",)),)
-    request = call(HOME, Profession.STOREKEEPER, (), "ومتى أطلب؟", history=history, results=results,
+    turns = ({"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_1", "name": "search_items",
+                                                "input": {"query": "ماء"}}]},
+             {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_1",
+                                           "content": "ماء 330 مل: الرصيد 12 كرتون"}]})
+    request = call(HOME, Profession.STOREKEEPER, (), "ومتى أطلب؟", history=history, turns=turns,
                    tools=TOOLS, destinations=PLACES)
     user = request.user
-    assert user.index("<conversation>") < user.index("<tool_result") < user.index("<question>ومتى أطلب؟</question>")
+    assert user.index("<conversation>") < user.index("<question>ومتى أطلب؟</question>")
     assert "<turn><question>كم بقي من الماء؟</question><answer>بقي 12 كرتوناً.</answer></turn>" in user
-    assert '<tool_result name="ITEMS"><input>ماء</input>\nماء 330 مل: الرصيد 12 كرتون</tool_result>' in user
+    assert "الرصيد 12 كرتون" not in user and "<tool_result" not in user
+    assert AnthropicGateway.params(request)["messages"] == [{"role": "user", "content": user}, *turns]
     assert "كم بقي من الماء" not in json.dumps(request.system, ensure_ascii=False)
 
 
-def test_the_schema_is_per_profession_by_its_tools_and_destinations_only():
+def test_the_final_answers_schema_is_per_profession_by_its_destinations_only():
     built = schema()
-    assert built["required"] == ["status", "answer", "used", "tool", "tool_input", "open"]
+    assert built["required"] == ["status", "answer", "used", "open"]
     assert built["additionalProperties"] is False
     assert built["properties"]["used"]["items"]["enum"] == ["SCREEN", "TOOL"]
-    assert built["properties"]["status"]["enum"] == ["ANSWER", "DONT_KNOW", "OUT_OF_SCOPE", "TOOL"]
-    assert built["properties"]["tool"]["enum"] == ["NONE"] and built["properties"]["open"]["enum"] == ["NONE"]
-    keeper = schema(TOOLS, PLACES)
-    assert keeper["properties"]["tool"]["enum"] == ["NONE", "ITEMS", "VAT"]
+    assert built["properties"]["status"]["enum"] == ["ANSWER", "DONT_KNOW", "OUT_OF_SCOPE"]
+    assert built["properties"]["open"]["enum"] == ["NONE"]
+    keeper = schema(PLACES)
     assert keeper["properties"]["open"]["enum"] == ["NONE", "stock", "purchase"]
     assert keeper["properties"]["used"] == built["properties"]["used"] and keeper != built
     assert call(HOME, Profession.STOREKEEPER, (), "س", tools=TOOLS, destinations=PLACES).schema == keeper
@@ -139,26 +153,21 @@ def test_data_in_screen_lines_cannot_close_the_tag():
 def test_an_answer_is_validated_and_carries_what_it_used():
     parsed, codes = parse(_reply())
     assert codes == () and parsed.status == "ANSWER" and parsed.text == ANSWER
-    assert parsed.used == ("SCREEN",) and parsed.open is None and parsed.tool is None
-    parsed, codes = parse(_reply(used=("TOOL", "SCREEN", "TOOL")), TOOLS, PLACES)
+    assert parsed.used == ("SCREEN",) and parsed.open is None
+    parsed, codes = parse(_reply(used=("TOOL", "SCREEN", "TOOL")), PLACES)
     assert codes == () and parsed.used == ("TOOL", "SCREEN")
 
 
-def test_a_tool_request_names_a_tool_of_the_profession_with_a_short_input():
-    parsed, codes = parse(_reply("TOOL", "", (), "ITEMS", "  ماء   330 "), TOOLS, PLACES)
-    assert codes == () and parsed.status == "TOOL" and (parsed.tool, parsed.tool_input) == ("ITEMS", "ماء 330")
-    assert parsed.text == "" and parsed.used == ()
-    for tool, text in (("NONE", "ماء"), ("ITEMS", "س" * 61), ("ITEMS", "اتجاه‮")):
-        parsed, codes = parse(_reply("TOOL", "", (), tool, text), TOOLS, PLACES)
-        assert parsed is None and codes == ("TOOL",)
-    # أداةٌ ليست لهذه المهنة ولا في القائمة: الشكل نفسه مرفوض.
-    assert parse(_reply("TOOL", "", (), "KB", "طابعة"), TOOLS, PLACES) == (None, ("SHAPE",))
+def test_a_tool_is_never_asked_for_in_the_answer_itself():
+    """الأداة تُطلب بكتلة tool_use لا في الجواب: حالة TOOL ومفتاحاها القديمان شكلٌ مرفوض."""
+    assert parse({**_reply("TOOL", "", ()), "tool": "search_items", "tool_input": "ماء"}, PLACES) == (None, ("SHAPE",))
+    assert parse(_reply("TOOL", "", ()), PLACES) == (None, ("SHAPE",))
 
 
 def test_an_answer_from_a_tool_may_suggest_a_destination_of_the_profession():
-    parsed, codes = parse(_reply(used=("TOOL",), open="stock"), TOOLS, PLACES)
+    parsed, codes = parse(_reply(used=("TOOL",), open="stock"), PLACES)
     assert codes == () and parsed.open == "stock" and parsed.used == ("TOOL",)
-    assert parse(_reply(open="campaigns"), TOOLS, PLACES) == (None, ("SHAPE",))
+    assert parse(_reply(open="campaigns"), PLACES) == (None, ("SHAPE",))
 
 
 def test_an_earlier_answer_sent_back_by_the_client_is_bounded():
@@ -171,7 +180,7 @@ def test_an_earlier_answer_sent_back_by_the_client_is_bounded():
 
 @pytest.mark.parametrize("status", ["DONT_KNOW", "OUT_OF_SCOPE"])
 def test_the_two_other_statuses_show_fixed_text_and_ignore_the_models_answer(status):
-    parsed, codes = parse(_reply(status, "نصٌّ من النموذج يُهمل", ("SCREEN",), open="stock"), TOOLS, PLACES)
+    parsed, codes = parse(_reply(status, "نصٌّ من النموذج يُهمل", ("SCREEN",), open="stock"), PLACES)
     assert codes == () and parsed.status == status
     assert parsed.text == (DONT_KNOW_TEXT if status == "DONT_KNOW" else OUT_OF_SCOPE_TEXT)
     assert parsed.used == () and parsed.open is None

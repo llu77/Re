@@ -92,6 +92,59 @@ def test_the_request_body_is_exactly_the_documented_shape():
     assert (timeout["read"], timeout["connect"]) == (30.0, 3.0)
 
 
+TOOL = {"name": "search_items", "description": "تبحث في المنتجات.", "strict": True,
+        "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "الاسم"}},
+                         "required": ["query"], "additionalProperties": False}}
+
+
+def _tool_use(*blocks):
+    """جوابٌ يطلب أداة: كتلة تفكيرٍ ثم كتل tool_use، و`stop_reason = tool_use`."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        handler.seen.append(request)
+        body = {
+            "id": "msg_t", "type": "message", "role": "assistant", "model": "claude-opus-5-5",
+            "content": [{"type": "thinking", "thinking": "", "signature": "sig_t"}, *blocks],
+            "stop_reason": "tool_use", "stop_sequence": None,
+            "usage": {"input_tokens": 900, "output_tokens": 40, "cache_read_input_tokens": 800,
+                      "cache_creation_input_tokens": 0},
+        }
+        return httpx.Response(200, headers={"request-id": "req_tool"}, json=body)
+    handler.seen = []
+    return handler
+
+
+def test_tools_ride_strict_in_the_tools_key_and_a_tool_use_reply_is_read_with_its_content():
+    """«Handle tool calls»: stop_reason tool_use وكتلها بمعرّفاتها؛ والمحتوى كما عاد ليُعاد في الدور التالي."""
+    handler = _tool_use({"type": "tool_use", "id": "toolu_1", "name": "search_items", "input": {"query": "ماء"}},
+                        {"type": "tool_use", "id": "toolu_2", "name": "search_items", "input": {"query": "عصير"}})
+    gateway = _gateway(handler)
+    reply = gateway.call(_call(tools=(TOOL,)))
+    sent = json.loads(handler.seen[0].content)
+    assert sent["tools"] == [TOOL] and "tool_choice" not in sent
+    assert reply.outcome == "OK" and reply.data is None and reply.stop_reason == "tool_use"
+    assert [tuple(call) for call in reply.tool_calls] == [("toolu_1", "search_items", {"query": "ماء"}),
+                                                          ("toolu_2", "search_items", {"query": "عصير"})]
+    assert [block.type for block in reply.content] == ["thinking", "tool_use", "tool_use"]
+    # الدور التالي: محتوى المساعد كما عاد (بتوقيع التفكير)، ثم النتائج أوّل رسالة المستخدم بمعرّفاتها.
+    results = [{"type": "tool_result", "tool_use_id": "toolu_1", "content": "ماء 330 مل"},
+               {"type": "tool_result", "tool_use_id": "toolu_2", "content": "لا منتج.", "is_error": True}]
+    turns = ({"role": "assistant", "content": list(reply.content)}, {"role": "user", "content": results})
+    gateway.call(_call(tools=(TOOL,), turns=turns))
+    again = json.loads(handler.seen[1].content)
+    assert again["messages"][0] == {"role": "user", "content": "<subject/>"}
+    assert again["messages"][1]["role"] == "assistant"
+    assert again["messages"][1]["content"][0] == {"type": "thinking", "thinking": "", "signature": "sig_t"}
+    assert again["messages"][1]["content"][1:] == [
+        {"type": "tool_use", "id": "toolu_1", "name": "search_items", "input": {"query": "ماء"}},
+        {"type": "tool_use", "id": "toolu_2", "name": "search_items", "input": {"query": "عصير"}}]
+    assert again["messages"][2] == {"role": "user", "content": results}
+
+
+def test_a_tool_use_stop_without_a_tool_block_is_invalid_output():
+    reply = _gateway(_tool_use()).call(_call(tools=(TOOL,)))
+    assert reply.outcome == "OUTPUT_INVALID" and reply.tool_calls == () and reply.processed
+
+
 def test_the_destination_retries_and_key_are_fixed_in_code(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://elsewhere.example")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "platform-key")

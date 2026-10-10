@@ -454,8 +454,10 @@ def test_screen_loader_sql_selects_no_identity_columns():
 def test_the_model_call_has_no_identity_fields():
     from eyework.prompt_kit import ModelCall
 
+    # الأدوات تعريفاتٌ ثابتة لكل مهنة، وأدوار حلقتها طلبات النموذج ونتائج الأدوات بعد الإخفاء: لا هوية فيهما.
     assert {field.name for field in dataclasses.fields(ModelCall)} == {
         "feature", "system", "user", "schema", "effort", "max_tokens", "deadline_seconds", "stream", "prompt_version",
+        "tools", "turns",
     }
 
 

@@ -88,7 +88,7 @@ def test_the_conversation_carries_on_with_tools_and_opens_the_suggested_screen(n
                "سؤالٌ جاهز")
     assert page.locator("dialog[open] ul[aria-label='أسئلةٌ جاهزة']").count() == 0
 
-    gateway.queue(tool_request("CAMPAIGNS"), assistant_reply(answer="لا حملات بعد؛ ابدأ واحدة.", used=("TOOL",), open="new"))
+    gateway.queue(tool_request("list_campaigns"), assistant_reply(answer="لا حملات بعد؛ ابدأ واحدة.", used=("TOOL",), open="new"))
     page.fill("dialog[open] textarea", "هل عندي حملات؟ رقمي 0551234567")
     flow.press("dialog[open] button[type=submit]", lambda: flow.screen("dialog[open] >> text=افتح «حملة جديدة»"), "أرسل")
     flow.audit("chat-answer")
@@ -98,7 +98,9 @@ def test_the_conversation_carries_on_with_tools_and_opens_the_suggested_screen(n
     bodies = _posted(page)
     assert bodies[0] == {"screen": {"kind": "HOME"}, "ready_question": 0, "history": []}
     assert bodies[1]["history"] == [{"question": "من أين أبدأ عملي اليوم؟", "answer": ANSWER}]
-    assert "<conversation>" in gateway.calls[-1].user and '<tool_result name="CAMPAIGNS">' in gateway.calls[-1].user
+    # المحادثة في رسالة المستخدم، ونتيجة الأداة في دور حلقتها بعدها (tool_result بمعرّف طلبها).
+    last = gateway.calls[-1]
+    assert "<conversation>" in last.user and last.turns[-1]["content"][0]["type"] == "tool_result"
 
     flow.press("dialog[open] >> text=افتح «حملة جديدة»", lambda: flow.screen("#photo-input"), "افتح")
     assert page.evaluate("() => location.hash") == "#/marketing/new"
@@ -125,7 +127,7 @@ def test_the_gaze_size_pages_the_chat_without_scrolling_and_no_look_lands_on_a_s
     names = page.eval_on_selector_all("dialog[open] button", "(bs) => bs.map((b) => b.textContent.trim())")
     assert names == ["من أين أبدأ عملي اليوم؟", "اكتب سؤالك", "الأدوات", "إغلاق"]
 
-    gateway.queue(tool_request("CAMPAIGNS"), assistant_reply(answer=LONG, used=("TOOL",), open="campaigns"))
+    gateway.queue(tool_request("list_campaigns"), assistant_reply(answer=LONG, used=("TOOL",), open="campaigns"))
     flow.press("dialog[open] >> text=من أين أبدأ عملي اليوم؟", lambda: flow.screen("dialog[open] >> text=سؤالٌ جديد"), "سؤالٌ جاهز")
     flow.audit("chat-answer")
     assert "حملاتك" in page.inner_text("dialog[open]")
@@ -195,11 +197,13 @@ def test_the_storekeepers_question_reads_the_items_and_suggests_a_screen(next_pa
     flow = Flow(page)
     page.goto(page.next)
     flow.screen("#nav-chat")
-    gateway.queue(tool_request("ITEMS", "ماء"), assistant_reply(answer="لا منتج بهذا الاسم بعد.", used=("TOOL",), open="item"))
+    gateway.queue(tool_request("search_items", {"query": "ماء"}), assistant_reply(answer="لا منتج بهذا الاسم بعد.", used=("TOOL",), open="item"))
     flow.press("#nav-chat", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
     page.fill("dialog[open] textarea", "كم رصيد الماء؟")
     flow.press("dialog[open] button[type=submit]", lambda: flow.screen("dialog[open] >> text=افتح «منتج جديد»"), "أرسل")
     assert "بحث في المنتجات: «ماء»" in page.inner_text("dialog[open] [role=log]")
-    assert "لا منتج يطابق «ماء»." in gateway.calls[-1].user
+    # نتيجة الأداة في دور حلقتها بعد رسالة المستخدم، بمعرّف طلبها، وتقول ما يُجرَّب بعدها.
+    (result,) = gateway.calls[-1].turns[-1]["content"]
+    assert result["content"].startswith("لا منتج نشطاً يطابق «ماء».") and "<tool_result" not in gateway.calls[-1].user
     flow.press("dialog[open] >> text=افتح «منتج جديد»", lambda: flow.until("location.hash === '#/inventory/items/new'"), "افتح")
     assert not page.errors, page.errors

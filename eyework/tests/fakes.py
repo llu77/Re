@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import itertools
 import threading
 from collections import deque
 from dataclasses import replace
@@ -18,7 +19,7 @@ from dataclasses import replace
 from eyework.copy_rules import check_copy
 from eyework.copywriter import CopyOutcome
 from eyework.prompt import CopyRequest
-from eyework.prompt_kit import ModelCall, ModelReply
+from eyework.prompt_kit import ModelCall, ModelReply, ToolCall
 
 TITLE = "حقيبة جلدية بنية أنيقة"
 DESCRIPTION = "حقيبة يد من الجلد البني بتصميمٍ بسيط وأنيق، تتّسع للأغراض اليومية ولها حزام كتف."
@@ -100,14 +101,27 @@ def review_reply(*flags: dict) -> ModelReply:
 
 
 def assistant_reply(status: str = "ANSWER", answer: str = ANSWER, used: tuple[str, ...] = ("SCREEN",),
-                    tool: str = "NONE", tool_input: str = "", open: str = "NONE") -> ModelReply:
-    return model_reply("OK", {"status": status, "answer": answer, "used": list(used), "tool": tool,
-                              "tool_input": tool_input, "open": open})
+                    open: str = "NONE") -> ModelReply:
+    return model_reply("OK", {"status": status, "answer": answer, "used": list(used), "open": open})
 
 
-def tool_request(tool: str, tool_input: str = "") -> ModelReply:
-    """المساعد يطلب أداة قراءة: status = TOOL بلا جواب."""
-    return assistant_reply("TOOL", "", (), tool, tool_input)
+_TOOL_USE_IDS = itertools.count(1)
+
+
+def tool_requests(*requests: tuple[str, dict]) -> ModelReply:
+    """
+    المساعد يطلب أداةً أو أكثر في دورٍ واحد كما تعيدها البوّابة الحقيقية: `stop_reason = tool_use`، وكتل
+    `tool_use` بمعرّفاتٍ فريدة، ومحتوى الدور (بكتلة تفكيرٍ قبلها) ليُعاد كما هو.
+    """
+    calls = tuple(ToolCall(f"toolu_fake_{next(_TOOL_USE_IDS)}", name, dict(tool_input)) for name, tool_input in requests)
+    content = ({"type": "thinking", "thinking": "", "signature": "sig_fake"},
+               *({"type": "tool_use", "id": call.id, "name": call.name, "input": call.input} for call in calls))
+    return replace(model_reply("OK", None, stop_reason="tool_use"), tool_calls=calls, content=content)
+
+
+def tool_request(name: str, tool_input: dict | None = None) -> ModelReply:
+    """المساعد يطلب أداةً واحدة."""
+    return tool_requests((name, tool_input or {}))
 
 
 class FakeGateway:
