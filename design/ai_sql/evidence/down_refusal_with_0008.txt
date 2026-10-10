@@ -1,0 +1,8 @@
+# 0007's down refusal with 0008 on top (our runner, which knows 0008)
+  ▼ 0008_ai_layer
+psycopg.errors.RaiseException: في القاعدة 1 حساباً مسجَّلاً بلا رابط لا يصفه مخطّط 0006
+version after refused down: 0007
+  ▼ 0007_open_registration
+  ▲ 0007_open_registration
+  ▲ 0008_ai_layer
+version after: 0008

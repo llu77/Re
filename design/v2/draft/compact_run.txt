@@ -1,0 +1,7 @@
+{
+ "mode": "compact",
+ "screens": 68,
+ "failed": {},
+ "landing_hazards": [],
+ "console": []
+}

@@ -1,0 +1,10 @@
+STOCK_REVIEW: problems=[] unions=1 bytes=666
+SUPPORT_REPLY_REVIEW: problems=[] unions=1 bytes=690
+ASSISTANT/STOREKEEPER: problems=[] unions=0 bytes=408
+ASSISTANT/SUPPORT: problems=[] unions=0 bytes=415
+ASSISTANT/MARKETING: problems=[] unions=0 bytes=394
+reviewer system: 2182 chars
+stock checks: 980 chars
+support reply checks: 1175 chars
+assistant system: 1272 chars
+schemas acceptable

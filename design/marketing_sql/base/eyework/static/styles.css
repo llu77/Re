@@ -1,0 +1,398 @@
+/*
+ * صياغة — الطبقة البصرية
+ * ======================
+ * عقد التفاعل بالنظر، مفروضٌ هنا ومختبَرٌ في المتصفّح (tests/ui):
+ *
+ *   • كل عنصرٍ تفاعلي ≥ 72×72، وبين أيّ عنصرين ≥ 24. Apple لا تنشر دقّةً لتتبّع
+ *     العين في iPhone. وإرشاداتها (HIG، «Buttons») تطلب منطقة ضغطٍ 44×44 نقطة على
+ *     الأقل لأيّ إدخال — الإصبع والمؤشر والعين — و60×60 في visionOS، وتباعداً نحو
+ *     12 نقطة حول زرٍّ بإطار. فـ72 و24 أوسع مما تطلبه، وهما رقمان أوّليان: «فحص
+ *     الإدخال» يقيس حجم الهدف على الجهاز ويوصي به، ولا يقيس التباعد بعد. الرمزان
+ *     `--target` و`--target-gap` وحدهما يُرفعان إن أوصى.
+ *   • لا `:hover` إطلاقاً: هل يُطلق مؤشر النظر حدث مرورٍ في الصفحة لا يُعرف قبل
+ *     بوابة الإصدار 0، وإن أطلقه فما يتغيّر تحت النظر ضجيجٌ لعينٍ متعبة. ولا
+ *     حركة ولا انتقال.
+ *   • كل خطوةٍ شاشةٌ واحدة بلا تمرير: التمرير بالنظر يمرّ بقائمة
+ *     AssistiveTouch وهو بطيء. الشريطان العلوي والسفلي ثابتا الارتفاع،
+ *     والمحتوى يأخذ الباقي.
+ *   • الحالة المختارة تُرى بالإطار والعلامة، لا باللون وحده.
+ *   • «حجم النصّ» (Text Size) في iOS يكبّر نصّ المحتوى وحده، حتى `--fs-cap`.
+ *     الأهداف والمسافات وأشرطة الإطار بالجذر (16px) فلا تتغيّر (انظر `.screen`).
+ *   • مساحات الحالة والتنبيه محجوزة: ظهور رسالة لا يحرّك زرّاً تحت النظر.
+ */
+
+:root {
+    --navy: #061840;            /* الأبيض عليه 17.3:1 */
+    --brand-strong: #2455CC;    /* 6.47:1 على الأبيض */
+    --brand-tint: #EFF4FE;
+    --ink: #101B33;             /* 17.1:1 */
+    --ink-soft: #52606D;        /* 6.5:1 */
+    --surface: #FFFFFF;
+    --surface-sunk: #F5F8FC;
+    --line: #DCE3EC;
+    --line-strong: #C3CEDB;
+    --alert: #A3120B;           /* 7.9:1 */
+    --ok: #0E6B46;              /* 6.5:1 */
+
+    --target: 4.5rem;           /* 72px */
+    --target-gap: 1.5rem;       /* 24px */
+    --edge: 1rem;               /* 16px */
+    --radius: 0.75rem;
+    --font: 'Amiri', 'Segoe UI', Georgia, serif;
+    --fs-body: 1.125rem;        /* 18px */
+    --fs-title: 1.375rem;       /* 22px */
+    --fs-value: 1.5rem;         /* 24px */
+    --fs-small: 1rem;           /* 16px */
+    /* سقف نصّ المحتوى حين يتبع «حجم النصّ» في iOS (انظر `.screen`): أكبر حجمٍ تجتاز
+       عنده كل شاشةٍ فحوص tests/ui/test_text_size.py. عند 20 يُقصّ سطر الحالة تحت
+       النصّ المقبول الأكثر هدراً للأسطر في إطار الإجهاد (320)؛ وعند 21 تفيض شاشتا
+       «قبل أن تبدأ» و«تأكيدٌ نهائي» في 320، ويقع خيار مدّةٍ تحت النظر الباقي في 390.
+       رفعه يعني إعادة تصميم تلك الشاشات أولاً. */
+    --fs-cap: 1.1875rem;        /* 19px */
+    /* درجات نصّ المحتوى: فرقٌ ثابتٌ عن متن `.content`، فتكبر معه وتحفظ ترتيبها. وكلٌّ
+       منها عند المتن 18 هو الحجم الثابت المقابل: 16 و20 و22 و24. */
+    --text-small: calc(1em + var(--fs-small) - var(--fs-body));
+    --text-restate: calc(1em + 0.125rem);
+    --text-title: calc(1em + var(--fs-title) - var(--fs-body));
+    --text-value: calc(1em + var(--fs-value) - var(--fs-body));
+    --line-height: 1.6;
+    color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* السمة hidden تغلب كل عرضٍ يحدّده صنف: `.btn { display: inline-flex }` كان
+   يُظهر زرّاً مخفيّاً فوق غيره — زرٌّ لا يُرى في الشيفرة يعترض النظر على الشاشة. */
+[hidden] { display: none !important; }
+
+/* الجذر بحجم المتصفّح (16px) فتعني rem ما تقوله: 4.5rem = 72px. والمتن 18px على
+   body. «حجم النصّ» في إعدادات iOS لا يغيّر الجذر في Safari، بل نصّ المحتوى وحده
+   عبر `.screen` أدناه. وما يكبّر الصفحة كلّها — الأهداف والنصّ معاً — هو تكبير
+   الصفحة في Safari، وتكبير الشاشة، والتكبير. */
+html { font-size: 100%; height: 100%; -webkit-text-size-adjust: 100%; }
+body {
+    margin: 0;
+    height: 100%;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+}
+
+* { animation: none !important; transition: none !important; }
+
+button, input, textarea, label, a { font: inherit; }
+
+h2 { margin: 0; font-size: var(--text-title); line-height: 1.4; color: var(--navy); }
+h2:focus { outline: none; }
+p { margin: 0; }
+
+/* ── الإطار ─────────────────────────────────────────────────────────── */
+.app { height: 100%; }
+
+.screen {
+    display: grid;
+    grid-template-rows: var(--target) 1fr var(--target);
+    row-gap: var(--target-gap);
+    height: 100dvh;
+    padding: max(var(--edge), env(safe-area-inset-top)) max(var(--edge), env(safe-area-inset-right))
+             max(var(--edge), env(safe-area-inset-bottom)) max(var(--edge), env(safe-area-inset-left));
+    /* «حجم النصّ» للنصّ وحده. `-apple-system-body` قيمةٌ لـWebKit وحده تأخذ حجم نمط
+       Body من النظام وتتبعه إن تغيّر (17 نقطة عند الحجم الافتراضي، و23 عند
+       xxxLarge، و53 عند AX5)؛ وما لا يعرفها (Chromium مثلاً) يُسقطها فيبقى 18. وتُعاد
+       بعدها عائلة الخطّ وتباعد الأسطر. ويُحدّ الحجم في `.content` بين المتن والسقف،
+       والأشرطة والأزرار والحقول بأحجامها الثابتة: لا يكبر هدفٌ ولا تتغيّر مسافة.
+       لم يُقَس على جهازٍ بعد: هل يبقى الحجم بعد إعادة العائلة، وهل النقطة px. ومهما
+       أعطى WebKit فمتن المحتوى بين 18 و19 والدرجات الأخرى بفروقها: لا يصغر نصٌّ عمّا
+       كان ولا يتجاوز ما اختُبر. */
+    font: -apple-system-body;
+    font-family: var(--font);
+    line-height: var(--line-height);
+}
+.screen[hidden] { display: none; }
+
+/* الإطار لا يتبع «حجم النصّ»: الشريطان ثابتا الارتفاع. */
+.bar {
+    font-size: var(--fs-body);
+    display: flex;
+    align-items: stretch;
+    gap: var(--target-gap);
+    min-width: 0;
+}
+/* «حسناً» (72) تظهر فوق وسط الشريط في كل شاشة، فلا يقترب منها زرّ الطرف أقلّ من
+   24 في أيّ عرض: عرضه حتى (الشريط − 72) ÷ 2 − 24، وما زاد من اسمه يلتفّ سطرين. */
+.bar--top .slot {
+    --slot-max: calc((100% - var(--target)) / 2 - var(--target-gap));
+    flex: 0 0 auto;
+    min-width: min(6.5rem, var(--slot-max));
+    max-width: var(--slot-max);
+}
+.bar--top .step {
+    flex: 1;
+    /* نصّ الخطوة يلتفّ سطرين ولا يدفع الزرّين إلى حافّة الشاشة: «بوابة أمين
+       المخزون» أعرض من المسافة بينهما في 375px. */
+    min-width: 0;
+    align-self: center;
+    text-align: center;
+    text-wrap: balance;
+    line-height: 1.3;
+    color: var(--ink-soft);
+    font-size: var(--fs-small);
+}
+.bar--bottom .slot { flex: 1 1 0; min-width: 0; }
+.slot { display: flex; }
+.slot > .btn { flex: 1; }
+.slot-text {
+    align-self: center;
+    width: 100%;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: var(--fs-small);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 0;
+    overflow: hidden;
+    margin: 0;
+    font-size: clamp(var(--fs-body), 1em, var(--fs-cap));
+}
+/* مجموعةٌ تفاعلية تلي مجموعةً تفاعلية: 8 + 16 = 24، حدّ التباعد بين هدفين. */
+.content > .spaced { margin-block-start: calc(var(--target-gap) - 0.5rem); }
+.field-group { display: flex; flex-direction: column; gap: 0.25rem; }
+
+/* ── الأزرار ────────────────────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--target);
+    min-width: var(--target);
+    padding: 0 0.75rem;
+    border: 2px solid var(--brand-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--brand-strong);
+    font-size: var(--fs-body);
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+}
+.btn--commit { background: var(--brand-strong); color: #FFFFFF; }
+.btn--wide { width: 100%; flex: none; }
+/* زرٌّ في المحتوى بعرض نصّه، في بداية السطر (اليمين). */
+.btn--start { align-self: flex-start; }
+.btn:disabled, .btn[aria-disabled="true"] {
+    border-color: var(--line-strong);
+    background: var(--surface-sunk);
+    color: var(--ink-soft);
+    cursor: default;
+}
+/* رابطٌ مقفل لا يقبل نقرةً من أيّ مصدر: النظر والإصبع والفأرة. */
+a.btn[aria-disabled="true"] { pointer-events: none; }
+.btn:focus-visible, .field:focus-visible { outline: 3px solid var(--navy); outline-offset: 3px; }
+/* زرٌّ غير مطلوب في هذه الحالة يبقى مكانه محجوزاً ولا يُرى: لا يتحرّك ما حوله. */
+.btn.is-reserved { visibility: hidden; }
+
+/* اختيارٌ ظاهرٌ بالإطار والعلامة لا باللون وحده */
+.chip[aria-pressed="true"] { border-width: 4px; background: var(--brand-tint); color: var(--navy); }
+.chip[aria-pressed="true"]::before {
+    content: "";
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.9rem;
+    margin-inline-end: 0.5rem;
+    border: solid var(--navy);
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+
+.grid { display: grid; gap: var(--target-gap); flex: none; }
+.grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid > .btn { min-width: 0; padding: 0 0.25rem; }
+.grid--3 > .btn { font-size: var(--fs-small); }
+
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--target-gap); }
+.rows .btn { width: 100%; justify-content: space-between; gap: 0.5rem; }
+.rows .btn .row-status { font-weight: 400; color: var(--ink-soft); font-size: var(--fs-small); }
+
+/* ── الحقول ─────────────────────────────────────────────────────────── */
+.label { font-weight: 700; font-size: var(--text-small); }
+.field {
+    min-height: var(--target);
+    padding: 0 1rem;
+    border: 2px solid var(--ink-soft);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--fs-body);
+}
+.field--area { min-height: 6.5rem; padding: 0.5rem 1rem; resize: none; }
+.field[readonly] { background: var(--surface-sunk); }
+
+/* ── النصوص ─────────────────────────────────────────────────────────── */
+.help, .notice, .status { color: var(--ink-soft); font-size: var(--text-small); }
+.status { min-height: 1.6rem; }
+.warnings { color: var(--alert); }
+.notice { border-inline-start: 4px solid var(--line-strong); padding-inline-start: 0.75rem; }
+
+.headline { display: flex; align-items: center; gap: 0.75rem; min-height: 4.5rem; }
+.thumb { width: 4.5rem; height: 4.5rem; object-fit: cover; border-radius: var(--radius); flex: none; background: var(--surface-sunk); }
+.title { font-size: var(--text-title); font-weight: 700; line-height: 1.4; color: var(--navy); }
+/* كيف تُؤدّى المهمّة: علامةٌ مقروءة لا لونٌ وحده. */
+.badge {
+    align-self: flex-start;
+    padding: 0.125rem 0.75rem;
+    border: 2px solid var(--line-strong);
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    font-weight: 700;
+    color: var(--ink);
+}
+.badge[data-mode="IN_APP"] { border-color: var(--ok); color: var(--ok); }
+/* اسم الدخول كاملاً، كبيراً، من اليسار: خطأٌ فيه يُرى قبل أن يصير حساباً. */
+.login-name { font-size: var(--text-title); font-weight: 700; color: var(--navy); word-break: break-all; }
+.description { white-space: pre-line; }
+.description--3, .description--2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.description--3 { -webkit-line-clamp: 3; }
+.description--2 { -webkit-line-clamp: 2; }
+.line bdi, .value bdi, .restate bdi { unicode-bidi: isolate; }
+
+.value {
+    min-height: 4.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border: 2px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-sunk);
+}
+.value__digits { font-size: var(--text-value); font-weight: 700; color: var(--navy); line-height: 1.3; }
+.value__words { color: var(--ink); line-height: 1.4; }
+.value__daily { color: var(--ink-soft); font-size: var(--text-small); line-height: 1.4; }
+
+.restate { font-size: var(--text-restate); line-height: 1.6; padding-block: 0.5rem; }
+
+.preview { flex: 1; min-height: 0; display: flex; justify-content: center; }
+.preview img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--radius); }
+
+.waiting, .copy { display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; }
+/* أجزاء النصّ المقترح لا تنكمش: صفّ العنوان وسطر الحالة لكلٍّ منهما حدٌّ أدنى معلن،
+   فكانا ينكمشان إليه في 320px ويركب نصُّهما ما حوله — فيضٌ لا يُقاس، فلا يُضغط
+   التخطيط ولا تُعرض الملاحظة أولاً. */
+.copy > * { flex-shrink: 0; }
+/* أطول نصٍّ مقبول مع ملاحظةٍ وتنبيه لا يتّسع في 375×635: تُقاس الشاشة بعد رسمها،
+   فإن فاض المحتوى سقطت الصورة المصغّرة وتقاربت الأسطر — ولا يُقصّ حرفٌ من النصّ. */
+.copy--compact { gap: 0.25rem; }
+.copy--compact .thumb { display: none; }
+.copy--compact .headline { min-height: 0; }
+.copy--compact .title { line-height: 1.3; }
+.copy--compact .description { line-height: 1.45; }
+.copy--compact .notice, .copy--compact .status { line-height: 1.4; min-height: 0; }
+.waiting[hidden], .copy[hidden], .preview img[hidden] { display: none; }
+
+/* التنبيه يغطّي المحتوى ولا يحرّك الأشرطة: الأزرار تحت النظر في أماكنها. */
+.content { position: relative; }
+.alert {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--target-gap);
+    padding: 1rem;
+    background: var(--surface);
+    border: 2px solid var(--alert);
+    border-radius: var(--radius);
+}
+.alert[hidden] { display: none; }
+/*
+ * «حسناً» فوق وسط الشريط العلوي، لا وسط المحتوى. بعد الإقرار تُرسم الشاشة من
+ * جديد، وما تحت النظر حينها نصّ الخطوة في كل شاشة — لا خيار قيمةٍ ولا زرّ
+ * اعتماد. وأزرار الشريطين معطّلةٌ ما دام التنبيه ظاهراً (`UI.showAlert`).
+ */
+.alert [data-ack] {
+    position: fixed;
+    top: max(var(--edge), env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--target);
+    height: var(--target);
+    padding: 0;
+    z-index: 2;
+}
+.alert__text { color: var(--alert); font-weight: 700; }
+
+/*
+ * الوضع الأفقي على الهاتف: الإطار (72 + 24 + المحتوى + 24 + 72) لا يتّسع في
+ * ارتفاعٍ دون 500px، والمحتوى مقصوصٌ بلا تمرير — فتختفي أزرار القيم. لا تخطيطَ
+ * أفقيّ يحفظ عقد النظر هنا، فتُخفى الشاشات (visibility: لا تُضغط ولا تُركَّز)
+ * ويظهر طلب التدوير. الحاسوب والجهاز اللوحي أطول من ذلك فلا يمسّهما.
+ */
+.rotate { display: none; }
+/* «زيادة التباين» في iOS (prefers-contrast: more): النصّ الثانوي أغمق (9.7:1 بدل
+   6.5:1)، والخطوط 3:1 على الأقل على الأبيض وعلى السطح الغائر (--surface-sunk)، وحدود الأزرار أعرض — والأهداف بحجمها 72×72، فالحدّ
+   داخل الصندوق (border-box). iOS لا يُبلغ «less» أبداً، ولا استعلام لتقليل الشفافية:
+   الأسطح معتمةٌ أصلاً. */
+@media (prefers-contrast: more) {
+    :root {
+        --ink-soft: #3A4553;
+        --line: #7E8FA1;
+        --line-strong: #5F6E80;
+    }
+    .btn { border-width: 3px; }
+}
+
+/* زرٌّ من جزأين (العنوان والحالة) شكلٌ واحدٌ للنقر وللتظليل في Safari على Vision Pro:
+   ما تحت المؤشر هو الزرّ نفسه لا أحد جزأيه. */
+.btn > * { pointer-events: none; }
+
+@media (orientation: landscape) and (max-height: 500px) {
+    .app { visibility: hidden; }
+    .rotate {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        padding: var(--edge);
+        background: var(--surface);
+        text-align: center;
+    }
+}
+.rotate__title { font-size: var(--fs-title); font-weight: 700; color: var(--navy); }
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ── الحاسوب واللوحي: الإطار نفسه في عمودٍ متوسّط ───────────────────── */
+@media (min-width: 48rem) {
+    body { background: var(--surface-sunk); }
+    .screen {
+        width: 26rem;
+        height: min(100dvh, 52.75rem);
+        margin: 0 auto;
+        background: var(--surface);
+        border-inline: 1px solid var(--line);
+    }
+}

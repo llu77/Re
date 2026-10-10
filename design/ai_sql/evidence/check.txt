@@ -1,0 +1,46 @@
+PASS assistant: a second question while one is open is refused
+PASS assistant: finish records outcome and numbers, no content columns exist
+PASS ledger has no text column that could hold content
+PASS assistant: finish with a review outcome is refused
+PASS a settled request cannot be settled again
+PASS assistant: the eleventh question in ten minutes is refused (ai_rate)
+PASS usage: storekeeper sees ASSISTANT and STOCK_REVIEW only; unbillable failures do not count
+PASS assistant: the 61st billable question in 24 h is refused (ai_daily_cap)
+PASS new open account: the 16th question is refused (ai_new_account_daily_cap)
+PASS a marketing account cannot open a STOCK_REVIEW request (ai_feature_profession)
+PASS review: two flags written, request OK with flags_count 2
+PASS RLS: another user sees none of these flags or requests
+PASS the same content is not reviewed twice (ai_review_current)
+PASS gate: undecided flags block the commit (ai_flags_undecided)
+PASS UNDO before PROCEED is refused (ai_decision_undo)
+PASS repeating the standing decision adds no row
+PASS gate: an undone PROCEED blocks again
+PASS another user cannot decide on these flags (not found)
+PASS gate: all PROCEED -> commit passes and closes both flags
+PASS a closed flag takes no decision (ai_flag_closed)
+PASS audit trail is append-only and complete
+PASS decisions cannot be updated, even by the owner
+PASS flag texts cannot be rewritten (ai_flag_immutable)
+PASS content changed during the review -> DISCARDED, no flag written
+PASS gate passes on content with no flags (the AI never blocks by being absent)
+PASS a reason carrying a link is refused by the table (ai_flag_texts)
+PASS four flags are refused (ai_flags_shape)
+PASS an extra key in a flag is refused (ai_flags_shape)
+PASS a successful result after the lease is refused (ai_request_not_open)
+PASS a failure after the lease is still recorded
+PASS erase: texts gone, code and decisions kept
+PASS forget: deleting the subject deletes its flags and their decisions
+PASS web role: insert ai_requests is denied
+PASS web role: update ai_flags is denied
+PASS web role: delete ai_flag_decisions is denied
+PASS web role cannot call ew_ai_request_open
+PASS web role cannot call ew_ai_gate
+PASS web role cannot call ew_ai_flags_put
+PASS web role cannot call ew_ai_spend
+PASS web role cannot read ai_features directly
+PASS ew_ai_spend counts tombstones and the new-account share
+PASS global cap counts ai_requests + campaigns + tombstones (generation_global_cap)
+PASS campaign generation counts the shared spend (ew_begin_generation calls ew_ai_spend)
+PASS account deletion leaves one tombstone per billable request of the last 24 h
+PASS account deletion removes its flags and decisions
+45 of 45 checks pass

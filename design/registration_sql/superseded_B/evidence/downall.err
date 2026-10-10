@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "design/registration_sql/migrations/run.py", line 165, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "design/registration_sql/migrations/run.py", line 159, in main
+    count = migrate_down(connection, args.target, args.all)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "design/registration_sql/migrations/run.py", line 119, in migrate_down
+    _apply(connection, migration, "down")
+  File "design/registration_sql/migrations/run.py", line 82, in _apply
+    cursor.execute(script)
+  File "/usr/local/lib/python3.11/dist-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.RaiseException: في القاعدة 1 حساباً لا يصفه مخطّط 0004 (مسجَّلٌ ذاتياً أو من غير التسويق)
+HINT:  البريد لا يُخزَّن فلا يجدها delete-user؛ تُحذف بدور المالك: DELETE FROM users WHERE self_registered OR profession <> 'MARKETING'
+CONTEXT:  PL/pgSQL function inline_code_block line 7 at RAISE

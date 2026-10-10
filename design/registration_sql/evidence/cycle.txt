@@ -1,0 +1,4 @@
+down to 0006 restores 0006:   identical
+up again matches first up:    identical
+from empty matches first up:  identical
+NEXT changes the schema:      yes

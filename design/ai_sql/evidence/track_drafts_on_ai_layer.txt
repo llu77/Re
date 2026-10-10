@@ -1,0 +1,8 @@
+# Track drafts as of 2026-10-09T01:09:42Z, each applied in a rolled-back transaction on top of 0008_ai_layer
+== support_sql/NEXT_support_desk.up.sql (8d81474ab5d2)
+ERROR:  function "ew_ai_spend" already exists with same argument types
+== inventory_sql/NEXT_inventory.up.sql (65cd1544ff69)
+-------------------------------------
+ f
+(1 row)
+
