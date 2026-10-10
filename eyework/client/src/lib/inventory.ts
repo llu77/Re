@@ -328,7 +328,8 @@ export interface Voucher {
 
 export interface CountLine {
   line_no: number
-  item: ItemOption
+  /** رصيد المنتج مخفيٌّ كذلك في العدّ المغلق حتى يُعدّ. */
+  item: Omit<ItemOption, "on_hand_milli"> & { on_hand_milli: number | null }
   /** مخفيٌّ في العدّ المغلق حتى يُعدّ. */
   book_milli: number | null
   counted_milli: number | null
@@ -341,6 +342,8 @@ export interface CountLine {
   /** تحرّك رصيده بعد اللقطة: يُحدَّث ويُعاد عدّه. */
   changed: boolean
   needs_cost: boolean
+  /** تكلفة الوحدة تُطلب لعدٍّ موجب: رصيد المنتج صفر (لا يُرسل الرصيد نفسه في العدّ المغلق). */
+  asks_cost: boolean
   posted: boolean
 }
 
@@ -425,10 +428,13 @@ export interface Summary {
   settings: Settings | null
   attention: {
     drafts: number
+    purchase_drafts: number
+    return_drafts: number
     low_stock: number
     awaiting_credit_note: number
     credit_note_overdue: number
     uncounted: number
+    short_delivery: number
     open_count: { id: string; label: string } | null
   }
   counts: { items: number; suppliers: number; movements: number }
@@ -478,16 +484,21 @@ const DIGITS: Record<string, string> = {
 }
 
 function latin(text: string): string {
-  return text.replace(/[٠-٩۰-۹]/g, (d) => DIGITS[d] ?? d).replace(/٫/g, ".").replace(/[٬,\s]/g, "")
+  const value = text.replace(/[٠-٩۰-۹]/g, (d) => DIGITS[d] ?? d).replace(/٫/g, ".").replace(/٬/g, ",").replace(/\s/g, "")
+  // الفاصلة فاصلة آلافٍ وحدها (1,250): «2,5» من لوحةٍ فاصلتها العشرية فاصلة خطأٌ يُرفض، لا 25.
+  return /^\d{1,3}(,\d{3})+(\.\d*)?$/.test(value) ? value.replace(/,/g, "") : value
 }
 
-/** «2.5» → 2500؛ وبلا كسورٍ للوحدات التي تُعدّ؛ أو null. الحدّ الأعلى مليار وحدة. */
-export function parseMilli(text: string, decimals: boolean, max = 1_000_000_000_000): number | null {
+/**
+ * «2.5» → 2500؛ وبلا كسورٍ للوحدات التي تُعدّ؛ أو null. الحدّ الأعلى مليار وحدة. والصفر بـ`zero`
+ * وحده (العدّ والمرتجع وحدّ الطلب)، بالأرقام العربية واللاتينية سواء.
+ */
+export function parseMilli(text: string, decimals: boolean, max = 1_000_000_000_000, { zero = false }: { zero?: boolean } = {}): number | null {
   const value = latin(text.trim())
   if (!(decimals ? /^\d{1,9}(\.\d{1,3})?$/ : /^\d{1,9}$/).test(value)) return null
   const [whole, fraction = ""] = value.split(".")
   const milli = Number(whole) * 1000 + Number(fraction.padEnd(3, "0"))
-  return milli >= 1 && milli <= max ? milli : null
+  return milli >= (zero ? 0 : 1) && milli <= max ? milli : null
 }
 
 const group = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 })
@@ -580,7 +591,7 @@ export const itemMovements = (id: string, page: number, size: number) => get<Pag
 export const patchItem = (id: string, rowVersion: number, fields: object) =>
   patch<Item>(`/items/${id}`, { expected_row_version: rowVersion, ...fields })
 
-export const listPurchases = (status: PurchaseStatus | null, q: string, page: number, size: number) =>
+export const listPurchases = (status: PurchaseStatus | "RETURNABLE" | null, q: string, page: number, size: number) =>
   get<Paged<PurchaseRow>>("/purchases", { status: status?.toLowerCase(), q, page, size })
 export const createPurchase = (body: object = {}) => post<Purchase>("/purchases", body)
 export const getPurchase = (id: string) => get<Purchase>(`/purchases/${id}`)

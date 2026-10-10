@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from eyework import auth, config, inventory, reviewer
+from eyework.assistant import NO_SCREEN
 from eyework.db import Database
 from eyework.inventory_prompt import PAYLOAD_KEYS
 from eyework.tests.api.conftest import LOGIN_KEY, ORIGIN, add_user, expect, log_in
@@ -234,6 +235,15 @@ def test_a_purchase_is_posted_with_every_flag_acknowledged_and_the_row_version_s
     assert client.get(f"{BASE}/expenses", params={"from": today, "to": f"{month}-01"}).json()["code"] == "INV_PERIOD"
     summary = expect(client.get(f"{BASE}/summary"))
     assert summary["month_totals"]["net"]["gross"] == 115000 and summary["stock_value"] == 100000
+    # نقص التسليم يبقى في «يحتاج انتباهك» حتى يُسجَّل مرتجعٌ بما لم يصل، ولا يكفي مرتجعٌ بأقلّ منه.
+    assert summary["attention"]["short_delivery"] == 1
+    for quantity, waiting in ((1000, 1), (1000, 0)):
+        r = expect(client.post(f"{BASE}/returns", json={"purchase_id": p["id"]}), 201)
+        r = expect(client.put(f"{BASE}/returns/{r['id']}/lines/1", json={"expected_row_version": r["row_version"], "quantity_milli": quantity}))
+        r = expect(client.patch(f"{BASE}/returns/{r['id']}", json={"expected_row_version": r["row_version"], "reason": "SHORT_DELIVERY"}))
+        keys = [f["key"] for f in expect(client.get(f"{BASE}/returns/{r['id']}/flags"))["flags"]]
+        expect(client.post(f"{BASE}/returns/{r['id']}/post", json={"expected_row_version": r["row_version"], "acknowledged": keys}))
+        assert expect(client.get(f"{BASE}/summary"))["attention"]["short_delivery"] == waiting
 
 
 def test_a_second_tab_posting_the_same_draft_is_refused_and_the_draft_can_be_discarded(keeper, today):
@@ -259,6 +269,9 @@ def test_symbols_review_sends_the_minimum_and_its_flag_gates_the_posting(keeper,
     sup, rep, water, rice, p = _scene(client, today)
     near = item(client, "مياه 330 كرتون")
     p = line(client, expect(client.get(f"{BASE}/purchases/{p['id']}")), near, 5000, 1800)
+    # اسمٌ كتبه المورّد برقم جوال: يُرسَل بعد الإخفاء.
+    chip = item(client, "شريحة بيانات 0559876543", price=2500)
+    p = line(client, expect(client.get(f"{BASE}/purchases/{p['id']}")), chip, 1000, 2500)
     gateway.queue(review_reply(flag(check="SAME_AS_EXISTING_ITEM", field="item", line=2,
                                     reason="«مياه 330 كرتون» يبدو المنتج نفسه «كرتونة ماء ٣٣٠ مل» الموجود.",
                                     suggestion="استعمل المنتج الموجود بدلاً منه.")))
@@ -272,7 +285,8 @@ def test_symbols_review_sends_the_minimum_and_its_flag_gates_the_posting(keeper,
     sent = json.loads(call.user.split(">", 1)[1].rsplit("<", 1)[0])
     assert sent["lines"][1]["new_item"] and sent["lines"][1]["candidates"][0]["item"] == "كرتونة ماء ٣٣٠ مل"
     assert sent["lines"][0]["unit_price"] == "100.00" and sent["lines"][0]["history"]["count"] == 0
-    for forbidden in (NAME, "مؤسسة النور", "INV-1001", "300000000000003", today):
+    assert sent["lines"][2]["item"] == "شريحة بيانات [رقم]"
+    for forbidden in (NAME, "مؤسسة النور", "INV-1001", "300000000000003", today, "0559876543", "0501234567"):
         assert forbidden not in call.user
     assert _keys(sent, set()) <= set(PAYLOAD_KEYS)
     # الملاحظة التي لم يُبتّ فيها تحجز التسجيل (409 FLAGS_UNDECIDED)، و«تابع رغم ذلك» يفتحه.
@@ -288,7 +302,7 @@ def test_symbols_review_sends_the_minimum_and_its_flag_gates_the_posting(keeper,
     with owner.cursor() as cursor:
         cursor.execute("SELECT closed_at IS NOT NULL FROM ai_flags WHERE id = %s", (shown["id"],))
         assert cursor.fetchone()[0]
-    # الفحص الحتمي قبل الاستدعاء: مسودةٌ بلا أسطر 422، ومسودةٌ مسجّلة 404، ومهنةٌ أخرى 403.
+    # الفحص الحتمي قبل الاستدعاء: مسودةٌ بلا أسطر 422، وفاتورةٌ مسجّلة 404.
     empty = draft(client, sup, no="INV-3", day=today, printed=1000)
     assert review(client, "PURCHASE", empty["id"], empty["row_version"]).status_code == 422
     assert review(client, "PURCHASE", p["id"], posted["row_version"]).status_code == 404
@@ -332,10 +346,15 @@ def test_a_return_takes_its_share_and_waits_for_the_credit_note(keeper, today):
     assert r["lines"][0]["remaining_milli"] == 10000 and r["lines"][0]["quantity_milli"] == 0
     r = expect(client.put(f"{BASE}/returns/{r['id']}/lines/1", json={"expected_row_version": r["row_version"], "quantity_milli": 3000}))
     assert r["lines"][0]["quantity_milli"] == 3000
+    # المسودة تعرض قيمة التسجيل نفسها: حصّةٌ من صافي السطر وضريبته (لا الكمية × السعر قبل الخصم).
+    assert r["totals"] == {"net": 30000, "vat": 4500, "gross": 34500}
     too_many = client.put(f"{BASE}/returns/{r['id']}/lines/1", json={"expected_row_version": r["row_version"], "quantity_milli": 11000})
     assert too_many.json()["code"] == "INV_RETURN_QTY"
     no_reason = client.post(f"{BASE}/returns/{r['id']}/post", json={"expected_row_version": r["row_version"], "acknowledged": []})
     assert no_reason.json()["code"] == "INV_RETURN_REASON"
+    # تاريخٌ لا يُكتب على مستند (والموعد بعده في سنةٍ لا توجد) حقلٌ خاطئ، لا خطأ خادم.
+    far = client.patch(f"{BASE}/returns/{r['id']}", json={"expected_row_version": r["row_version"], "return_date": "9999-12-31"})
+    assert (far.status_code, far.json()["code"], far.json()["field"]) == (422, "INV_DATE", "return_date")
     r = expect(client.patch(f"{BASE}/returns/{r['id']}", json={"expected_row_version": r["row_version"], "reason": "SHORT_DELIVERY"}))
     keys = [f["key"] for f in expect(client.get(f"{BASE}/returns/{r['id']}/flags"))["flags"]]
     r = expect(client.post(f"{BASE}/returns/{r['id']}/post", json={"expected_row_version": r["row_version"], "acknowledged": keys}))
@@ -350,6 +369,15 @@ def test_a_return_takes_its_share_and_waits_for_the_credit_note(keeper, today):
     assert after["lines"][0]["remaining_milli"] == 7000 and after["returns"][0]["label"] == "ر-0001"
     assert client.post(f"{BASE}/purchases/{p['id']}/reverse", json={"expected_row_version": after["row_version"], "reason": "DUPLICATE"}).json()["code"] == "INV_REVERSAL_RETURNS"
     assert expect(client.get(f"{BASE}/summary"))["attention"]["awaiting_credit_note"] == 0
+    # «من أيّ فاتورة؟» تعرض ما بقي فيه ما يُرجَع: بعد إرجاع الباقي تغيب الفاتورة.
+    returnable = lambda: [row["id"] for row in expect(client.get(f"{BASE}/purchases", params={"status": "returnable"}))["items"]]
+    assert returnable() == [p["id"]]
+    r = expect(client.post(f"{BASE}/returns", json={"purchase_id": p["id"]}), 201)
+    r = expect(client.put(f"{BASE}/returns/{r['id']}/lines/1", json={"expected_row_version": r["row_version"], "quantity_milli": 7000}))
+    r = expect(client.patch(f"{BASE}/returns/{r['id']}", json={"expected_row_version": r["row_version"], "reason": "EXCESS"}))
+    keys = [f["key"] for f in expect(client.get(f"{BASE}/returns/{r['id']}/flags"))["flags"]]
+    expect(client.post(f"{BASE}/returns/{r['id']}/post", json={"expected_row_version": r["row_version"], "acknowledged": keys}))
+    assert returnable() == [] and [row["id"] for row in expect(client.get(f"{BASE}/purchases", params={"status": "posted"}))["items"]] == [p["id"]]
 
 
 def test_vouchers_are_idempotent_and_a_reversal_takes_the_stock_out(keeper, today):
@@ -387,7 +415,8 @@ def test_a_count_session_is_counted_blind_refreshed_and_posted(keeper, today):
     token = str(uuid4())
     session = expect(client.post(f"{BASE}/counts", json={"client_token": token, "scope": "ALL"}), 201)
     assert (session["label"], session["items_total"], session["blind"], session["last_purchase_label"]) == ("ج-0001", 2, True, "ش-0001")
-    assert [line["book_milli"] for line in session["lines"]] == [None, None]     # عدٌّ مغلق: الرصيد مخفيٌّ حتى يُعدّ
+    # عدٌّ مغلق: الرصيد مخفيٌّ حتى يُعدّ، في السطر وفي منتَجه.
+    assert [(line["book_milli"], line["item"]["on_hand_milli"]) for line in session["lines"]] == [(None, None), (None, None)]
     assert expect(client.post(f"{BASE}/counts", json={"client_token": token, "scope": "ALL"}), 200)["replayed"]
     assert client.post(f"{BASE}/counts", json={"client_token": str(uuid4()), "scope": "ALL"}).json()["code"] == "INV_COUNT_OPEN"
     sid = session["id"]
@@ -435,3 +464,41 @@ def test_the_choices_carry_the_inventory_vocabulary(server, browser):
     assert [u["code"] for u in choices["units"]][:3] == ["PIECE", "BOX", "CARTON"]
     assert choices["document_prefixes"]["ITEM"] == "ص" and choices["page_sizes"] == [4, 5, 10, 20]
     assert [r["code"] for r in choices["count_reasons"]["SURPLUS"]] == ["FOUND", "RECORDING_ERROR", "OTHER"]
+
+
+def test_a_vat_inclusive_draft_offers_the_price_rounded_like_the_calculator(keeper, today):
+    """45.50 قبل الضريبة ضريبتها 6.825: نصفٌ إلى أعلى ← 52.33 في المنتقي وفي حاسبة الضريبة معاً."""
+    client, _ = keeper
+    setup(client)
+    water = item(client, "كرتونة ماء ٣٣٠ مل", price=4550)
+    p = draft(client, supplier(client), day=today, prices_include_vat=True)
+    found = expect(client.get(f"{BASE}/items/search", params={"q": "كرتونة", "purchase_id": p["id"]}))
+    assert [(i["id"], i["price_entry_halalas"]) for i in found["items"]] == [(water["id"], 5233)]
+    assert expect(client.get(f"{BASE}/tools/vat", params={"amount_halalas": 4550}))["gross_halalas"] == 5233
+
+
+def test_the_assistant_reads_only_the_keepers_own_inventory_screens(keeper, other, today):
+    """شاشة منتجٍ أو فاتورةٍ أو جردٍ لغير صاحبها، أو بمعرّفٍ لا يوجد: 404 بنصّ الشاشة لا بنصّ الحملة."""
+    client, _ = keeper
+    sup, rep, water, rice, p = _scene(client, today)
+    ask = {"ready_question": 0}
+    assert client.post("/api/ai/assistant", json={"screen": {"kind": "INVENTORY_ITEM", "id": water["id"]}, **ask}).status_code == 200
+    stranger, _ = other
+    setup(stranger)
+    for kind, screen_id in (("INVENTORY_ITEM", water["id"]), ("INVENTORY_PURCHASE", p["id"]), ("INVENTORY_COUNT", str(uuid4()))):
+        refused = stranger.post("/api/ai/assistant", json={"screen": {"kind": kind, "id": screen_id}, **ask})
+        assert (refused.status_code, refused.json()["detail"]) == (404, NO_SCREEN), kind
+
+
+@pytest.mark.parametrize(("body", "code"), [
+    ({"name": "مؤسسة النور", "vat_number": "30000000000003"}, "INV_VAT_NUMBER"),
+    ({"name": "مؤسسة النور", "cr_number": "101234567"}, "INV_CR_NUMBER"),
+    ({"name": "مؤسسة النور", "phone": "011234567"}, "INV_PHONE"),
+    ({"name": "م" * 61}, "INV_NAME"),
+])
+def test_a_wrongly_sized_supplier_field_is_named_by_its_own_message(keeper, body, code):
+    """خانةٌ ناقصة أو زائدة تعود برمز حقلها ورسالته من القاعدة، لا «قيمةٌ غير صالحة» عامّة."""
+    client, _ = keeper
+    setup(client)
+    answer = client.post(f"{BASE}/suppliers", json=body)
+    assert (answer.status_code, answer.json()["code"]) == (422, code)

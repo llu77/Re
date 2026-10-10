@@ -232,16 +232,24 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
         title="جلسة جرد جديدة"
         above={<Stepper steps={steps} current={Math.min(step, steps.length - 1)} />}
         actions={
-          <>
-            <Button id="count-prev" icon={BackIcon} onClick={step === 0 ? onBack : () => setStep(step - 1)}>
-              {step === 0 ? "رجوع" : "السابق"}
-            </Button>
-            {last ? openButton : (
-              <Button id="count-next" variant="secondary" iconEnd={NextIcon} onClick={() => setStep(step + 1)}>
+          // «السابق» حيث كان «التالي» في الخطوة الأخيرة، و«ابدأ الجرد» في الخانة الأخرى.
+          last ? (
+            <>
+              <React.Fragment key="open">{openButton}</React.Fragment>
+              <Button key="prev" id="count-prev" icon={BackIcon} onClick={() => setStep(step - 1)}>
+                السابق
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button key="prev" id="count-prev" icon={BackIcon} onClick={step === 0 ? onBack : () => setStep(step - 1)}>
+                {step === 0 ? "رجوع" : "السابق"}
+              </Button>
+              <Button key="next" id="count-next" variant="secondary" iconEnd={NextIcon} onClick={() => setStep(step + 1)}>
                 التالي
               </Button>
-            )}
-          </>
+            </>
+          )
         }
       >
         {failAlert}
@@ -460,12 +468,12 @@ export function CountLineScreen({ session, line, choices, onSave, onPrevious, on
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
   const decimals = choices.units.find((u) => u.code === line.item.unit)?.decimals ?? false
-  const value = counted.trim() === "" ? null : counted.trim() === "0" ? 0 : parseMilli(counted, decimals)
+  const value = counted.trim() === "" ? null : parseMilli(counted, decimals, undefined, { zero: true })
   const book = line.book_milli
   const difference = value === null || book === null ? null : value - book
   const direction = difference === null || difference === 0 ? null : difference < 0 ? "SHORTAGE" : "SURPLUS"
   const reasons = direction ? choices.count_reasons[direction] : []
-  const needsCost = value !== null && value > 0 && line.item.on_hand_milli === 0 && (book === 0 || book === null)
+  const needsCost = value !== null && value > 0 && line.asks_cost
   const index = session.lines.findIndex((l) => l.item.id === line.item.id)
 
   async function save(then: (() => void) | null) {
@@ -541,7 +549,7 @@ export function CountLineScreen({ session, line, choices, onSave, onPrevious, on
         ) : null}
         <GazeSlot id="count-line-note">
           <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")} className={cn(reason !== "OTHER" && "gaze:short:hidden")}>
-            <Input id="count-line-note" value={note} maxLength={280} onChange={(event) => setNote(event.target.value)} />
+            <Input id="count-line-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} />
           </Field>
         </GazeSlot>
       </GazeHost>

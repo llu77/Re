@@ -86,6 +86,7 @@ DROP FUNCTION IF EXISTS ew_inv_supplier_guard();
 DROP FUNCTION IF EXISTS ew_inv_rep_ok(uuid, uuid, uuid);
 DROP FUNCTION IF EXISTS ew_inv_settings_guard();
 DROP FUNCTION IF EXISTS ew_inv_require_storekeeper(uuid);
+DROP FUNCTION IF EXISTS ew_inv_own(uuid);
 DROP FUNCTION IF EXISTS ew_inv_phone_ok(text);
 DROP FUNCTION IF EXISTS ew_inv_doc_no_ok(text);
 DROP FUNCTION IF EXISTS ew_inv_doc_key(text);

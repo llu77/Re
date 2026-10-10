@@ -47,7 +47,9 @@ from eyework.inventory_rules import (
     normalise_text,
     quantity_words,
     reorder_suggestion,
+    return_share,
     suggested_order,
+    vat_split,
 )
 from eyework.professions import Profession
 from eyework.reviewer import ReviewFeature, Snapshot
@@ -127,7 +129,9 @@ _PROFESSION = "SELECT ew_my_profession() AS profession"
 _DISPLAY_NAME = "SELECT ew_my_display_name() AS name"
 _SETTINGS = """
 SELECT s.cost_includes_vat, s.store_name, s.store_location, s.row_version,
-       EXISTS (SELECT 1 FROM inv_movements m WHERE m.user_id = s.user_id) AS cost_basis_locked
+       -- كما يقفله ew_inv_settings_guard: حركةٌ أو قيدٌ في الدفتر (فاتورة خدماتٍ وحدها تقفله أيضاً).
+       (EXISTS (SELECT 1 FROM inv_movements m WHERE m.user_id = s.user_id)
+        OR EXISTS (SELECT 1 FROM inv_ledger l WHERE l.user_id = s.user_id)) AS cost_basis_locked
   FROM inv_settings s
 """
 _INSERT_SETTINGS = """
@@ -201,7 +205,7 @@ i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_catego
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -217,7 +221,7 @@ i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_catego
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -244,7 +248,7 @@ i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_catego
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -259,7 +263,7 @@ i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_catego
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -334,7 +338,7 @@ _ITEM_COUNT_HISTORY = """
 SELECT cs.number, v.occurred_on, v.on_hand_before_milli, v.quantity_milli, v.reason
   FROM inv_vouchers v LEFT JOIN inv_count_sessions cs ON cs.id = v.session_id
  WHERE v.item_id = %s AND v.kind = 'COUNT'
- ORDER BY v.created_at DESC LIMIT 6
+ ORDER BY v.created_at DESC, v.number DESC LIMIT 6
 """
 
 
@@ -343,7 +347,9 @@ class _Pager:
     """صفحةٌ وحجمها كما يقبلهما المسار، وما يُرجع: items وpage وpages وtotal."""
 
     def __init__(self, page: int, size: int) -> None:
-        if size not in PAGE_SIZES or not 1 <= page <= MAX_PAGE:
+        if size not in PAGE_SIZES:
+            raise Invalid("PAGE", field="size")
+        if not 1 <= page <= MAX_PAGE:
             raise Invalid("PAGE", field="page")
         self.page = page
         self.size = size
@@ -352,8 +358,20 @@ class _Pager:
     def offset(self) -> int:
         return (self.page - 1) * self.size
 
+    def fetch(self, cursor, statement: str, params: tuple) -> list[dict]:
+        """
+        صفوف الصفحة (آخر معاملَي العبارة الحجم والإزاحة، ومجموعها `count(*) OVER ()`). صفحةٌ بعد
+        الأخيرة — أُرشف آخر صفوفها — فارغة، فيُقرأ مجموعها من أوّل صفّ ليعرف العميل كم بقي.
+        """
+        rows = _rows(cursor, statement, params + (self.size, self.offset))
+        self.total = rows[0]["total"] if rows else 0
+        if not rows and self.offset:
+            first = _rows(cursor, statement, params + (1, 0))
+            self.total = first[0]["total"] if first else 0
+        return rows
+
     def wrap(self, rows: list[dict], items: list) -> dict:
-        total = rows[0]["total"] if rows else 0
+        total = rows[0]["total"] if rows else getattr(self, "total", 0)
         return {"items": items, "page": self.page, "pages": max(1, -(-total // self.size)), "total": total}
 
 
@@ -395,13 +413,21 @@ def _digits(value: str | None) -> str | None:
     return None if value is None else normalise_digits(normalise_text(value))
 
 
+DATE_MIN = datetime.date(2000, 1, 1)
+DATE_MAX = datetime.date(2100, 12, 31)
+
+
 def _date(value: str | None, field: str) -> datetime.date | None:
     if value is None:
         return None
     try:
-        return datetime.date.fromisoformat(normalise_digits(value))
+        day = datetime.date.fromisoformat(normalise_digits(value))
     except ValueError as error:
         raise Invalid("INV_DATE", field=field) from error
+    # تاريخٌ في عمر المنشأة: لا يُحسب بعده موعد الإشعار الدائن في سنةٍ لا توجد.
+    if not DATE_MIN <= day <= DATE_MAX:
+        raise Invalid("INV_DATE", field=field)
+    return day
 
 
 def _iso(value: object) -> str | None:
@@ -550,7 +576,8 @@ def patch_category(db: Database, user_id: UUID, category_id: UUID, expected_row_
 def _item_option(row: Mapping, *, prices_include_vat: bool = False) -> dict:
     """ما يحتاجه منتقي الصنف وسطر الفاتورة: الرمز والاسم والوحدة والسعر بأساس المسودة."""
     price = row["price_halalas"]
-    entry = round(price * 1.15) if prices_include_vat and row["vat_category"] == "S" else price
+    # بتقريب القاعدة نفسه (نصفٌ إلى أعلى بنسبة VAT_RATE_BP)، كما تحسب حاسبة الضريبة.
+    entry = vat_split(price, "net", row["vat_category"])[2] if prices_include_vat else price
     return {
         "id": str(row["id"]), "number": row["number"], "code": item_code(row["number"]), "name": row["name"],
         "unit": row["unit"], "unit_name": UNIT_NAMES[row["unit"]], "kind": row["kind"], "vat_category": row["vat_category"],
@@ -589,8 +616,7 @@ def list_items(db: Database, user_id: UUID, q: str | None, filter_name: str, cat
     query = _text(q) or None
     digits = _digits(query)
     with db.session(user_id) as cursor:
-        rows = _rows(cursor, _ITEMS, (filter_name, category_id, category_id, query, query, query, digits, digits,
-                                      pager.size, pager.offset))
+        rows = pager.fetch(cursor, _ITEMS, (filter_name, category_id, category_id, query, query, query, digits, digits))
         cursor.execute(_STOCK_VALUE)
         value = cursor.fetchone()["value"]
     view = pager.wrap(rows, [_item_row(row) for row in rows])
@@ -671,7 +697,7 @@ def item_movements(db: Database, user_id: UUID, item_id: UUID, page: int, size: 
     pager = _Pager(page, size)
     with db.session(user_id) as cursor:
         _one(cursor, "SELECT id FROM inv_items WHERE id = %s", (item_id,))
-        rows = _rows(cursor, _ITEM_MOVEMENTS, (item_id, pager.size, pager.offset))
+        rows = pager.fetch(cursor, _ITEM_MOVEMENTS, (item_id,))
     items = []
     for row in rows:
         if row["purchase_number"] is not None and row["kind"] == "REVERSAL_OUT":
@@ -765,7 +791,7 @@ i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_catego
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -778,7 +804,7 @@ i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS pref
  ORDER BY l.line_no
 """
 _PURCHASE_CALC = "SELECT line_no, vat_rate_bp, amount_halalas, net_halalas, vat_halalas FROM ew_inv_purchase_calc(%s)"
-_PURCHASE_RETURNS = "SELECT id, number, status FROM inv_returns WHERE purchase_id = %s ORDER BY created_at"
+_PURCHASE_RETURNS = "SELECT id, number, status FROM inv_returns WHERE purchase_id = %s ORDER BY created_at, id"
 _PURCHASE_RETURNED = """
 SELECT l.line_no, (l.quantity_milli - coalesce((SELECT sum(rl.quantity_milli) FROM inv_return_lines rl
                                                 JOIN inv_returns rr ON rr.id = rl.return_id
@@ -793,6 +819,12 @@ SELECT p.id, p.status, p.row_version, p.number, p.supplier_invoice_no, p.invoice
        count(*) OVER () AS total
   FROM inv_purchases p LEFT JOIN inv_suppliers s ON s.id = p.supplier_id
  WHERE (%s::text IS NULL OR p.status = %s)
+   AND (NOT %s OR EXISTS (SELECT 1 FROM inv_purchase_lines l
+                           WHERE l.purchase_id = p.id
+                             AND l.quantity_milli > coalesce((SELECT sum(rl.quantity_milli) FROM inv_return_lines rl
+                                                                JOIN inv_returns rr ON rr.id = rl.return_id
+                                                               WHERE rl.purchase_id = l.purchase_id AND rl.line_no = l.line_no
+                                                                 AND rr.status = 'POSTED'), 0)))
    AND (%s::text IS NULL OR p.number::text = %s OR p.supplier_invoice_key = ew_inv_doc_key(%s)
         OR coalesce(p.supplier_name, s.name) LIKE '%%' || %s || '%%')
  ORDER BY p.updated_at DESC, p.id
@@ -869,18 +901,19 @@ SELECT r.id, r.status, r.row_version, r.purchase_id, r.return_date, r.reason, r.
   LEFT JOIN inv_supplier_reps x ON x.id = r.rep_id
  WHERE r.id = %s
 """
+_RETURN_DRAFT_LOCK = "SELECT pg_advisory_xact_lock(hashtextextended('eyework.inv_return_draft:' || %s, 0))"
+_OPEN_RETURN_DRAFT = "SELECT id FROM inv_returns WHERE purchase_id = %s AND status = 'DRAFT' ORDER BY created_at, id LIMIT 1"
 _RETURN_LINES = """
 SELECT l.line_no, l.quantity_milli AS bought_milli, l.unit_price_halalas, l.net_halalas AS line_net,
-       (l.quantity_milli - coalesce((SELECT sum(y.quantity_milli) FROM inv_return_lines y JOIN inv_returns yr ON yr.id = y.return_id
-                                      WHERE y.purchase_id = l.purchase_id AND y.line_no = l.line_no AND yr.status = 'POSTED'
-                                        AND yr.id <> %s), 0))::bigint AS remaining_milli,
+       l.line_vat_halalas AS line_vat, (l.quantity_milli - coalesce(prev.q, 0))::bigint AS remaining_milli,
+       coalesce(prev.net, 0)::bigint AS prev_net, coalesce(prev.vat, 0)::bigint AS prev_vat,
        x.quantity_milli, x.net_halalas, x.vat_halalas,
        
 i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_category, i.vat_exemption_reason,
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -890,6 +923,10 @@ i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS pref
   LEFT JOIN inv_categories c ON c.id = i.category_id
   LEFT JOIN inv_suppliers ps ON ps.id = i.preferred_supplier_id
   LEFT JOIN inv_return_lines x ON x.return_id = %s AND x.line_no = l.line_no
+  LEFT JOIN LATERAL (
+      SELECT sum(y.quantity_milli) AS q, sum(y.net_halalas) AS net, sum(y.vat_halalas) AS vat
+        FROM inv_return_lines y JOIN inv_returns yr ON yr.id = y.return_id
+       WHERE y.purchase_id = l.purchase_id AND y.line_no = l.line_no AND yr.status = 'POSTED' AND yr.id <> %s) prev ON true
  WHERE l.purchase_id = %s
  ORDER BY l.line_no
 """
@@ -930,7 +967,7 @@ i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_catego
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -941,7 +978,7 @@ i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS pref
   LEFT JOIN inv_suppliers ps ON ps.id = i.preferred_supplier_id
   LEFT JOIN inv_count_sessions cs ON cs.id = v.session_id
  WHERE %s::uuid IS NULL OR v.id = %s
- ORDER BY v.created_at DESC
+ ORDER BY v.created_at DESC, v.number DESC
  LIMIT %s OFFSET %s
 """
 
@@ -1032,13 +1069,15 @@ def _purchase_view(cursor, purchase_id: UUID) -> dict:
 
 def list_purchases(db: Database, user_id: UUID, status: str | None, q: str | None, page: int, size: int) -> dict:
     pager = _Pager(page, size)
-    if status is not None and status.upper() not in ("DRAFT", "POSTED", "REVERSED"):
+    if status is not None and status.upper() not in ("DRAFT", "POSTED", "REVERSED", "RETURNABLE"):
         raise Invalid("STATUS", field="status")
-    state = None if status is None else status.upper()
+    # «RETURNABLE»: مسجّلةٌ بقي في سطرٍ منها ما يُرجَع (شاشة «من أيّ فاتورة؟»).
+    returnable = status is not None and status.upper() == "RETURNABLE"
+    state = "POSTED" if returnable else None if status is None else status.upper()
     query = _text(q) or None
     digits = _digits(query)
     with db.session(user_id) as cursor:
-        rows = _rows(cursor, _PURCHASES, (state, state, query, digits, query, query, pager.size, pager.offset))
+        rows = pager.fetch(cursor, _PURCHASES, (state, state, returnable, query, digits, query, query))
     return pager.wrap(rows, [{
         "id": str(row["id"]), "status": row["status"], "row_version": row["row_version"], "number": row["number"],
         "label": None if row["number"] is None else document_label("PURCHASE", row["number"]),
@@ -1175,6 +1214,11 @@ def _post(db: Database, user_id: UUID, statement: str, kind: str, document_id: U
                 cursor.execute(digest_statement, (document_id,))
                 digest = bytes(cursor.fetchone()["digest"])
             raise reviewer.flags_undecided(db, user_id, kind, document_id, digest) from error
+        if constraint == "inv_purchase_incomplete":
+            # 422 INV_INCOMPLETE بما ينقص (`missing` كما في الفاتورة) ليُفتح أوّله.
+            with db.session(user_id) as cursor:
+                missing = view(cursor, document_id)["missing"]
+            raise Invalid("INCOMPLETE", extra={"missing": missing}) from error
         raise
 
 
@@ -1200,14 +1244,21 @@ def _return_view(cursor, return_id: UUID) -> dict:
     rows = _rows(cursor, _RETURN_LINES, (return_id, return_id, r["purchase_id"]))
     lines = []
     totals = {"net": 0, "vat": 0, "gross": 0}
+    draft = r["status"] == "DRAFT"
     for row in rows:
+        quantity = row["quantity_milli"] or 0
+        # المسودة بقيمة التسجيل نفسها (حصّةٌ من صافي السطر وضريبته)، والمسجَّل بما سُجّل.
+        net, vat = (return_share(quantity, row["remaining_milli"], row["bought_milli"], row["line_net"], row["line_vat"],
+                                 row["prev_net"], row["prev_vat"])
+                    if draft else (row["net_halalas"] or 0, row["vat_halalas"] or 0))
         lines.append({
             "line_no": row["line_no"], "item": _item_option(row), "bought_milli": row["bought_milli"],
-            "remaining_milli": row["remaining_milli"], "quantity_milli": row["quantity_milli"] or 0,
-            "unit_price_halalas": row["unit_price_halalas"], "net_halalas": row["net_halalas"], "vat_halalas": row["vat_halalas"],
+            "remaining_milli": row["remaining_milli"], "quantity_milli": quantity,
+            "unit_price_halalas": row["unit_price_halalas"], "net_halalas": net if quantity else None,
+            "vat_halalas": vat if quantity else None,
         })
-        totals["net"] += row["net_halalas"] or 0
-        totals["vat"] += row["vat_halalas"] or 0
+        totals["net"] += net
+        totals["vat"] += vat
     totals["gross"] = totals["net"] + totals["vat"]
     due = credit_note_due(r["return_date"]) if r["return_date"] is not None else None
     rep = None
@@ -1223,7 +1274,7 @@ def _return_view(cursor, return_id: UUID) -> dict:
                      "supplier_invoice_no": r["supplier_invoice_no"], "supplier_name": r["supplier_name"],
                      "supplier_id": str(r["supplier_id"]), "total_halalas": r["purchase_total"]},
         "rep": rep, "return_date": _iso(r["return_date"]), "reason": r["reason"], "note": r["note"], "lines": lines,
-        "totals": totals if r["status"] == "POSTED" else None, "posted_at": _iso(r["posted_at"]),
+        "totals": totals, "posted_at": _iso(r["posted_at"]),
         "credit_note": None if r["credit_note_no"] is None else {"number": r["credit_note_no"], "date": _iso(r["credit_note_date"])},
         "credit_note_due": _iso(due),
         "acknowledged": _flag_views(acknowledged, {line["line_no"]: line for line in lines}, _display_name(cursor)),
@@ -1237,7 +1288,7 @@ def list_returns(db: Database, user_id: UUID, status: str | None, awaiting_credi
         raise Invalid("STATUS", field="status")
     state = None if status is None else status.upper()
     with db.session(user_id) as cursor:
-        rows = _rows(cursor, _RETURNS, (state, state, awaiting_credit_note, pager.size, pager.offset))
+        rows = pager.fetch(cursor, _RETURNS, (state, state, awaiting_credit_note))
         today = _today(cursor)
     items = []
     for row in rows:
@@ -1261,9 +1312,15 @@ def get_return(db: Database, user_id: UUID, return_id: UUID) -> dict:
 
 
 def create_return(db: Database, user_id: UUID, purchase_id: UUID, rep_id: UUID | None) -> dict:
+    """مرتجعٌ من الفاتورة، أو مسودتها المفتوحة إن وُجدت: ضغطتان على «مرتجع منها» مسودةٌ واحدة."""
     with db.session(user_id) as cursor:
-        cursor.execute(_INSERT_RETURN, (purchase_id, rep_id))
-        return _return_view(cursor, cursor.fetchone()["id"])
+        cursor.execute(_RETURN_DRAFT_LOCK, (str(purchase_id),))
+        cursor.execute(_OPEN_RETURN_DRAFT, (purchase_id,))
+        found = cursor.fetchone()
+        if found is None:
+            cursor.execute(_INSERT_RETURN, (purchase_id, rep_id))
+            found = cursor.fetchone()
+        return _return_view(cursor, found["id"])
 
 
 def patch_return(db: Database, user_id: UUID, return_id: UUID, expected_row_version: int, fields: Mapping) -> dict:
@@ -1355,7 +1412,7 @@ def stock_voucher(db: Database, user_id: UUID, kind: str, fields: Mapping) -> di
 def list_vouchers(db: Database, user_id: UUID, page: int, size: int) -> dict:
     pager = _Pager(page, size)
     with db.session(user_id) as cursor:
-        rows = _rows(cursor, _VOUCHERS, (None, None, pager.size, pager.offset))
+        rows = pager.fetch(cursor, _VOUCHERS, (None, None))
     return pager.wrap(rows, [_voucher_view(row) for row in rows])
 
 
@@ -1376,7 +1433,7 @@ SELECT cs.id, cs.number, cs.status, cs.scope, cs.blind, cs.items_total, cs.items
        (SELECT count(*) FROM inv_count_lines l WHERE l.session_id = cs.id AND l.counted_milli IS NOT NULL) AS counted_so_far,
        count(*) OVER () AS total
   FROM inv_count_sessions cs
- ORDER BY cs.created_at DESC
+ ORDER BY cs.created_at DESC, cs.number DESC
  LIMIT %s OFFSET %s
 """
 _COUNT_LINES = """
@@ -1386,7 +1443,7 @@ i.id, i.number, i.name, i.supplier_code, i.barcode, i.kind, i.unit, i.vat_catego
 i.price_halalas, i.selling_price_halalas, i.selling_price_includes_vat, i.reorder_level_milli, i.target_level_milli,
 i.note, i.on_hand_milli, i.stock_value_halalas, i.last_movement_at, i.last_counted_on, i.is_active, i.row_version,
 i.category_id, c.name AS category_name, i.preferred_supplier_id, ps.name AS preferred_supplier_name,
-(SELECT l.net_halalas * 1000 / l.quantity_milli FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
+(SELECT round(l.net_halalas * 1000.0 / l.quantity_milli)::bigint FROM inv_purchase_lines l JOIN inv_purchases p ON p.id = l.purchase_id
   WHERE l.item_id = i.id AND p.status = 'POSTED' ORDER BY p.posted_at DESC, l.line_no DESC LIMIT 1) AS last_price_halalas,
 (SELECT r.name FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_name,
 (SELECT r.mobile FROM inv_supplier_reps r WHERE r.supplier_id = i.preferred_supplier_id AND r.is_default AND r.is_active LIMIT 1) AS preferred_rep_mobile
@@ -1432,13 +1489,22 @@ SELECT extract(month FROM entry_date)::int AS month, kind, coalesce(sum(net_hala
   FROM inv_ledger WHERE extract(year FROM entry_date) = %s GROUP BY 1, 2
 """
 _ATTENTION = """
-SELECT (SELECT count(*) FROM inv_purchases WHERE status = 'DRAFT') + (SELECT count(*) FROM inv_returns WHERE status = 'DRAFT') AS drafts,
+SELECT (SELECT count(*) FROM inv_purchases WHERE status = 'DRAFT') AS purchase_drafts,
+       (SELECT count(*) FROM inv_returns WHERE status = 'DRAFT') AS return_drafts,
        (SELECT count(*) FROM inv_items WHERE is_active AND reorder_level_milli IS NOT NULL AND on_hand_milli <= reorder_level_milli) AS low_stock,
        (SELECT count(*) FROM inv_returns WHERE status = 'POSTED' AND credit_note_no IS NULL) AS awaiting_credit_note,
        (SELECT count(*) FROM inv_returns r WHERE r.status = 'POSTED' AND r.credit_note_no IS NULL
           AND ew_riyadh_today() > (date_trunc('month', r.return_date) + interval '1 month 14 days')::date) AS credit_note_overdue,
        (SELECT count(*) FROM inv_items WHERE is_active AND kind = 'STOCK'
           AND (last_counted_on IS NULL OR last_counted_on < ew_riyadh_today() - 90)) AS uncounted,
+       -- فواتير مسجّلة وصل من سطرٍ فيها أقلّ ممّا فيها، ولم يُسجَّل بعدُ مرتجعٌ بالفرق.
+       (SELECT count(*) FROM inv_purchases p WHERE p.status = 'POSTED' AND EXISTS (
+          SELECT 1 FROM inv_purchase_lines l
+           WHERE l.purchase_id = p.id AND l.received_quantity_milli IS NOT NULL
+             AND l.quantity_milli - coalesce((SELECT sum(rl.quantity_milli) FROM inv_return_lines rl
+                                                JOIN inv_returns rr ON rr.id = rl.return_id
+                                               WHERE rl.purchase_id = l.purchase_id AND rl.line_no = l.line_no
+                                                 AND rr.status = 'POSTED'), 0) > l.received_quantity_milli)) AS short_delivery,
        (SELECT cs.id FROM inv_count_sessions cs WHERE cs.status = 'OPEN') AS open_count_id,
        (SELECT cs.number FROM inv_count_sessions cs WHERE cs.status = 'OPEN') AS open_count_number,
        (SELECT count(*) FROM inv_items WHERE is_active) AS items,
@@ -1452,14 +1518,20 @@ def _count_line_view(row: Mapping, blind: bool, status: str) -> dict:
     counted = row["counted_milli"]
     reveal = status != "OPEN" or not blind or counted is not None
     difference = None if counted is None else counted - row["book_milli"]
+    option = _item_option(row)
+    if not reveal:
+        # العدّ المغلق: لا رصيد في السطر ولا في منتَجه حتى يُعدّ.
+        option["on_hand_milli"] = None
     return {
-        "line_no": row["line_no"], "item": _item_option(row),
+        "line_no": row["line_no"], "item": option,
         "book_milli": row["book_milli"] if reveal else None,
         "counted_milli": counted, "difference_milli": difference if reveal else None,
         "unit_cost_halalas": row["unit_cost_halalas"], "reason": row["line_reason"], "note": row["line_note"],
         "added_during_count": row["added_during_count"], "counted_at": _iso(row["counted_at"]),
         "changed": bool(row["changed"]) and counted is not None and status == "OPEN",
         "needs_cost": counted is not None and counted > 0 and row["on_hand_milli"] == 0 and row["unit_cost_halalas"] is None,
+        # تكلفة الوحدة تُطلب لعدٍّ موجبٍ على رصيدٍ صفر: هذا وحده ما يُعرف قبل العدّ، لا الرصيد.
+        "asks_cost": row["on_hand_milli"] == 0,
         "posted": row["voucher_id"] is not None,
     }
 
@@ -1485,7 +1557,7 @@ def _count_view(cursor, session_id: UUID) -> dict:
 def list_counts(db: Database, user_id: UUID, page: int, size: int) -> dict:
     pager = _Pager(page, size)
     with db.session(user_id) as cursor:
-        rows = _rows(cursor, _COUNTS, (pager.size, pager.offset))
+        rows = pager.fetch(cursor, _COUNTS, ())
     return pager.wrap(rows, [{
         "id": str(row["id"]), "number": row["number"], "label": count_label(row["number"]), "status": row["status"],
         "scope": row["scope"], "scope_name": COUNT_SCOPE_NAMES[row["scope"]], "blind": row["blind"],
@@ -1597,7 +1669,7 @@ def expenses(db: Database, user_id: UUID, from_day: str, to_day: str, page: int,
     pager = _Pager(page, size)
     with db.session(user_id) as cursor:
         totals = _totals(_rows(cursor, _LEDGER_TOTALS, (start, end)))
-        rows = _rows(cursor, _LEDGER_ENTRIES, (start, end, pager.size, pager.offset))
+        rows = pager.fetch(cursor, _LEDGER_ENTRIES, (start, end))
     entries = []
     for row in rows:
         if row["kind"] == "PURCHASE":
@@ -1638,9 +1710,12 @@ def summary(db: Database, user_id: UUID) -> dict:
         "today": today.isoformat(), "month": today.strftime("%Y-%m"), "month_totals": totals, "stock_value": value,
         "settings": None if settings is None else _settings_view(settings),
         "attention": {
-            "drafts": attention["drafts"], "low_stock": attention["low_stock"],
+            # الفواتير والمرتجعات كلٌّ إلى قائمته؛ والمجموع لمن يعدّ.
+            "drafts": attention["purchase_drafts"] + attention["return_drafts"],
+            "purchase_drafts": attention["purchase_drafts"], "return_drafts": attention["return_drafts"],
+            "low_stock": attention["low_stock"],
             "awaiting_credit_note": attention["awaiting_credit_note"], "credit_note_overdue": attention["credit_note_overdue"],
-            "uncounted": attention["uncounted"],
+            "uncounted": attention["uncounted"], "short_delivery": attention["short_delivery"],
             "open_count": None if attention["open_count_id"] is None else {
                 "id": str(attention["open_count_id"]), "label": count_label(attention["open_count_number"])},
         },
@@ -1649,8 +1724,6 @@ def summary(db: Database, user_id: UUID) -> dict:
 
 
 def vat_tool(amount_halalas: int, basis: str, category: str) -> dict:
-    from eyework.inventory_rules import vat_split
-
     net, vat, gross = vat_split(amount_halalas, basis, category)
     return {"net_halalas": net, "vat_halalas": vat, "gross_halalas": gross}
 
@@ -1794,7 +1867,7 @@ def _inventory_home(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str,
     cursor.execute(_STOCK_VALUE)
     value = cursor.fetchone()["value"]
     lines = [f"الأصناف النشطة: {a['items']}، والموردون: {a['suppliers']}، وقيمة المخزون {halalas_words(value)}",
-             f"مسوداتٌ لم تُسجَّل: {a['drafts']}، وأصنافٌ تحت حدّ الطلب: {a['low_stock']}، "
+             f"مسوداتٌ لم تُسجَّل: {a['purchase_drafts'] + a['return_drafts']}، وأصنافٌ تحت حدّ الطلب: {a['low_stock']}، "
              f"ومرتجعاتٌ تنتظر إشعار المورّد الدائن: {a['awaiting_credit_note']} (متأخّر: {a['credit_note_overdue']})",
              f"أصنافٌ لم تُجرد منذ تسعين يوماً: {a['uncounted']}"]
     if a["open_count_number"] is not None:
@@ -1806,7 +1879,7 @@ def _screen_item(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str, ..
     cursor.execute(_SCREEN_ITEM, (screen_id,))
     row = cursor.fetchone()
     if row is None:
-        raise NotFound
+        raise NotFound("SCREEN", assistant.NO_SCREEN)
     lines = [f"الصنف: {row['name']} ({UNIT_NAMES[row['unit']]}، {'يُخزَّن' if row['kind'] == 'STOCK' else 'خدمة'})",
              f"سعر الشراء المحدَّد: {halalas_words(row['price_halalas'])} قبل الضريبة، فئة الضريبة {row['vat_category']}"]
     if row["kind"] == "STOCK":
@@ -1823,7 +1896,7 @@ def _screen_purchase(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str
     cursor.execute(_SCREEN_PURCHASE, (screen_id,))
     row = cursor.fetchone()
     if row is None:
-        raise NotFound
+        raise NotFound("SCREEN", assistant.NO_SCREEN)
     lines = [f"الحالة: {_HOME_STATUS.get(row['status'], row['status'])}", f"عدد الأسطر: {row['lines']}",
              "الأسعار شاملة الضريبة" if row["prices_include_vat"] else "الأسعار قبل الضريبة"]
     if row["number"] is not None:
@@ -1837,7 +1910,7 @@ def _screen_count(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str, .
     cursor.execute(_SCREEN_COUNT, (screen_id,))
     row = cursor.fetchone()
     if row is None:
-        raise NotFound
+        raise NotFound("SCREEN", assistant.NO_SCREEN)
     return assistant.fit([f"جلسة الجرد {count_label(row['number'])}: {_HOME_STATUS.get(row['status'], row['status'])}",
                           f"النطاق: {COUNT_SCOPE_NAMES[row['scope']]}، {'عدٌّ مغلق' if row['blind'] else 'الرصيد ظاهر'}",
                           f"عُدّ {row['counted']} من {row['items_total']} صنفاً"])

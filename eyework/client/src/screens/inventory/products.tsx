@@ -387,8 +387,8 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
     if (vat !== "S" && [...exemption.trim()].length > 80) return { message: "سبب الإعفاء حتى ثمانين حرفاً.", field: "vat_exemption_reason" }
     if (barcode.trim() && !/^(\d{8}|\d{12,14})$/.test(barcode.trim())) return { message: "الباركود 8 أو 12–14 رقماً.", field: "barcode" }
     if (selling.trim() && parseAmount(selling) === null) return { message: "اكتب سعر البيع مبلغاً.", field: "selling_price_halalas" }
-    if (reorder.trim() && parseMilli(reorder, decimals) === null) return { message: "حدّ الطلب كميةٌ بالوحدة.", field: "reorder_level_milli" }
-    if (target.trim() && parseMilli(target, decimals) === null) return { message: "المستهدف كميةٌ بالوحدة.", field: "target_level_milli" }
+    if (reorder.trim() && parseMilli(reorder, decimals, undefined, { zero: true }) === null) return { message: "حدّ الطلب كميةٌ بالوحدة.", field: "reorder_level_milli" }
+    if (target.trim() && parseMilli(target, decimals, undefined, { zero: true }) === null) return { message: "المستهدف كميةٌ بالوحدة.", field: "target_level_milli" }
     return null
   }
 
@@ -419,8 +419,8 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
       category_id: category,
       selling_price_halalas: selling.trim() ? parseAmount(selling) : null,
       selling_price_includes_vat: sellingIncludes === "gross",
-      reorder_level_milli: reorder.trim() ? parseMilli(reorder, decimals) : null,
-      target_level_milli: target.trim() ? parseMilli(target, decimals) : null,
+      reorder_level_milli: reorder.trim() ? parseMilli(reorder, decimals, undefined, { zero: true }) : null,
+      target_level_milli: target.trim() ? parseMilli(target, decimals, undefined, { zero: true }) : null,
       preferred_supplier_id: supplier?.value ?? null,
       note: note.trim() || null,
     })
@@ -439,7 +439,7 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
     <GazeHost>
       <GazeSlot id="item-name">
         <Field label="اسم المنتج" error={error("name")} required>
-          <Input id="item-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+          <Input id="item-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
         </Field>
       </GazeSlot>
       {/* النوع منتقٍ لا بطاقتان: زرّه آمن، فلا يقع تحت ضغطة «منتج جديد» ما يغيّر قيمةً (قاعدة الهبوط). */}
@@ -484,13 +484,13 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
       </GazeSlot>
       <GazeSlot id="item-supplier-code">
         <Field label="رمز المورّد" hint={gaze ? undefined : "رمز المنتج في فواتير المورّد، إن وُجد."} error={error("supplier_code")}>
-          <Input id="item-supplier-code" dir="ltr" value={supplierCode} maxLength={40} onChange={(event) => setSupplierCode(event.target.value)} />
+          <Input id="item-supplier-code" dir="ltr" value={supplierCode} maxLength={20} onChange={(event) => setSupplierCode(event.target.value)} />
         </Field>
       </GazeSlot>
       <Picker id="item-category" label="التصنيف" options={categoryOptions} value={category ?? ""} onValueChange={(value) => setCategory(value || null)} error={error("category_id")} />
       <GazeSlot id="item-note">
         <Field label="ملاحظة" error={error("note")} className="gaze:short:hidden">
-          <Textarea id="item-note" rows={2} maxLength={280} value={note} onChange={(event) => setNote(event.target.value)} />
+          <Textarea id="item-note" rows={2} maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
         </Field>
       </GazeSlot>
     </GazeHost>
@@ -570,16 +570,25 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
         title={title}
         above={<Stepper steps={ITEM_STEPS} current={step} />}
         actions={
-          <>
-            <Button id="item-prev" icon={BackIcon} onClick={step === 0 ? onBack : () => setStep(step - 1)}>
-              {step === 0 ? "رجوع" : "السابق"}
-            </Button>
-            {last ? saveButton : (
-              <Button id="item-next" variant="secondary" iconEnd={NextIcon} onClick={() => setStep(step + 1)}>
+          // في الخطوة الأخيرة يحلّ «السابق» محلّ «التالي» والاعتماد في الخانة الأخرى: ثبات النظر بعد
+          // «التالي» يقع على ما لا يعتمد. والمفاتيح تجعلها عقداً مختلفة لا زرّاً واحداً يتبدّل.
+          last ? (
+            <>
+              <React.Fragment key="save">{saveButton}</React.Fragment>
+              <Button key="prev" id="item-prev" icon={BackIcon} onClick={() => setStep(step - 1)}>
+                السابق
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button key="prev" id="item-prev" icon={BackIcon} onClick={step === 0 ? onBack : () => setStep(step - 1)}>
+                {step === 0 ? "رجوع" : "السابق"}
+              </Button>
+              <Button key="next" id="item-next" variant="secondary" iconEnd={NextIcon} onClick={() => setStep(step + 1)}>
                 التالي
               </Button>
-            )}
-          </>
+            </>
+          )
         }
       >
         {alert}
@@ -644,7 +653,8 @@ export function VoucherScreen({ item, choices, today, onSave, onBack }: {
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
   const decimals = choices.units.find((u) => u.code === item.unit)?.decimals ?? false
-  const counted = kind === "COUNT" ? parseMilli(quantity || "0", decimals, 1_000_000_000_000) ?? (quantity.trim() === "" || quantity.trim() === "0" ? 0 : null) : null
+  // عددٌ لم يُكتب ليس صفراً: لا يُعرض فرقٌ ولا يُسجَّل عجزٌ بالرصيد كلّه قبل أن يُعدّ.
+  const counted = kind === "COUNT" && quantity.trim() !== "" ? parseMilli(quantity, decimals, undefined, { zero: true }) : null
   const difference = counted === null ? null : counted - item.on_hand_milli
   const direction = difference === null || difference === 0 ? null : difference < 0 ? "SHORTAGE" : "SURPLUS"
   const needsCost = kind === "OPENING" || (kind === "COUNT" && item.on_hand_milli === 0 && (counted ?? 0) > 0)
@@ -725,11 +735,14 @@ export function VoucherScreen({ item, choices, today, onSave, onBack }: {
       {reasons.length ? (
         <Picker id="voucher-reason" label="السبب" options={reasons.map((r) => ({ value: r.code, label: r.name }))} value={reason} onValueChange={setReason} error={error("reason")} required />
       ) : null}
-      <GazeSlot id="voucher-note">
-        <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")} className={cn(reason !== "OTHER" && "gaze:short:hidden")}>
-          <Input id="voucher-note" value={note} maxLength={280} onChange={(event) => setNote(event.target.value)} />
-        </Field>
-      </GazeSlot>
+      {kind === "OPENING" ? null : (
+        // الرصيد الافتتاحي بلا ملاحظة: لا يحفظها الخادم، فلا تُطلب.
+        <GazeSlot id="voucher-note">
+          <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")} className={cn(reason !== "OTHER" && "gaze:short:hidden")}>
+            <Input id="voucher-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} />
+          </Field>
+        </GazeSlot>
+      )}
       <GazeSlot id="voucher-date">
         <Field label="التاريخ" error={error("occurred_on")}>
           <Input id="voucher-date" type="date" dir="ltr" value={date} max={today} onChange={(event) => setDate(event.target.value)} />
@@ -754,16 +767,24 @@ export function VoucherScreen({ item, choices, today, onSave, onBack }: {
         description={item.name}
         above={<Stepper steps={[{ id: "kind", label: "النوع" }, { id: "fields", label: "البيانات" }]} current={step} />}
         actions={
-          <>
-            <Button id="voucher-prev" icon={BackIcon} onClick={step === 0 ? onBack : () => setStep(0)}>
-              {step === 0 ? "رجوع" : "النوع"}
-            </Button>
-            {step === 0 ? (
-              <Button id="voucher-next" variant="secondary" iconEnd={NextIcon} onClick={() => setStep(1)}>
+          step === 0 ? (
+            <>
+              <Button key="prev" id="voucher-prev" icon={BackIcon} onClick={onBack}>
+                رجوع
+              </Button>
+              <Button key="next" id="voucher-next" variant="secondary" iconEnd={NextIcon} onClick={() => setStep(1)}>
                 التالي
               </Button>
-            ) : saveButton}
-          </>
+            </>
+          ) : (
+            // «النوع» حيث كان «التالي»، والاعتماد في الخانة الأخرى (كما في نموذج المنتج).
+            <>
+              <React.Fragment key="save">{saveButton}</React.Fragment>
+              <Button key="prev" id="voucher-prev" icon={BackIcon} onClick={() => setStep(0)}>
+                النوع
+              </Button>
+            </>
+          )
         }
       >
         {alert}

@@ -57,6 +57,8 @@ def test_the_order_suggestion_and_the_reorder_level_helper_suggest_and_never_dec
     (1, "net", "S", (1, 0, 1)),
     (3, "net", "S", (3, 0, 3)),                 # 0.45 ← صفر
     (4, "net", "S", (4, 1, 5)),                 # 0.6 ← واحد
+    (30, "net", "S", (30, 5, 35)),              # 4.5 ← خمسة (التقريب إلى الزوجي يعطي أربعة)
+    (4550, "net", "S", (4550, 683, 5233)),      # 682.5 ← 683
     (10000, "net", "Z", (10000, 0, 10000)),
     (10000, "gross", "O", (10000, 0, 10000)),
 ])
@@ -132,3 +134,11 @@ def test_the_choices_name_every_unit_reason_and_cap():
     assert [r["code"] for r in choices["return_reasons"]][-3:] == ["SHORT_DELIVERY", "PRICE_ERROR", "OTHER"]
     assert choices["count_reasons"]["SHORTAGE"][0] == {"code": "DAMAGE", "name": "تالف"}
     assert choices["limits"]["lines_per_document"] == 40 and choices["document_prefixes"]["COUNT"] == "ج"
+
+
+def test_a_draft_return_is_valued_like_its_posting():
+    """ثلثٌ من سطرٍ صافيه 100.00 بعد خصمٍ وضريبته 15.00: 33.33 و5.00؛ وآخر ما بقي يأخذ الباقي كلّه."""
+    assert rules.return_share(1000, 3000, 3000, 10000, 1500, 0, 0) == (3333, 500)
+    assert rules.return_share(2000, 2000, 3000, 10000, 1500, 3333, 500) == (6667, 1000)
+    assert rules.return_share(1500, 3000, 3000, 10001, 1501, 0, 0) == (5001, 751)   # النصف إلى أعلى
+    assert rules.return_share(0, 3000, 3000, 10000, 1500, 0, 0) == (0, 0)

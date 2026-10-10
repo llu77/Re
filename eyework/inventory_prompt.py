@@ -10,7 +10,9 @@
 ووحداتها وأنواعها وكمياتها وأسعار وحداتها قبل الضريبة وفئات ضريبتها، وعدد
 مشتريات الصنف السابقة ووسيطا سعرها وكميتها، وأسماء الأصناف المرشَّحة للصنف
 الجديد؛ وللمرتجع سبب الإرجاع رمزاً والأيام منذ الشراء. لا اسم ولا مورّد ولا
-رقم ولا تاريخ ولا ملاحظة (اختبارٌ معماري على المفاتيح).
+رقم ولا تاريخ ولا ملاحظة (المفاتيح المعلَنة في اختبارٍ معماري، وما يحمّله المحمّل فعلاً في
+`test_the_review_loader_sends_exactly_the_declared_keys`). وأسماء الأصناف قد تحمل ما كتبه
+المورّد (رقم جوال مندوبٍ أو بريده)، فتمرّ من `redact()` قبل أن تُرسَل.
 
 وحدةٌ نقية.
 """
@@ -21,6 +23,7 @@ from decimal import Decimal
 from typing import Iterable, Mapping
 
 from eyework.inventory_rules import UNIT_NAMES
+from eyework.redact import redact
 from eyework.reviewer_prompt import Catalogue, Check
 
 __all__ = ["CATALOGUE", "PAYLOAD_KEYS", "purchase_payload", "return_payload", "sar", "quantity"]
@@ -51,6 +54,11 @@ def quantity(milli: int | None) -> str | None:
     return f"{whole}." + f"{fraction:03d}".rstrip("0")
 
 
+def _name(text: str) -> str:
+    """اسم الصنف كما يُرسَل: بلا هاتفٍ ولا بريدٍ ولا رقمٍ طويل."""
+    return redact(text)[0]
+
+
 def purchase_payload(lines: Iterable[Mapping]) -> dict:
     """
     موضوع فاتورة الشراء. كل سطر: `line_no`، `item_name`، `unit`، `kind`، `quantity_milli`،
@@ -62,7 +70,7 @@ def purchase_payload(lines: Iterable[Mapping]) -> dict:
         count = int(line.get("history_count") or 0)
         rendered.append({
             "line": line["line_no"],
-            "item": line["item_name"],
+            "item": _name(line["item_name"]),
             "unit": line["unit"],
             "kind": line["kind"],
             "quantity": quantity(line["quantity_milli"]),
@@ -74,7 +82,7 @@ def purchase_payload(lines: Iterable[Mapping]) -> dict:
                 "median_quantity": quantity(line.get("median_quantity_milli")),
             },
             "new_item": count == 0,
-            "candidates": [{"ref": ref, "item": name, "unit": unit}
+            "candidates": [{"ref": ref, "item": _name(name), "unit": unit}
                            for ref, name, unit in (line.get("candidates") or ())[:CANDIDATES_MAX]] if count == 0 else [],
         })
     return {"lines": rendered}
@@ -89,7 +97,7 @@ def return_payload(reason: str, lines: Iterable[Mapping]) -> dict:
         "reason": reason,
         "lines": [{
             "line": line["line_no"],
-            "item": line["item_name"],
+            "item": _name(line["item_name"]),
             "unit": line["unit"],
             "kind": line["kind"],
             "quantity": quantity(line["quantity_milli"]),

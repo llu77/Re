@@ -151,7 +151,7 @@ INTERNAL_FUNCTIONS = frozenset({
     "ew_ai_request_settle", "ew_ai_lock_subject", "ew_ai_flags_put", "ew_ai_gate", "ew_ai_forget_subject",
     "ew_ai_erase_subject",
     # 0010: المهنة، والرقم التالي، وقفل الأصناف، وفحص الإقرار، وحرّاس الجداول ومحفّزات الثبات.
-    "ew_inv_require_storekeeper", "ew_inv_next_no", "ew_inv_lock_items", "ew_inv_check_ack", "ew_inv_rep_ok", "ew_inv_count_voucher",
+    "ew_inv_own", "ew_inv_require_storekeeper", "ew_inv_next_no", "ew_inv_lock_items", "ew_inv_check_ack", "ew_inv_rep_ok", "ew_inv_count_voucher",
     "ew_inv_settings_guard", "ew_inv_supplier_guard", "ew_inv_supplier_rep_guard", "ew_inv_category_guard", "ew_inv_item_guard",
     "ew_inv_purchase_insert_guard", "ew_inv_purchase_guard", "ew_inv_purchase_line_guard", "ew_inv_return_insert_guard",
     "ew_inv_return_guard", "ew_inv_return_line_guard", "ew_inv_count_session_guard", "ew_inv_count_line_guard",

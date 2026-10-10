@@ -96,6 +96,8 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
     **{name: spec for name, spec in (
         # المخزون (0010): ما يقوله الصفّ المخالف بما يفعله المستخدم بعده (المواصفة §5.4).
         ("inv_needs_storekeeper", ErrorSpec(403, "PROFESSION", "هذه الأداة لبوابة مهنةٍ أخرى.")),
+        ("inv_not_owner", ErrorSpec(404, "NOT_FOUND", "لم يُعثر على المنتج أو المستند.")),
+        ("inv_count_daily_cap", ErrorSpec(409, "INV_COUNT_CAP", "فتحت عشر جلسات جردٍ اليوم، وهو الحدّ. أكمل المفتوحة أو عُد غداً.")),
         ("inv_managed_columns", ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب.")),
         ("inv_starts_as_draft", ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب.")),
         ("inv_voucher_kind", ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب.")),
@@ -196,6 +198,8 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
         ("inv_return_needs_note", ErrorSpec(422, "INV_REASON_NOTE", "مع «سببٌ آخر» اكتب السبب في الملاحظة.")),
         ("inv_reversal_needs_note", ErrorSpec(422, "INV_REASON_NOTE", "مع «سببٌ آخر» اكتب السبب في الملاحظة.")),
         ("inv_count_needs_note", ErrorSpec(422, "INV_REASON_NOTE", "مع «سببٌ آخر» اكتب السبب في الملاحظة.")),
+        ("inv_voucher_needs_note", ErrorSpec(422, "INV_REASON_NOTE", "مع «سببٌ آخر» اكتب السبب في الملاحظة.")),
+        ("inv_voucher_needs_reason", ErrorSpec(422, "INV_REASON", "اختر سبب الصرف من القائمة.")),
         ("inv_return_date", ErrorSpec(422, "INV_RETURN_DATE", "تاريخ المرتجع بين تاريخ الفاتورة واليوم.")),
         ("inv_credit_note_date", ErrorSpec(422, "INV_CREDIT_NOTE_DATE", "تاريخ الإشعار الدائن بين تاريخ الفاتورة واليوم.")),
         ("inv_return_credit_note_complete", ErrorSpec(422, "INV_CREDIT_NOTE", "رقم الإشعار الدائن وتاريخه معاً.")),
@@ -211,6 +215,8 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
         ("inv_count_line_reason_needed", ErrorSpec(422, "INV_COUNT_REASON", "السبب يناسب اتجاه الفرق، ولا سبب بلا فرق.")),
         ("inv_count_line_reason", ErrorSpec(422, "INV_COUNT_REASON", "اختر سبب الفرق من القائمة.")),
         ("inv_count_session_open", ErrorSpec(409, "INV_COUNT_OPEN", "لديك جلسة جردٍ مفتوحة. أكملها أو ألغِها أولاً.")),
+        ("inv_count_sessions_open", ErrorSpec(409, "INV_COUNT_OPEN", "لديك جلسة جردٍ مفتوحة. أكملها أو ألغِها أولاً.")),
+        ("inv_count_line_uncounted", ErrorSpec(422, "INV_COUNT_REASON", "اكتب العدد أولاً: السبب لسطرٍ معدود.")),
         ("inv_count_not_open", ErrorSpec(409, "INV_COUNT_CLOSED", "انتهت هذه الجلسة، ولا تتغيّر.")),
         ("inv_count_scope", ErrorSpec(422, "INV_COUNT_SCOPE", "اختر نطاق الجرد: الكل، أو تصنيفاً، أو ما تحت حدّ الطلب، أو منتجاتٍ بعينها.")),
         ("inv_count_no_items", ErrorSpec(422, "INV_COUNT_EMPTY", "لا منتجات في هذا النطاق.")),
@@ -324,6 +330,7 @@ AI_REVIEW_INVALID = ErrorSpec(422, "INVALID", "في العمل ما يُصلَح
 
 #: ما ترفضه خدمة المخزون قبل القاعدة (`service_errors.Invalid`)، بحقله.
 INVENTORY_INVALID: dict[str, ErrorSpec] = {
+    "INCOMPLETE": CONSTRAINTS["inv_purchase_incomplete"],
     "PAGE": ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب."),
     "FILTER": ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب."),
     "STATUS": ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب."),
