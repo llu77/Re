@@ -67,7 +67,7 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
   )
 
   const target = (p: Priority) => (
-    <div key={p} className="grid grid-cols-2 gap-tg">
+    <div key={p} className="grid grid-cols-2 gap-tg gaze:gap-x-6">
       <Picker id={`settings-first-${p}`} label={`${PRIORITY[p]}: أول ردّ خلال`}
         options={Object.entries(SLA_FIRST).map(([value, label]) => ({ value, label }))} value={String(sla[p].first_reply_minutes)}
         onValueChange={(value) => setSla({ ...sla, [p]: { ...sla[p], first_reply_minutes: Number(value) } })} />

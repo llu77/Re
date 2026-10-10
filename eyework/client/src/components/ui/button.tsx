@@ -1,16 +1,16 @@
 /*
  * Button — الزرّ بحجمي الواجهة
  * ============================
- * الأصل: shadcn/ui button (MIT)، والمتغيّرات بأسلوب «Button — Variants» (micka_design، 21st.dev:
- * https://21st.dev/@micka_design/components/button، بشروط 21st.dev ورخصة صفحة المكوّن): تعبئةٌ
- * لا حدّ، والنصّ يعرّف الزرّ. التكييف:
+ * الأصل: «Button» من originui (21st.dev: https://21st.dev/@originui/components/button، تحسينٌ لزرّ shadcn/ui،
+ * بشروط 21st.dev ورخصة صفحة المكوّن): النصّ في سطرٍ واحد لا يلتفّ (`whitespace-nowrap`)، ووزنٌ متوسّط،
+ * وظلٌّ خفيف على المملوء، وحدٌّ هادئ على المحدَّد، والمعطَّل بنصف الشفافية بشكله نفسه. والتكييف:
  *   • الارتفاع `min-h-ctl` (40 أو 48) أو `min-h-ctl-lg` (44 أو 48): لا حجم أصغر من منطقة الإصابة.
- *   • `primary` بالتعبئة الملوّنة لما يعتمد أو يُرسل وحده، و`secondary` تعبئةٌ مدرّجة للخطوة التالية،
- *     و`outline` أبيضُ بحدٍّ خفيف لما يرجع أو يفتح، و`ghost` نصٌّ بلا تعبئة للصفّ العلوي.
+ *   • `primary` لما يعتمد أو يُرسل وحده، و`secondary` مدرّجٌ للخطوة التالية، و`outline` أبيضُ بحدٍّ لما يرجع أو
+ *     يفتح، و`ghost` نصٌّ بلا تعبئة للصفّ العلوي في الحجم العادي.
  *   • `commit` يضع `data-commit` (ما لا يُعاد بضغطة: اعتماد، إرسال، حذف)؛ و`value`
  *     يضع `data-value` (يغيّر قيمةً ظاهرة: خيار، زيادة، نقصان)؛ وغيرهما `data-safe`.
  *     اختبارات الهبوط تقرأ هذه السمات (visual_spec §8).
- *   • لا `hover:` بل `hov:` (فأرةٌ في الحجم العادي وحده)، ولا انتقال، ولا Radix Slot ولا `<style>` محقون.
+ *   • لا `hover:` بل `hov:` (فأرةٌ في الحجم العادي وحده)، ولا Radix Slot ولا `<style>` محقون، ولا انتقال في الحجم الكبير.
  *   • `busy` يُبقي الزرّ في مكانه بعرضه ويعطّله؛ وفي الحجم الكبير لا دوران.
  */
 
@@ -22,34 +22,34 @@ import { cn } from "@/lib/utils"
 
 export const buttonVariants = cva(
   [
-    "inline-flex min-w-0 select-none items-center justify-center gap-1.5 rounded-ctl border border-transparent px-3.5 py-1 text-center",
-    "min-h-ctl min-w-ctl text-body font-semibold leading-tight",
-    "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-border/60 disabled:text-muted-foreground disabled:shadow-none",
-    "aria-disabled:cursor-not-allowed aria-disabled:border-transparent aria-disabled:bg-border/60 aria-disabled:text-muted-foreground",
+    "inline-flex min-w-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-ctl border border-transparent px-4 text-center",
+    "min-h-ctl min-w-ctl text-body font-medium leading-none",
+    "transition-colors gaze:transition-none outline-offset-2",
+    "disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none",
+    "aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
     "[&_svg]:pointer-events-none [&_svg]:size-icon [&_svg]:shrink-0",
-    "gaze:gap-2 gaze:px-4",
   ].join(" "),
   {
     variants: {
       variant: {
         /** يعتمد أو يُرسل: التعبئة الملوّنة لهذا وحده. */
-        primary: "bg-primary text-primary-foreground hov:bg-primary/90",
+        primary: "bg-primary text-primary-foreground shadow-sm shadow-black/5 hov:bg-primary/90",
         /** خطوةٌ إلى الأمام بلا إرسال، أو الإجراء الثاني: تعبئةٌ مدرّجة. */
-        secondary: "bg-secondary text-secondary-foreground hov:bg-secondary/70",
-        /** رجوعٌ أو فتحٌ أو تبديل: أبيضُ بحدٍّ خفيف. */
-        outline: "border-border bg-card text-foreground hov:bg-muted",
-        /** الصفّ العلوي: نصٌّ باللون الأساسي بلا تعبئة؛ وفي الحجم الكبير شكلٌ أبيض يُرى حدّه. */
-        ghost: "bg-transparent px-2 text-primary hov:bg-primary/5 disabled:bg-transparent gaze:bg-card gaze:px-4 gaze:disabled:bg-border/60",
+        secondary: "bg-secondary text-secondary-foreground shadow-sm shadow-black/5 hov:bg-secondary/80",
+        /** رجوعٌ أو فتحٌ أو تبديل: أبيضُ بحدٍّ هادئ. */
+        outline: "border-border bg-card text-foreground shadow-sm shadow-black/5 hov:bg-muted",
+        /** الصفّ العلوي في الحجم العادي: نصٌّ باللون الأساسي بلا تعبئة؛ وفي الحجم الكبير حبّةٌ بيضاء بحدّها. */
+        ghost: "px-2 text-primary hov:bg-primary/5 gaze:border-border gaze:bg-card gaze:px-4 gaze:shadow-sm gaze:shadow-black/5",
         /** يحذف أو يلغي، ولا يُستعاد. */
-        danger: "bg-destructive text-destructive-foreground hov:bg-destructive/90",
+        danger: "bg-destructive text-destructive-foreground shadow-sm shadow-black/5 hov:bg-destructive/90",
         /** خطوةٌ آمنة نحو ما يحذف: تفتح التأكيد ولا تحذف. */
-        "danger-outline": "bg-destructive-tint text-destructive hov:bg-destructive-tint/70",
-        /** مثلها في الصفّ العلوي: نصٌّ أحمر بلا تعبئة. */
-        "danger-ghost": "bg-transparent px-2 text-destructive hov:bg-destructive-tint disabled:bg-transparent gaze:bg-card gaze:px-4 gaze:disabled:bg-border/60",
+        "danger-outline": "border-border bg-card text-destructive shadow-sm shadow-black/5 hov:bg-destructive-tint",
+        /** مثلها في الصفّ العلوي: نصٌّ أحمر بلا تعبئة؛ وفي الحجم الكبير حبّةٌ بيضاء بحدّها. */
+        "danger-ghost": "px-2 text-destructive hov:bg-destructive-tint gaze:border-border gaze:bg-card gaze:px-4 gaze:shadow-sm gaze:shadow-black/5",
       },
       size: {
         default: "",
-        lg: "min-h-ctl-lg text-lead",
+        lg: "min-h-ctl-lg",
       },
       width: {
         auto: "",

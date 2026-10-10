@@ -97,9 +97,9 @@ function ChoiceGroup({ id, label, items, otherLabel, firstLabel, numeric = false
           aria-pressed={item.pressed}
           disabled={item.disabled}
           data-key={item.key}
-          variant={item.pressed ? "secondary" : "outline"}
+          variant="outline"
           onClick={item.onPress}
-          className={cn("chip rounded-pill px-2 gaze:px-2", numeric && "num")}
+          className={cn("chip rounded-pill px-2 aria-pressed:border-primary aria-pressed:bg-secondary aria-pressed:text-secondary-foreground", numeric && "num")}
         >
           {item.label}
         </Button>
@@ -154,7 +154,7 @@ export function PhotoScreen({ campaign, uploading, onFile, onGenerate, onBack, o
           actions
           start={
             <Button id="photo-generate" variant="primary" commit disabled={!hasImage || uploading} icon={SquarePen} onClick={onGenerate}>
-              اكتب لي العنوان والوصف
+              اكتب النص
             </Button>
           }
         />
@@ -771,7 +771,8 @@ export function CampaignRows({ items, names, currentId = null, onOpen }: {
                 current ? "border-primary bg-secondary text-secondary-foreground" : "border-transparent bg-card text-foreground shadow-card hov:bg-muted",
               )}
             >
-              <span className="min-w-0 leading-snug">{names[index]}</span>
+              {/* اسم المنتج نصٌّ جارٍ يلتفّ سطرين متوازنين (`data-wrap`)، والحالة تحته. */}
+              <span data-wrap="" className="min-w-0 text-balance leading-snug">{names[index]}</span>
               <Badge tone={item.status === "READY" ? "success" : item.status === "COPY_APPROVED" ? "info" : "neutral"} className="row-status pointer-events-none">
                 {STATUS_LABELS[item.status] ?? ""}
               </Badge>

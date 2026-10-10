@@ -72,13 +72,14 @@ def test_the_tab_bar_opens_the_sections_the_tools_and_the_account(next_page, ser
 
 
 def test_the_gaze_tools_open_from_symbols_sheet(next_page, server, owner):
-    """في الحجم الكبير على الهاتف «سيمبول» وسط الشريط، و«الأدوات» في خانة ذيل ورقته الأولى."""
+    """في الحجم الكبير على الهاتف زرّ سيمبول بجانب بندَي الشريط، و«الأدوات» في خانة ذيل ورقته الأولى."""
     member(owner, size="GAZE")
     page = next_page(login=LOGIN)
     flow = Flow(page)
     page.goto(page.next)
     flow.screen("[aria-label='ابدأ عملاً']")
-    assert _ids(page, "nav[aria-label='أقسام البوابة'] a, nav[aria-label='أقسام البوابة'] button") == ["nav-home", "nav-chat", "nav-account"]
+    assert _ids(page, "nav[aria-label='أقسام البوابة'] a, nav[aria-label='أقسام البوابة'] button") == ["nav-home", "nav-account"]
+    assert page.locator("[data-tab-bar] #nav-chat").count() == 1
     assert page.locator("#nav-tools").count() == 0
     flow.press("#nav-chat", lambda: flow.screen("dialog[open] >> text=اكتب سؤالك"), "سيمبول")
     flow.press("dialog[open] >> text=الأدوات", lambda: flow.screen("dialog[open] ul button"), "الأدوات")

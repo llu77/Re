@@ -36,10 +36,10 @@ export function Slots({ start, end, actions = false, top = false, className }: {
     // بنمط iOS: «رجوع» في أوّل خانته، والفعل الآخر في آخر خانته، كلٌّ بعرض نصّه.
     <div
       className={cn(
-        "grid min-h-ctl w-full grid-cols-2 gap-tg",
-        actions && "[&>*]:px-2 gaze:[&_svg]:hidden",
-        // في الحجم الكبير تملأ الخانة نصف العرض: الاسم الطويل يلتفّ في زرّه ولا يخرج منه في 320px.
-        top && "items-center compact:[&>:first-child]:justify-self-start compact:[&>:last-child]:justify-self-end",
+        // بين الخانتين في الحجم الكبير 24 (مساحة الإصابة الخفيّة فوق الزرّ وتحته لا بجانبه): لكل زرٍّ ما يتّسع لاسمه في سطر.
+        "grid min-h-ctl w-full grid-cols-2 gap-tg gaze:gap-x-6",
+        actions && "[&>*]:px-3 gaze:[&_svg]:hidden",
+        top && "items-center [&>:first-child]:justify-self-start [&>:last-child]:justify-self-end",
         className,
       )}
     >

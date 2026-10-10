@@ -10,7 +10,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 const STEP =
-  "inline-flex size-ctl shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground disabled:bg-border/60 disabled:text-muted-foreground hov:bg-secondary/70 [&_svg]:size-icon"
+  "inline-flex size-ctl shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground shadow-sm shadow-black/5 disabled:opacity-50 hov:bg-secondary/80 [&_svg]:size-icon"
 
 export interface ChoiceStepperProps<V extends string | number> {
   /** معرّف القيمة الظاهرة (`output`)، والزرّان `${id}-prev` و`${id}-next`. */

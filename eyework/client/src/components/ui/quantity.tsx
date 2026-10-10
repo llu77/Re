@@ -25,7 +25,7 @@ export interface QuantityStepperProps {
 
 export function QuantityStepper({ label, value, min = 0, max, onChange, unit, disabled = false, className }: QuantityStepperProps) {
   const button =
-    "inline-flex size-ctl shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground disabled:bg-border/60 disabled:text-muted-foreground hov:bg-secondary/70 [&_svg]:size-icon"
+    "inline-flex size-ctl shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground shadow-sm shadow-black/5 disabled:opacity-50 hov:bg-secondary/80 [&_svg]:size-icon"
   return (
     <div role="group" aria-label={label} className={cn("flex items-center gap-tg-min", className)}>
       <button type="button" data-value="" aria-label={`أنقص ${label}`} disabled={disabled || value <= min} onClick={() => onChange(Math.max(min, value - 1))} className={button}>

@@ -10,7 +10,7 @@ import * as React from "react"
 import { LogOut, Trash2 } from "lucide-react"
 
 import { chatApi, navigate, workspaceOf } from "@/app/workspace"
-import { BrandMark } from "@/components/brand/marks"
+import { Wordmark } from "@/components/brand/marks"
 import { Screen } from "@/components/shell/screen"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import { BackIcon, Button } from "@/components/ui/button"
@@ -48,7 +48,7 @@ function ConfirmScreen({ title, question, text, label, icon, onYes, onBack, busy
       fill
       above={<p className="text-small font-semibold text-muted-foreground">{title}</p>}
       actions={
-        <div className="grid w-full grid-cols-2 gap-tg">
+        <div className="grid w-full grid-cols-2 gap-tg gaze:gap-x-6">
           {backSlot === "start" ? back : <span aria-hidden="true" />}
           {backSlot === "end" ? back : <span aria-hidden="true" />}
         </div>
@@ -152,10 +152,9 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
       {/* رأسٌ بارتفاعٍ ثابت (3.5rem + الحدّ): تحسبه `.chrome-bare` لتملأ الشاشة ما تحته. */}
       <header className="h-14 border-b border-border bg-card">
         <div className="mx-auto flex h-full max-w-content items-center gap-2.5 px-edge">
-          <BrandMark />
-          <span className="flex flex-col leading-tight">
-            <span className="font-semibold text-heading">صياغة</span>
-            <span className="text-small text-muted-foreground">{profession}</span>
+          <span className="flex flex-col items-start gap-1">
+            <Wordmark className="text-lead" />
+            <span className="text-small leading-tight text-muted-foreground">{profession}</span>
           </span>
         </div>
       </header>

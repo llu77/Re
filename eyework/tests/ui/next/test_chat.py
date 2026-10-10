@@ -1,8 +1,8 @@
 """
 المحادثة مع سيمبول في المتصفّح
 ==============================
-زرّ «اسأل سيمبول» في كل شاشةٍ من البوابة: يطفو فوق شريط التبويب بحجم اللمس، والمحتوى ينتهي فوقه؛ وفي
-الحجم الكبير بندٌ وسط الشريط لا يطفو. الورقة محادثةٌ تبقى بين الشاشات: الأسئلة الجاهزة، والسؤال المكتوب،
+زرّ سيمبول في كل شاشةٍ من البوابة: دائرةٌ بجانب شريط التبويب العائم في الهاتف، والمحتوى ينتهي فوقهما؛ وفي
+الحجم الكبير في صفّ الشريط نفسه، لا فوق المحتوى. الورقة محادثةٌ تبقى بين الشاشات: الأسئلة الجاهزة، والسؤال المكتوب،
 وما قرأه سيمبول بأدواته سطوراً تحت جوابه، والشاشة التي يقترحها زرٌّ يفتحها الموظف بنفسه. وفي الحجم الكبير
 ثلاث صفحاتٍ بلا تمرير تجتاز عقد النظر على أضيق الإطارات، ولا تقع نظرةٌ بعد ضغطةٍ على ما يُرسل.
 """
@@ -45,7 +45,7 @@ CAPTURE = """
 
 
 @pytest.mark.parametrize(("width", "height"), HANDHELD, ids=frame_ids(HANDHELD))
-def test_the_floating_button_sits_above_the_tab_bar_and_the_content_ends_above_it(next_page, server, owner, width, height):
+def test_the_floating_button_sits_beside_the_tab_bar_and_the_content_ends_above_them(next_page, server, owner, width, height):
     member(owner)
     page = next_page(width, height, login=LOGIN)
     flow = Flow(page)
@@ -53,15 +53,17 @@ def test_the_floating_button_sits_above_the_tab_bar_and_the_content_ends_above_i
     flow.screen("#nav-chat")
     flow.audit("campaigns")
     launcher = page.eval_on_selector("#nav-chat", "(e) => { const r = e.getBoundingClientRect(); return [r.top, r.bottom, r.left, r.right] }")
-    bar = page.eval_on_selector("nav[aria-label='أقسام البوابة']", "(e) => e.getBoundingClientRect().top")
-    assert launcher[1] <= bar - 11.5, (launcher, bar)
+    bar = page.eval_on_selector("nav[aria-label='أقسام البوابة']", "(e) => { const r = e.getBoundingClientRect(); return [r.top, r.bottom, r.left, r.right] }")
+    # في صفّ الشريط نفسه، ومركزاهما على خطٍّ واحد، وبينهما فجوة.
+    assert abs((launcher[0] + launcher[1]) / 2 - (bar[0] + bar[1]) / 2) <= 1, (launcher, bar)
+    assert launcher[3] <= bar[2] - 7.5, (launcher, bar)
     # طرف النهاية: يسار الصفحة العربية، بحافّتها.
     assert abs(launcher[2] - 16) <= 0.5, launcher
-    # آخر المحتوى بعد التمرير كلّه فوق الزرّ بالفجوة.
+    # آخر المحتوى بعد التمرير كلّه فوق الشريط والزرّ بالفجوة.
     page.evaluate("() => window.scrollTo(0, document.scrollingElement.scrollHeight)")
     last = page.evaluate("""() => Math.max(...[...document.querySelectorAll('main button, main a[href], main p, main h1')]
         .map((e) => e.getBoundingClientRect().bottom))""")
-    top = page.eval_on_selector("#nav-chat", "(e) => e.getBoundingClientRect().top")
+    top = min(launcher[0], bar[0])
     assert last <= top - 7.5, (last, top)
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
@@ -139,9 +141,12 @@ def test_the_gaze_size_pages_the_chat_without_scrolling_and_no_look_lands_on_a_s
     flow.audit("chat-write")
     page.fill("dialog[open] textarea", "ماذا بعد الصورة؟")
     gateway.queue(assistant_reply(answer=ANSWER, open="new"))
-    flow.press("dialog[open] button[type=submit]", lambda: flow.screen("dialog[open] >> text=افتح «حملة جديدة»"), "أرسل")
+    flow.press("dialog[open] button[type=submit]", lambda: flow.screen("dialog[open] #chat-answer-open"), "أرسل")
     flow.audit("chat-answer-open")
-    flow.press("dialog[open] >> text=افتح «حملة جديدة»", lambda: flow.screen("#photo-input"), "افتح")
+    # «افتح» وحده في نصف الشريط، واسم الشاشة في سطرٍ فوقه وفي اسم الزرّ لقارئ الشاشة.
+    assert "الشاشة المقترحة: حملة جديدة" in page.inner_text("dialog[open] section[aria-label='جواب سيمبول']")
+    assert page.get_attribute("dialog[open] #chat-answer-open", "aria-label") == "افتح «حملة جديدة»"
+    flow.press("dialog[open] #chat-answer-open", lambda: flow.screen("#photo-input"), "افتح")
     assert page.evaluate("() => location.hash") == "#/marketing/new"
     assert not flow.failures(), "\n".join(flow.failures())
     assert not flow.landings, "\n".join(flow.landings)

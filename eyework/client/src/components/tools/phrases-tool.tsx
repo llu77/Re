@@ -78,7 +78,7 @@ export function PhrasesTool({ load }: { load: () => Promise<Loaded | { fail: str
         <ul aria-label={tab === "phrases" ? "عبارات جاهزة" : "أسئلة جاهزة"} className="flex flex-col gap-tg">
           {visible.map((entry) => (
             <li key={entry.id}>
-              <Button id={`phrase-copy-${entry.id}`} icon={Copy} width="full" onClick={() => void copy(entry)} className="justify-start text-start font-normal">
+              <Button id={`phrase-copy-${entry.id}`} data-wrap="" icon={Copy} width="full" onClick={() => void copy(entry)} className="justify-start whitespace-normal py-2 text-start font-normal leading-snug">
                 <span className="line-clamp-2" dir={english ? "ltr" : "rtl"}>{english ? entry.en : entry.ar}</span>
               </Button>
             </li>

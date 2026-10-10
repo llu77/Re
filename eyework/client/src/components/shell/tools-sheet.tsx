@@ -98,7 +98,7 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, onNa
         <div className="flex flex-col gap-tg">
           {/* في الحجم الكبير تبدأ البلاطات أسفل قليلاً من أوّل صفٍّ في لوحة الأداة: ما يقع تحت تسمية البلاطة بعد
               فتحها قائمتها، لا لسانٌ يغيّر قيمة («عبارات» و«أسئلة»). */}
-          <ul className="grid grid-cols-2 gap-tg gaze:mt-4">
+          <ul className="grid grid-cols-2 gap-tg gaze:mt-4 gaze:gap-x-6">
             {visible.map((tool) => (
               <li key={tool.id}>
                 <button
@@ -119,7 +119,7 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, onNa
             ))}
           </ul>
           {pages > 1 ? (
-            <nav aria-label="صفحات الأدوات" className="grid grid-cols-2 gap-tg">
+            <nav aria-label="صفحات الأدوات" className="grid grid-cols-2 gap-tg gaze:gap-x-6">
               <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)}>
                 السابقة
               </Button>

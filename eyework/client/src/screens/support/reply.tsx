@@ -110,7 +110,7 @@ export function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
               onValueChange={(value) => setReason(value as DismissReason)}
             />
           )}
-          <div className={gaze ? "grid grid-cols-2 gap-tg" : "flex flex-wrap gap-tg"}>
+          <div className={gaze ? "grid grid-cols-2 gap-tg gaze:gap-x-6" : "flex flex-wrap gap-tg"}>
             <Button id={`flag-edit-${flag.id}`} variant="secondary" icon={PencilLine} onClick={onEdit}>
               عدّل
             </Button>

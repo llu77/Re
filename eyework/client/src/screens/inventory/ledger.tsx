@@ -53,7 +53,7 @@ export function ExpensesScreen({ month, data, canNext, onPrevious, onNext, page,
       ) : undefined}
       back={gaze ? undefined : { id: "expenses-back", label: "الرئيسية", onClick: onBack }}
     >
-      <nav aria-label="الشهر" className={gaze ? "grid grid-cols-2 gap-x-6" : "flex items-center justify-between gap-tg"}>
+      <nav aria-label="الشهر" className={gaze ? "grid grid-cols-2 gap-x-6 [&_svg]:hidden" : "flex items-center justify-between gap-tg"}>
         <Button id="expenses-previous" icon={ChevronRight} onClick={onPrevious} className="justify-self-start">
           الشهر السابق
         </Button>

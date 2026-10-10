@@ -1,25 +1,23 @@
 /*
- * TabBar — شريط التبويب السفلي (الهاتف)
- * ====================================
- * أربعة بنودٍ ثابتة في أسفل الشاشة في كل شاشةٍ من البوابة: الرئيسية، والأقسام، والأدوات، وحسابي؛ وفي
- * الحجم الكبير ثلاثة: الرئيسية، و«سيمبول» في الوسط بالتعبئة الملوّنة (زرّ المحادثة العائم في الحجم العادي،
- * وهنا بندٌ لا يطفو فوق المحتوى)، وحسابي. «الأقسام» هي أزرار الرئيسية، و«الأدوات» من ورقة المحادثة: أربعةٌ
- * لا تتّسع في 320px بحدّ الهدف وفجوته.
- * أيقونةٌ ونصٌّ تحتها، والحالي باللون الأساسي وعلامة `aria-current`. كلّها آمنة (`data-safe`):
- * رابطٌ يفتح شاشةً أو زرٌّ يفتح ورقة، ولا شيء يعتمد. ارتفاعه `--tab` فوق الحافّة الآمنة،
- * وبين بنوده `--tg`؛ في 320px كل بندٍ 66px باللمس و69px في الحجم الكبير (ثلاثةٌ بفجوة 40)، ومراكزها على بعد 109px.
+ * TabBar — شريط التبويب السفلي وزرّ سيمبول (الهاتف)
+ * =================================================
+ * الأصل: «Bottom Nav Bar» (arunachalam، 21st.dev: https://21st.dev/@arunachalam/components/bottom-nav-bar، بشروط
+ * 21st.dev ورخصة صفحة المكوّن): حبّةٌ بيضاء عائمة فوق أسفل الشاشة بحدٍّ هادئ وظلٍّ واسع، وبنودها حبّاتٌ مدوّرة،
+ * والحالي بتعبئةٍ خفيفة من اللون الأساسي. وبجانبها في طرف النهاية زرّ سيمبول العائم: دائرةٌ بالتعبئة الملوّنة
+ * وفقاعة محادثةٍ بيضاء، كزرّ البحث بجانب شريط التبويب في iOS. أُخذ التخطيط والمظهر بلا framer-motion ولا حركةٍ عند
+ * الضغط: لا مستمعات لمسٍ ولا حركة في الحجم الكبير.
  *
- * ثابتٌ فوق الصفحة في الحجم العادي (المحتوى ينتهي قبله: `.pb-tab`)، ويختفي فيه ما دام حقلٌ
- * مركَّزاً (`kb:hidden`) فلا يركب لوحة المفاتيح. وفي الحجم الكبير في التدفّق أسفل الشاشة (لا
- * تمرير أصلاً) ولا يختفي: إخفاؤه يحرّك الأهداف تحت نظرٍ باقٍ. التخطيط مستوحىً من «Mobile
- * Navigation Tabs» (shadcnui-blocks، 21st.dev: https://21st.dev/shadcnui-blocks/components/tabs-08،
- * بشروط 21st.dev ورخصة صفحة المكوّن) بلا Radix: لم تُنقل شيفرته، بل تخطيطه.
+ *   الحجم العادي:  أربعة بنود [الرئيسية · الأقسام · الأدوات · حسابي] أيقونةٌ فوق اسمٍ صغير، وزرّ سيمبول بجانبها.
+ *                  ثابتٌ فوق الصفحة (المحتوى ينتهي قبله: `.pb-tab`)، ويختفي ما دام حقلٌ مركَّزاً (`kb:hidden`).
+ *   الحجم الكبير:  بندان [الرئيسية · حسابي] وزرّ سيمبول، في التدفّق أسفل الشاشة (لا تمرير)؛ البند 48 ومساحة
+ *                  إصابته الخفيّة تملأ الشريط (72)، ومراكز الأهداف الثلاثة على بعد 96 على الأقل.
+ *
+ * كلّها آمنة (`data-safe`): رابطٌ يفتح شاشةً أو زرٌّ يفتح ورقة، ولا شيء يعتمد. والحالي بعلامة `aria-current`.
  */
 
-import type { LucideIcon } from "lucide-react"
+import { MessageCircle, type LucideIcon } from "lucide-react"
 
 import { SymbolMark } from "@/components/brand/marks"
-import { SymbolBadge } from "@/components/chat/chat-launcher"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
@@ -32,7 +30,7 @@ export interface NavEntry {
   /** …أو زرٌّ يفتح ورقة. */
   onClick?: () => void
   current?: boolean
-  /** بالتعبئة الملوّنة: «سيمبول» في الحجم الكبير. */
+  /** بالتعبئة الملوّنة: سيمبول. */
   accent?: boolean
 }
 
@@ -42,21 +40,43 @@ function NavIcon({ icon, className }: { icon: LucideIcon | "symbol"; className?:
   return <Icon aria-hidden="true" className={className} strokeWidth={1.75} />
 }
 
-export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (href: string) => void }) {
+/** زرّ سيمبول العائم: دائرةٌ بالتعبئة الملوّنة وفقاعة محادثةٍ بيضاء، واسمه «اسأل سيمبول» لقارئ الشاشة. */
+export function SymbolButton({ id, onClick, className }: { id: string; onClick?: () => void; className?: string }) {
+  // في الحجم الكبير بلا aria-haspopup: WebKit يجعله «زرّاً منبثقاً» بلا سمة الزرّ التي يقصدها «الانتقال إلى العنصر».
+  const popup = useSize().size === "gaze" ? undefined : "dialog"
+  return (
+    <button
+      id={id}
+      type="button"
+      data-safe=""
+      aria-haspopup={popup}
+      aria-label="اسأل سيمبول"
+      onClick={onClick}
+      className={cn(
+        "inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground",
+        "shadow-lg shadow-primary/30 hov:bg-primary/90",
+        className,
+      )}
+    >
+      <MessageCircle aria-hidden="true" className="size-6 -scale-x-100" strokeWidth={2} />
+    </button>
+  )
+}
+
+export function TabBar({ items, symbol, onNavigate }: { items: NavEntry[]; symbol?: NavEntry; onNavigate: (href: string) => void }) {
   // في الحجم الكبير بلا aria-haspopup: WebKit يجعله «زرّاً منبثقاً» بلا سمة الزرّ التي يقصدها «الانتقال إلى العنصر».
   const popup = useSize().size === "gaze" ? undefined : "dialog"
   const item = (entry: NavEntry) => {
     const className = cn(
-      "flex min-h-tab w-full flex-col items-center justify-center gap-1 rounded-ctl text-small font-medium leading-none text-muted-foreground",
-      // في الحجم الكبير البند 48 ومساحة إصابته الخفيّة تملأ حشو الشريط فوقه وتحته: 72، الشريط كلّه.
-      "gaze:min-h-ctl gaze:gap-1",
-      "[&[aria-current]]:text-primary",
-      entry.accent && "bg-primary text-primary-foreground",
+      "flex h-11 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-full text-[0.6875rem] font-medium leading-normal text-muted-foreground",
+      "gaze:h-ctl gaze:gap-1 gaze:text-small",
+      "hov:text-foreground [&[aria-current]]:bg-primary/10 [&[aria-current]]:text-primary",
     )
     const content = (
       <>
-        {entry.accent && entry.icon === "symbol" ? <SymbolBadge className="size-6" /> : <NavIcon icon={entry.icon} className="size-icon shrink-0" />}
-        <span>{entry.label}</span>
+        <NavIcon icon={entry.icon} className="size-5 shrink-0 gaze:size-icon" />
+        {/* حشوٌ سفليٌّ داخل القصّ: نقطتا الياء الأخيرة («حسابي») تنزلان تحت السطر. */}
+        <span className="max-w-full truncate px-0.5 pb-0.5">{entry.label}</span>
       </>
     )
     if (entry.href) {
@@ -83,27 +103,22 @@ export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (
     )
   }
   return (
-    <nav
-      aria-label="أقسام البوابة"
-      className={cn(
-        "bar-glass z-20 border-t border-border kb:hidden",
-        "compact:fixed compact:inset-x-0 compact:bottom-0",
-        "gaze:shrink-0",
-      )}
-    >
-      <ul
-        className={cn(
-          "mx-auto grid max-w-content gap-tg px-edge pb-[env(safe-area-inset-bottom)]",
-          "gaze:pb-[calc(var(--hit-pad)+env(safe-area-inset-bottom))] gaze:pt-[var(--hit-pad)]",
-          items.length === 3 ? "grid-cols-3" : "grid-cols-4",
-        )}
-      >
-        {items.map((entry) => (
-          <li key={entry.id} className="min-w-0">
-            {item(entry)}
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <div data-tab-bar="" className={cn("z-20 kb:hidden", "compact:fixed compact:inset-x-0 compact:bottom-0", "gaze:shrink-0")}>
+      <div className="mx-auto flex max-w-content items-center gap-2 px-edge pb-[max(0.5rem,env(safe-area-inset-bottom))] gaze:gap-6 gaze:pt-2">
+        <nav
+          aria-label="أقسام البوابة"
+          className="flex h-14 min-w-0 flex-1 items-center rounded-full border border-border/70 bg-card/95 p-[5px] shadow-xl shadow-black/10 backdrop-blur gaze:bg-card gaze:p-[3px] gaze:backdrop-blur-none"
+        >
+          <ul className={cn("grid min-w-0 flex-1 gap-2 gaze:gap-6", items.length === 2 ? "grid-cols-2" : "grid-cols-4")}>
+            {items.map((entry) => (
+              <li key={entry.id} className="min-w-0">
+                {item(entry)}
+              </li>
+            ))}
+          </ul>
+        </nav>
+        {symbol ? <SymbolButton id={symbol.id} onClick={symbol.onClick} /> : null}
+      </div>
+    </div>
   )
 }

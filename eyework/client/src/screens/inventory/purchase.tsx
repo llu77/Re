@@ -309,7 +309,7 @@ function QuickItemCard({ name: initialName, choices, onCreate, onCancel, inBar, 
           </Alert>
         )
       ) : null}
-      {inBar ? null : <div className="grid grid-cols-2 gap-tg">{quickButtons("item", "أنشئ المنتج", busy, onCancel)}</div>}
+      {inBar ? null : <div className="grid grid-cols-2 gap-tg gaze:gap-x-6">{quickButtons("item", "أنشئ المنتج", busy, onCancel)}</div>}
     </form>
   )
 }
@@ -350,7 +350,7 @@ function QuickSupplierCard({ name: initialName, onCreate, onCancel, inBar, onBus
           {fail}
         </Alert>
       ) : null}
-      {inBar ? null : <div className="grid grid-cols-2 gap-tg">{quickButtons("supplier", "أنشئ المورّد", busy, onCancel)}</div>}
+      {inBar ? null : <div className="grid grid-cols-2 gap-tg gaze:gap-x-6">{quickButtons("supplier", "أنشئ المورّد", busy, onCancel)}</div>}
     </form>
   )
 }
@@ -846,7 +846,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           <>
             {lineEditor}
             {creatingItem !== null ? null : (
-              <div className="grid grid-cols-2 gap-tg">
+              <div className="grid grid-cols-2 gap-tg gaze:gap-x-6">
                 {line.lineNo === null ? (
                   <Button id="line-save" variant="primary" commit icon={Plus} disabled={!line.item} busy={busy === "line"} onClick={() => void commitLine()}>
                     أضف السطر

@@ -10,8 +10,9 @@
  * لم تُنقل شيفرته، بل تخطيطه.
  */
 
-import { BrandMark, SymbolMark } from "@/components/brand/marks"
-import { SymbolBadge } from "@/components/chat/chat-launcher"
+import { MessageCircle } from "lucide-react"
+
+import { SymbolMark, Wordmark } from "@/components/brand/marks"
 import type { NavEntry } from "@/components/shell/tab-bar"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
@@ -35,7 +36,7 @@ function Row({ entry, onNavigate }: { entry: NavEntry; onNavigate: (href: string
   )
   const icon =
     entry.accent && entry.icon === "symbol" ? (
-      <SymbolBadge className="-ms-1.5 size-7" />
+      <MessageCircle aria-hidden="true" className="size-icon shrink-0 -scale-x-100" strokeWidth={2} />
     ) : entry.icon === "symbol" ? (
       <SymbolMark className="size-icon shrink-0" />
     ) : (
@@ -74,12 +75,9 @@ export function Sidebar({ workspaceName, userName, groups, onNavigate }: Sidebar
       id="sidebar"
       className="sticky top-0 flex h-dvh w-side shrink-0 flex-col gap-sec border-e border-border bg-card px-edge pb-safe pt-safe"
     >
-      <div className="flex items-center gap-2.5 px-1">
-        <BrandMark />
-        <span className="flex min-w-0 flex-col leading-tight">
-          <span className="font-semibold text-heading">صياغة</span>
-          <span className="truncate text-small text-muted-foreground">{workspaceName}</span>
-        </span>
+      <div className="flex min-w-0 flex-col items-start gap-1 px-1">
+        <Wordmark className="text-lead" />
+        <span className="max-w-full truncate pb-0.5 text-small text-muted-foreground">{workspaceName}</span>
       </div>
       <nav aria-label="أقسام البوابة" className="flex min-h-0 flex-1 flex-col gap-sec">
         {/* بين بنود السكّة في الحجم الكبير فجوة الهدفين لا فجوة النصّين: مراكزها على بعد 96 على الأقل. */}

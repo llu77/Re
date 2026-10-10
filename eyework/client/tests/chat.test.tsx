@@ -155,7 +155,9 @@ describe("the conversation sheet", () => {
     expect(dialog.textContent).toContain("جواب 2")
     expect(dialog.textContent).not.toContain("جواب 1")
     const names = [...dialog.querySelectorAll("button")].map((b) => b.textContent?.trim())
-    expect(names).toEqual(["سؤالٌ جديد", "افتح «المخزون»", "إغلاق"])
+    // «افتح» وحده في نصف الشريط، واسم الشاشة في سطرٍ فوقه وفي اسم الزرّ.
+    expect(names).toEqual(["سؤالٌ جديد", "افتح", "إغلاق"])
+    expect(dialog.textContent).toContain("الشاشة المقترحة: المخزون")
     fireEvent.click(screen.getByRole("button", { name: "افتح «المخزون»" }))
     expect(onNavigate).toHaveBeenCalledWith("#/inventory/stock")
   })

@@ -347,7 +347,7 @@ export function RepForm({ supplier, rep, onSave, onBack }: {
                 onValueChange={setIsDefault}
                 gazeColumns={2}
                 options={[
-                  { value: "yes", title: "المندوب الافتراضي" },
+                  { value: "yes", title: "الافتراضي" },
                   { value: "no", title: "ليس الافتراضي" },
                 ]}
               />

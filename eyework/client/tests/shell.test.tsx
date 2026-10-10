@@ -55,24 +55,26 @@ describe("the workspace shell", () => {
     expect([...nav.querySelectorAll("a, button")].every((e) => e.hasAttribute("data-safe"))).toBe(true)
     expect(nav.querySelector("#nav-home")?.getAttribute("aria-current")).toBe("page")
     expect(document.querySelector("#sidebar")).toBeNull()
-    // زرّ سيمبول يطفو فوق الشريط، خارجه، آمناً، واسمه «اسأل سيمبول» لقارئ الشاشة.
+    // زرّ سيمبول عائمٌ بجانب الشريط في الصفّ نفسه (خارج قائمة البنود)، آمنٌ، واسمه «اسأل سيمبول» لقارئ الشاشة.
     const launcher = document.querySelector("#nav-chat") as HTMLElement
     expect(nav.contains(launcher)).toBe(false)
+    expect(nav.parentElement?.contains(launcher)).toBe(true)
     expect(launcher.hasAttribute("data-safe")).toBe(true)
-    expect(launcher.className).toContain("fixed")
     expect(screen.getByRole("button", { name: "اسأل سيمبول" })).toBe(launcher)
   })
 
-  it("docks Symbol in the middle of the gaze-size tab bar instead of floating it", () => {
+  it("puts Symbol beside the two gaze-size tab-bar entries, never over the content", () => {
     viewport(390)
     shell("gaze")
     const nav = screen.getByRole("navigation", { name: "أقسام البوابة" })
-    expect(ids(nav)).toEqual(["nav-home", "nav-chat", "nav-account"])
+    expect(ids(nav)).toEqual(["nav-home", "nav-account"])
     expect(document.querySelectorAll("#nav-chat")).toHaveLength(1)
-    expect(nav.querySelector("#nav-chat")?.className).not.toContain("fixed")
-    expect(nav.querySelector("#nav-chat")?.textContent).toBe("سيمبول")
+    const launcher = document.querySelector("#nav-chat") as HTMLElement
+    expect(nav.parentElement?.contains(launcher)).toBe(true)
+    expect(launcher.className).not.toContain("fixed")
+    expect(launcher.getAttribute("aria-label")).toBe("اسأل سيمبول")
     // في الحجم الكبير بلا aria-haspopup: سمة الزرّ لـ«الانتقال إلى العنصر».
-    expect(nav.querySelector("#nav-chat")?.hasAttribute("aria-haspopup")).toBe(false)
+    expect(launcher.hasAttribute("aria-haspopup")).toBe(false)
   })
 
   it("gives a tablet the sidebar with the entries, the tools and help, the floating Symbol, and no tab bar", () => {
