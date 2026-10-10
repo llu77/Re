@@ -11,7 +11,7 @@ import { Copy } from "lucide-react"
 
 import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { Tabs } from "@/components/ui/tabs"
-import { usePageSize } from "@/lib/size"
+import { usePageSize, useSize } from "@/lib/size"
 
 export interface PhraseEntry {
   id: string
@@ -30,6 +30,7 @@ export function PhrasesTool({ load }: { load: () => Promise<Loaded | { fail: str
   const [page, setPage] = React.useState(0)
   const [copied, setCopied] = React.useState<string | null>(null)
   const size = usePageSize({ compact: 3, gaze: 2, gazeShort: 1 })
+  const gaze = useSize().size === "gaze"
   React.useEffect(() => {
     let current = true
     void load().then((result) => {
@@ -84,16 +85,34 @@ export function PhrasesTool({ load }: { load: () => Promise<Loaded | { fail: str
           ))}
         </ul>
       </Tabs>
-      <p role="status" className="min-h-[1lh] text-small font-semibold text-success">{copied ? "نُسخت. الصقها في الردّ." : ""}</p>
-      <div className="flex items-center justify-between gap-tg">
-        {pages > 1 ? (
-          <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)}>السابق</Button>
-        ) : <span aria-hidden="true" />}
-        <Button id="phrases-language" isValue onClick={() => setEnglish(!english)}>{english ? "بالعربية" : "بالإنجليزية"}</Button>
-        {pages > 1 ? (
-          <Button iconEnd={NextIcon} disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>التالي</Button>
-        ) : <span aria-hidden="true" />}
-      </div>
+      {gaze ? (
+        // الحجم الكبير: ثلاثة أزرارٍ لا تتّسع في صفٍّ بعرض 288: اللغة صفٌّ ومعها سطر «نُسخت»، والصفحات صفٌّ تحته.
+        <>
+          <div className="flex items-center gap-x-6">
+            <Button id="phrases-language" isValue onClick={() => setEnglish(!english)}>{english ? "بالعربية" : "بالإنجليزية"}</Button>
+            <p role="status" className="min-w-0 text-small font-semibold text-success">{copied ? "نُسخت. الصقها في الردّ." : ""}</p>
+          </div>
+          {pages > 1 ? (
+            <div className="grid grid-cols-2 gap-x-6">
+              <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)}>السابق</Button>
+              <Button iconEnd={NextIcon} disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>التالي</Button>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <p role="status" className="min-h-[1lh] text-small font-semibold text-success">{copied ? "نُسخت. الصقها في الردّ." : ""}</p>
+          <div className="flex items-center justify-between gap-tg">
+            {pages > 1 ? (
+              <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)}>السابق</Button>
+            ) : <span aria-hidden="true" />}
+            <Button id="phrases-language" isValue onClick={() => setEnglish(!english)}>{english ? "بالعربية" : "بالإنجليزية"}</Button>
+            {pages > 1 ? (
+              <Button iconEnd={NextIcon} disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>التالي</Button>
+            ) : <span aria-hidden="true" />}
+          </div>
+        </>
+      )}
     </div>
   )
 }

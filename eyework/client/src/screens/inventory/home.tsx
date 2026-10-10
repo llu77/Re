@@ -62,9 +62,10 @@ export function InventoryHome({ workspace, userName, summary, onNavigate }: {
     >
       <HomeGrid workspace={workspace} onNavigate={onNavigate} />
       {summary ? (
-        <section id="home-summary" aria-label="ملخّص المخزون" className="flex flex-col gap-2 rounded-card border border-border bg-card p-pad gaze:short:hidden">
+        // الحجم الكبير: سطرٌ بلا بطاقة، قريبٌ من الأزرار (نصٌّ لا هدف): أربعة صفوفٍ بمراكز 96 تملأ أضيق هاتف.
+        <section id="home-summary" aria-label="ملخّص المخزون" className="flex flex-col gap-2 rounded-card border border-border bg-card p-pad gaze:-mt-6 gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:short:hidden">
           {gaze ? (
-            // سطرٌ واحد في الحجم الكبير: الأزرار السبعة ورابط الإعدادات يملآن الهاتف الأضيق (320×635).
+            // سطرٌ واحد في الحجم الكبير: الأزرار السبعة تملأ الهاتف الأضيق (320×635).
             <p className="truncate text-small font-semibold">
               {items.length ? (
                 <span className="text-warning">{items[0].text}{items.length > 1 ? ` (+${items.length - 1})` : ""}</span>
@@ -97,7 +98,8 @@ export function InventoryHome({ workspace, userName, summary, onNavigate }: {
           )}
         </section>
       ) : null}
-      <div className="tablet:hidden">
+      {/* الحجم الكبير على الهاتف: الإعدادات في ورقة الأدوات (inventory-flow.tsx). */}
+      <div className="tablet:hidden gaze:hidden">
         <ButtonLink id="home-settings-phone" href={`${BASE}/settings`} icon={Settings2} onClick={(event) => { event.preventDefault(); onNavigate(`${BASE}/settings`) }} className="gaze:w-full">
           إعدادات المخزن
         </ButtonLink>

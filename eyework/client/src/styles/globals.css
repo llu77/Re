@@ -221,6 +221,14 @@
     inset: calc(-1 * var(--hit-pad)) 0;
   }
 
+  /* حقلٌ بعنوانه في عمودٍ في الحجم الكبير: عنوانه (24px) بينه وبين ما فوقه، فيكفي 28px فوقه لا فجوة هدفين (48).
+     وما فوقه حقلٌ (`data-field`) أو كتلةٌ معلَّمة (`data-block`: بطاقات، أو منتقٍ، أو زرٌّ بمساحته الخفيّة)، فمساحتا
+     الإصابة على بعد 24 على الأقل والمركزان على بعد 96 على الأقل. لا ما سواهما: عنوانٌ مخفيٌّ بصنفٍ قبل الحقل
+     يجعله أوّل العمود، فيرتفع فوق حدّه. والمخفيّ بالسمة لا يُعدّ، ولا ما في شبكة (حقلان في صفٍّ على خطٍّ واحد). */
+  :root[data-size="gaze"] .flex-col:is(.gap-tg, .gaze\:gap-tg) > :is([data-field], [data-block]):not([hidden]) + [data-field]:not([hidden]) {
+    margin-top: calc(1.75rem - var(--tg));
+  }
+
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;

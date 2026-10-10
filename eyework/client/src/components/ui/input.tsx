@@ -65,7 +65,7 @@ export function Field({ label, hint, error, required = false, reserve = false, i
   }
   return (
     <FieldContext.Provider value={value}>
-      <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+      <div data-field="" className={cn("flex min-w-0 flex-col gap-1", className)}>
         <Label htmlFor={controlId}>
           {label}
           {required ? <span className="text-muted-foreground"> (مطلوب)</span> : null}

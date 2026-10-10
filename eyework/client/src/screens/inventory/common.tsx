@@ -57,7 +57,8 @@ export interface Fact {
 export function Facts({ facts, columns = 2, className }: { facts: Fact[]; columns?: 1 | 2 | 3; className?: string }) {
   const shown = facts.filter((fact) => fact.value !== null && fact.value !== undefined && fact.value !== "")
   return (
-    <dl className={cn("grid gap-x-tg gap-y-2 rounded-card border border-border bg-card p-pad", columns === 1 ? "grid-cols-1" : columns === 2 ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-3", className)}>
+    // الحجم الكبير: الحقائق نصٌّ على الصفحة بلا بطاقة (لا حشو ولا إطار)، فيبقى للشاشة ما يتّسع لها بلا تمرير.
+    <dl className={cn("grid gap-x-tg gap-y-2 rounded-card border border-border bg-card p-pad gaze:border-0 gaze:bg-transparent gaze:p-0", columns === 1 ? "grid-cols-1" : columns === 2 ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-3", className)}>
       {shown.map((fact) => (
         <div key={fact.label} className={cn("flex min-w-0 flex-col gap-0.5", !fact.key && "gaze:hidden")}>
           <dt className="text-small text-muted-foreground">{fact.label}</dt>
@@ -112,14 +113,21 @@ export function useGazeHost(): Host {
 }
 
 /** غلاف حقل: في الحجم الكبير حين يكون حقلٌ آخر في الخطوة مفتوحاً يُخفى (ويبقى مكانه إن سبقه). */
-export function GazeSlot({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
+export function GazeSlot({ id, children, className, field = true }: {
+  id: string
+  children: React.ReactNode
+  className?: string
+  /** يبدأ بعنوانٍ فوق هدفه (حقلٌ أو منتقٍ أو بطاقات): بين حقلين متتاليين عنوان الثاني لا فجوة هدفين. */
+  field?: boolean
+}) {
   const { size } = useSize()
   const { focused, register, precedes } = useGazeHost()
   React.useEffect(() => register(id), [id, register])
   const away = size === "gaze" && focused !== null && focused !== id
   const keepSpace = away && precedes(id, focused as string)
   return (
-    <div hidden={away && !keepSpace} className={cn("min-w-0", keepSpace && "invisible", className)}>
+    // `data-field`: حقلٌ بعنوانه فوقه (globals.css: حقلان متتاليان بينهما عنوان الثاني لا فجوة هدفين).
+    <div data-field={field ? "" : undefined} data-block={field ? undefined : ""} hidden={away && !keepSpace} className={cn("min-w-0", keepSpace && "invisible", className)}>
       {children}
     </div>
   )

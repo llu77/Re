@@ -5,10 +5,11 @@
  * من الخادم، فيكفي هنا العرض والصفحات.
  *   • الحاسوب في الحجم العادي: <table> حقيقي برؤوس أعمدة (scope="col")، وهدف كل صفٍّ
  *     زرٌّ في خليّته الأولى ارتفاعه 44 داخل صفٍّ 52: فبين هدفي صفّين 8.
- *   • الهاتف، والحجم الكبير في كل شاشة: قائمة بطاقات، كل بطاقةٍ زرٌّ واحد (72 في الكبير)
- *     وبينها `gap-tg-min`. والأعمدة الثانوية سطرٌ تحت الاسم.
- *   • لا تمرير في الحجم الكبير: صفحاتٌ بـ«السابق» و«التالي» (3–4 صفوف)؛ وفي العادي صفحاتٌ
- *     أطول تمرّ بها الصفحة.
+ *   • الهاتف، والحجم الكبير في كل شاشة: قائمة بطاقات، كل بطاقةٍ زرٌّ واحد وبينها `gap-tg-min`؛
+ *     وفي الكبير بين بطاقتين تُفتحان فجوة هدفين (48: بين مساحتي إصابتهما 24، وبين مركزيهما أكثر من 96).
+ *     والأعمدة الثانوية سطرٌ تحت الاسم.
+ *   • لا تمرير في الحجم الكبير: صفحاتٌ بـ«السابق» و«التالي» (صفّان في الصفحة، `LIST_PAGE`)؛ وفي العادي
+ *     صفحاتٌ أطول تمرّ بها الصفحة.
  *   • الأرقام لاتينيةٌ بعرضٍ ثابت ومحاذاةٌ إلى الطرف، فتصطفّ المنازل.
  */
 
@@ -55,7 +56,7 @@ export interface DataTableProps<T> {
 
 export function DataTable<T>({
   caption, columns, rows, rowKey, primary, secondary, trailing, onOpen, openLabel,
-  pageSize = { compact: 10, gaze: 3 }, page: controlled, onPageChange, total, empty, className,
+  pageSize = { compact: 10, gaze: 2, gazeShort: 1 }, page: controlled, onPageChange, total, empty, className,
 }: DataTableProps<T>) {
   const { size } = useSize()
   const [own, setOwn] = React.useState(0)
@@ -76,7 +77,7 @@ export function DataTable<T>({
   if (count === 0) return <>{empty}</>
 
   const list = (
-    <ul aria-label={caption} className={cn("flex flex-col gap-tg-min", size === "compact" && "tablet:hidden")}>
+    <ul aria-label={caption} className={cn("flex flex-col gap-tg-min", onOpen && "gaze:gap-tg", size === "compact" && "tablet:hidden")}>
       {visible.map((row) => {
         const body = (
           <>
@@ -88,7 +89,7 @@ export function DataTable<T>({
             {onOpen ? <NextIcon aria-hidden="true" className="size-icon shrink-0 text-muted-foreground" /> : null}
           </>
         )
-        const box = "flex min-h-ctl w-full items-center gap-3 rounded-card border bg-card px-3 py-2 gaze:py-3"
+        const box = "flex min-h-ctl w-full items-center gap-3 rounded-card border bg-card px-3 py-2"
         return (
           <li key={rowKey(row)}>
             {onOpen ? (
@@ -156,15 +157,16 @@ export function DataTable<T>({
       {list}
       {table}
       {pages > 1 ? (
-        <nav aria-label={`صفحات ${caption}`} className="flex items-center justify-between gap-tg">
-          <Button icon={BackIcon} disabled={current === 0} onClick={() => go(current - 1)}>
+        // ثلاث خانات: الزرّان في الطرفين ورقم الصفحة بينهما نصٌّ لا هدف؛ يتّسعان في أضيق هاتفٍ بلا نصٍّ يخرج من زرّه.
+        <nav aria-label={`صفحات ${caption}`} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-tg-min">
+          <Button icon={BackIcon} disabled={current === 0} onClick={() => go(current - 1)} className="justify-self-start">
             السابق
           </Button>
           <span className="num whitespace-nowrap text-small text-muted-foreground" aria-live="polite">
             <span className="gaze:hidden">الصفحة </span>
             {current + 1} من {pages}
           </span>
-          <Button iconEnd={NextIcon} disabled={current >= pages - 1} onClick={() => go(current + 1)}>
+          <Button iconEnd={NextIcon} disabled={current >= pages - 1} onClick={() => go(current + 1)} className="justify-self-end">
             التالي
           </Button>
         </nav>

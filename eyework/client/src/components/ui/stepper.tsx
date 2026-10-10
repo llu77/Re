@@ -31,7 +31,8 @@ export function Stepper({ steps, current, variant = "auto", className }: Stepper
           الخطوة <span className="num">{current + 1}</span> من <span className="num">{steps.length}</span>:{" "}
           <span className="text-foreground">{label}</span>
         </p>
-        <div aria-hidden="true" className="flex gap-1.5">
+        {/* الحجم الكبير: سطر «الخطوة 3 من 5» يكفي، والشريط سطرٌ آخر لا تتّسع له الشاشة التي لا تمرّ. */}
+        <div aria-hidden="true" className="flex gap-1.5 gaze:hidden">
           {steps.map((s, index) => (
             <span key={s.id} className={cn("h-1.5 flex-1 rounded-pill gaze:h-2", index <= current ? "bg-primary" : "bg-border")} />
           ))}

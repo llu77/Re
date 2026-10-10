@@ -205,11 +205,12 @@ export function Combobox({
 
       {open ? (
         // في الحجم الكبير القائمة في مكانها من الصفحة لا فوقها: الشاشة لا تمرّ، فلا يُقصّ منها
-        // شيءٌ تحت حدّها، والمضيف يُخفي ما كان تحت الحقل حتى تُغلق (onOpenChange).
+        // شيءٌ تحت حدّها، والمضيف يُخفي ما كان تحت الحقل حتى تُغلق (onOpenChange). وتبدأ قريبةً من الحقل
+        // (28: بين الحقل ومساحة إصابة أوّل خيارٍ 24): ما يُختار منها أقرب إلى الحقل منه إلى شريط الإجراءات.
         <div
           className={cn(
             "z-30 flex flex-col gap-tg-min rounded-card border border-border bg-card p-2 shadow-pop gaze:gap-tg",
-            size === "gaze" ? "mt-tg" : "absolute inset-x-0 top-full mt-tg-min",
+            size === "gaze" ? "mt-7" : "absolute inset-x-0 top-full mt-tg-min",
           )}
         >
           {busy ? (

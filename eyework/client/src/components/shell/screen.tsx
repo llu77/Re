@@ -53,7 +53,9 @@ export function Screen({ title, description, back, end, above, aside, actions, f
     <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", fill && "fill-screen", className)}>
       {/* الصفّ العلوي ابنٌ مباشر لجذر الشاشة: اللصق (sticky) يبقى ما بقيت الشاشة، لا مجموعة العنوان وحدها. */}
       {back || end ? (
-        <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mb-sec -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]", gaze && "-mb-tg")}>
+        // الحجم الكبير: تحت الصفّ العلوي عنوانٌ من سطرٍ وحده (بلا خطواتٍ فوقه ولا وصفٍ تحته) يبقى بينه وبين أوّل هدفٍ في
+        // المحتوى 8px أخرى، فبين مساحتي إصابتهما 24 على الأقل.
+        <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mb-sec -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]", gaze && "-mb-tg", gaze && !above && !description && !status && "pb-2")}>
           <Slots start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
         </div>
       ) : null}
@@ -70,11 +72,15 @@ export function Screen({ title, description, back, end, above, aside, actions, f
         </div>
       </div>
       {/* في الحجم الكبير المحتوى يُقصّ ولا يمرّ؛ وحدّ القصّ أوسع منه بمساحة الإصابة الخفيّة (حشوٌ يقابله هامشٌ
-          سالب): الصفّ الأول والأخير يُصابان كاملَين. */}
+          سالب): الصفّ الأول والأخير يُصابان كاملَين. وبين العنوان والمحتوى 16px لا فجوة هدفين: العنوان نصٌّ بين
+          الصفّ العلوي وأوّل هدفٍ في المحتوى، فبين مساحتي إصابتهما 8 وارتفاعه و16 ناقص 24 (24 على الأقل بعنوانٍ من سطر). */}
       <div
         className={cn(
           "flex flex-col gap-sec",
-          gaze && "-my-[var(--hit-pad)] min-h-0 flex-1 gap-tg overflow-hidden py-[var(--hit-pad)]",
+          gaze &&
+            "mb-[calc(-1*var(--hit-pad))] mt-[calc(1rem-var(--tg)-var(--hit-pad))] min-h-0 flex-1 gap-tg overflow-hidden py-[var(--hit-pad)]",
+          // في الآيباد بجانب العنوان إجراءٌ (`aside`): هدفٌ فوق المحتوى، فبينهما فجوة هدفين.
+          gaze && aside && "tablet:mt-[calc(-1*var(--hit-pad))]",
           fill && "flex-1",
         )}
       >

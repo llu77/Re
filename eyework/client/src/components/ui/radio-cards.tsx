@@ -31,12 +31,14 @@ export interface RadioCardsProps<V extends string> {
   value: V | null
   onValueChange: (value: V) => void
   columns?: 1 | 2
+  /** الحجم الكبير: بطاقتان في الصفّ لخياراتٍ بعناوين قصيرة بلا أيقونةٍ ولا شرح (أربعة خياراتٍ في صفّين). */
+  gazeColumns?: 1 | 2
   /** معرّفاتٌ ثابتة للخيارات حين تحتاجها الاختبارات («signup-use-GAZE»). */
   ids?: Partial<Record<V, string>>
   className?: string
 }
 
-export function RadioCards<V extends string>({ label, options, value, onValueChange, columns = 2, ids, className }: RadioCardsProps<V>) {
+export function RadioCards<V extends string>({ label, options, value, onValueChange, columns = 2, gazeColumns = 1, ids, className }: RadioCardsProps<V>) {
   const refs = React.useRef(new Map<V, HTMLButtonElement>())
   const focusable = value ?? options[0]?.value
   const gaze = useSize().size === "gaze"
@@ -54,8 +56,11 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
   }
 
   return (
-    // في الحجم الكبير بطاقةٌ في كل صفّ: نصفُ عرض 320px لا يتّسع للأيقونة والعنوان والدائرة فيتراكبن.
-    <div role={gaze ? "group" : "radiogroup"} aria-label={label} className={cn("grid gap-tg", columns === 2 ? "grid-cols-2 gaze:grid-cols-1" : "grid-cols-1", className)}>
+    // في الحجم الكبير بطاقةٌ في كل صفّ: نصفُ عرض 320px لا يتّسع للأيقونة والعنوان والدائرة فيتراكبن — إلا عناوين
+    // قصيرة وحدها (`gazeColumns`)، والعنوان يلتفّ سطرين في بطاقته ولا يخرج منها؛ وبين البطاقتين 24 بجانبهما.
+    // `data-block`: بطاقاتٌ قد يليها حقلٌ بعنوانه (globals.css)؛ لا عنوان ظاهراً لها فلا تلي حقلاً بـ28px.
+    <div data-block="" role={gaze ? "group" : "radiogroup"} aria-label={label}
+      className={cn("grid gap-tg", columns === 2 ? "grid-cols-2" : "grid-cols-1", gazeColumns === 2 ? "gaze:grid-cols-2 gaze:gap-x-6" : "gaze:grid-cols-1", className)}>
       {options.map((option, index) => {
         const checked = option.value === value
         const Icon = option.icon

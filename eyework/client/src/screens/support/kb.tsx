@@ -106,7 +106,8 @@ export function KbListScreen({ view, query, data, page, onPage, onView, onSearch
           icon={BookOpen}
           title={query ? "لا مقالة تطابق" : view === "published" ? "لا مقالات منشورة بعد" : "لا شيء هنا"}
           description={query || view !== "published" ? undefined : "كل مقالةٍ تعتمدها هنا يقتبس منها سيمبول في مسوداته."}
-          action={query ? undefined : <Button variant="primary" icon={FilePlus2} onClick={onNew}>مقالة جديدة</Button>}
+          // في الحجم الكبير «مقالة جديدة» في الصفّ العلوي وحده: زرٌّ ثانٍ بالاسم نفسه هدفٌ زائد في شاشةٍ لا تتّسع.
+          action={query || gaze ? undefined : <Button variant="primary" icon={FilePlus2} onClick={onNew}>مقالة جديدة</Button>}
         />
       }
     />
@@ -165,6 +166,9 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
   const gaze = size === "gaze"
   const [busy, setBusy] = React.useState<string | null>(null)
   const [fail, setFail] = React.useState<Fail>(null)
+  // الحجم الكبير: المقالة صفحةٌ تُقرأ، وإجراءاتها صفحةٌ ثانية («الإجراءات» في خانة النهاية السفلية، وخانتها في
+  // صفحة الإجراءات فارغة فلا يقع تحت النظر ما لم يُقصد).
+  const [actionsPage, setActionsPage] = React.useState(false)
   const latest = article.versions[0]
   const unpublished = article.state !== "PUBLISHED" || article.published_version !== article.latest_version
   async function run(id: string, action: () => Promise<Fail>) {
@@ -198,11 +202,28 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
       title={`KB-${article.number} · ${latest.title}`}
       above={<Badge tone={article.needs_review ? "warning" : STATE_TONE[article.state]} className="self-start">{article.needs_review ? "تحتاج مراجعة" : ARTICLE_STATE[article.state]}</Badge>}
       back={gaze ? undefined : { id: "article-back", label: "قاعدة المعرفة", onClick: onBack }}
-      actions={gaze ? <><Button id="article-prev" icon={BackIcon} onClick={onBack}>القائمة</Button><span aria-hidden="true" /></> : undefined}
+      actions={
+        gaze ? (
+          actionsPage ? (
+            <>
+              <Button id="article-text" icon={BackIcon} onClick={() => setActionsPage(false)}>المقالة</Button>
+              <span aria-hidden="true" />
+            </>
+          ) : (
+            <>
+              <Button id="article-prev" icon={BackIcon} onClick={onBack}>القائمة</Button>
+              {actions.length ? <Button id="article-actions" iconEnd={NextIcon} onClick={() => setActionsPage(true)}>الإجراءات</Button> : <span aria-hidden="true" />}
+            </>
+          )
+        ) : undefined
+      }
     >
       {fail ? <Alert tone="danger" title="لم يتمّ" live>{fail.message}</Alert> : null}
       {gaze ? (
-        <PagedText text={articleText(latest)} label="المقالة" perPage={{ gaze: 200, gazeShort: 100 }} />
+        // صفحة الإجراءات بأزرارها وحدها: الحال في الشارة فوق العنوان، وسطر النسخ والتاريخ في الحجم العادي.
+        actionsPage ? null : (
+          <PagedText text={articleText(latest)} label="المقالة" perPage={{ gaze: 170, gazeShort: 90 }} />
+        )
       ) : (
         <>
           {facts}
@@ -214,7 +235,7 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
           </dl>
         </>
       )}
-      {actions.length ? <div className="flex flex-wrap gap-tg gaze:grid gaze:grid-cols-2">{actions}</div> : null}
+      {actions.length && (!gaze || actionsPage) ? <div className="flex flex-wrap gap-tg gaze:grid gaze:grid-cols-2">{actions}</div> : null}
     </Screen>
   )
 }
@@ -424,7 +445,7 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
         secondary={(g) => g.note ?? "اكتب مقالةً تجيب عنها"}
         onOpen={onWrite}
         openLabel={(g) => `اكتب مقالة من التذكرة ${g.ticket_number}`}
-        pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+        pageSize={{ compact: 20, gaze: 2, gazeShort: 1 }}
         page={page}
         onPageChange={setPage}
         empty={<EmptyState icon={Lightbulb} title="لا ثغرات في آخر ثلاثين يوماً" />}

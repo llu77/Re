@@ -123,11 +123,16 @@ def _header_step(flow: Flow, today: str) -> None:
     page.locator("#purchase-no").blur()
     _audit(flow, "purchase-invoice")
     if gaze:
+        # في الحجم الكبير خطوتا الفاتورة والمبالغ صفحتان.
+        flow.press("#purchase-next", lambda: flow.screen("#purchase-received"), "الاستلام")
+        _audit(flow, "purchase-receiving")
         flow.press("#purchase-next", lambda: flow.screen("#purchase-printed"), "المبالغ")
     page.fill("#purchase-printed", "116")
     page.locator("#purchase-printed").blur()
     _audit(flow, "purchase-amounts")
     if gaze:
+        flow.press("#purchase-next", lambda: flow.screen("#purchase-basis-net"), "الأسعار")
+        _audit(flow, "purchase-basis")
         flow.press("#purchase-next", lambda: flow.screen("#line-item"), "المنتجات")
 
 
@@ -141,11 +146,20 @@ def _line_step(flow: Flow) -> None:
     flow.screen("#quick-item-create")
     _audit(flow, "line-new-item")
     _pick(flow, "quick-item-unit", "CARTON" if gaze else "كرتون", "الوحدة")
+    if gaze:
+        # المنتج الجديد صفحتان في الحجم الكبير: الاسم والوحدة، ثم السعر والضريبة.
+        flow.press("#quick-item-more", lambda: flow.screen("#quick-item-price"), "السعر والضريبة")
     page.fill("#quick-item-price", "10")
-    flow.press("#quick-item-create", lambda: flow.until("(document.querySelector('#line-price') || {}).value === '10.00'"), "أنشئ المنتج")
+    flow.press("#quick-item-create", lambda: flow.until("(document.querySelector('#line-price') || {}).value === '10.00'")
+               if not gaze else flow.screen("#line-quantity"), "أنشئ المنتج")
     assert page.input_value("#line-item") == "كرتونة ماء ٣٣٠ مل"
     page.fill("#line-quantity", "10")
     _audit(flow, "line-filled")
+    if gaze:
+        # السطر ثلاث صفحاتٍ في الحجم الكبير: السعر وخصمه في الثانية.
+        flow.press("#line-more", lambda: flow.screen("#line-price"), "السعر والخصم")
+        _audit(flow, "line-price")
+    assert page.input_value("#line-price") == "10.00"
     flow.press("#line-save", lambda: flow.until("(document.querySelector('#line-item') || {}).value === ''"), "أضف السطر")
     _audit(flow, "line-saved")
     if not gaze:
@@ -235,6 +249,10 @@ def _return(flow: Flow, today: str) -> None:
         flow.press("#return-next", lambda: flow.screen("#return-reason"), "السبب")
     _pick(flow, "return-reason", "DAMAGED" if gaze else "تالفة", "سبب الإرجاع")
     _audit(flow, "return-reason")
+    if gaze:
+        # الجزء الثاني من خطوة السبب: المندوب والتاريخ.
+        flow.press("#return-next", lambda: flow.screen("#return-rep"), "المندوب والتاريخ")
+        _audit(flow, "return-rep")
     flow.press("#return-review", lambda: flow.screen("#review-post"), "راجِع وسجّل")
     flow.until("!document.querySelector('#review-post').disabled")
     _audit(flow, "return-review")
@@ -390,13 +408,17 @@ def test_a_discount_printed_on_a_line_is_entered_on_the_line_and_lowers_its_amou
     _choose_option(flow, "line-item", "كرتونة ماء ٣٣٠ مل", True, "منتج جديد باسم")
     flow.screen("#quick-item-create")
     _pick(flow, "quick-item-unit", "CARTON" if gaze else "كرتون", "الوحدة")
+    if gaze:
+        # المنتج الجديد صفحتان في الحجم الكبير: الاسم والوحدة، ثم السعر والضريبة.
+        flow.press("#quick-item-more", lambda: flow.screen("#quick-item-price"), "السعر والضريبة")
     page.fill("#quick-item-price", "10")
-    flow.press("#quick-item-create", lambda: flow.until("(document.querySelector('#line-price') || {}).value === '10.00'"), "أنشئ المنتج")
+    flow.press("#quick-item-create", lambda: flow.until("(document.querySelector('#line-price') || {}).value === '10.00'")
+               if not gaze else flow.screen("#line-quantity"), "أنشئ المنتج")
     page.fill("#line-quantity", "10")
     if gaze:
-        # الخصم وما وصل في صفحة السطر الثانية، بزرٍّ في مكانه لا يتحرّك.
+        # السعر والخصم في صفحة السطر الثانية، بزرٍّ في مكانه لا يتحرّك.
         _audit(flow, "line-main")
-        flow.press("#line-more", lambda: flow.screen("#line-discount"), "الخصم وما وصل")
+        flow.press("#line-more", lambda: flow.screen("#line-discount"), "السعر والخصم")
         assert page.locator("#line-quantity").count() == 0
     # أكبر من مبلغ السطر (100.00): يُرفض عند الحقل قبل أن يصل الخادم.
     page.fill("#line-discount", "150")
@@ -422,7 +444,7 @@ def test_a_discount_printed_on_a_line_is_entered_on_the_line_and_lowers_its_amou
 
 @pytest.mark.parametrize(("width", "height"), [STRESS, TABLETS[0], DESKTOP], ids=frame_ids([STRESS, TABLETS[0], DESKTOP]))
 def test_the_product_form_and_the_supplier_card_fit_the_tightest_tablet_and_desktop_frames(next_page, server, owner, width, height):
-    """نموذج المنتج بخطواته الخمس، وبطاقة المورّد بمندوبيه، بالحجم الكبير على الأضيق والآيباد والحاسوب."""
+    """نموذج المنتج بخطواته الستّ، وبطاقة المورّد بمندوبيه، بالحجم الكبير على الأضيق والآيباد والحاسوب."""
     page = _page(next_page, owner, server, "gaze", width, height)
     flow = Flow(page)
     _setup(flow)
@@ -436,11 +458,13 @@ def test_the_product_form_and_the_supplier_card_fit_the_tightest_tablet_and_desk
     flow.press("#item-next", lambda: flow.screen("#item-barcode"), "التالي")
     _audit(flow, "item-form-3")
     page.fill("#item-barcode", "6281001234567")
-    flow.press("#item-next", lambda: flow.screen("#item-selling"), "التالي")
+    flow.press("#item-next", lambda: flow.screen("#item-category"), "التالي")
     _audit(flow, "item-form-4")
+    flow.press("#item-next", lambda: flow.screen("#item-selling"), "التالي")
+    _audit(flow, "item-form-5")
     page.fill("#item-selling", "12.5")
     flow.press("#item-next", lambda: flow.screen("#item-reorder"), "التالي")
-    _audit(flow, "item-form-5")
+    _audit(flow, "item-form-6")
     page.fill("#item-reorder", "20")
     flow.press("#item-save", lambda: flow.screen("#item-edit"), "أنشئ المنتج")
     _audit(flow, "item-created")
@@ -470,7 +494,9 @@ def test_the_tools_offer_the_vat_calculator_and_the_assistant_knows_the_screen(n
     flow.open_tools()
     _audit(flow, "tools")
     names = page.eval_on_selector_all("dialog[open] ul button", "(bs) => bs.map((b) => b.textContent.trim())")
-    assert [n.startswith(("حاسبة الضريبة", "ابحث عن منتج", "مساعدة")) for n in names] == [True] * 3 and names[0].startswith("حاسبة الضريبة"), names
+    # وفي الحجم الكبير على الهاتف «إعدادات المخزن» أداةٌ: رابط الرئيسية لا يتّسع مع أزرارها السبعة.
+    expected = ("حاسبة الضريبة", "ابحث عن منتج", "إعدادات المخزن", "مساعدة")
+    assert len(names) == len(expected) and all(n.startswith(e) for n, e in zip(names, expected)), names
     flow.press("dialog[open] >> text=حاسبة الضريبة", lambda: flow.screen("dialog[open] input"), "حاسبة الضريبة")
     page.fill("dialog[open] input", "100")
     flow.until("document.querySelector('dialog[open]').textContent.includes('115.00')")

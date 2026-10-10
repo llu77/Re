@@ -72,8 +72,10 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
     href: entry.route,
     current: entry.id === current,
   }))
+  // سيمبول في السكّة فوق «حسابي» في أسفلها: بارتفاع الصفّ الأخير من ورقته («اكتب سؤالك» و«سؤالٌ جديد»)، فما
+  // تحت النظر بعد فتحها زرٌّ آمن لا سؤالٌ يُرسل.
   const sidebarGroups: NavEntry[][] = gaze
-    ? [[home, sectionsEntry], [chatEntry], [account]]
+    ? [[home, sectionsEntry], [chatEntry, account]]
     : [
         [home, ...entries],
         [toolsEntry, { id: "nav-help", label: "مساعدة", icon: CircleHelp, onClick: () => openTool("help") }],

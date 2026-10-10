@@ -107,6 +107,7 @@ export function VatCalculator({ rateBp, compute, initial = "" }: { rateBp: numbe
       </dl>
       <RadioCards<Basis>
         label="المبلغ المكتوب"
+        gazeColumns={2}
         value={basis}
         onValueChange={(value) => {
           setBasis(value)

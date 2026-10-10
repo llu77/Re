@@ -22,7 +22,7 @@ import { RadioCards } from "@/components/ui/radio-cards"
 import { Stepper } from "@/components/ui/stepper"
 import { CHANNEL, CHANNELS, PRIORITY, PRIORITIES, type Channel, type MaskPreview, type Priority } from "@/lib/support"
 import { useSize } from "@/lib/size"
-import { GazeHost, Picker } from "@/screens/inventory/common"
+import { GazeHost, GazeSlot, Picker } from "@/screens/inventory/common"
 
 import { MaskedText, maskedSummary, readClipboard, type Fail } from "./common"
 
@@ -157,6 +157,21 @@ export function NewTicketScreen({ onPreview, onSave, onBack, title = "تذكرة
       />
     </>
   )
+  // الحجم الكبير: الحقلان في خطوة التفاصيل، والأولوية منتقٍ في خطوة الحفظ يفتح خياراته مكان «احفظ» (بطاقاتها
+  // الأربع مع حقلين لا تتّسع لها الشاشة، ولا المنتقي معهما في 320×635).
+  const gazeDetailFields = (
+    <>
+      <Field label="اسم العميل للتحية" error={fail?.field === "customer_label" ? fail.message : null}>
+        <Input id="ticket-label" autoComplete="off" maxLength={30} value={label} onChange={(event) => setLabel(event.target.value)} />
+      </Field>
+      <Field label="الموضوع" error={fail?.field === "subject" ? fail.message : null}>
+        <Input id="ticket-subject" autoComplete="off" maxLength={80} value={subject} onChange={(event) => setSubject(event.target.value)} />
+      </Field>
+    </>
+  )
+  const gazePriority = (
+    <Picker id="ticket-priority" label="الأولوية" options={PRIORITIES.map((code) => ({ value: code, label: PRIORITY[code] }))} value={priority} onValueChange={(v) => setPriority(v as Priority)} />
+  )
   const saveButton = (
     <Button id="ticket-save" variant="primary" size="lg" commit icon={Save} busy={busy} disabled={!preview || !channel} onClick={() => void save()} className="gaze:w-full">
       {saveLabel}
@@ -199,15 +214,18 @@ export function NewTicketScreen({ onPreview, onSave, onBack, title = "تذكرة
           </>
         ) : null}
         {step === 2 ? previewBlock : null}
-        {step === 3 ? detailFields : null}
+        {step === 3 ? gazeDetailFields : null}
         {step === 4 ? (
-          <>
-            {saveButton}
-            {failAlert}
-            <p className="text-small text-muted-foreground">
-              {simple ? maskedSummary(preview?.masked ?? { email: 0, link: 0, number: 0 }) ?? "لم يُحذف شيء." : `${channel ? CHANNEL[channel] : ""} · أولوية ${PRIORITY[priority]}${label.trim() ? ` · ${label.trim()}` : ""}`}
-            </p>
-          </>
+          <GazeHost>
+            {simple ? null : <GazeSlot id="ticket-priority">{gazePriority}</GazeSlot>}
+            <GazeSlot id="ticket-save-slot" field={false} className="flex flex-col gap-tg">
+              {saveButton}
+              {failAlert}
+              <p className="text-small text-muted-foreground">
+                {simple ? maskedSummary(preview?.masked ?? { email: 0, link: 0, number: 0 }) ?? "لم يُحذف شيء." : `${channel ? CHANNEL[channel] : ""}${label.trim() ? ` · ${label.trim()}` : ""}`}
+              </p>
+            </GazeSlot>
+          </GazeHost>
         ) : null}
       </Screen>
     )

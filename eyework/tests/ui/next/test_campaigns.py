@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import time
 import json
 
 import pytest
@@ -182,7 +183,10 @@ def test_the_confirming_control_is_far_from_the_one_that_opened_it(next_page, se
     _to_review(flow)
     initiator = page.locator("#review-continue").bounding_box()
     centre = (initiator["x"] + initiator["width"] / 2, initiator["y"] + initiator["height"] / 2)
+    # نقرةٌ قبل 400ms من سابقتها لا تُحسب في الحجم الكبير (lib/repeat-press.ts): الاختبار يمهل كما يمهل النظر.
+    flow.pace()
     page.locator("#review-continue").click()
+    flow.clicked()
     flow.screen("#confirm-yes")
     commit = page.locator("#confirm-yes").bounding_box()
     distance = abs((commit["y"] + commit["height"] / 2) - centre[1])
@@ -380,6 +384,14 @@ def _hold(page, pattern: str, method: str | None = None) -> list:
     return held
 
 
+def _until_held(page, held: list, seconds: float = 10.0) -> None:
+    """حتى يصل الطلب المحبوس: معالج الحبس يعمل حين يعالج Playwright أحداثه، فالانتظار بأحداثٍ لا بنوم."""
+    deadline = time.monotonic() + seconds
+    while not held:
+        assert time.monotonic() < deadline, "لم يصل الطلب المحبوس"
+        page.wait_for_timeout(20)
+
+
 def _draft(flow: Flow) -> str:
     page = flow.page
     page.goto(page.next + BASE + "/new")
@@ -399,6 +411,8 @@ def test_a_slow_read_of_one_draft_does_not_take_over_a_new_campaign(next_page, s
     held = _hold(page, f"**/api/campaigns/{draft}", "GET")
     page.click("#campaigns-list li button")
     page.wait_for_function(f"() => location.hash.startsWith('{BASE}/c/')")
+    # القراءة في الطريق قبل المغادرة: الحملة تُطلب بعد رسم شاشتها، لا مع تغيّر العنوان.
+    _until_held(page, held)
     page.evaluate(f"() => {{ location.hash = '{BASE}/new'; }}")
     flow.screen("#photo-input")
     held[0].continue_()

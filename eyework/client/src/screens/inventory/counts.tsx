@@ -148,6 +148,7 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
       label="ما الذي يُجرد؟"
       value={scope}
       columns={1}
+      gazeColumns={2}
       onValueChange={(value) => { setScope(value); setFail(null) }}
       ids={{ ALL: "count-scope-all", CATEGORY: "count-scope-category", LOW: "count-scope-low", SELECTED: "count-scope-selected" }}
       options={choices.count_scopes.map((s) => ({ value: s.code as CountScope, title: s.name }))}
@@ -179,7 +180,7 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
               />
             </Field>
           </GazeSlot>
-          <GazeSlot id="count-picked">
+          <GazeSlot id="count-picked" field={false}>
             {picked.length ? (
               <ul aria-label="المنتجات المختارة" className="flex flex-wrap gap-tg-min">
                 {picked.slice(gaze ? -3 : 0).map((option) => (
@@ -339,7 +340,7 @@ export function CountScreen({ session, page, onPage, onOpenLine, onRefresh, onAd
       trailing={(row) => (row.changed ? <Badge tone="warning">تحرّك</Badge> : row.counted_milli === null ? <span className="text-small text-muted-foreground">يُعدّ</span> : <Badge tone={row.difference_milli === 0 ? "success" : row.reason ? "info" : "warning"}>{row.difference_milli === 0 ? "مطابق" : row.reason ? "فرقٌ بسببه" : "فرقٌ بلا سبب"}</Badge>)}
       onOpen={open ? onOpenLine : undefined}
       openLabel={(row) => `عُدّ ${row.item.name}`}
-      pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+      pageSize={{ compact: 20, gaze: 2, gazeShort: 1 }}
       page={page}
       onPageChange={onPage}
       empty={<p className="text-small text-muted-foreground">لا منتجات في هذه الجلسة.</p>}
@@ -475,6 +476,18 @@ export function CountLineScreen({ session, line, choices, onSave, onPrevious, on
   const reasons = direction ? choices.count_reasons[direction] : []
   const needsCost = value !== null && value > 0 && line.asks_cost
   const index = session.lines.findIndex((l) => l.item.id === line.item.id)
+  // الحجم الكبير: صفحتان حين يكون فرق — العدد (وتكلفة الوحدة إن لزمت)، ثم سبب الفرق وملاحظته — يبدّل بينهما زرّ
+  // الصفّ العلوي في مكانه. وبعد حفظ عدٍّ ظهر به فرقٌ بلا سبب تُفتح صفحة السبب: هي ما ينتظره السطر.
+  const unexplained = line.counted_milli !== null && book !== null && line.counted_milli !== book && !line.reason
+  const [part, setPart] = React.useState<"count" | "reason">(unexplained ? "reason" : "count")
+  React.useEffect(() => {
+    if (unexplained) setPart("reason")
+  }, [unexplained, line.counted_milli, book])
+  React.useEffect(() => {
+    if (fail?.field === "reason" || fail?.field === "note") setPart("reason")
+    else if (fail?.field === "counted_milli" || fail?.field === "unit_cost_halalas") setPart("count")
+  }, [fail])
+  const reasonPage = gaze && direction !== null && part === "reason"
 
   async function save(then: (() => void) | null) {
     if (counted.trim() !== "" && value === null) return setFail({ message: decimals ? "اكتب العدد، ويجوز كسرٌ بثلاث منازل." : "اكتب العدد عدداً صحيحاً.", field: "counted_milli" })
@@ -495,12 +508,17 @@ export function CountLineScreen({ session, line, choices, onSave, onPrevious, on
   }
 
   const error = (field: string) => (fail?.field === field ? fail.message : null)
+  const differenceText = difference !== null && difference !== 0 ? (
+    <>الفرق <Qty milli={difference} unit={line.item.unit_name} /> ({difference < 0 ? "عجز" : "زيادة"})</>
+  ) : null
+  const bookText = book === null ? null : <>الرصيد الدفتري <Qty milli={book} unit={line.item.unit_name} /></>
   return (
     <Screen
       title={line.item.name}
       above={<Badge tone="info" className="num self-start">{line.item.code}{gaze ? "" : ` · ${index + 1} من ${session.lines.length}`}</Badge>}
-      description={gaze ? undefined : `${session.label} · بال${line.item.unit_name}`}
+      description={!gaze ? `${session.label} · بال${line.item.unit_name}` : reasonPage ? <span>{bookText} · {differenceText}</span> : undefined}
       back={{ id: "count-line-back", label: "الجلسة", onClick: onBack }}
+      end={gaze && direction !== null ? { id: "count-line-switch", label: reasonPage ? "العدد" : "سبب الفرق", onClick: () => setPart(reasonPage ? "count" : "reason") } : undefined}
       actions={
         <>
           <Button id="count-line-prev" icon={BackIcon} disabled={!onPrevious} onClick={() => onPrevious?.()}>
@@ -521,37 +539,43 @@ export function CountLineScreen({ session, line, choices, onSave, onPrevious, on
         <Alert tone="warning" title="تحرّك رصيد هذا المنتج بعد اللقطة">حدّث الأرصدة من الجلسة ثم أعد عدّه.</Alert>
       ) : null}
       <GazeHost>
-        <GazeSlot id="count-line-counted">
-          <Field
-            label={`العدد الفعلي بال${line.item.unit_name}`}
-            hint={book === null ? (gaze ? undefined : "عدٌّ مغلق: يظهر الرصيد الدفتري بعد الحفظ.") : <span>الرصيد الدفتري <Qty milli={book} unit={line.item.unit_name} /></span>}
-            error={error("counted_milli")}
-          >
-            <Input id="count-line-counted" numeric inputMode={decimals ? "decimal" : "numeric"} value={counted} onChange={(event) => setCounted(event.target.value)} />
-          </Field>
-        </GazeSlot>
-        {difference !== null && difference !== 0 ? (
-          <p role="status" className={cn("text-small font-semibold", difference < 0 ? "text-destructive" : "text-success")}>
-            الفرق <Qty milli={difference} unit={line.item.unit_name} /> ({difference < 0 ? "عجز" : "زيادة"})
+        {reasonPage ? null : (
+          <GazeSlot id="count-line-counted">
+            <Field
+              label={`العدد الفعلي بال${line.item.unit_name}`}
+              // الحجم الكبير: الفرق في سطر المساعدة نفسه، فلا يأخذ صفّاً بين الحقلين.
+              hint={book === null ? (gaze ? undefined : "عدٌّ مغلق: يظهر الرصيد الدفتري بعد الحفظ.")
+                : gaze && differenceText ? <span role="status">{bookText} · {differenceText}</span> : <span>{bookText}</span>}
+              error={error("counted_milli")}
+            >
+              <Input id="count-line-counted" numeric inputMode={decimals ? "decimal" : "numeric"} value={counted} onChange={(event) => setCounted(event.target.value)} />
+            </Field>
+          </GazeSlot>
+        )}
+        {gaze ? null : differenceText ? (
+          <p role="status" className={cn("text-small font-semibold", difference !== null && difference < 0 ? "text-destructive" : "text-success")}>
+            {differenceText}
           </p>
         ) : difference === 0 ? (
           <p role="status" className="text-small font-semibold text-success">مطابقٌ للدفتر.</p>
         ) : null}
-        {reasons.length ? (
+        {reasons.length && (!gaze || reasonPage) ? (
           <Picker id="count-line-reason" label="سبب الفرق" options={reasons.map((r) => ({ value: r.code, label: r.name }))} value={reason} onValueChange={setReason} error={error("reason")} required />
         ) : null}
-        {needsCost ? (
+        {needsCost && !reasonPage ? (
           <GazeSlot id="count-line-cost">
             <Field label="تكلفة الوحدة" hint={gaze ? undefined : "الرصيد الدفتري صفر: تُقيَّم الزيادة بها."} error={error("unit_cost_halalas")} required>
               <Input id="count-line-cost" numeric unit="ر.س" inputMode="decimal" value={cost} onChange={(event) => setCost(event.target.value)} />
             </Field>
           </GazeSlot>
         ) : null}
-        <GazeSlot id="count-line-note">
-          <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")} className={cn(reason !== "OTHER" && "gaze:short:hidden")}>
-            <Input id="count-line-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} />
-          </Field>
-        </GazeSlot>
+        {!gaze || reasonPage ? (
+          <GazeSlot id="count-line-note">
+            <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")} className={cn(reason !== "OTHER" && "gaze:short:hidden")}>
+              <Input id="count-line-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} />
+            </Field>
+          </GazeSlot>
+        ) : null}
       </GazeHost>
       {line.reason && !gaze ? <p className="text-small text-muted-foreground">حُفظ من قبل بسبب «{codeName([...choices.count_reasons.SHORTAGE, ...choices.count_reasons.SURPLUS], line.reason)}».</p> : null}
     </Screen>

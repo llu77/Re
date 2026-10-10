@@ -110,9 +110,10 @@ export function NewReturnScreen({ options, purchases, query, onQuery, onStart, o
   onBack: () => void
 }) {
   const [choice, setChoice] = React.useState<ComboboxOption | null>(null)
+  // الفاتورة المختارة كما كانت في القائمة: بعد الاختيار يصير النصّ اسمها فيتغيّر ما يُبحث عنه، وتبقى هي.
+  const [chosen, setChosen] = React.useState<PurchaseRow | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
-  const chosen = choice ? purchases.find((row) => row.id === choice.value) ?? null : null
   const report = useOpenReport("return-purchase")
   async function start() {
     if (!choice) return
@@ -145,7 +146,10 @@ export function NewReturnScreen({ options, purchases, query, onQuery, onStart, o
               listLabel="الفواتير المطابقة"
               options={options}
               value={choice}
-              onValueChange={setChoice}
+              onValueChange={(option) => {
+                setChoice(option)
+                setChosen(option ? purchases.find((row) => row.id === option.value) ?? null : null)
+              }}
               query={query}
               onQueryChange={onQuery}
               pageSize={{ compact: 6, gaze: 3, gazeShort: 1 }}
@@ -154,7 +158,7 @@ export function NewReturnScreen({ options, purchases, query, onQuery, onStart, o
           </Field>
         </GazeSlot>
         {chosen ? (
-          <GazeSlot id="return-chosen">
+          <GazeSlot id="return-chosen" field={false}>
             <p className="text-flow rounded-card border border-border bg-card p-pad">
               <span className="font-semibold">{chosen.supplier_name}</span> · <span className="num">{chosen.label}</span>
               {chosen.invoice_date ? ` · ${formatDay(chosen.invoice_date, true)}` : ""} · <span className="num">{chosen.lines}</span> أسطر ·{" "}
@@ -191,6 +195,8 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
   const { size } = useSize()
   const gaze = size === "gaze"
   const [step, setStep] = React.useState(0)
+  // الحجم الكبير: خطوة السبب جزآن — السبب والملاحظة، ثم المندوب والتاريخ — فلا تزيد الشاشة على حقلين.
+  const [part, setPart] = React.useState(0)
   const [lineIndex, setLineIndex] = React.useState(0)
   const [reason, setReason] = React.useState<string | null>(draft.reason)
   const [note, setNote] = React.useState(draft.note ?? "")
@@ -229,12 +235,18 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
   async function review() {
     if (!reason) {
       setFail({ message: "اختر سبب الإرجاع.", field: "reason" })
-      if (gaze) setStep(1)
+      if (gaze) {
+        setStep(1)
+        setPart(0)
+      }
       return
     }
     if (reason === "OTHER" && !note.trim()) {
       setFail({ message: "اكتب السبب في الملاحظة.", field: "note" })
-      if (gaze) setStep(1)
+      if (gaze) {
+        setStep(1)
+        setPart(0)
+      }
       return
     }
     if (chosen.length === 0) {
@@ -244,6 +256,12 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
     }
     if (await commitHeader()) onReview()
   }
+  // خطأٌ من الخادم في حقلٍ من الجزء الآخر يعرض جزأه.
+  React.useEffect(() => {
+    if (!gaze || !fail?.field) return
+    if (fail.field === "reason" || fail.field === "note") setPart(0)
+    else if (fail.field === "rep_id" || fail.field === "return_date") setPart(1)
+  }, [gaze, fail])
 
   async function discard() {
     setBusy("discard")
@@ -258,11 +276,15 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
     const left = line.remaining_milli
     const text = texts[line.line_no] ?? milliInput(line.quantity_milli || null)
     return (
-      <li key={line.line_no} className="flex flex-wrap items-center justify-between gap-tg rounded-card border border-border bg-card p-3 gaze:flex-col gaze:items-stretch gaze:border-0 gaze:bg-transparent gaze:p-0">
+      // الحجم الكبير: بين اسم المنتج وعدّاد الكمية 24 (نصٌّ فوق هدف: مساحة إصابته الخفيّة 12 منها)، لا فجوة هدفين.
+      <li key={line.line_no} className="flex flex-wrap items-center justify-between gap-tg rounded-card border border-border bg-card p-3 gaze:flex-col gaze:items-stretch gaze:gap-6 gaze:border-0 gaze:bg-transparent gaze:p-0">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="font-bold">{line.item.name}</span>
           <span className="text-small text-muted-foreground">
-            اشتريت <Qty milli={line.bought_milli} unit={line.item.unit_name} />، بقي للإرجاع <Qty milli={left} className="font-semibold text-foreground" /> · <Money halalas={line.unit_price_halalas} /> للوحدة
+            {/* الحجم الكبير: ما بقي للإرجاع تحت عدّاد الكمية («من 7 كرتون»)، فالسطر سطرٌ واحد. */}
+            اشتريت <Qty milli={line.bought_milli} unit={line.item.unit_name} />
+            {gaze && !decimals && left > 0 ? null : <>، بقي للإرجاع <Qty milli={left} className="font-semibold text-foreground" /></>}
+            {" · "}<Money halalas={line.unit_price_halalas} /> للوحدة
           </span>
         </div>
         {left <= 0 ? (
@@ -307,27 +329,41 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
     )
   }
 
-  const reasonFields = (
+  const reasonPicker = (
+    <Picker id="return-reason" label="سبب الإرجاع" options={choices.return_reasons.map((r) => ({ value: r.code, label: r.name }))} value={reason} onValueChange={(value) => { setReason(value); if (!gaze) void onHeader({ reason: value }).then(setFail) }} error={error("reason")} required />
+  )
+  const noteField = (
+    <GazeSlot id="return-note">
+      <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")}>
+        <Input id="return-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} onBlur={() => { if (!gaze) void commitHeader() }} />
+      </Field>
+    </GazeSlot>
+  )
+  const repPicker = (
+    <Picker
+      id="return-rep"
+      label="مندوب المورّد الذي استلم"
+      options={[{ value: "", label: "بلا مندوب" }, ...(reps ?? []).filter((r) => r.is_active || r.id === rep).map((r) => ({ value: r.id, label: r.mobile ? `${r.name} · ${r.mobile}` : r.name }))]}
+      value={rep}
+      onValueChange={(value) => { setRep(value); if (!gaze) void onHeader({ rep_id: value || null }).then(setFail) }}
+      error={error("rep_id")}
+    />
+  )
+  const dateField = (
+    <GazeSlot id="return-date">
+      <Field label="تاريخ الإرجاع" error={error("return_date")} className="gaze:short:hidden">
+        <Input id="return-date" type="date" dir="ltr" value={date} max={today} onChange={(event) => setDate(event.target.value)} onBlur={() => { if (!gaze) void commitHeader() }} />
+      </Field>
+    </GazeSlot>
+  )
+  const reasonFields = gaze ? (
+    <GazeHost>{part === 0 ? <>{reasonPicker}{noteField}</> : <>{repPicker}{dateField}</>}</GazeHost>
+  ) : (
     <GazeHost>
-      <Picker id="return-reason" label="سبب الإرجاع" options={choices.return_reasons.map((r) => ({ value: r.code, label: r.name }))} value={reason} onValueChange={(value) => { setReason(value); if (!gaze) void onHeader({ reason: value }).then(setFail) }} error={error("reason")} required />
-      <GazeSlot id="return-note">
-        <Field label={reason === "OTHER" ? "اكتب السبب" : "ملاحظة"} error={error("note")}>
-          <Input id="return-note" value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} onBlur={() => { if (!gaze) void commitHeader() }} />
-        </Field>
-      </GazeSlot>
-      <Picker
-        id="return-rep"
-        label="مندوب المورّد الذي استلم"
-        options={[{ value: "", label: "بلا مندوب" }, ...(reps ?? []).filter((r) => r.is_active || r.id === rep).map((r) => ({ value: r.id, label: r.mobile ? `${r.name} · ${r.mobile}` : r.name }))]}
-        value={rep}
-        onValueChange={(value) => { setRep(value); if (!gaze) void onHeader({ rep_id: value || null }).then(setFail) }}
-        error={error("rep_id")}
-      />
-      <GazeSlot id="return-date">
-        <Field label="تاريخ الإرجاع" error={error("return_date")} className="gaze:short:hidden">
-          <Input id="return-date" type="date" dir="ltr" value={date} max={today} onChange={(event) => setDate(event.target.value)} onBlur={() => { if (!gaze) void commitHeader() }} />
-        </Field>
-      </GazeSlot>
+      {reasonPicker}
+      {noteField}
+      {repPicker}
+      {dateField}
     </GazeHost>
   )
   const failAlert = fail && !fail.field ? (
@@ -336,7 +372,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
     </Alert>
   ) : null
   const summary = (
-    <p className="text-flow font-semibold" aria-live="polite">
+    <p className="text-flow font-semibold gaze:text-small" aria-live="polite">
       يُرجَع من <span className="num">{chosen.length}</span> أسطر: <Money halalas={totals.net} /> قبل الضريبة، والإجمالي{" "}
       <Money halalas={totals.gross} />.
     </p>
@@ -354,14 +390,14 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
     const current = Math.min(lineIndex, Math.max(0, lines.length - 1))
     return (
       <Screen
-        title={step === 0 ? `السطر ${current + 1} من ${lines.length}` : "سبب الإرجاع"}
+        title={step === 0 ? `السطر ${current + 1} من ${lines.length}` : part === 0 ? "سبب الإرجاع" : "المندوب والتاريخ"}
         description={header}
         end={step === 0 ? { id: "return-discard", label: "احذف المسودة", danger: true, icon: Trash, onClick: () => setDiscarding(true) } : undefined}
         above={<Stepper steps={STEPS} current={step} />}
         actions={
           <>
-            <Button id="return-prev" icon={BackIcon} onClick={step === 0 ? (current === 0 ? onBack : () => setLineIndex(current - 1)) : () => setStep(0)}>
-              {step === 0 ? (current === 0 ? "رجوع" : "السطر السابق") : "الكميات"}
+            <Button id="return-prev" icon={BackIcon} onClick={step === 0 ? (current === 0 ? onBack : () => setLineIndex(current - 1)) : part === 1 ? () => setPart(0) : () => setStep(0)}>
+              {step === 0 ? (current === 0 ? "رجوع" : "السطر السابق") : part === 1 ? "السبب" : "الكميات"}
             </Button>
             {step === 0 ? (
               current < lines.length - 1 ? (
@@ -369,10 +405,14 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
                   السطر التالي
                 </Button>
               ) : (
-                <Button id="return-next" variant="secondary" iconEnd={NextIcon} disabled={chosen.length === 0} onClick={() => setStep(1)}>
+                <Button id="return-next" variant="secondary" iconEnd={NextIcon} disabled={chosen.length === 0} onClick={() => { setStep(1); setPart(0) }}>
                   السبب
                 </Button>
               )
+            ) : part === 0 ? (
+              <Button id="return-next" variant="secondary" iconEnd={NextIcon} onClick={() => setPart(1)}>
+                المندوب والتاريخ
+              </Button>
             ) : (
               <Button id="return-review" variant="secondary" icon={ClipboardCheck} busy={busy !== null} onClick={() => void review()}>
                 راجِع وسجّل
@@ -438,10 +478,11 @@ export function ReturnView({ draft, choices, onCreditNote, onOpenPurchase, onBac
   const [date, setDate] = React.useState(today)
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
-  // الحجم الكبير: الإشعار الدائن في لسانه، ويُفتح عليه ما دام لم يُكتب: هو ما ينتظره المرتجع.
-  const [tab, setTab] = React.useState(draft.credit_note ? "facts" : "credit")
-  // بعد حفظ الإشعار يزول لسانه: يُعرض المرتجع بحقائقه ومعها الإشعار.
-  const shown = draft.credit_note && tab === "credit" ? "facts" : tab
+  // الحجم الكبير: الإشعار الدائن صفحةٌ وحده، ويُفتح عليها ما دام لم يُكتب: هو ما ينتظره المرتجع. وزرّ الصفّ العلوي
+  // يبدّل في مكانه بينها وبين تفاصيل المرتجع (ألسنةٌ للحقائق والأسطر)؛ وبعد حفظ الإشعار تزول صفحته.
+  const [crediting, setCrediting] = React.useState(!draft.credit_note)
+  const [tab, setTab] = React.useState("facts")
+  const credit = crediting && !draft.credit_note
   const facts: Fact[] = [
     { label: "من الفاتورة", value: <span className="num">{draft.purchase.label}</span>, key: true },
     { label: "المورّد", value: draft.purchase.supplier_name, key: true },
@@ -460,12 +501,8 @@ export function ReturnView({ draft, choices, onCreditNote, onOpenPurchase, onBac
     setBusy(false)
     if (result) setFail(result)
   }
-  const creditForm = draft.credit_note ? null : (
-    <section aria-labelledby="credit-note" className="flex flex-col gap-tg rounded-card border border-warning-line bg-warning-tint p-pad">
-      <h2 id="credit-note" className="text-lead font-semibold">إشعار المورّد الدائن</h2>
-      {draft.credit_note_due ? (
-        <p className="text-small text-warning gaze:short:hidden">يستحقّ حتى {formatDay(draft.credit_note_due, true)}؛ اكتب رقمه وتاريخه حين يصل.</p>
-      ) : null}
+  const creditFields = (
+    <>
       <GazeHost>
         <GazeSlot id="credit-number">
           <Field label="رقم الإشعار" error={fail?.field === "number" ? fail.message : null} required>
@@ -479,10 +516,18 @@ export function ReturnView({ draft, choices, onCreditNote, onOpenPurchase, onBac
         </GazeSlot>
       </GazeHost>
       <div>
-        <Button id="credit-save" variant="primary" commit icon={Save} busy={busy} onClick={() => void save()}>
+        <Button id="credit-save" variant="primary" commit icon={Save} busy={busy} onClick={() => void save()} className="gaze:w-full">
           احفظ الإشعار
         </Button>
       </div>
+    </>
+  )
+  const due = draft.credit_note_due ? formatDay(draft.credit_note_due, true) : null
+  const creditForm = draft.credit_note ? null : (
+    <section aria-labelledby="credit-note" className="flex flex-col gap-tg rounded-card border border-warning-line bg-warning-tint p-pad">
+      <h2 id="credit-note" className="text-lead font-semibold">إشعار المورّد الدائن</h2>
+      {due ? <p className="text-small text-warning">يستحقّ حتى {due}؛ اكتب رقمه وتاريخه حين يصل.</p> : null}
+      {creditFields}
     </section>
   )
   const lines = (
@@ -503,38 +548,44 @@ export function ReturnView({ draft, choices, onCreditNote, onOpenPurchase, onBac
       pageSize={{ compact: 40, gaze: 3, gazeShort: 2 }}
     />
   )
+  const failAlert = fail && !fail.field ? (
+    <Alert tone="danger" title="لم يُحفظ" live>
+      {fail.message}
+    </Alert>
+  ) : null
+  if (gaze) {
+    return (
+      <Screen
+        title={draft.label ?? "مرتجع"}
+        above={<Badge tone="success" className="self-start">{RETURN_STATUS[draft.status]}</Badge>}
+        // موعد الإشعار سطر الوصف (ورسالة «سُجّل المرتجع» بعد التسجيل تحلّ محلّه وتقول إنه ينتظر الإشعار).
+        description={credit ? (due ? `الإشعار الدائن يستحقّ حتى ${due}` : "إشعار المورّد الدائن") : undefined}
+        back={{ id: "return-view-back", label: "رجوع", onClick: onBack }}
+        end={draft.credit_note ? undefined : { id: "return-view-switch", label: credit ? "التفاصيل" : "الإشعار الدائن", onClick: () => setCrediting(!credit) }}
+      >
+        {failAlert}
+        {credit ? creditFields : (
+          <Tabs items={[{ id: "facts", label: "المرتجع" }, { id: "lines", label: "الأسطر" }]} value={tab} onValueChange={setTab} label="المرتجع" stretch>
+            {tab === "facts" ? <Facts facts={facts} columns={2} /> : lines}
+          </Tabs>
+        )}
+      </Screen>
+    )
+  }
   return (
     <Screen
       title={draft.label ?? "مرتجع"}
       above={<Badge tone="success" className="self-start">{RETURN_STATUS[draft.status]}</Badge>}
       back={{ id: "return-view-back", label: "رجوع", onClick: onBack }}
-      end={gaze ? undefined : { id: "return-open-purchase", label: draft.purchase.label, onClick: onOpenPurchase }}
+      end={{ id: "return-open-purchase", label: draft.purchase.label, onClick: onOpenPurchase }}
     >
-      {fail && !fail.field ? (
-        <Alert tone="danger" title="لم يُحفظ" live>
-          {fail.message}
-        </Alert>
-      ) : null}
-      {gaze ? (
-        <Tabs
-          items={[{ id: "facts", label: "المرتجع" }, { id: "lines", label: "الأسطر" }, ...(draft.credit_note ? [] : [{ id: "credit", label: "الإشعار الدائن" }])]}
-          value={shown}
-          onValueChange={setTab}
-          label="المرتجع"
-          stretch
-        >
-          {shown === "facts" ? <Facts facts={facts} columns={2} /> : shown === "lines" ? lines : creditForm}
-        </Tabs>
-      ) : (
-        <>
-          <Facts facts={facts} columns={3} />
-          {creditForm}
-          <section aria-labelledby="return-view-lines" className="flex flex-col gap-tg">
-            <h2 id="return-view-lines" className="text-lead font-semibold">الأسطر</h2>
-            {lines}
-          </section>
-        </>
-      )}
+      {failAlert}
+      <Facts facts={facts} columns={3} />
+      {creditForm}
+      <section aria-labelledby="return-view-lines" className="flex flex-col gap-tg">
+        <h2 id="return-view-lines" className="text-lead font-semibold">الأسطر</h2>
+        {lines}
+      </section>
     </Screen>
   )
 }

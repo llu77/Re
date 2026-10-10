@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 #: مساحة إصابة الهدف: إطاره المرسوم ومعه `::after` الخفيّ (الحجم الكبير: 12px فوقه وتحته، globals.css)، مقصوصةً
@@ -267,11 +268,18 @@ class Flow:
         self.pressed = float("-inf")
 
     def pace(self) -> None:
-        """في الحجم الكبير: ما بقي من مهلة الضغطة السابقة، كما يمضي بين ضغطتين بالنظر أو بالرأس."""
+        """
+        في الحجم الكبير: ما بقي من مهلة الضغطة السابقة، كما يمضي بين ضغطتين بالنظر أو بالرأس. والمهلة من وصول الضغطة
+        السابقة (`clicked`) لا من طلبها: Playwright ينتظر قبل النقر أن يثبت العنصر، فلو حُسبت من الطلب لجاءت الضغطة التالية
+        أحياناً قبل 400ms من السابقة فأسقطها التطبيق («النقرتان»).
+        """
         if self.page.evaluate("() => document.documentElement.dataset.size") == "gaze":
             wait = PRESS_GAP - (time.monotonic() - self.pressed)
             if wait > 0:
                 self.page.wait_for_timeout(wait * 1000)
+
+    def clicked(self) -> None:
+        """وصلت الضغطة: منها تُحسب مهلة التالية."""
         self.pressed = time.monotonic()
 
     def screen(self, selector: str) -> None:
@@ -292,6 +300,13 @@ class Flow:
         # «لا حركة» في الحجم الكبير: ما يتحرّك لحظة القياس يُعدّ قبل انتظار الحركات.
         motion = self.page.evaluate(MOTION)
         self.fonts()
+        # للتطوير: لقطةٌ لكل تدقيقٍ في المجلّد الذي يسمّيه المتغيّر، بإطار الصفحة وحجمها.
+        shots = os.environ.get("EYEWORK_AUDIT_SHOTS")
+        if shots:
+            frame = self.page.viewport_size or {"width": 0, "height": 0}
+            size = self.page.evaluate("() => document.documentElement.dataset.size")
+            os.makedirs(shots, exist_ok=True)
+            self.page.screenshot(path=os.path.join(shots, f"{size}-{frame['width']}x{frame['height']}-{len(self.audits):02d}-{label}.png"))
         result = self.page.evaluate(AUDIT, HIT)
         result.update(self.page.evaluate(LAYOUT, [CENTRE, HIT]))
         result["label"] = label
@@ -317,6 +332,7 @@ class Flow:
         ]
         self.pace()
         locator.click()
+        self.clicked()
         settle()
         self.fonts()
         hazards = self.page.evaluate(LANDING, points)
