@@ -87,7 +87,7 @@ class CallSettings:
 
 #: تُرفع عند أيّ تغييرٍ في نصّ التعليمات أو المخطّط أو الإعدادات.
 REVIEW_PROMPT_VERSION = "rv-2026-10-09.1"
-ASSISTANT_PROMPT_VERSION = "as-2026-10-10.2"
+ASSISTANT_PROMPT_VERSION = "as-2026-10-10.3"
 
 #: المراجِع: داخل ضغطة الاعتماد، فجهدٌ منخفض ومهلةٌ قصيرة. ينتظره الطلب
 #: `REVIEW_WAIT_SECONDS` ثم يكمل في الخلفية حتى مهلته.

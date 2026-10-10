@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Any, Literal, NamedTuple, Protocol
 
 __all__ = [
     "OUTCOMES",
@@ -28,6 +28,7 @@ __all__ = [
     "ModelCall",
     "ModelReply",
     "Outcome",
+    "ToolCall",
     "data",
     "system_blocks",
     "tag",
@@ -95,11 +96,24 @@ class ModelCall:
     stream: bool
     #: نسخة التعليمات، تُحفظ في الدفتر مع كل استدعاء.
     prompt_version: str
+    #: تعريفات أدوات القراءة كما تُرسل في `tools` (الاسم والوصف و`input_schema` و`strict`)، أو لا شيء.
+    tools: tuple[dict, ...] = ()
+    #: ما بعد رسالة المستخدم الأولى في حلقة الأدوات: دور المساعد بمحتواه كما عاد، ثم دور المستخدم بنتائج
+    #: الأدوات (`tool_result`)، بالترتيب.
+    turns: tuple[dict, ...] = ()
+
+
+class ToolCall(NamedTuple):
+    """طلب أداةٍ من النموذج (كتلة `tool_use`): معرّفه يُعاد في `tool_result`، ومدخله يطابق مخطّط الأداة."""
+
+    id: str
+    name: str
+    input: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
 class ModelReply:
-    """جواب النموذج بعد قراءته بترتيب الكاتب: الرفض، ثم الاقتطاع، ثم JSON."""
+    """جواب النموذج بعد قراءته بترتيب الكاتب: الرفض، ثم الاقتطاع، ثم طلب الأدوات أو JSON."""
 
     outcome: Outcome
     #: الكائن المقروء حين تكون النتيجة OK.
@@ -116,6 +130,10 @@ class ModelReply:
     status: int | None = None
     #: رموز التفكير، للسجلّ وحده.
     thinking_tokens: int | None = None
+    #: أدواتٌ طلبها النموذج (`stop_reason = tool_use`)؛ فارغةٌ في الجواب الأخير.
+    tool_calls: tuple[ToolCall, ...] = ()
+    #: محتوى دور المساعد كما عاد (بكتل التفكير وطلبات الأدوات)، يُعاد كما هو في الاستدعاء التالي.
+    content: tuple[Any, ...] = ()
 
 
 class Gateway(Protocol):
