@@ -20,6 +20,7 @@
 import * as React from "react"
 import { X } from "lucide-react"
 
+import { BrandMark } from "@/components/brand/marks"
 import { Button } from "@/components/ui/button"
 import { useMotionAllowed } from "@/lib/motion"
 import { cn } from "@/lib/utils"
@@ -94,8 +95,10 @@ function Header({ title, description, heading, titleId, descriptionId }: {
 }) {
   return (
     <header className="flex flex-col gap-1">
-      <h2 ref={heading} id={titleId} tabIndex={-1} className="text-title font-semibold leading-tight tracking-tight focus-visible:outline-none">
-        {title}
+      {/* علامة «صياغة» قبل العنوان في كل ورقةٍ ونافذة (طلب المالك)، زخرفيةً: الاسم هو العنوان. */}
+      <h2 ref={heading} id={titleId} tabIndex={-1} className="flex items-center gap-2 text-title font-semibold leading-tight tracking-tight focus-visible:outline-none">
+        <BrandMark className="size-6" />
+        <span className="min-w-0">{title}</span>
       </h2>
       {description ? (
         <div id={descriptionId} className="text-small text-muted-foreground">
@@ -191,7 +194,10 @@ export function Sheet({ open, onClose, title, eyebrow, description, children, fo
             <Header title={title} description={description} heading={heading} titleId={`${id}-title`} descriptionId={`${id}-desc`} />
           </div>
           {/* في الحجم العادي يمرّ محتوى الورقة داخلها؛ وفي الكبير يُبنى ليتّسع بلا تمرير. */}
-          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1 gaze:overflow-hidden">{children}</div>
+          {/* في الحجم الكبير الورقة لا تمرّ، وحدّ قصّها أوسع من محتواها بمساحة الإصابة الخفيّة فوقه وتحته. */}
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1 gaze:-my-[var(--hit-pad)] gaze:overflow-hidden gaze:py-[var(--hit-pad)]">
+            {children}
+          </div>
           <Footer footer={footer} closeLabel={closeLabel} onClose={onClose} />
         </Panel>
       ) : null}

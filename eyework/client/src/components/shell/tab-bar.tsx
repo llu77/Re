@@ -43,7 +43,8 @@ export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (
   const item = (entry: NavEntry) => {
     const className = cn(
       "flex min-h-tab w-full flex-col items-center justify-center gap-0.5 rounded-ctl text-small font-semibold leading-none text-muted-foreground",
-      "gaze:gap-1",
+      // في الحجم الكبير البند 48 ومساحة إصابته الخفيّة تملأ حشو الشريط فوقه وتحته: 72، الشريط كلّه.
+      "gaze:min-h-ctl gaze:gap-1",
       "[&[aria-current]]:text-primary",
     )
     const content = (
@@ -87,6 +88,7 @@ export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (
       <ul
         className={cn(
           "mx-auto grid max-w-content gap-tg px-edge pb-[env(safe-area-inset-bottom)]",
+          "gaze:pb-[calc(var(--hit-pad)+env(safe-area-inset-bottom))] gaze:pt-[var(--hit-pad)]",
           items.length === 3 ? "grid-cols-3" : "grid-cols-4",
         )}
       >

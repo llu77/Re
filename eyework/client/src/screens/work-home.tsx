@@ -31,7 +31,11 @@ export function homeTitle(userName: string | null): string {
  *  عددٌ بجانب اسم الزرّ («بانتظار قراري · 3»)، والصفر لا يُكتب. */
 export function HomeGrid({ workspace, onNavigate, counts }: { workspace: Workspace; onNavigate: (href: string) => void; counts?: Record<string, number> }) {
   return (
-      <ul aria-label="ابدأ عملاً" className="grid grid-cols-2 gap-tg lg:grid-cols-3">
+      <ul
+        aria-label="ابدأ عملاً"
+        // زرٌّ وحيد في صفّه الأخير (عددٌ فرديّ بعد الأساسي) يملأ الصفّ في الهاتف، لا نصفه.
+        className="grid grid-cols-2 gap-tg lg:grid-cols-3 max-lg:[&>li:last-child:nth-child(even)]:col-span-2"
+      >
         {workspace.home.map((entry) => {
           const Icon = entry.icon
           return (

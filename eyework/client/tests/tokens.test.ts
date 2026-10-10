@@ -35,7 +35,7 @@ function blocks(): { selectors: string[]; body: string; inMedia: boolean }[] {
   return out
 }
 
-const SIZE_TOKEN = /^--(ctl|ctl-lg|row|tg|tg-min|edge|sec|pad|icon|tab|bar|side|fs-[\w-]+|lh-[\w-]+)$/
+const SIZE_TOKEN = /^--(ctl|ctl-lg|row|field|hit-pad|tg|tg-min|edge|sec|pad|icon|tab|bar|side|fs-[\w-]+|lh-[\w-]+)$/
 
 /** كل كتل المحدّد بترتيبها (الأخيرة تغلب). ما وُضع منها داخل @media لا يُدمج، ويُرفض إن غيّر حجماً:
  *  الألوان قد تتغيّر بالتباين (prefers-contrast)، أمّا الأحجام فلا تتغيّر بالإطار. */
@@ -70,23 +70,33 @@ describe("the size tokens", () => {
     expect(rem(compact["--edge"])).toBe(16)
   })
 
-  it("keep the gaze targets at 56 with 40 between them, so two centres are at least 96 apart (2° at 45 cm)", () => {
-    expect(rem(gaze["--ctl"])).toBe(56)
-    expect(rem(gaze["--ctl-lg"])).toBe(56)
-    expect(rem(gaze["--row"])).toBe(56)
-    expect(rem(gaze["--tg"])).toBe(40)
+  it("draw the gaze targets at 48 and hit them in 72, 96 apart centre to centre (2° at 45 cm)", () => {
+    expect(rem(gaze["--ctl"])).toBe(48)
+    expect(rem(gaze["--ctl-lg"])).toBe(48)
+    expect(rem(gaze["--row"])).toBe(48)
+    expect(rem(gaze["--hit-pad"])).toBe(12)
+    expect(rem(gaze["--ctl"]) + 2 * rem(gaze["--hit-pad"])).toBe(72)
+    expect(rem(gaze["--tg"])).toBe(48)
     expect(rem(gaze["--ctl"]) + rem(gaze["--tg"])).toBeGreaterThanOrEqual(96)
-    // آخر صفٍّ فوق شريط التبويب: نصف الهدف والفاصل ونصف البند.
-    expect(rem(gaze["--ctl"]) / 2 + rem(gaze["--sec"]) + rem(gaze["--bar"]) / 2).toBeGreaterThanOrEqual(96)
+    // بين مساحتي إصابةٍ متجاورتين 24 لا تُصاب.
+    expect(rem(gaze["--tg"]) - 2 * rem(gaze["--hit-pad"])).toBe(24)
+    // آخر صفٍّ فوق شريط التبويب: نصف الشكل والفاصل ونصف البند.
+    expect(rem(gaze["--ctl"]) / 2 + rem(gaze["--sec"]) + rem(gaze["--tab"]) / 2).toBeGreaterThanOrEqual(96)
+    expect(rem(gaze["--field"])).toBe(56)
     expect(rem(gaze["--tg-min"])).toBe(12)
     expect(rem(gaze["--edge"])).toBe(16)
+  })
+
+  it("keep the touch size without a hidden hit area", () => {
+    expect(rem(compact["--hit-pad"])).toBe(0)
+    expect(rem(compact["--field"])).toBe(40)
   })
 
   it("never let a field's text drop under 16px (iOS zooms otherwise), nor the body under 15", () => {
     expect(rem(compact["--fs-input"])).toBeGreaterThanOrEqual(16)
     expect(rem(gaze["--fs-input"])).toBeGreaterThanOrEqual(16)
     expect(rem(compact["--fs-body"])).toBeGreaterThanOrEqual(15)
-    expect(rem(gaze["--fs-body"])).toBeGreaterThanOrEqual(17)
+    expect(rem(gaze["--fs-body"])).toBeGreaterThanOrEqual(16)
   })
 
   it("draw every control with a hairline and the focus ring in the primary colour", () => {
@@ -96,20 +106,20 @@ describe("the size tokens", () => {
 
   it("size the bars for the bottom tab bar and the sidebar", () => {
     expect(rem(compact["--tab"])).toBe(60)
-    expect(rem(gaze["--tab"])).toBe(64)
+    expect(rem(gaze["--tab"])).toBe(72)
     expect(rem(compact["--bar"])).toBe(44)
-    expect(rem(gaze["--bar"])).toBe(56)
+    expect(rem(gaze["--bar"])).toBe(48)
     expect(rem(compact["--side"])).toBe(240)
     expect(rem(gaze["--side"])).toBe(192)
   })
 
   it("keep the icons, the section gaps and the card padding at the planned sizes", () => {
     expect(rem(compact["--icon"])).toBe(18)
-    expect(rem(gaze["--icon"])).toBe(20)
+    expect(rem(gaze["--icon"])).toBe(18)
     expect(rem(compact["--sec"])).toBe(20)
     expect(rem(gaze["--sec"])).toBe(40)
     expect(rem(compact["--pad"])).toBe(14)
     expect(rem(compact["--fs-small"])).toBe(13)
-    expect(rem(gaze["--fs-small"])).toBe(15)
+    expect(rem(gaze["--fs-small"])).toBe(14)
   })
 })

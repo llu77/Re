@@ -12,6 +12,8 @@
 
 import * as React from "react"
 
+import { PageTitle } from "@/components/brand/page-title"
+
 import { Slots, TopButton, type TopAction } from "@/components/shell/slots"
 import { ToastLine, useToastMessage } from "@/components/ui/toast"
 import { useSize } from "@/lib/size"
@@ -59,15 +61,25 @@ export function Screen({ title, description, back, end, above, aside, actions, f
         {above}
         <div className="flex flex-wrap items-end justify-between gap-tg">
           <div className="flex min-w-0 flex-col gap-1">
-            <h1 ref={heading} tabIndex={-1} className="text-display font-semibold leading-tight tracking-tight focus-visible:outline-none">
+            <PageTitle ref={heading} tabIndex={-1} mark="phone" className="focus-visible:outline-none">
               {title}
-            </h1>
+            </PageTitle>
             {status ?? (description ? <div className="text-flow text-muted-foreground gaze:text-small">{description}</div> : null)}
           </div>
           {aside ? <div className="hidden flex-wrap gap-tg tablet:flex">{aside}</div> : null}
         </div>
       </div>
-      <div className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg overflow-hidden", fill && "flex-1")}>{children}</div>
+      {/* في الحجم الكبير المحتوى يُقصّ ولا يمرّ؛ وحدّ القصّ أوسع منه بمساحة الإصابة الخفيّة (حشوٌ يقابله هامشٌ
+          سالب): الصفّ الأول والأخير يُصابان كاملَين. */}
+      <div
+        className={cn(
+          "flex flex-col gap-sec",
+          gaze && "-my-[var(--hit-pad)] min-h-0 flex-1 gap-tg overflow-hidden py-[var(--hit-pad)]",
+          fill && "flex-1",
+        )}
+      >
+        {children}
+      </div>
       {actions ? <ScreenActions>{actions}</ScreenActions> : null}
     </div>
   )

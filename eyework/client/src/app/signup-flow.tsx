@@ -12,6 +12,7 @@
 import * as React from "react"
 import { Eye, EyeOff, UserPlus } from "lucide-react"
 
+import { PageTitle } from "@/components/brand/page-title"
 import { Redirect } from "@/components/redirect"
 import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -63,7 +64,7 @@ function StepFrame({ screen, title, hint, onBack, next, children }: {
       <main className="flex min-h-0 flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
         <div className="flex flex-col gap-tg-min">
           <Stepper steps={STEPS} current={stepNumber(screen) - 1} variant="brief" />
-          <h1 className="text-display font-semibold leading-tight tracking-tight">{title}</h1>
+          <PageTitle>{title}</PageTitle>
           {hint ? <p className="text-flow text-muted-foreground gaze:short:hidden">{hint}</p> : null}
         </div>
         {children}

@@ -21,6 +21,7 @@ import {
   Boxes, Eye, EyeOff, Fingerprint, Hand, Headset, LogIn, Maximize2, Megaphone, Minimize2, ScanEye, UserPlus,
 } from "lucide-react"
 
+import { PageTitle } from "@/components/brand/page-title"
 import { BrandMark, SymbolMark } from "@/components/brand/marks"
 import { Slots } from "@/components/shell/slots"
 import { Badge } from "@/components/ui/badge"
@@ -197,8 +198,7 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
       <main className="flex flex-1 flex-col">
       <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
         <div className="flex flex-col gap-2">
-          <BrandMark className="size-10 gaze:hidden" />
-          <h1 className="text-display font-semibold leading-tight tracking-tight">ادخل إلى بوابتك</h1>
+          <PageTitle>ادخل إلى بوابتك</PageTitle>
           <p className="text-flow text-muted-foreground gaze:hidden">بالبريد وكلمة المرور، أو بمفتاح المرور.</p>
         </div>
         <div className="flex flex-col gap-tg">
@@ -322,7 +322,7 @@ export function SignupSizeStep({ step, steps, value, choices, onNext, onBack }: 
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
         <div className="flex flex-col gap-tg-min">
           <Stepper steps={steps} current={step} variant="brief" />
-          <h1 className="text-display font-semibold leading-tight tracking-tight">كيف تستخدم الجهاز؟</h1>
+          <PageTitle>كيف تستخدم الجهاز؟</PageTitle>
           <p className="text-flow text-muted-foreground">
             تُحفظ مع حسابك لتُفتح بوابتك بحجمها، ولا تُرسَل إلى مزوّد النموذج. وتغيّرها متى شئت من «حسابي».
           </p>

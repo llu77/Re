@@ -125,7 +125,12 @@ def portal(page, flow, base: str, size: str, shot, photo: dict) -> None:
     flow.press("#ready-home", lambda: flow.screen("#home-new"), "الرئيسية")
     flow.press("#home-campaigns", lambda: flow.until("document.querySelectorAll('#campaigns-list li').length === 1"), "حملاتي"); flow.audit("campaigns"); shot("27-campaigns")
     flow.press("#campaigns-list li button", lambda: flow.screen("#ready-share"), "حملة من القائمة"); flow.audit("ready-again"); shot("28-ready-from-list")
-    flow.press("#nav-account", lambda: flow.screen("#account-ui-size-apply"), "حسابي"); flow.audit("account"); shot("29-account")
+    # في الحجم الكبير «حسابي» صفحتان: «طريقة الاستخدام» صفحةٌ بنفسها.
+    flow.press("#nav-account", lambda: flow.screen("#account-ui-size-apply, #account-size"), "حسابي"); flow.audit("account"); shot("29-account")
+    if page.locator("#account-size").count():
+        flow.press("#account-size", lambda: flow.screen("#account-ui-size-apply"), "طريقة الاستخدام"); flow.audit("account-size")
+        shot("29b-account-size")
+        flow.press("#account-size-back", lambda: flow.screen("#account-size"), "رجوع")
     flow.press("#account-logout", lambda: flow.screen("#account-confirm-yes"), "تسجيل الخروج"); flow.audit("logout"); shot("30-logout")
 
 

@@ -97,7 +97,8 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 
 export const fieldClass = [
   "w-full min-w-0 rounded-ctl border border-control bg-card px-3 text-input text-foreground",
-  "min-h-ctl",
+  // الحقل لا يحمل مساحة إصابةٍ خفيّة (لا ::after لحقل)، فارتفاعه رمزه: 40 باللمس و56 في الكبير.
+  "min-h-field",
   "focus-visible:border-primary focus-visible:outline-offset-1",
   "aria-[invalid=true]:border-destructive",
   "disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground",
