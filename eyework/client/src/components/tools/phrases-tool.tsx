@@ -90,7 +90,7 @@ export function PhrasesTool({ load }: { load: () => Promise<Loaded | { fail: str
         <>
           <div className="flex items-center gap-x-6">
             <Button id="phrases-language" isValue onClick={() => setEnglish(!english)}>{english ? "بالعربية" : "بالإنجليزية"}</Button>
-            <p role="status" className="min-w-0 text-small font-semibold text-success">{copied ? "نُسخت. الصقها في الردّ." : ""}</p>
+            <p role="status" className="min-w-0 text-small font-semibold text-success">{copied ? "نُسخت." : ""}</p>
           </div>
           {pages > 1 ? (
             <div className="grid grid-cols-2 gap-x-6">
@@ -101,7 +101,7 @@ export function PhrasesTool({ load }: { load: () => Promise<Loaded | { fail: str
         </>
       ) : (
         <>
-          <p role="status" className="min-h-[1lh] text-small font-semibold text-success">{copied ? "نُسخت. الصقها في الردّ." : ""}</p>
+          <p role="status" className="min-h-[1lh] text-small font-semibold text-success">{copied ? "نُسخت." : ""}</p>
           <div className="flex items-center justify-between gap-tg">
             {pages > 1 ? (
               <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)}>السابق</Button>

@@ -1,6 +1,6 @@
 /*
- * قرارات التذكرة: اطلب معلومات، صعّد، ارفض المسودة، حُلّت دون ردٍّ مكتوب، غيّر التصنيف، أعد الكتابة
- * ===============================================================================================
+ * قرارات التذكرة: اطلب معلومات، صعّد، أنهِ التصعيد، ارفض المسودة، حُلّت دون ردٍّ مكتوب، غيّر التصنيف، أعد الكتابة
+ * ===========================================================================================================
  * كل قرارٍ شاشةٌ قصيرة يعود بعدها الموظف إلى التذكرة. الاختيارات في الحجم الكبير منتقٍ (`Picker`): زرٌّ آمن
  * يفتح الخيارات مكانه، فلا يقع خيارٌ تحت نظرٍ وصل من ضغطةٍ قبله؛ وفي الحجم العادي بطاقاتٌ أو قائمة.
  * وما يعتمد («صعّد التذكرة»، «ارفض المسودة»، «حُلّت») في خانة النهاية من شريط الإجراءات، أو في أعلى خطوته
@@ -8,7 +8,7 @@
  */
 
 import * as React from "react"
-import { ArrowUpRight, Ban, Check, CheckCircle2, Copy, ListChecks, Save, Sparkles } from "lucide-react"
+import { ArrowUpRight, Ban, Check, CheckCircle2, Copy, ListChecks, Save, Sparkles, Undo2 } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { Alert } from "@/components/ui/alert"
@@ -112,7 +112,7 @@ export function AskInfoScreen({ ticket, phrases, onQuestions, onRedraft, onBack 
         ) : null}
         {step === 1 ? (
           <>
-            {pages.pager ?? <p className="min-h-ctl text-small text-muted-foreground">اختر حتى أربعة أسئلة.</p>}
+            {pages.pager ?? <p role="status" className="num min-h-ctl text-small text-muted-foreground">{chosen.length} من 4</p>}
             {list}
           </>
         ) : null}
@@ -174,10 +174,10 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
 
   const targetField = gaze ? (
     <GazeHost>
-      <Picker id="escalate-target" label="إلى من؟" options={targets.map((t) => ({ value: t, label: ESCALATION_TARGET[t] }))} value={target} onValueChange={(v) => setTarget(v as EscalationTarget)} />
+      <Picker id="escalate-target" label="جهة التصعيد" options={targets.map((t) => ({ value: t, label: ESCALATION_TARGET[t] }))} value={target} onValueChange={(v) => setTarget(v as EscalationTarget)} />
     </GazeHost>
   ) : (
-    <RadioCards<EscalationTarget> label="إلى من؟" options={targets.map((t) => ({ value: t, title: ESCALATION_TARGET[t] }))} value={target} onValueChange={setTarget}
+    <RadioCards<EscalationTarget> label="جهة التصعيد" options={targets.map((t) => ({ value: t, title: ESCALATION_TARGET[t] }))} value={target} onValueChange={setTarget}
       columns={1} ids={Object.fromEntries(targets.map((t) => [t, `escalate-target-${t}`]))} />
   )
   const noteField = (
@@ -190,13 +190,13 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
       </Button>
       {copied ? (
         <p role="status" className={copied === "ok" ? "text-small font-semibold text-success" : "text-small font-semibold text-destructive"}>
-          {copied === "ok" ? "نُسخ الملخّص. الصقه في رسالتك إلى الجهة." : "تعذّر النسخ. حاول مرةً أخرى."}
+          {copied === "ok" ? "نُسخ الملخّص." : "تعذّر النسخ."}
         </p>
       ) : null}
     </div>
   )
   const notifyField = (
-    <RadioCards<"yes" | "no"> label="أبلغ العميل؟" options={[{ value: "yes", title: "نعم، بردٍّ يفيد بالإحالة" }, { value: "no", title: "لا الآن" }]} value={notify} onValueChange={setNotify}
+    <RadioCards<"yes" | "no"> label="أبلغ العميل؟" options={[{ value: "yes", title: "نعم، بردٍّ يفيد بالإحالة" }, { value: "no", title: "ليس الآن" }]} value={notify} onValueChange={setNotify}
       columns={1} ids={{ yes: "escalate-notify-yes", no: "escalate-notify-no" }} />
   )
   const submit = (
@@ -238,6 +238,36 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
   )
 }
 
+/* ── أنهِ التصعيد ────────────────────────────────────────────────── */
+
+export function ReturnScreen({ ticket, onReturn, onBack }: { ticket: Ticket; onReturn: (note: string | null) => Promise<Fail>; onBack: () => void }) {
+  const { size } = useSize()
+  const gaze = size === "gaze"
+  const [note, setNote] = React.useState("")
+  const { busy, fail, run } = useRun()
+  const target = ticket.escalation ? ESCALATION_TARGET[ticket.escalation.target] : null
+  return (
+    <Screen
+      title="أنهِ التصعيد"
+      description={target ?? undefined}
+      back={gaze ? undefined : { id: "return-back", label: "التذكرة", onClick: onBack }}
+      actions={
+        <>
+          {gaze ? <Button id="return-prev" icon={BackIcon} onClick={onBack}>التذكرة</Button> : null}
+          <Button id="return-submit" variant="primary" commit icon={Undo2} busy={busy} onClick={() => void run(() => onReturn(note.trim() || null))} className="ms-auto">
+            أنهِ التصعيد
+          </Button>
+        </>
+      }
+    >
+      <FailAlert fail={fail && fail.field !== "note" ? fail : null} title="لم يُنهَ التصعيد" />
+      <Field label="ما عاد من الجهة" error={fail?.field === "note" ? fail.message : null}>
+        <Textarea id="return-note" rows={gaze ? 3 : 4} maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} />
+      </Field>
+    </Screen>
+  )
+}
+
 /* ── ارفض المسودة ────────────────────────────────────────────────── */
 
 export function RejectScreen({ onReject, onBack }: { onReject: (reason: RejectReason, note: string | null) => Promise<Fail>; onBack: () => void }) {
@@ -262,7 +292,7 @@ export function RejectScreen({ onReject, onBack }: { onReject: (reason: RejectRe
     >
       <FailAlert fail={fail} title="لم تُرفض" />
       <GazeHost>
-        <Picker id="reject-reason" label="لماذا؟" options={reasons.map((r) => ({ value: r, label: REJECT_REASON[r] }))} value={reason} onValueChange={(v) => setReason(v as RejectReason)} />
+        <Picker id="reject-reason" label="سبب الرفض" options={reasons.map((r) => ({ value: r, label: REJECT_REASON[r] }))} value={reason} onValueChange={(v) => setReason(v as RejectReason)} />
         {/* حقلٌ في المضيف يُخفى حين يُفتح المنتقي، فلا تقع خياراته فوق حقلٍ ظاهر. */}
         <GazeSlot id="reject-note-field">
           <Field label="ملاحظة">
@@ -300,7 +330,7 @@ export function ResolveScreen({ ticket, onResolve, onBack }: {
   }
 
   if (unanswered) {
-    // «رجوع» في خانة «حُلّت» نفسها، و«أغلقها رغم ذلك» في المحتوى بعد التذكير: النظر الذي ضغط «حُلّت» لا يقع على
+    // «رجوع» في خانة «حُلّت» نفسها، و«حُلّها رغم ذلك» في المحتوى بعد التذكير: النظر الذي ضغط «حُلّت» لا يقع على
     // اعتمادٍ ثانٍ في مكانه.
     return (
       <Screen title="قبل الحلّ"
@@ -313,9 +343,9 @@ export function ResolveScreen({ ticket, onResolve, onBack }: {
         <Alert tone="warning" title={unanswered.message}>{unanswered.reason}</Alert>
         {unanswered.confirmable ? (
           <Button id="resolve-confirm" variant="primary" commit icon={CheckCircle2} busy={busy} onClick={() => void resolve(true)} className="gaze:w-full self-start">
-            أغلقها رغم ذلك
+            حُلّها رغم ذلك
           </Button>
-        ) : <p className="text-small text-muted-foreground">ردّ على العميل أولاً، أو اختر «حُلّت بالهاتف» أو «حُلّت حضورياً».</p>}
+        ) : null}
         <FailAlert fail={fail} title="لم تُحلّ" />
       </Screen>
     )

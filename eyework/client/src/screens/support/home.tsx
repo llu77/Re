@@ -163,7 +163,7 @@ const LIST_TITLE: Record<TicketView, string> = {
   open: "التذاكر المفتوحة", pending: "بانتظار العميل", escalated: "المُصعَّدة", resolved: "المحلولة", closed: "المغلقة",
 }
 const LIST_EMPTY: Record<TicketView, string> = {
-  open: "لا تذاكر مفتوحة. الصق رسالة عميلٍ لتبدأ.", pending: "لا أحد بانتظار ردّه.", escalated: "لا تذاكر عند جهةٍ أخرى.",
+  open: "لا تذاكر مفتوحة.", pending: "لا تذاكر بانتظار العميل.", escalated: "لا تذاكر مُصعَّدة.",
   resolved: "لا تذاكر محلولة.", closed: "لا تذاكر مغلقة.",
 }
 

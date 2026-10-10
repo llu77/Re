@@ -90,6 +90,17 @@ def draft(client, t: dict, **extra) -> dict:
     return client.post(f"{BASE}/tickets/{t['id']}/drafts", json={"expected_row_version": t["row_version"], **extra})
 
 
+def to_pending(client, t: dict) -> dict:
+    """طلب معلوماتٍ بسؤالٍ جاهز، نُسخ وأُرسل: التذكرة بانتظار العميل."""
+    reply = expect(client.post(f"{BASE}/tickets/{t['id']}/replies", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ASK_INFO",
+        "template_questions": ["ERROR_TEXT"]}), 201)
+    expect(client.post(f"{BASE}/replies/{reply['id']}/release", json={"via": "COPY", "body_sha256": reply["body_sha256"]}))
+    t = expect(client.post(f"{BASE}/replies/{reply['id']}/confirm", json={"sent": True}))
+    assert t["status"] == "PENDING"
+    return t
+
+
 ANSWER = "نأسف لتعطّل الطباعة. جرّبوا ما يلي:\n1. انزعوا الشريط اللاصق الواقي إن كان موجوداً.\n2. اطبعوا صفحة اختبار.\nإن بقيت الصفحات فارغة فأخبرونا."
 
 
@@ -139,6 +150,18 @@ def test_a_pasted_message_is_masked_before_it_is_stored_and_a_retry_returns_the_
     assert (bad.status_code, bad.json()["code"]) == (422, "LABEL")
     listed = expect(client.get(f"{BASE}/tickets", params={"view": "open"}))
     assert listed["total"] == 1 and listed["items"][0]["preview"].startswith("رابط إعادة التعيين")
+
+
+def test_a_customer_name_keeps_its_hyphen_apostrophe_and_period_and_drops_its_marks(agent):
+    """«محمّد» يُحفظ «محمد»، و’ كما يكتبها iOS فاصلةٌ عليا؛ وما ليس اسماً يُردّ تحت حقله."""
+    client, _ = agent
+    accept(client)
+    for typed, kept in (("محمّد", "محمد"), ("Al-Otaibi", "Al-Otaibi"), ("O’Brien", "O'Brien"), ("د. سارة", "د. سارة")):
+        assert ticket(client, customer_label=typed)["customer_label"] == kept
+    for bad in ("-علي", "علي--حسن", "0551234567"):
+        refused = client.post(f"{BASE}/tickets", json={"client_token": str(uuid4()), "channel": "MESSAGING",
+                                                       "text": "الطابعة لا تطبع منذ الصباح.", "customer_label": bad})
+        assert (refused.status_code, refused.json()["code"], refused.json()["field"]) == (422, "LABEL", "customer_label")
 
 
 # ── المسودة ─────────────────────────────────────────────────────────────
@@ -316,12 +339,14 @@ def test_escalation_can_tell_the_customer_and_resolving_unanswered_asks_first(ag
     t = expect(client.post(f"{BASE}/tickets/{t['id']}/escalation-return", json={"expected_row_version": t["row_version"],
                                                                                 "note": "استبدل المورّد الخرطوشة."}))
     assert t["status"] == "OPEN" and t["escalation"]["returned_at"] is not None
+    assert t["escalation"]["return_note"] == "استبدل المورّد الخرطوشة."
     ask = client.post(f"{BASE}/tickets/{t['id']}/resolve", json={"expected_row_version": t["row_version"],
                                                                  "resolution": "DUPLICATE"})
     assert ask.status_code == 409 and ask.json()["code"] == "UNANSWERED" and ask.json()["confirmable"]
     t = expect(client.post(f"{BASE}/tickets/{t['id']}/resolve", json={"expected_row_version": t["row_version"],
                                                                       "resolution": "DUPLICATE", "confirmed": True}))
     assert (t["status"], t["resolution"]) == ("RESOLVED", "DUPLICATE")
+    assert t["allowed"]["note"] and t["allowed"]["classify"] and not t["allowed"]["follow_up"]
     assert any(f["code"] == "RESOLVE_UNANSWERED" and f["dismiss_reason"] == "CONFIRMED" for f in t["flags"])
     stale = client.post(f"{BASE}/tickets/{t['id']}/reopen", json={"expected_row_version": 1})
     assert (stale.status_code, stale.json()["code"], stale.json()["detail"]) == (409, "STALE", "تغيّرت التذكرة منذ عرضها. راجعها مرة أخرى.")
@@ -430,6 +455,54 @@ def test_the_lists_page_by_the_size_the_client_shows(agent):
     assert (len(found["items"]), found["pages"], found["total"]) == (2, 2, 3)
     rest = expect(client.get(f"{BASE}/kb", params={"q": "الطابعة", "size": 2, "page": 2}))
     assert len(rest["items"]) == 1
+
+
+def test_the_queues_put_the_nearest_deadline_first_and_the_longest_waiting_customer_first(agent):
+    """المفتوحة بالموعد الذي يسري لا بالأولوية وحدها، وبانتظار العميل بأقدمها انتظاراً؛ والملاحظة لا تؤخّرها."""
+    client, _ = agent
+    accept(client)
+    # موعد أول ردٍّ لكل تذكرةٍ من هدف أولويتها عند إنشائها: العادية بعد نصف ساعة، والعالية بعد يوم.
+    expect(client.put(f"{BASE}/settings", json={"sla": {"NORMAL": {"first_reply_minutes": 30, "resolve_minutes": 240},
+                                                        "HIGH": {"first_reply_minutes": 1440, "resolve_minutes": 2880}}}))
+    high = ticket(client, text="الطابعة الكبيرة متوقّفة في قسم المالية منذ الصباح.", priority="HIGH")
+    normal = ticket(client, text="الطابعة الصغيرة تطبع ببطءٍ شديد في الاستقبال.", priority="NORMAL")
+    order = [r["number"] for r in expect(client.get(f"{BASE}/tickets", params={"view": "open"}))["items"]]
+    assert order == [normal["number"], high["number"]]
+    first = to_pending(client, high)
+    second = to_pending(client, normal)
+    expect(client.post(f"{BASE}/tickets/{first['id']}/messages", json={
+        "client_token": str(uuid4()), "expected_row_version": first["row_version"], "author": "NOTE",
+        "text": "اتصلتُ بالقسم وأنتظر صورة الخطأ."}), 201)
+    order = [r["number"] for r in expect(client.get(f"{BASE}/tickets", params={"view": "pending"}))["items"]]
+    assert order == [first["number"], second["number"]]
+
+
+def test_a_resolved_ticket_takes_the_customers_reply_and_a_follow_up_names_its_ticket(agent, owner):
+    """ردّ العميل على المحلولة يعيد فتحها؛ والمغلقة لا تُصنَّف ولا تُكتب فيها رسالة، وتذكرة متابعتها تحمل رقمها."""
+    client, _ = agent
+    accept(client)
+    t = ticket(client)
+    t = expect(client.post(f"{BASE}/tickets/{t['id']}/resolve", json={"expected_row_version": t["row_version"],
+                                                                      "resolution": "BY_PHONE"}))
+    assert (t["status"], t["resolution"]) == ("RESOLVED", "BY_PHONE") and t["allowed"]["note"]
+    t = expect(client.post(f"{BASE}/tickets/{t['id']}/messages", json={
+        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "author": "CUSTOMER",
+        "text": "عادت الطابعة تطبع صفحاتٍ فارغة."}), 201)
+    assert (t["status"], t["resolution"]) == ("OPEN", None)
+    t = expect(client.post(f"{BASE}/tickets/{t['id']}/resolve", json={"expected_row_version": t["row_version"],
+                                                                      "resolution": "BY_PHONE"}))
+    with owner.transaction(), owner.cursor() as cursor:
+        cursor.execute("ALTER TABLE support_tickets DISABLE TRIGGER USER")
+        cursor.execute("UPDATE support_tickets SET resolved_at = now() - interval '5 days' WHERE id = %s", (t["id"],))
+        cursor.execute("ALTER TABLE support_tickets ENABLE TRIGGER USER")
+    expect(client.get(f"{BASE}/home"))
+    closed = expect(client.get(f"{BASE}/tickets/{t['id']}"))
+    assert (closed["status"], closed["resolution"], closed["close_reason"]) == ("CLOSED", "BY_PHONE", "AFTER_RESOLVED")
+    assert not closed["allowed"]["note"] and not closed["allowed"]["classify"] and closed["allowed"]["follow_up"]
+    follow = expect(client.post(f"{BASE}/tickets/{t['id']}/follow-up", json={"client_token": str(uuid4()),
+                                                                             "text": "الطابعة نفسها تطبع صفحاتٍ فارغة اليوم."}), 201)
+    assert (follow["follow_up_of"], follow["follow_up_number"]) == (t["id"], t["number"])
+    assert expect(client.get(f"{BASE}/tickets/{t['id']}"))["follow_up_number"] is None
 
 
 def test_an_article_inserted_into_a_written_reply_is_kept_with_it_and_reviewed_with_it(agent, gateway):

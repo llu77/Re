@@ -2,7 +2,7 @@
 مكتب الدعم: ما بين الخادم والقاعدة
 ==================================
 ما يحسبه الخادم وتعيد القاعدة حسابه يتّفقان (تطبيع الاقتباس، والأولوية المقترحة، وجدول
-الانتقالات)؛ وكل قيدٍ ترفعه 0011 أو يسمّيه جدولٌ فيها له رسالةٌ في `SUPPORT_CONSTRAINTS`؛ وخطوات
+الانتقالات، وشكل اسم العميل)؛ وكل قيدٍ ترفعه 0011 أو يسمّيه جدولٌ فيها له رسالةٌ في `SUPPORT_CONSTRAINTS`؛ وخطوات
 `admin purge` للدعم تمحو نصوص التذكرة بعد ثلاثين يوماً من إغلاقها والتذكرة بعد سنة، و`admin
 set-profession` يغلق المكتب حين يغادره صاحبه.
 """
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from eyework import admin, support_rules
+from eyework import admin, support, support_rules
 from eyework.grounding import kb_norm
 from eyework.tests.db.test_ai_layer import owner_scalar, query, scalar
 from eyework.tests.db.test_support_desk import backdate, desk_user, prepare, ticket
@@ -131,6 +131,20 @@ CONTACT_SAMPLES = (
     "www.example.com", "الإصدار 10.0.19045.3803", "العنوان 192.168.1.10", "العنوان 192.168.100.200",
     "الخطأ 0x80070005 والتحديث KB5034441", "الملف report.pdf وموقع example.com", "الخطأ بدأ 2024-10-09 12:30",
 )
+
+
+LABEL_SAMPLES = ("زهرة", "محمد العتيبي", "Al-Otaibi", "O'Brien", "د. سارة", "J.R. Smith", "أ.د. منى", "علي ٢",
+                 "-علي", "علي-", "علي--حسن", "علي  حسن", "'سارة", "محمّد", "a_b", "علي.حسن.")
+
+
+@pytest.mark.parametrize("label", LABEL_SAMPLES)
+def test_the_customer_name_shape_agrees_in_the_server_and_the_database(owner, label):
+    """قيد `support_customer_label_shape` نظير `LABEL_SHAPE`: ما يقبله الخادم تقبله القاعدة، وما يردّه تردّه."""
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'support_customer_label_shape'")
+        pattern = re.search(r"~ '((?:[^']|'')+)'::text", cursor.fetchone()[0]).group(1).replace("''", "'")
+        cursor.execute("SELECT %s ~ %s", (label, pattern))
+        assert cursor.fetchone()[0] == bool(re.fullmatch(support.LABEL_SHAPE, label))
 
 
 @pytest.mark.parametrize("text", CONTACT_SAMPLES)
