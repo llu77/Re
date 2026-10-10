@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from pathlib import Path
@@ -566,4 +567,68 @@ def test_symbols_notes_arriving_after_the_copy_press_wait_for_a_decision_without
     assert not flow.failures(), "\n".join(flow.failures())
     if gaze:
         assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize(("width", "height"), [PHONES[0], STRESS], ids=frame_ids([PHONES[0], STRESS]))
+def test_a_long_unpunctuated_message_reads_in_pages_without_losing_a_word_on_gaze(next_page, server, owner, width, height):
+    """رسالةٌ ملصوقة بنحو أربعة آلاف حرفٍ بلا علامات، وفيها كلمةٌ أطول من الصفحة: صفحاتٌ لا تمرّ ولا تُقصّ، ونصّها كلّه."""
+    page = _page(next_page, owner, server, "gaze", width, height)
+    flow = Flow(page)
+    page.goto(page.next + BASE)
+    flow.screen("#home-new")
+    _notice(flow)
+    text = " ".join(["الطابعة في المكتب لا تطبع الصفحات الملوّنة منذ تحديث البرنامج"] * 58 + ["x" * 300, "والسلام"])
+    assert 3900 <= len(text) <= 4000
+    api, headers = f"{server['base']}/api/support", {"X-Eyework": "1", "Origin": server["base"]}
+    # بترميز UTF-8 كما يرسله المتصفّح (JSON.stringify)، لا بهروب \uXXXX الذي يضاعف الحجم ستّ مرات.
+    body = json.dumps({"client_token": str(uuid.uuid4()), "channel": "MESSAGING", "text": text}, ensure_ascii=False)
+    created = page.request.post(api + "/tickets", headers={**headers, "Content-Type": "application/json"}, data=body)
+    assert created.status == 201, created.text()
+    page.goto(page.next + BASE + "/t/" + created.json()["id"])
+    flow.screen("#ticket-prev")
+    pager = "nav[aria-label='صفحات رسالة العميل']"
+    _press_until(flow, "#ticket-next", pager, "التالي")
+    shown = []
+    while True:
+        shown.append(page.locator("article[aria-label='رسالة العميل'] p.text-flow").inner_text())
+        _audit(flow, f"long-message-{len(shown)}")
+        following = page.locator(f"{pager} button:has-text('التالي')")
+        if not following.is_enabled():
+            break
+        flow.press(f"{pager} button:has-text('التالي')", lambda: flow.until(
+            f"document.querySelector(\"article[aria-label='رسالة العميل'] p.text-flow\").innerText !== {shown[-1]!r}"), "التالي")
+    assert len(shown) > 10 and all(len(piece) <= 260 for piece in shown)
+    assert "".join(shown).replace(" ", "") == text.replace(" ", "")
+    assert not flow.failures(), "\n".join(flow.failures())
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_a_ticket_changed_since_it_was_shown_says_so_and_reloads(next_page, server, owner, size):
+    """
+    ملاحظةٌ أُضيفت من مكانٍ آخر بعد عرض التذكرة: «اعتمد المقترح» يُرفض 409 فيُقال ذلك في صفحة الاقتراح نفسها،
+    وتُقرأ التذكرة من جديد، والضغطة الثانية تعتمده.
+    """
+    page = _page(next_page, owner, server, size, *PHONES[0])
+    flow = Flow(page)
+    page.goto(page.next + BASE)
+    flow.screen("#home-new")
+    _notice(flow)
+    _new_ticket(flow, "الشاشة سوداء في جهاز الاستقبال منذ أمس ولا تستجيب.", "خالد")
+    flow.until("!document.querySelector('#ticket-drafting')")
+    flow.screen("#ticket-accept-suggestion")
+    ticket_id = page.evaluate("() => location.hash.split('/t/')[1].split('?')[0]")
+    api, headers = f"{server['base']}/api/support", {"X-Eyework": "1", "Origin": server["base"]}
+    version = page.request.get(f"{api}/tickets/{ticket_id}", headers=headers).json()["row_version"]
+    note = page.request.post(f"{api}/tickets/{ticket_id}/messages", headers=headers, data={
+        "client_token": str(uuid.uuid4()), "expected_row_version": version, "author": "NOTE",
+        "text": "اتصل العميل وقال إن الجهاز يعمل بعد إعادة توصيل الكهرباء."})
+    assert note.status == 201, note.text()
+    flow.press("#ticket-accept-suggestion", lambda: flow.screen("text=تغيّرت التذكرة منذ عرضها"), "اعتمد المقترح")
+    _audit(flow, "ticket-stale")
+    assert _status(owner, "SELECT category FROM support_tickets") == (None,)
+    flow.press("#ticket-accept-suggestion", lambda: flow.until("!document.querySelector('#ticket-accept-suggestion')"), "اعتمد المقترح")
+    assert _status(owner, "SELECT category IS NOT NULL FROM support_tickets") == (True,)
+    assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors

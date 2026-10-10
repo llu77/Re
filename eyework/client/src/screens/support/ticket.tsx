@@ -105,7 +105,10 @@ export function TicketScreen(props: TicketScreenProps) {
       firstPage.current = false
       return
     }
-    if (gaze) toast.dismiss()
+    if (gaze) {
+      toast.dismiss()
+      setFail(null)
+    }
   }, [page, gaze, toast])
 
   async function run(id: string, action: () => Promise<Fail>) {
@@ -289,7 +292,7 @@ export function TicketScreen(props: TicketScreenProps) {
     for (let start = 0; start < decisions.length; start += DECISIONS_PER_PAGE) {
       pages.push({
         id: `decide-${start}`, label: start === 0 ? "قرارك" : "المزيد",
-        body: <div className="flex flex-col gap-tg [&>button]:w-full">{failAlert}{decisions.slice(start, start + DECISIONS_PER_PAGE)}</div>,
+        body: <div className="flex flex-col gap-tg [&>button]:w-full">{decisions.slice(start, start + DECISIONS_PER_PAGE)}</div>,
       })
     }
     const index = Math.min(page, pages.length - 1)
@@ -312,6 +315,8 @@ export function TicketScreen(props: TicketScreenProps) {
           </>
         }
       >
+        {/* ما لم يتمّ يُقال في الصفحة التي ضُغط فيها (الاقتراح أو القرارات)، ويُغلق حين تُقلَّب. */}
+        {failAlert}
         {at.body}
       </Screen>
     )

@@ -23,7 +23,7 @@ import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { PagedText } from "@/components/ui/paged-text"
-import { DISMISS_REASON, REPLY_KIND, type AiFlag, type DismissReason, type ReleaseVia, type ReviewAnswer, type RuleFlag, type Ticket } from "@/lib/support"
+import { DISMISS_REASON, DISMISSED_REASON, REPLY_KIND, type AiFlag, type DismissReason, type ReleaseVia, type ReviewAnswer, type RuleFlag, type Ticket } from "@/lib/support"
 import { useSize } from "@/lib/size"
 import { GazeHost, Picker } from "@/screens/inventory/common"
 
@@ -103,7 +103,7 @@ export function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
           </div>
         </GazeHost>
       ) : (
-        <p role="status" className="text-small font-semibold">{flag.state === "DISMISSED" ? `تابعتَ رغم التنبيه: ${flag.dismiss_reason ? DISMISS_REASON[flag.dismiss_reason] : ""}.` : "أخذتَ بالتنبيه."}</p>
+        <p role="status" className="text-small font-semibold">{flag.state === "DISMISSED" ? `تابعتَ رغم التنبيه: ${flag.dismiss_reason ? DISMISSED_REASON[flag.dismiss_reason] : ""}.` : "أخذتَ بالتنبيه."}</p>
       )}
     </section>
   )

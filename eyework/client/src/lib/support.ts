@@ -24,6 +24,8 @@ export type RejectReason = "WRONG_INFO" | "NOT_IN_KB" | "MISUNDERSTOOD" | "TONE"
 export type EscalationTarget = "TIER2" | "SUPERVISOR" | "VENDOR" | "FIELD_TECH" | "OTHER_TEAM"
 export type Resolution = "BY_PHONE" | "IN_PERSON" | "DUPLICATE" | "NOT_SUPPORT" | "NO_RESPONSE"
 export type DismissReason = "FALSE_ALARM" | "EMPLOYER_APPROVED" | "KB_OUTDATED" | "OTHER"
+/** وما يكتبه الخادم وحده: «CONFIRMED» حين تُحلّ التذكرة بلا ردٍّ على آخر رسالة. */
+export type DismissedReason = DismissReason | "CONFIRMED"
 export type ReleaseVia = "COPY" | "SHARE" | "SCRIPT"
 export type QuestionCode = "ERROR_TEXT" | "WHEN_STARTED" | "DEVICE" | "SCOPE" | "STEPS" | "TRIED" | "SCREENSHOT"
 export type TicketView = "open" | "pending" | "escalated" | "resolved" | "closed"
@@ -114,7 +116,7 @@ export interface RuleFlag {
   message: string
   reason: string
   evidence: string | null
-  dismiss_reason: DismissReason | null
+  dismiss_reason: DismissedReason | null
 }
 
 /** ملاحظة سيمبول بشكل جواب /api/ai/review. */
@@ -292,6 +294,7 @@ export const RESOLUTION: Record<Resolution, string> = {
 export const DISMISS_REASON: Record<DismissReason, string> = {
   FALSE_ALARM: "تنبيهٌ في غير محلّه", EMPLOYER_APPROVED: "جهة العمل موافقة", KB_OUTDATED: "المقالة قديمة", OTHER: "سببٌ آخر",
 }
+export const DISMISSED_REASON: Record<DismissedReason, string> = { ...DISMISS_REASON, CONFIRMED: "أكّدتَ الحلّ دون ردّ" }
 export const ARTICLE_STATE: Record<ArticleState, string> = {
   DRAFT: "مسودة", PUBLISHED: "منشورة", ARCHIVED: "مؤرشفة", DISCARDED: "متروكة",
 }

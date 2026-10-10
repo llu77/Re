@@ -735,7 +735,8 @@ BEGIN
     IF NOT FOUND OR t.status = 'CLOSED' THEN
         RAISE EXCEPTION 'closed' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_ticket_closed';
     END IF;
-    IF (SELECT count(*) FROM support_messages WHERE ticket_id = NEW.ticket_id) >= 60 THEN
+    -- ستون رسالةً يلصقها الموظف أو يكتبها؛ والردّ المرسل (AGENT) يُسجَّل دائماً: أُرسل من قناته قبل أن يُؤكَّد.
+    IF NEW.author <> 'AGENT' AND (SELECT count(*) FROM support_messages WHERE ticket_id = NEW.ticket_id) >= 60 THEN
         RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_message_cap';
     END IF;
     IF NEW.author <> 'AGENT' AND (SELECT count(*) FROM support_messages
