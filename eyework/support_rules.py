@@ -210,6 +210,15 @@ _PROMISE = re.compile(
 SECRET_PHRASES = ("كلمة المرور", "كلمة السر", "رمز التحقق", "رمز التحقّق", "الرمز المرسل", "OTP", "رقم البطاقة", "CVV",
                   "رقم الهوية", "الآيبان", "password", "verification code")
 _SECRET = re.compile("|".join(re.escape(phrase) for phrase in SECRET_PHRASES), re.IGNORECASE)
+#: ما يطلب من العميل أن يعطي شيئاً: «أرسلوا»، «زوّدونا»، «اكتبوا لنا»… في أوّل الكلمة، فـ«لا تشاركوا» تحذيرٌ لا
+#: طلب. جملةٌ تذكر كلمة المرور لتُغيَّر أو تُستعاد («اضغطوا «نسيت كلمة المرور»») لا تطلبها، وجملةٌ فيها فعل طلبٍ
+#: وسرٌّ تطلبه.
+_ASKS = re.compile(
+    r"(?<![ء-ي])(?:أرسل|ارسل|ابعث|زوّد|زود|شارك|أعط|اعط|أخبر|اخبر|اكتب(?:وا)?\s+لنا|ضع(?:وا)?\s+(?:لنا|هنا)|"
+    r"أرفق|ارفق|انسخ(?:وا)?\s+لنا|نحتاج|نريد|يلزمنا|"
+    r"\bsend\b|\bshare\b|\bprovide\b|\bgive\s+us\b|\btell\s+us\b|\breply\s+with\b|\bwe\s+need\b)",
+    re.IGNORECASE,
+)
 
 
 def _evidence(text: str) -> str | None:
@@ -239,8 +248,10 @@ def rule_flags(core: str, kind: str, customer_language: str, grounding: Iterable
         phrase = match.group(0)
         if not any(kb_norm(phrase) in source for source in sources):
             add("PROMISE", _evidence(phrase))
-    for match in _SECRET.finditer(core):
-        add("ASKS_SECRET", _evidence(match.group(0)))
+    for sentence in re.split(r"(?<=[.!؟?\n])\s*", core):
+        if _ASKS.search(sentence):
+            for match in _SECRET.finditer(sentence):
+                add("ASKS_SECRET", _evidence(match.group(0)))
     if kind == "ASK_INFO" and "؟" not in core and "?" not in core:
         add("NO_QUESTION", None)
     for token in contact_tokens(core):

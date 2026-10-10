@@ -27,8 +27,9 @@ export function homeTitle(userName: string | null): string {
   return name ? `أهلاً، ${name}` : "الرئيسية"
 }
 
-/** أزرار البدء وحدها: تستعملها الرئيسية المشتركة ورئيسية المخزون بما فوقها من ملخّص. */
-export function HomeGrid({ workspace, onNavigate }: { workspace: Workspace; onNavigate: (href: string) => void }) {
+/** أزرار البدء وحدها: تستعملها الرئيسية المشتركة ورئيسيتا المخزون والدعم بما فوقها من ملخّص. `counts`
+ *  عددٌ بجانب اسم الزرّ («بانتظار قراري · 3»)، والصفر لا يُكتب. */
+export function HomeGrid({ workspace, onNavigate, counts }: { workspace: Workspace; onNavigate: (href: string) => void; counts?: Record<string, number> }) {
   return (
       <ul aria-label="ابدأ عملاً" className="grid grid-cols-2 gap-tg lg:grid-cols-3">
         {workspace.home.map((entry) => {
@@ -60,7 +61,10 @@ export function HomeGrid({ workspace, onNavigate }: { workspace: Workspace; onNa
                 >
                   <Icon aria-hidden="true" className="size-5 gaze:size-6" strokeWidth={2.25} />
                 </span>
-                <span className="leading-snug">{entry.label}</span>
+                <span className="leading-snug">
+                  {entry.label}
+                  {counts?.[entry.id] ? <span className="num"> · {counts[entry.id]}</span> : null}
+                </span>
               </a>
             </li>
           )

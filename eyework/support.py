@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import uuid
 from contextlib import contextmanager
@@ -28,7 +29,7 @@ from uuid import UUID
 
 from psycopg import errors as pg_errors
 
-from eyework import ai_log, reviewer, support_notice
+from eyework import ai_log, assistant, reviewer, support_notice
 from eyework import support_prompt as prompt
 from eyework import support_rules as rules
 from eyework.db import Database
@@ -1173,3 +1174,57 @@ ARTICLE_FEATURE = ReviewFeature(
 reviewer.FEATURES["SUPPORT_REPLY_REVIEW"] = REPLY_FEATURE
 reviewer.FEATURES["SUPPORT_ARTICLE_REVIEW"] = ARTICLE_FEATURE
 
+
+
+# ── «اسأل سيمبول» في المكتب ─────────────────────────────────────────────
+#: ما يقرؤه المساعد من شاشات الدعم: أعدادٌ وحالات، ولا نصّ من رسائل العملاء ولا ردودهم.
+_STATUS_NAMES = {"NEW": "جديدة", "OPEN": "مفتوحة", "PENDING": "بانتظار العميل", "ESCALATED": "مُصعَّدة",
+                 "RESOLVED": "محلولة", "CLOSED": "مغلقة"}
+_DRAFT_NAMES = {"DRAFT": "مسودة جاهزة", "CANNOT_ANSWER": "لم يجد في قاعدة المعرفة ما يجيب",
+                "NOT_SUPPORT": "رأى أنها ليست طلب دعم"}
+_SCREEN_TICKET = """
+SELECT t.number, t.status, t.priority, t.category,
+       (SELECT d.result FROM support_drafts d WHERE d.ticket_id = t.id ORDER BY d.seq DESC LIMIT 1) AS draft,
+       (SELECT r.state FROM support_replies r WHERE r.ticket_id = t.id AND r.state IN ('READY', 'RELEASED')) AS live,
+       (SELECT count(*) FROM support_messages m WHERE m.ticket_id = t.id AND m.author = 'CUSTOMER') AS customer_messages
+  FROM support_tickets t WHERE t.id = %s
+"""
+_ASSISTANT_HOME = assistant.SCREENS["HOME"]
+
+
+def _assistant_home(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str, ...]:
+    cursor.execute("SELECT ew_my_profession() AS profession")
+    if cursor.fetchone()["profession"] != Profession.SUPPORT.value:
+        return _ASSISTANT_HOME.load(cursor, user_id, screen_id)
+    c = _one(cursor, _COUNTS)
+    return assistant.fit([
+        f"بانتظار قرارك: {c['decide']}، والتذاكر المفتوحة: {c['open']}، وبانتظار العميل: {c['pending']}، "
+        f"والمُصعَّدة: {c['escalated']}",
+        f"مقالاتٌ مقترحة أو تحتاج مراجعة: {c['kb_attention']}"])
+
+
+def _assistant_ticket(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str, ...]:
+    row = _one(cursor, _SCREEN_TICKET, (screen_id,))
+    if row is None:
+        raise NotFound("SCREEN", assistant.NO_SCREEN)
+    lines = [f"التذكرة #{row['number']}: {_STATUS_NAMES.get(row['status'], row['status'])}، "
+             f"أولوية {rules.PRIORITY_NAMES.get(row['priority'], row['priority'])}",
+             f"رسائل العميل فيها: {row['customer_messages']}"]
+    if row["draft"]:
+        lines.append(f"آخر مسودةٍ من سيمبول: {_DRAFT_NAMES.get(row['draft'], row['draft'])}")
+    if row["live"]:
+        lines.append("ردٌّ جاهز لم يُرسل بعد" if row["live"] == "READY" else "ردٌّ نُسخ ولم يُؤكَّد إرساله")
+    return assistant.fit(lines)
+
+
+assistant.register(dataclasses.replace(
+    _ASSISTANT_HOME, load=_assistant_home,
+    extra_labels={**_ASSISTANT_HOME.extra_labels, Profession.SUPPORT: (
+        "بانتظار قراري", "التذاكر المفتوحة", "تذكرة جديدة", "بانتظار العميل", "المُصعَّدة", "قاعدة المعرفة")},
+))
+assistant.register(assistant.ScreenContext(
+    kind="SUPPORT_TICKET", profession=Profession.SUPPORT, title="التذكرة",
+    labels=("أرسل كما هي", "عدّل ثم أرسل", "اطلب معلومات", "صعّد", "ارفض المسودة", "حُلّت دون ردٍّ مكتوب"),
+    ready_questions=("متى أصعّد التذكرة بدل أن أردّ؟", "ماذا أفعل إن كانت مسودة سيمبول خاطئة؟"),
+    needs_id=True, load=_assistant_ticket,
+))

@@ -232,7 +232,8 @@ def create_app(
         if constraint in REGISTRATION_CONSTRAINTS:
             field = REGISTRATION_CONSTRAINTS[constraint]
             return _error(REGISTRATION[field], field)
-        if _support(request) and constraint in SUPPORT_CONSTRAINTS:
+        # إشعار المكتب يحجز مراجعة سيمبول للردّ والمقالة أيضاً (/api/ai/review)، لا مسارات المكتب وحدها.
+        if (_support(request) or constraint == "support_notice_required") and constraint in SUPPORT_CONSTRAINTS:
             return _error(SUPPORT_CONSTRAINTS[constraint])
         return _error(CONSTRAINTS.get(constraint, GENERIC))
 

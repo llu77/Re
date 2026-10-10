@@ -360,3 +360,30 @@ def test_settings_keep_a_signature_and_service_targets_and_phrases_are_static(ag
     assert (bad.status_code, bad.json()["code"]) == (422, "SIGNATURE")
     phrases = expect(client.get(f"{BASE}/phrases"))
     assert len(phrases["questions"]) == 7 and all(q["ar"].endswith("؟") and q["en"].endswith("?") for q in phrases["questions"])
+
+
+def test_ask_symbol_reads_the_desk_counts_and_the_ticket_state_but_no_customer_text(agent, other, gateway):
+    """«اسأل سيمبول» في الرئيسية والتذكرة: أعدادٌ وحالات، ولا نصّ رسالةٍ ولا اسم عميلٍ ولا توقيع؛ والتذكرة لغير صاحبها 404."""
+    client, _ = agent
+    accept(client)
+    t = ticket(client, text="الشاشة سوداء في جهاز الاستقبال منذ أمس.", customer_label=LABEL)
+    ask = {"ready_question": 0}
+    expect(client.post("/api/ai/assistant", json={"screen": {"kind": "HOME", "id": None}, **ask}))
+    expect(client.post("/api/ai/assistant", json={"screen": {"kind": "SUPPORT_TICKET", "id": t["id"]}, **ask}))
+    home, screen = (call.user for call in gateway.calls if call.feature == "ASSISTANT")
+    assert "بانتظار قرارك" in home and f"#{t['number']}" in screen and "جديدة" in screen
+    for sent in (home, screen):
+        assert "الشاشة سوداء" not in sent and LABEL not in sent and NAME not in sent
+    stranger, _ = other
+    refused = stranger.post("/api/ai/assistant", json={"screen": {"kind": "SUPPORT_TICKET", "id": t["id"]}, **ask})
+    assert refused.status_code == 404
+
+
+def test_symbol_reviews_an_article_only_after_the_desk_notice(agent):
+    """مراجعة المقالة ترسل نصّها إلى Anthropic: قبل إشعار المكتب 409 NOTICE برسالته، والاعتماد بلا مراجعةٍ يبقى ممكناً."""
+    client, _ = agent
+    a = article(client, publish=False)
+    refused = client.post("/api/ai/review", json={"feature": "SUPPORT_ARTICLE_REVIEW", "subject_kind": "KB_ARTICLE", "subject_id": a["id"]})
+    assert (refused.status_code, refused.json()["code"]) == (409, "NOTICE")
+    published = expect(client.post(f"{BASE}/kb/{a['id']}/publish", json={"expected_row_version": a["row_version"], "version": 1}))
+    assert published["state"] == "PUBLISHED"

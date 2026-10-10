@@ -3,8 +3,7 @@
  * ==================
  * مساحة عمل المهنة (lib/workspace.ts) في الهيكل الموحّد: شريط التبويب أو الشريط الجانبي وورقتا الأقسام والأدوات
  * واحدٌ للجميع. التسويق له أداة الحملة تحت #/marketing/…، وأمين المخزون بوابته تحت #/inventory/…
- * (app/inventory-flow.tsx)؛ والدعم الفني يصل «حسابي» حتى تصل أدواته في حزمته، فلا زرٌّ يفتح ما
- * ليس موجوداً.
+ * (app/inventory-flow.tsx)، والدعم الفني مكتبه تحت #/support/… (app/support-flow.tsx).
  */
 
 import * as React from "react"
@@ -12,11 +11,12 @@ import * as React from "react"
 import { AccountFlow } from "@/app/account-flow"
 import { InventoryFlow } from "@/app/inventory-flow"
 import { MarketingFlow } from "@/app/marketing-flow"
+import { SupportFlow } from "@/app/support-flow"
 import type { AssistantApi } from "@/components/tools/assistant-tool"
 import { Redirect } from "@/components/redirect"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import { api, detail } from "@/lib/api"
-import { go } from "@/lib/router"
+import { currentHash, go } from "@/lib/router"
 import { setState, type Choices, type Me } from "@/lib/store"
 import { WORKSPACES, type Workspace } from "@/lib/workspace"
 import { WorkHome } from "@/screens/work-home"
@@ -30,7 +30,7 @@ interface AssistantAnswer {
 }
 
 /** «اسأل سيمبول» من ورقة الأدوات: سؤالٌ واحد بسياق الشاشة (نوعها ومعرّفها لا بياناتها)، والجواب كما يردّه الخادم. */
-export type AssistantScreen = "HOME" | "CAMPAIGN" | "INVENTORY_ITEM" | "INVENTORY_PURCHASE" | "INVENTORY_COUNT"
+export type AssistantScreen = "HOME" | "CAMPAIGN" | "INVENTORY_ITEM" | "INVENTORY_PURCHASE" | "INVENTORY_COUNT" | "SUPPORT_TICKET"
 
 export function assistantApi(me: Me, choices: Choices, screen: AssistantScreen, id: string | null = null): AssistantApi {
   return {
@@ -59,6 +59,7 @@ export function navigate(href: string) {
 export function workspaceOf(me: Me): Workspace | null {
   if (me.profession === "MARKETING") return WORKSPACES.MARKETING
   if (me.profession === "STOREKEEPER") return WORKSPACES.STOREKEEPER
+  if (me.profession === "SUPPORT") return WORKSPACES.SUPPORT
   return null
 }
 
@@ -73,10 +74,12 @@ function ClearCampaign() {
 export function WorkspaceView({ path, choices, me }: { path: string; choices: Choices; me: Me }) {
   const workspace = workspaceOf(me)
   if (!workspace) return <AccountFlow path={path} choices={choices} me={me} />
-  if (workspace.profession === "STOREKEEPER") {
+  if (workspace.profession === "STOREKEEPER" || workspace.profession === "SUPPORT") {
     if (path === "#/" || path === "#") return <Redirect to={workspace.base} />
     if (path === workspace.base || path.startsWith(`${workspace.base}/`) || path.startsWith(`${workspace.base}?`)) {
-      return <InventoryFlow path={path} choices={choices} me={me} workspace={workspace} />
+      const Flow = workspace.profession === "STOREKEEPER" ? InventoryFlow : SupportFlow
+      // المسار باستعلامه (`?status=draft`، `?draft=1`): الموجّه يمرّر الوسم بلا استعلام.
+      return <Flow path={currentHash()} choices={choices} me={me} workspace={workspace} />
     }
     return <Redirect to={workspace.base} />
   }

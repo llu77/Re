@@ -55,6 +55,19 @@ def test_rule_flags_find_promises_secrets_and_contacts_not_in_the_articles():
         ("PROMISE", "نضمن"), ("PROMISE", "خلال 2 ساعات"), ("ASKS_SECRET", "كلمة المرور"), ("LINK_NOT_IN_KB", "0112223344")]
 
 
+@pytest.mark.parametrize(("core", "flagged"), [
+    ("اضغطوا «نسيت كلمة المرور» في صفحة الدخول، ثم اختاروا كلمة مرورٍ جديدة.", False),
+    ("لا تشاركوا رمز التحقق مع أحد.", False),
+    ("Click «Forgot password» on the sign-in page.", False),
+    ("زوّدونا برمز التحقق الذي وصلكم.", True),
+    ("نحتاج رقم البطاقة لنتحقّق من الطلب.", True),
+    ("Please send us your password so we can check.", True),
+])
+def test_a_secret_is_flagged_when_the_reply_asks_for_it_not_when_it_explains_a_reset(core, flagged):
+    codes = [f["code"] for f in rules.rule_flags(core, "ANSWER", rules.language_of(core), ())]
+    assert ("ASKS_SECRET" in codes) is flagged
+
+
 def test_a_promise_quoted_from_an_article_is_not_flagged():
     assert rules.rule_flags("يُستبدل الجهاز مجاناً خلال الضمان.", "ANSWER", "AR", ["يُستبدل الجهاز مجاناً خلال الضمان"]) == []
 
