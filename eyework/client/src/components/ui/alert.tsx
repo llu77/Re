@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils"
 export type AlertTone = "info" | "success" | "warning" | "danger"
 
 const TONES: Record<AlertTone, { box: string; icon: LucideIcon; iconColor: string }> = {
-  info: { box: "border-primary/30 bg-secondary", icon: Info, iconColor: "text-primary" },
-  success: { box: "border-success/30 bg-success-tint", icon: CheckCircle2, iconColor: "text-success" },
-  warning: { box: "border-warning-line bg-warning-tint", icon: AlertTriangle, iconColor: "text-warning" },
-  danger: { box: "border-destructive/40 bg-destructive-tint", icon: OctagonAlert, iconColor: "text-destructive" },
+  info: { box: "border-transparent bg-secondary", icon: Info, iconColor: "text-primary" },
+  success: { box: "border-transparent bg-success-tint", icon: CheckCircle2, iconColor: "text-success" },
+  warning: { box: "border-warning-line/40 bg-warning-tint", icon: AlertTriangle, iconColor: "text-warning" },
+  danger: { box: "border-transparent bg-destructive-tint", icon: OctagonAlert, iconColor: "text-destructive" },
 }
 
 export interface AlertProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
@@ -35,7 +35,7 @@ export function Alert({ tone = "info", title, live = false, icon, actions, class
   const role = live ? (tone === "danger" ? "alert" : "status") : undefined
   return (
     <div role={role} className={cn("flex gap-3 rounded-card border p-pad", t.box, className)} {...props}>
-      <Icon aria-hidden="true" className={cn("mt-0.5 size-icon shrink-0", t.iconColor)} strokeWidth={2.25} />
+      <Icon aria-hidden="true" className={cn("mt-0.5 size-icon shrink-0", t.iconColor)} strokeWidth={2} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="font-semibold leading-snug text-foreground">{title}</p>
         {children ? <div className="text-small text-foreground">{children}</div> : null}

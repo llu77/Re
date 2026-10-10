@@ -211,7 +211,7 @@ export function ReplyScreen(props: ReplyScreenProps) {
   const again = reply.needs_review && !reviewing && answer && answer.review.status !== "DONE" ? (
     <Button id="reply-review-again" icon={RefreshCw} onClick={onReviewAgain}>أعد المراجعة</Button>
   ) : null
-  const body = gaze ? <PagedText text={reply.body} label="الردّ" perPage={{ gaze: 240, gazeShort: 120 }} /> : <p className="text-flow whitespace-pre-line rounded-card border border-border bg-card p-pad">{reply.body}</p>
+  const body = gaze ? <PagedText text={reply.body} label="الردّ" perPage={{ gaze: 240, gazeShort: 120 }} /> : <p className="text-flow whitespace-pre-line rounded-card bg-card shadow-card p-pad">{reply.body}</p>
   // الحجم الكبير: أزرار الإرسال شبكةٌ بعمودين (24 بينهما)، فثلاثتها في صفّين؛ و«انسخ الردّ» وحده بعرض الصفّ.
   const gazeGrid = "grid grid-cols-2 gap-x-6 gap-y-tg"
   const copyAlone = !spoken && !canShare
@@ -395,7 +395,7 @@ export function ReplyScreen(props: ReplyScreenProps) {
           {again}
           {cards.length ? <div className="flex flex-col gap-tg">{cards}</div> : null}
           {sendButtons}
-          {blocked ? <p className="text-small font-semibold text-warning">قرّر في كل تنبيهٍ قبل النسخ.</p> : <p className="text-small text-muted-foreground">لا يُرسل التطبيق شيئاً؛ الصق الردّ في محادثة العميل وأرسله أنت.</p>}
+          {blocked ? <p className="text-small font-semibold text-warning">قرّر في كل تنبيهٍ قبل النسخ.</p> : null}
           {body}
         </>
       )}

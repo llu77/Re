@@ -1,9 +1,10 @@
 /*
  * Screen — إطار كل شاشة عمل
  * =========================
- * بنمط iOS: صفٌّ علويٌّ بخانتين ثابتتين («رجوع» في البداية، وفي النهاية ما يغادر أو يتقدّم) حين
- * تحتاجه الشاشة، ثم ما فوق العنوان (الخطوات)، ثم العنوان الكبير (h1، يُركَّز عند الوصول فيُعلَن ما
- * تغيّر)، ثم المحتوى، ثم شريط الإجراءات بخانتين ثابتتين.
+ * بنمط iOS: صفٌّ علويٌّ بخانتين ثابتتين («رجوع» نصّاً بسهمه في البداية، وفي النهاية ما يغادر أو يتقدّم)
+ * حين تحتاجه الشاشة، ثم ما فوق العنوان (الخطوات)، ثم العنوان الكبير (h1، يُركَّز عند الوصول فيُعلَن ما
+ * تغيّر) بالعلامة في آخر سطره، ثم المحتوى، ثم شريط الإجراءات بخانتين ثابتتين. لا شرح تحت العنوان: سطره
+ * لبياناتٍ (اسم المورّد، الشهر، الحالة) لا لوصف الشاشة.
  *
  *   • الحجم العادي: الصفحة تمرّ، والصفّ العلوي لاصقٌ بزجاجٍ خفيف، وشريط الإجراءات في آخر المحتوى.
  *   • الحجم الكبير: لا تمرير. الشاشة تملأ ما بين الرأس وشريط التبويب، والمحتوى يأخذ الباقي ويُقصّ
@@ -56,13 +57,13 @@ export function Screen({ title, description, back, end, above, aside, actions, f
         // الحجم الكبير: تحت الصفّ العلوي عنوانٌ من سطرٍ وحده (بلا خطواتٍ فوقه ولا وصفٍ تحته) يبقى بينه وبين أوّل هدفٍ في
         // المحتوى 8px أخرى، فبين مساحتي إصابتهما 24 على الأقل.
         <div className={cn("-mx-edge px-edge py-1", !gaze && "bar-glass sticky top-0 z-10 -mb-sec -mt-sec pt-[calc(var(--tg)+env(safe-area-inset-top))]", gaze && "-mb-tg", gaze && !above && !description && !status && "pb-2")}>
-          <Slots start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
+          <Slots top start={back ? <TopButton action={back} back /> : undefined} end={end ? <TopButton action={end} back={false} /> : undefined} />
         </div>
       ) : null}
       <div className="flex flex-col gap-tg-min">
         {above}
         <div className="flex flex-wrap items-end justify-between gap-tg">
-          <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
             <PageTitle ref={heading} tabIndex={-1} mark="phone" className="focus-visible:outline-none">
               {title}
             </PageTitle>

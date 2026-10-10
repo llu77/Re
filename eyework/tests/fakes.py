@@ -99,7 +99,7 @@ def review_reply(*flags: dict) -> ModelReply:
     return model_reply("OK", {"flags": list(flags)})
 
 
-def assistant_reply(status: str = "ANSWER", answer: str = ANSWER, used: tuple[str, ...] = ("T1", "SCREEN"),
+def assistant_reply(status: str = "ANSWER", answer: str = ANSWER, used: tuple[str, ...] = ("SCREEN",),
                     tool: str = "NONE", tool_input: str = "", open: str = "NONE") -> ModelReply:
     return model_reply("OK", {"status": status, "answer": answer, "used": list(used), "tool": tool,
                               "tool_input": tool_input, "open": open})

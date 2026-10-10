@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false" className={cn("size-8 shrink-0", className)}>
-      <rect width="48" height="48" rx="14" className="fill-primary" />
+      <rect width="48" height="48" rx="12" className="fill-primary" />
       <rect x="13" y="13" width="14" height="14" rx="3" className="fill-primary-foreground" />
       <rect x="21" y="21" width="14" height="14" rx="3" className="fill-primary-foreground opacity-60" />
     </svg>

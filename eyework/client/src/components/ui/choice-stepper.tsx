@@ -10,7 +10,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 const STEP =
-  "inline-flex size-ctl shrink-0 items-center justify-center rounded-ctl border border-control bg-card text-foreground disabled:border-border disabled:bg-muted disabled:text-muted-foreground hov:bg-muted [&_svg]:size-icon"
+  "inline-flex size-ctl shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground disabled:bg-border/60 disabled:text-muted-foreground hov:bg-secondary/70 [&_svg]:size-icon"
 
 export interface ChoiceStepperProps<V extends string | number> {
   /** معرّف القيمة الظاهرة (`output`)، والزرّان `${id}-prev` و`${id}-next`. */
@@ -34,7 +34,7 @@ export function ChoiceStepper<V extends string | number>({
   const labelId = `label-${id}`
   return (
     <div data-field="" className="flex min-w-0 flex-col gap-1">
-      <span id={labelId} className="text-small font-semibold text-foreground">{label}</span>
+      <span id={labelId} className="text-small font-medium text-muted-foreground">{label}</span>
       <div role="group" aria-labelledby={labelId} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-6">
         {/* في الصفحة العربية «السابق» في البداية (يمين) وسهمه إليه، و«التالي» في النهاية. */}
         <button type="button" id={`${id}-prev`} data-value="" aria-label={`${prevLabel}: ${label}`} disabled={index <= 0} onClick={() => onChange(options[index - 1].value)} className={STEP}>

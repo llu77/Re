@@ -35,7 +35,6 @@ export interface ChatTurn {
   question: string
   status: "ANSWER" | "DONT_KNOW" | "OUT_OF_SCOPE"
   text: string
-  sources: { line: string; href: string }[]
   tools: ChatTool[]
   /** شاشةٌ يقترح فتحها: معرّف بند الرئيسية واسمه. */
   open: { id: string; label: string } | null
@@ -60,7 +59,6 @@ interface AssistantAnswer {
   status: ChatTurn["status"]
   text: string
   question_sent: string
-  sources: { line: string; href: string }[]
   usage: { per_day: number; used_today: number }
   tools: ChatTool[]
   open: { id: string; label: string } | null
@@ -111,7 +109,6 @@ export async function ask(screen: ChatScreen, input: AskInput): Promise<AskResul
     question: answer.question_sent,
     status: answer.status,
     text: answer.text,
-    sources: answer.sources,
     tools: answer.tools ?? [],
     open: answer.open ?? null,
   }

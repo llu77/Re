@@ -45,7 +45,7 @@ export function ExpensesScreen({ month, data, canNext, onPrevious, onNext, page,
   return (
     <Screen
       title={gaze ? `مصاريف ${monthLabel(month)}` : "المصاريف"}
-      description={!gaze ? "كل فاتورة شراءٍ مسجّلة تُضاف هنا، والمرتجع والقيد العكسي يخصمان منها." : totals ? (
+      description={!gaze ? undefined : totals ? (
         <span>
           الصافي <Money halalas={totals.net.net} className="font-semibold text-foreground" /> · الضريبة{" "}
           <Money halalas={totals.net.vat} className="font-semibold text-foreground" unit={false} />
@@ -104,7 +104,7 @@ export function ExpensesScreen({ month, data, canNext, onPrevious, onNext, page,
           page={page}
           onPageChange={onPage}
           total={data.entries.total}
-          empty={<EmptyState icon={Wallet} title="لا قيود في هذا الشهر" description="تظهر هنا فواتير الشراء حين تُسجَّل." />}
+          empty={<EmptyState icon={Wallet} title="لا قيود في هذا الشهر" />}
         />
       ) : null}
     </Screen>
@@ -217,7 +217,7 @@ export function VouchersScreen({ data, page, onPage, choices, onOpenItem, onBack
           page={page}
           onPageChange={onPage}
           total={data.total}
-          empty={<EmptyState icon={ClipboardList} title="لا سندات بعد" description="تُسجَّل من بطاقة المنتج: رصيدٌ افتتاحي أو صرفٌ أو جرد." />}
+          empty={<EmptyState icon={ClipboardList} title="لا سندات بعد" />}
         />
       )}
     </Screen>

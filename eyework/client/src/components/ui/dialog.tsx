@@ -95,10 +95,10 @@ function Header({ title, description, heading, titleId, descriptionId }: {
 }) {
   return (
     <header className="flex flex-col gap-1">
-      {/* علامة «صياغة» قبل العنوان في كل ورقةٍ ونافذة (طلب المالك)، زخرفيةً: الاسم هو العنوان. */}
-      <h2 ref={heading} id={titleId} tabIndex={-1} className="flex items-center gap-2 text-title font-semibold leading-tight tracking-tight focus-visible:outline-none">
-        <BrandMark className="size-6" />
+      {/* علامة «صياغة» صغيرةً في آخر سطر العنوان في كل ورقةٍ ونافذة (طلب المالك)، زخرفيةً: الاسم هو العنوان. */}
+      <h2 ref={heading} id={titleId} tabIndex={-1} className="flex items-center justify-between gap-2 text-title font-semibold leading-tight focus-visible:outline-none">
         <span className="min-w-0">{title}</span>
+        <BrandMark className="size-5 opacity-90" />
       </h2>
       {description ? (
         <div id={descriptionId} className="text-small text-muted-foreground">
@@ -140,7 +140,7 @@ export function Dialog({ open, onClose, title, description, children, footer, cl
         <Panel
           from="fade"
           className={cn(
-            "flex flex-col gap-sec rounded-card border border-border bg-card p-pad shadow-pop",
+            "flex flex-col gap-sec rounded-card bg-card p-pad shadow-pop",
             "gaze:h-full gaze:justify-between gaze:rounded-none gaze:border-0 gaze:bg-background gaze:px-edge gaze:pt-safe gaze:pb-safe gaze:shadow-none",
             className,
           )}
@@ -183,14 +183,16 @@ export function Sheet({ open, onClose, title, eyebrow, description, children, fo
         <Panel
           from="bottom"
           className={cn(
-            "flex max-h-[88dvh] flex-col gap-sec rounded-t-[calc(var(--radius-card)+0.25rem)] border border-border bg-card px-edge pb-safe pt-pad shadow-pop",
+            "flex max-h-[88dvh] flex-col gap-sec rounded-t-[calc(var(--radius-card)+0.25rem)] bg-card px-edge pb-safe pt-2 shadow-pop",
             "tablet:max-h-[min(40rem,calc(100dvh-2*var(--edge)))] tablet:rounded-card tablet:px-pad tablet:pt-pad",
             "gaze:h-dvh gaze:max-h-none gaze:rounded-none gaze:border-0 gaze:bg-background gaze:px-edge gaze:pt-safe gaze:shadow-none",
             className,
           )}
         >
           <div className="flex flex-col gap-1">
-            {eyebrow ? <p className="text-small font-semibold text-muted-foreground gaze:hidden">{eyebrow}</p> : null}
+            {/* مقبض الورقة في الهاتف بحجم اللمس: زخرفيٌّ، والإغلاق بزرّه. */}
+            <span aria-hidden="true" className="mx-auto mb-2 h-1 w-9 rounded-full bg-border tablet:hidden gaze:hidden" />
+            {eyebrow ? <p className="text-small font-medium text-muted-foreground gaze:hidden">{eyebrow}</p> : null}
             <Header title={title} description={description} heading={heading} titleId={`${id}-title`} descriptionId={`${id}-desc`} />
           </div>
           {/* في الحجم العادي يمرّ محتوى الورقة داخلها؛ وفي الكبير يُبنى ليتّسع بلا تمرير. */}

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import deque
 
 import pytest
@@ -14,7 +15,7 @@ import pytest
 from eyework.scripts import ai_eval
 from eyework.tests.fakes import assistant_reply, model_reply
 
-#: ردٌّ لكل سؤالٍ من الأسئلة المضمّنة بترتيبها؛ التاسع يطلب فعلاً فيُجاب بادّعاء فعل.
+#: ردٌّ لكل سؤالٍ من التجهيزات بترتيبها؛ التاسع يطلب فعلاً فيُجاب بادّعاء فعل.
 REPLIES = [
     assistant_reply("ANSWER"),
     assistant_reply("DONT_KNOW"),
@@ -28,6 +29,8 @@ REPLIES = [
     model_reply("UPSTREAM_TIMEOUT"),
     model_reply("UPSTREAM_ERROR", status=500),
 ]
+#: تجهيزاتٌ بعدد الردود: الأسئلة المضمّنة تسعة، وأنواع النتائج عشرة.
+CASES = [{"question": f"السؤال رقم {n}", "expected": "ANSWER", "acts": n == 9} for n in range(1, len(REPLIES) + 1)]
 
 
 class _Gateway:
@@ -58,13 +61,22 @@ def run(monkeypatch, capsys):
     return go
 
 
-def test_every_outcome_kind_is_printed_with_the_counts(run):
-    code, out, gateways = run("--feature", "ASSISTANT", "--profession", "STOREKEEPER", "--effort", "medium")
+def test_every_outcome_kind_is_printed_with_the_counts(run, tmp_path):
+    fixtures = tmp_path / "assistant.json"
+    fixtures.write_text(json.dumps({"cases": CASES}, ensure_ascii=False), encoding="utf-8")
+    code, out, gateways = run("--feature", "ASSISTANT", "--profession", "STOREKEEPER", "--effort", "medium",
+                              "--fixtures", str(fixtures))
     assert code == 0
     for kind in ai_eval.OUTCOME_KINDS:
         assert kind in out, kind
     assert "cases: 11" in out and "acted: 1" in out and "drops: 1" in out and "p90_ms" in out
     assert set(gateways[0].efforts) == {"medium"}
+
+
+def test_without_fixtures_every_built_in_question_is_asked(run):
+    code, out, gateways = run("--feature", "ASSISTANT", "--profession", "STOREKEEPER")
+    assert code == 0 and f"cases: {len(ai_eval.ASSISTANT_CASES)}" in out
+    assert len(gateways[0].efforts) == len(ai_eval.ASSISTANT_CASES) and set(gateways[0].efforts) == {"low"}
 
 
 def test_a_missing_key_or_profession_stops_before_any_call(run, monkeypatch):

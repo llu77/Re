@@ -5,8 +5,8 @@
  *   • التسمية ظاهرةٌ فوق الحقل دائماً، ولا `placeholder` بدلها: نصٌّ يختفي مع أول
  *     حرف لا يُعاد قراءته، ومن يكتب بالنظر يكتب ببطء.
  *   • الخطّ `text-input` (16px على الأقل) في الحجمين: iOS لا يكبّر الصفحة عند التركيز.
- *   • `Field` يربط التسمية والمساعدة والخطأ بالحقل (`aria-describedby` و`aria-invalid`)
- *     بالسياق، فلا يُنسى ربطٌ في شاشة.
+ *   • `Field` يربط التسمية والمساعدة والخطأ بالحقل (`aria-describedby` و`aria-invalid` و`aria-required`)
+ *     بالسياق، فلا يُنسى ربطٌ في شاشة. لا «(مطلوب)» بجانب التسمية: الخطأ يقوله حين يُترك الحقل فارغاً.
  *   • الخطأ تحت الحقل نصٌّ وأيقونة، لا لونٌ وحده؛ ومكانه محجوزٌ إن طُلب (`reserve`)
  *     فلا يتحرّك ما تحته حين يظهر.
  *   • الوحدة (ر.س، حبة) نصٌّ داخل الحقل في طرفه، لا هدف.
@@ -66,10 +66,7 @@ export function Field({ label, hint, error, required = false, reserve = false, i
   return (
     <FieldContext.Provider value={value}>
       <div data-field="" className={cn("flex min-w-0 flex-col gap-1", className)}>
-        <Label htmlFor={controlId}>
-          {label}
-          {required ? <span className="text-muted-foreground"> (مطلوب)</span> : null}
-        </Label>
+        <Label htmlFor={controlId}>{label}</Label>
         {children}
         {hint ? (
           <p id={value.hintId} className="text-small text-muted-foreground">
@@ -92,7 +89,7 @@ export function Field({ label, hint, error, required = false, reserve = false, i
 }
 
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cn("text-small font-semibold text-foreground", className)} {...props} />
+  return <label className={cn("text-small font-medium text-muted-foreground", className)} {...props} />
 }
 
 export const fieldClass = [

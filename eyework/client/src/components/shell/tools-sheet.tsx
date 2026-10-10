@@ -25,7 +25,6 @@ import type { Workspace } from "@/lib/workspace"
 export interface ToolEntry {
   id: string
   label: string
-  description?: string
   icon: LucideIcon | "symbol"
   panel?: () => React.ReactNode
   route?: string
@@ -59,7 +58,6 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, onNa
     {
       id: "help",
       label: "مساعدة",
-      description: "ما في هذه الشاشة",
       icon: CircleHelp,
       panel: () => <HelpTool workspace={workspace} screen={screen} contact={supportContact} />,
     },
@@ -86,7 +84,6 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, onNa
       onClose={onClose}
       eyebrow={active ? "الأدوات" : workspace.name}
       title={active ? active.label : "الأدوات"}
-      description={active ? undefined : "ما يساعدك وأنت تعمل، في كل شاشة."}
       footer={
         active ? (
           <Button icon={LayoutGrid} onClick={() => setToolId(null)}>
@@ -99,7 +96,9 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, onNa
         active.panel()
       ) : (
         <div className="flex flex-col gap-tg">
-          <ul className="grid grid-cols-2 gap-tg">
+          {/* في الحجم الكبير تبدأ البلاطات أسفل قليلاً من أوّل صفٍّ في لوحة الأداة: ما يقع تحت تسمية البلاطة بعد
+              فتحها قائمتها، لا لسانٌ يغيّر قيمة («عبارات» و«أسئلة»). */}
+          <ul className="grid grid-cols-2 gap-tg gaze:mt-4">
             {visible.map((tool) => (
               <li key={tool.id}>
                 <button
@@ -107,19 +106,14 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, onNa
                   data-safe=""
                   onClick={() => choose(tool)}
                   className={cn(
-                    "flex h-full min-h-ctl-lg w-full flex-col items-start gap-2 rounded-card border border-control bg-card p-3 text-start hov:bg-muted",
+                    "flex h-full min-h-ctl-lg w-full flex-col items-start gap-2 rounded-card bg-muted p-3 text-start hov:bg-secondary",
                     "gaze:justify-center gaze:gap-1.5",
                   )}
                 >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground gaze:size-9">
-                    {tool.icon === "symbol" ? <SymbolMark className="size-icon" /> : <tool.icon aria-hidden="true" className="size-icon" strokeWidth={2.25} />}
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-card text-secondary-foreground shadow-card gaze:size-9">
+                    {tool.icon === "symbol" ? <SymbolMark className="size-icon" /> : <tool.icon aria-hidden="true" className="size-icon" strokeWidth={1.75} />}
                   </span>
-                  <span className="flex flex-col">
-                    <span className="font-semibold leading-snug text-foreground">{tool.label}</span>
-                    {tool.description ? (
-                      <span className="text-small leading-snug text-muted-foreground gaze:hidden">{tool.description}</span>
-                    ) : null}
-                  </span>
+                  <span className="font-medium leading-snug text-foreground">{tool.label}</span>
                 </button>
               </li>
             ))}

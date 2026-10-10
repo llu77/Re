@@ -36,12 +36,12 @@ export function SectionsSheet({ open, workspace, current, onClose, onNavigate }:
                 }}
                 className={
                   active
-                    ? "flex min-h-ctl-lg w-full items-center gap-3 rounded-card border border-primary-line bg-secondary px-3 font-semibold text-secondary-foreground"
-                    : "flex min-h-ctl-lg w-full items-center gap-3 rounded-card border border-control bg-card px-3 font-semibold text-foreground hov:bg-muted"
+                    ? "flex min-h-ctl-lg w-full items-center gap-3 rounded-card bg-secondary px-3 font-medium text-secondary-foreground"
+                    : "flex min-h-ctl-lg w-full items-center gap-3 rounded-card bg-muted px-3 font-medium text-foreground hov:bg-secondary"
                 }
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground gaze:size-9">
-                  <Icon aria-hidden="true" className="size-icon" strokeWidth={2.25} />
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-card text-secondary-foreground shadow-card">
+                  <Icon aria-hidden="true" className="size-icon" strokeWidth={1.75} />
                 </span>
                 <span className="leading-snug">{entry.label}</span>
               </a>

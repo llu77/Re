@@ -118,7 +118,7 @@ export function NewTicketScreen({ onPreview, onSave, onBack, title = "تذكرة
       {pasteFailed ? <p role="status" className="text-small font-semibold text-warning">لم يُقرأ شيءٌ من الحافظة. الصق في الحقل أو اكتب.</p> : null}
       <Field
         label={spoken ? "ما قاله العميل" : simple ? "النصّ" : "رسالة العميل"}
-        hint={gaze ? `${[...text].length} من ${TEXT_MAX}` : `الصق ما يلزم لحلّ المشكلة وحده. يُحذف البريد والروابط والأرقام الطويلة قبل الحفظ. ${[...text].length} من ${TEXT_MAX}`}
+        hint={`${[...text].length} من ${TEXT_MAX}`}
         error={fail?.field === "text" ? fail.message : null}
       >
         <Textarea
@@ -135,17 +135,17 @@ export function NewTicketScreen({ onPreview, onSave, onBack, title = "تذكرة
     </div>
   )
   const previewBlock = preview ? (
-    <section aria-label="ما سيُحفظ" className="flex flex-col gap-2 rounded-card border border-border bg-card p-pad">
+    <section aria-label="ما سيُحفظ" className="flex flex-col gap-2 rounded-card bg-card shadow-card p-pad">
       {gaze ? <PagedText text={preview.text} label="ما سيُحفظ" perPage={{ gaze: 220, gazeShort: 110 }} /> : <MaskedText text={preview.text} />}
       <p id="ticket-masked" className="text-small font-semibold text-muted-foreground">{maskedSummary(preview.masked) ?? "لم يُحذف شيء."}</p>
     </section>
   ) : null
   const detailFields = (
     <>
-      <Field label="اسم العميل للتحية" hint={gaze ? undefined : "اختياري. لا يُرسل إلى سيمبول."} error={fail?.field === "customer_label" ? fail.message : null}>
+      <Field label="اسم العميل للتحية" error={fail?.field === "customer_label" ? fail.message : null}>
         <Input id="ticket-label" autoComplete="off" maxLength={30} value={label} onChange={(event) => setLabel(event.target.value)} />
       </Field>
-      <Field label="الموضوع" hint={gaze ? undefined : "اختياري؛ يقترحه سيمبول إن تركته."} error={fail?.field === "subject" ? fail.message : null}>
+      <Field label="الموضوع" error={fail?.field === "subject" ? fail.message : null}>
         <Input id="ticket-subject" autoComplete="off" maxLength={80} value={subject} onChange={(event) => setSubject(event.target.value)} />
       </Field>
       <RadioCards<Priority>
@@ -252,7 +252,6 @@ export function NewTicketScreen({ onPreview, onSave, onBack, title = "تذكرة
   return (
     <Screen
       title={title}
-      description="هذا ما سيُحفظ. ما حُذف لا يُحفظ ولا يُرسل."
       back={{ id: "ticket-edit", label: "عدّل الرسالة", onClick: () => setPreview(null) }}
       actions={<div className="ms-auto">{saveButton}</div>}
     >

@@ -44,7 +44,6 @@ export function ActivateScreen({ username, passwordMin, onSubmit }: {
         <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
           <div className="flex flex-col gap-2">
             <PageTitle>فعّل حسابك</PageTitle>
-            <p className="text-flow text-muted-foreground">إن اقترح الجهاز كلمة مرورٍ قوية فاقبلها ليحفظها لك.</p>
           </div>
           <div className="flex flex-col gap-tg">
             <Field label="اسم الدخول">

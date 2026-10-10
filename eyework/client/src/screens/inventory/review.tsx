@@ -130,7 +130,7 @@ export function DocumentReview(props: ReviewProps) {
     </Alert>
   ) : null
   const summary = (
-    <dl className="flex flex-col gap-1 rounded-card border border-border bg-card p-pad text-flow">
+    <dl className="flex flex-col gap-1 rounded-card bg-card shadow-card p-pad text-flow">
       <div className="flex justify-between gap-tg">
         <dt className="text-muted-foreground">{kind === "PURCHASE" ? "المورّد" : "من الفاتورة"}</dt>
         <dd className="truncate font-semibold">{subject}</dd>
@@ -197,7 +197,6 @@ export function DocumentReview(props: ReviewProps) {
     <Screen
       title={title}
       above={<Badge tone="info" className="self-start">لم يُسجَّل بعد</Badge>}
-      description={kind === "PURCHASE" ? "تزيد المخزون وتدخل المصاريف حين تسجّلها." : "ينقص المخزون ويُخصم من المصاريف حين تسجّله."}
       back={{ id: "review-back", label: `عدّل ${noun}`, onClick: onBack }}
       actions={
         <>

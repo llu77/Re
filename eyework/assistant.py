@@ -1,12 +1,12 @@
 """
 «سيمبول»: المساعد في زرّ المحادثة العائم
 =======================================
-يحادث الموظف عن عمله من ثلاثة مصادر لا غير: مهامّ مهنته ومهاراتها المترجمة من
-مصادرها، وبيانات الشاشة التي يسأل منها، وأدوات قراءةٍ يطلبها (`TOOLS`: المنتجات،
-الحملات، قاعدة المعرفة، حاسبة الضريبة…). الأداة تقرأ ولا تغيّر، وتعمل بهوية الجلسة
-وتحت العزل، وما تعيده يمرّ بالإخفاء قبل أن يصل النموذج؛ وأداتان على الأكثر لكل
-سؤال، والوقت كلّه داخل عقد الطلب. ولا يفعل شيئاً بنفسه: يقترح شاشةً (`DESTINATIONS`)
-فيظهر زرٌّ يضغطه الموظف. ويقول إنه لا يعرف حين لا يعرف.
+يحادث الموظف عن عمله من مصدرين لا غير: بيانات الشاشة التي يسأل منها، وأدوات
+قراءةٍ يطلبها (`TOOLS`: المنتجات، الحملات، قاعدة المعرفة، حاسبة الضريبة…)؛ ولا
+يشرح له مهنته، فهو يعرفها. الأداة تقرأ ولا تغيّر، وتعمل بهوية الجلسة وتحت العزل،
+وما تعيده يمرّ بالإخفاء قبل أن يصل النموذج؛ وأداتان على الأكثر لكل سؤال، والوقت
+كلّه داخل عقد الطلب. ولا يفعل شيئاً بنفسه: يقترح شاشةً (`DESTINATIONS`) فيظهر
+زرٌّ يضغطه الموظف. ويقول إنه لا يعرف حين لا يعرف.
 
 **العميل يرسل نوع الشاشة ومعرّفها لا بياناتها.** سجلّ الشاشات (`SCREENS`)
 يحمّل البيانات بهوية الجلسة وتحت العزل، بنودٌ كاملة حتى ثلاثة آلاف حرف ثم
@@ -37,7 +37,7 @@ from eyework.assistant_prompt import (
 from eyework.db import Database
 from eyework.inventory_rules import halalas_words, normalise_digits, vat_split
 from eyework.model_gateway import Guard
-from eyework.professions import PORTALS, Profession
+from eyework.professions import Profession
 from eyework.prompt_kit import Gateway
 from eyework.redact import redact
 from eyework.reviewer import usage
@@ -158,7 +158,7 @@ HOME = ScreenContext(
     kind="HOME", profession=None, title="الرئيسية",
     labels=("حسابي",),
     extra_labels={Profession.MARKETING: ("حملة جديدة", "حملاتي")},
-    ready_questions=("من أين أبدأ عملي اليوم؟", "ما أهمّ مهامّ مهنتي؟"),
+    ready_questions=("من أين أبدأ عملي اليوم؟",),
     needs_id=False, load=_home,
 )
 CAMPAIGN = ScreenContext(
@@ -340,12 +340,11 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
             lines = tuple(redact(line)[0] for line in screen.load(cursor, user_id, screen_id))
             cursor.execute(_BEGIN)
             request_id = cursor.fetchone()["request"]
-        portal = PORTALS[profession]
         tools = tools_for(profession)
         destinations = DESTINATIONS.get(profession, ())
         while True:
             try:
-                reply = gateway.call(build_call(portal, screen, profession, lines, sent, history=turns,
+                reply = gateway.call(build_call(screen, profession, lines, sent, history=turns,
                                                 results=tuple(results), tools=tools, destinations=destinations))
             except Exception:
                 _fail(db, user_id, request_id, "UPSTREAM_ERROR", usage_total)
@@ -355,7 +354,7 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
             usage_total = _add_usage(usage_total, reply.usage)
             if reply.outcome != "OK":
                 break
-            parsed, codes = parse(reply.data, portal, tools, destinations)
+            parsed, codes = parse(reply.data, tools, destinations)
             if parsed is None or parsed.status != "TOOL":
                 break
             elapsed = clock.monotonic() - started
@@ -363,7 +362,7 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
             if len(results) >= MAX_TOOL_CALLS or asked in {(name, text) for name, text, _ in results} \
                     or elapsed + ASSISTANT_CALL.deadline_seconds > _LEASE_SECONDS:
                 # أداةٌ ثالثة، أو مكرّرة، أو لا وقت لاستدعاءٍ آخر: لا جواب من البيانات هذه المرة.
-                parsed = Parsed("DONT_KNOW", DONT_KNOW_TEXT, (), [])
+                parsed = Parsed("DONT_KNOW", DONT_KNOW_TEXT, ())
                 ai_log.event("assistant_tool_stop", screen=screen.kind, tools=len(results))
                 break
             tool = TOOLS[parsed.tool]
@@ -397,6 +396,5 @@ def ask(db: Database, gateway: Gateway, guard: Guard, user_id: UUID, screen_kind
 
 def _answer(parsed: Parsed, sent: str, allowance: dict, used_tools: list[dict] | None = None,
             place: Destination | None = None) -> dict:
-    return {"status": parsed.status, "text": parsed.text, "question_sent": sent, "sources": parsed.sources,
-            "usage": allowance, "tools": used_tools or [],
-            "open": None if place is None else {"id": place.id, "label": place.label}}
+    return {"status": parsed.status, "text": parsed.text, "question_sent": sent, "usage": allowance,
+            "tools": used_tools or [], "open": None if place is None else {"id": place.id, "label": place.label}}

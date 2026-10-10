@@ -217,7 +217,7 @@ export function WaitingScreen({ reloaded, mayLock, busy, onCheck, onBack }: {
     <CampaignFrame step={1} title={`يكتب ${PERSONA}`} back={{ id: "proposal-back", label: "رجوع", onClick: onBack }} actions={<Slots actions />}>
       <div id="proposal-waiting" className="flex flex-col gap-tg">
         <p role="status" className="text-flow">
-          يكتب {PERSONA} العنوان والوصف. قد يستغرق ذلك حتى ثلاث دقائق تقريباً. لا حاجة لفعل شيء.
+          يكتب {PERSONA} العنوان والوصف، في ثلاث دقائق على الأكثر.
         </p>
         {mayLock ? (
           <p id="proposal-awake" className="text-small text-muted-foreground">
@@ -301,7 +301,7 @@ export function ProposalScreen({ campaign, versionsMax, busy, onStart, onEnd, on
         </div>
       ) : (
         <div id="proposal-copy" className="flex flex-col gap-tg">
-          <div className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card">
+          <div className="flex flex-col gap-tg rounded-card bg-card p-pad shadow-card">
             <Headline campaign={campaign} title={copy.title} prefix="proposal" />
             <p id="proposal-description" className="text-flow whitespace-pre-line">
               {copy.description}
@@ -529,7 +529,7 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
       }
     >
       {/* الكلمات بعد العنوان والنقطتين — موضع الرفع — والأرقام بعدها، كما في المراجعة. */}
-      <div id={`${kind}-value`} aria-live="polite" className="flex flex-col gap-1 rounded-card border border-border bg-card px-pad py-3 shadow-card gaze:border-0 gaze:bg-transparent gaze:px-0 gaze:py-0 gaze:shadow-none">
+      <div id={`${kind}-value`} aria-live="polite" className="flex flex-col gap-1 rounded-card bg-card px-pad py-3 shadow-card gaze:border-0 gaze:bg-transparent gaze:px-0 gaze:py-0 gaze:shadow-none">
         {/* سطران محجوزان دائماً: اختيار قيمةٍ لا يحرّك الخيارات تحت نظرٍ باقٍ على الضغطة. */}
         <p className="min-h-[3.2em] text-flow gaze:short:text-small">
           {words}
@@ -573,7 +573,7 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
 /** بطاقة الملخّص (المراجعة والجاهزة): حدٌّ شعرة وظلٌّ خفيف في الحجم العادي، وبلا إطارٍ في الكبير. */
 function SummaryCard({ children }: { children: React.ReactNode }) {
   // بين أسطرها فجوة نصّين لا فجوة هدفين: لا هدف فيها.
-  return <div className="flex min-h-0 flex-col gap-tg-min rounded-card border border-border bg-card p-pad shadow-card gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">{children}</div>
+  return <div className="flex min-h-0 flex-col gap-tg-min rounded-card bg-card p-pad shadow-card gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">{children}</div>
 }
 
 function Line({ id, label, words, digits }: { id: string; label: string; words: string; digits: string }) {
@@ -630,11 +630,11 @@ export function ReviewScreen({ campaign, onContinue, onBack, onCancel }: {
 export function ConfirmScreen({ campaign, busy, onYes, onBack }: { campaign: Campaign; busy: boolean; onYes: () => void; onBack: () => void }) {
   if (!campaign.budget || !campaign.days) return null
   return (
-    // الخانة التي ضُغط فيها «متابعة للتأكيد» نصٌّ هنا: نظرةٌ باقية لا تعتمد شيئاً.
+    // الخانة التي ضُغط فيها «متابعة للتأكيد» فارغةٌ هنا: نظرةٌ باقية لا تعتمد شيئاً.
     <CampaignFrame
       step={null}
       title="تأكيدٌ نهائي"
-      actions={<Slots start={<p className="self-center text-center text-small text-muted-foreground">لن يُنشر شيءٌ تلقائياً</p>} />}
+      actions={<Slots />}
     >
       <Button id="confirm-yes" variant="primary" size="lg" width="full" commit busy={busy} icon={Check} onClick={onYes}>
         نعم، اعتمد الحملة
@@ -696,7 +696,6 @@ export function ReadyScreen({ campaign, shareEnabled, status, downloadOffered, o
     <CampaignFrame
       step={null}
       title={size === "gaze" ? "جاهزة للتسليم" : "الحملة جاهزة للتسليم"}
-      description={<span className="gaze:short:hidden">لم يُنشر شيءٌ ولم يُدفع أيّ مبلغ. انسخ النصّ أو شاركه مع من سينشر الحملة.</span>}
       back={{ id: "ready-home", label: "الرئيسية", icon: House, onClick: onHome }}
       end={{ id: "ready-withdraw", label: "اسحب الحملة", danger: true, icon: XCircle, onClick: onWithdraw }}
       actions={
@@ -769,7 +768,7 @@ export function CampaignRows({ items, names, currentId = null, onOpen }: {
               onClick={() => onOpen(item)}
               className={cn(
                 "flex min-h-ctl w-full flex-col items-start justify-center gap-1 rounded-card border px-pad py-2 text-start font-semibold",
-                current ? "border-primary-line bg-secondary text-secondary-foreground" : "border-control bg-card text-foreground hov:bg-muted",
+                current ? "border-primary bg-secondary text-secondary-foreground" : "border-transparent bg-card text-foreground shadow-card hov:bg-muted",
               )}
             >
               <span className="min-w-0 leading-snug">{names[index]}</span>
@@ -802,13 +801,12 @@ export function CampaignsPane({ items, currentId, onOpen }: {
 
 /* ── حملاتي ──────────────────────────────────────────────────────── */
 
-export function CampaignsScreen({ items, page, pageSize, hasMore, installHint, onOpen, onOlder, onNewer, onNew }: {
+export function CampaignsScreen({ items, page, pageSize, hasMore, onOpen, onOlder, onNewer, onNew }: {
   items: CampaignListItem[] | null
   page: number
   pageSize: number
   hasMore: boolean
   /** التلميح يظهر حين يتّسع له المكان: صفّان يملآن الشاشة بلا تمرير. */
-  installHint: boolean
   onOpen: (item: CampaignListItem) => void
   onOlder: () => void
   onNewer: () => void
@@ -847,11 +845,6 @@ export function CampaignsScreen({ items, page, pageSize, hasMore, installHint, o
       ) : (
         <CampaignRows items={items} names={names} onOpen={onOpen} />
       )}
-      {installHint ? (
-        <p id="campaigns-install" className="text-small text-muted-foreground">
-          يمكن لمن يساعدك إضافة التطبيق إلى الشاشة الرئيسية من قائمة المشاركة في Safari.
-        </p>
-      ) : null}
     </Screen>
   )
 }

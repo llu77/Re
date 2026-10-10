@@ -69,8 +69,7 @@ export function SuppliersScreen({ data, query, onQuery, archived, onArchived, pa
           page={page}
           onPageChange={onPage}
           total={data.total}
-          empty={<EmptyState icon={Truck} title={query ? "لا مورّد يطابق" : archived ? "لا مورّدين مؤرشفين" : "لا مورّدين بعد"}
-                             description={query || archived ? undefined : "أضف مورّدك الأوّل، أو أنشئه من رأس فاتورة شراء."} />}
+          empty={<EmptyState icon={Truck} title={query ? "لا مورّد يطابق" : archived ? "لا مورّدين مؤرشفين" : "لا مورّدين بعد"} />}
         />
       )}
       </Tabs>
@@ -128,7 +127,7 @@ export function SupplierScreen({ supplier, onEdit, onAddRep, onEditRep, onBack }
           onOpen={onEditRep}
           openLabel={(rep) => `عدّل المندوب ${rep.name}`}
           pageSize={{ compact: 20, gaze: 2, gazeShort: 1 }}
-          empty={<p className="text-small text-muted-foreground">لا مندوبين بعد: أضف اسم من يورّد لك ليظهر في الفاتورة.</p>}
+          empty={<p className="text-small text-muted-foreground">لا مندوبين بعد.</p>}
         />
       </section>
     </Screen>
@@ -207,17 +206,17 @@ export function SupplierForm({ supplier, initialName = "", onSave, onBack }: {
           </Field>
         </GazeSlot>
         <GazeSlot id="supplier-vat">
-          <Field label="الرقم الضريبي" hint="15 رقماً يبدأ بـ3 وينتهي بـ3، كما في فاتورته." error={error("vat_number")}>
+          <Field label="الرقم الضريبي" error={error("vat_number")}>
             <Input id="supplier-vat" numeric inputMode="numeric" value={vat} maxLength={15} onChange={(event) => setVat(event.target.value)} />
           </Field>
         </GazeSlot>
         <GazeSlot id="supplier-cr">
-          <Field label="السجلّ التجاري" hint="10 أرقام، اختياري." error={error("cr_number")} className="gaze:short:hidden">
+          <Field label="السجلّ التجاري" error={error("cr_number")} className="gaze:short:hidden">
             <Input id="supplier-cr" numeric inputMode="numeric" value={cr} maxLength={10} onChange={(event) => setCr(event.target.value)} />
           </Field>
         </GazeSlot>
         <GazeSlot id="supplier-phone">
-          <Field label="الهاتف" hint="05xxxxxxxx أو 01xxxxxxxx." error={error("phone")}>
+          <Field label="الهاتف" error={error("phone")}>
             <Input id="supplier-phone" numeric inputMode="tel" value={phone} maxLength={13} onChange={(event) => setPhone(event.target.value)} />
           </Field>
         </GazeSlot>
@@ -332,7 +331,7 @@ export function RepForm({ supplier, rep, onSave, onBack }: {
               </Field>
             </GazeSlot>
             <GazeSlot id="rep-mobile">
-              <Field label="الجوال" hint={gaze ? undefined : "05xxxxxxxx"} error={error("mobile")}>
+              <Field label="الجوال" error={error("mobile")}>
                 <Input id="rep-mobile" numeric inputMode="tel" value={mobile} maxLength={13} onChange={(event) => setMobile(event.target.value)} />
               </Field>
             </GazeSlot>

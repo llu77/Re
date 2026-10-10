@@ -5,10 +5,10 @@
 نقية لا تتصل بشيء ولا تستورد `auth` ولا `db`، ولا تعرف اسم المستخدم (اختبارٌ
 معماري).
 
-**يجيب من ثلاثة مصادر لا رابع لها:** مهامّ المهنة ومهاراتها من `professions.py`
-(المصدر الرسمي مترجماً؛ النصّ الإنجليزي لا يُرسل)، وبيانات الشاشة الحالية
-كما يحمّلها سجلّ الشاشات في `assistant.py` بهوية الجلسة، وما تعيده أدوات
-القراءة التي يطلبها. وإلا قال إنه لا يعرف.
+**يجيب من مصدرين لا ثالث لهما:** بيانات الشاشة الحالية كما يحمّلها سجلّ
+الشاشات في `assistant.py` بهوية الجلسة، وما تعيده أدوات القراءة التي يطلبها.
+وإلا قال إنه لا يعرف. لا مهامّ المهنة ولا مهاراتها ولا وصفها: الموظف يعرف
+مهنته، وما يُنقل من O*NET يحتاج نسبةً لا يحملها الجواب.
 
 **الأدوات تقرأ ولا تفعل.** يطلب النموذج أداةً في جوابه المنظَّم نفسه (`status =
 TOOL`، واسمها ومدخلها)، فينفّذها الخادم بهوية الجلسة وتحت العزل ويعيد نتيجتها
@@ -19,9 +19,9 @@ TOOL`، واسمها ومدخلها)، فينفّذها الخادم بهوية 
 **المحادثة في العميل لا في الخادم:** يرسل العميل ثلاثة أسئلةٍ سابقة على الأكثر
 بأجوبتها، فتُفحص وتُخفى كالسؤال، وتُرسَل بيانات.
 
-**المخطّط لكل مهنة** لأن معرّفات المهامّ والمهارات تختلف؛ وهو بلا بيانات
-مستخدم. **الجواب بلا نداء**: النداء للملاحظات؛ والجواب قد يكون خطواتٍ، ونداءٌ
-في أولها يكلّف سطراً في الحجم الكبير.
+**المخطّط لكل مهنة** لأن أدواتها ووجهاتها تختلف؛ وهو بلا بيانات مستخدم.
+**الجواب بلا نداء**: النداء للملاحظات؛ والجواب قد يكون خطواتٍ، ونداءٌ في أولها
+يكلّف سطراً في الحجم الكبير.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from uuid import UUID
 
 from eyework import ai_text
 from eyework.ai_limits import ANSWER_LENGTH, ANSWER_MAX_LINES, ASSISTANT, QUESTION_LENGTH, READY_QUESTIONS_MAX
-from eyework.professions import NAMES, Portal, Profession, source_line
+from eyework.professions import NAMES, Profession
 from eyework.prompt_kit import ModelCall, data, system_blocks, tag
 from eyework.service_errors import Invalid
 
@@ -42,6 +42,7 @@ __all__ = [
     "ASSISTANT_SYSTEM",
     "Destination",
     "HISTORY_MAX",
+    "IDS",
     "TOOL_INPUT_MAX",
     "Tool",
     "check_answer",
@@ -50,18 +51,15 @@ __all__ = [
     "tools_block",
     "DONT_KNOW_TEXT",
     "OUT_OF_SCOPE_TEXT",
-    "SOURCES_HREF",
     "STATUSES",
     "Parsed",
     "ScreenContext",
     "call",
     "check_question",
-    "ids",
     "parse",
     "profession_block",
     "schema",
     "screen_block",
-    "sources",
 ]
 
 ASSISTANT_SYSTEM = """\
@@ -70,9 +68,9 @@ ASSISTANT_SYSTEM = """\
 </role>
 
 <grounding>
-- تعرف ثلاثة أشياء فقط: مهامّ المهنة ومهاراتها في <profession> (من مصادر رسمية، مترجمة)، وما في الشاشة الحالية في <screen>، وما تعيده أدواتك في <tool_result>. أجب منها وحدها.
-- إن لم يكن الجواب فيها ولا تجلبه أداةٌ من <tools> فـstatus = DONT_KNOW ولا تخمّن: لا أرقام ولا أنظمة ولا أسعار ولا خطوات من خارجها.
-- used: معرّفات ما استندت إليه، T للمهامّ وS للمهارات وSCREEN للشاشة وTOOL لنتائج الأدوات.
+- تعرف شيئين فقط: ما في الشاشة الحالية في <screen>، وما تعيده أدواتك في <tool_result>. أجب منهما وحدهما.
+- إن لم يكن الجواب فيهما ولا تجلبه أداةٌ من <tools> فـstatus = DONT_KNOW ولا تخمّن: لا أرقام ولا أنظمة ولا أسعار ولا خطوات من خارجهما.
+- used: ما استندت إليه، SCREEN للشاشة وTOOL لنتائج الأدوات.
 </grounding>
 
 <tools>
@@ -103,6 +101,8 @@ ASSISTANT_SYSTEM = """\
 """
 
 STATUSES = ("ANSWER", "DONT_KNOW", "OUT_OF_SCOPE", "TOOL")
+#: معرّفات ما يستند إليه الجواب: الشاشة ونتائج الأدوات، واحدةٌ في كل المهن.
+IDS = ("SCREEN", "TOOL")
 #: ما يكتبه النموذج في tool_input: كلماتٌ قليلة.
 TOOL_INPUT_MAX = 60
 #: أسئلةٌ سابقة بأجوبتها تُرسل مع السؤال: ثلاثٌ على الأكثر.
@@ -110,14 +110,9 @@ HISTORY_MAX = 3
 #: الجواب السابق كما عُرض: حدّ الجواب وسطور الإخفاء.
 _ANSWER_HISTORY_MAX = 400
 #: النصّان الثابتان اللذان يُعرضان بدل جواب النموذج في الحالتين.
-DONT_KNOW_TEXT = "لا أعرف الجواب من مهامّ مهنتك ولا من بيانات هذه الشاشة."
-OUT_OF_SCOPE_TEXT = "أجيب عن عملك في هذه البوابة فقط، ولا أنفّذ شيئاً بنفسي."
-#: شاشة «المصادر» في «حسابي»: نسبة O*NET تبقى في المتناول لأن نصّه قد يصل الجواب.
-SOURCES_HREF = "#/account/sources"
+DONT_KNOW_TEXT = "لا أعرف الجواب من بيانات هذه الشاشة."
+OUT_OF_SCOPE_TEXT = "أجيب عن عملك في هذه البوابة فقط."
 _SPACES = re.compile(r"[ \t ]{2,}")
-#: معرّفات السند: T للمهامّ وS للمهارات؛ «SCREEN» ليس مهارة.
-_TASK_ID = re.compile(r"T[0-9]+")
-_SKILL_ID = re.compile(r"S[0-9]+")
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,30 +179,20 @@ class Destination:
     label: str
 
 
-def ids(portal: Portal) -> tuple[str, ...]:
-    """معرّفات ما يستند إليه الجواب: T للمهامّ وS للمهارات بترتيب المصدر، وSCREEN."""
-    return (*(f"T{i}" for i in range(1, len(portal.tasks) + 1)),
-            *(f"S{i}" for i in range(1, len(portal.skills) + 1)), "SCREEN", "TOOL")
+def profession_block(profession: Profession) -> str:
+    """كتلة المهنة الثابتة (تُخزَّن لدى المزوّد مع أدواتها ووجهاتها): اسمها بالعربية وحده."""
+    return tag("profession", "", name=NAMES[profession]) + "\n"
 
 
-def profession_block(portal: Portal) -> str:
-    """كتلة المهنة الثابتة (تُخزَّن لدى المزوّد): العربية وحدها، لا النصّ الإنجليزي."""
-    tasks = "".join(tag("task", data(task.ar), id=f"T{i}") for i, task in enumerate(portal.tasks, 1))
-    skills = "".join(tag("skill", data(f"{skill.name}: {skill.note}"), id=f"S{i}")
-                     for i, skill in enumerate(portal.skills, 1))
-    body = f"\n{tag('summary', data(portal.summary))}\n{tag('tasks', tasks)}\n{tag('skills', skills)}\n"
-    return tag("profession", body, name=NAMES[portal.profession]) + "\n"
-
-
-def schema(portal: Portal, tools: tuple[Tool, ...] = (), destinations: tuple[Destination, ...] = ()) -> dict:
-    """المخطّط لكل مهنة: معرّفات السند وأسماء أدواتها ووجهاتها. بلا بيانات مستخدم."""
+def schema(tools: tuple[Tool, ...] = (), destinations: tuple[Destination, ...] = ()) -> dict:
+    """المخطّط لكل مهنة: أسماء أدواتها ووجهاتها، ومعرّفا السند الثابتان. بلا بيانات مستخدم."""
     return {
         "type": "object", "additionalProperties": False,
         "required": ["status", "answer", "used", "tool", "tool_input", "open"],
         "properties": {
             "status": {"type": "string", "enum": list(STATUSES)},
             "answer": {"type": "string"},
-            "used": {"type": "array", "items": {"type": "string", "enum": list(ids(portal))}},
+            "used": {"type": "array", "items": {"type": "string", "enum": list(IDS)}},
             "tool": {"type": "string", "enum": ["NONE", *(tool.name for tool in tools)]},
             "tool_input": {"type": "string"},
             "open": {"type": "string", "enum": ["NONE", *(destination.id for destination in destinations)]},
@@ -243,20 +228,19 @@ def screen_block(screen: ScreenContext, profession: Profession, lines: tuple[str
     return tag("screen", body, kind=screen.kind, title=screen.title)
 
 
-def call(portal: Portal, screen: ScreenContext, profession: Profession, lines: tuple[str, ...],
-         question: str, *, history: tuple[tuple[str, str], ...] = (),
-         results: tuple[tuple[str, str, tuple[str, ...]], ...] = (), tools: tuple[Tool, ...] = (),
-         destinations: tuple[Destination, ...] = ()) -> ModelCall:
+def call(screen: ScreenContext, profession: Profession, lines: tuple[str, ...], question: str, *,
+         history: tuple[tuple[str, str], ...] = (), results: tuple[tuple[str, str, tuple[str, ...]], ...] = (),
+         tools: tuple[Tool, ...] = (), destinations: tuple[Destination, ...] = ()) -> ModelCall:
     """
     طلب المساعد كاملاً: كتلة المهنة بأدواتها ووجهاتها مخزَّنة، ثم الشاشة والمحادثة ونتائج الأدوات
     والسؤال في رسالة المستخدم بعد نقطة التخزين. بلا مفتاح `tools`: الأداة تُطلب في الجواب المنظَّم.
     """
     return ModelCall(
         feature="ASSISTANT",
-        system=system_blocks(ASSISTANT_SYSTEM, profession_block(portal) + tools_block(tools, destinations)),
+        system=system_blocks(ASSISTANT_SYSTEM, profession_block(profession) + tools_block(tools, destinations)),
         user=(screen_block(screen, profession, lines) + "\n" + conversation_block(history)
               + tool_results_block(results) + tag("question", data(question))),
-        schema=schema(portal, tools, destinations),
+        schema=schema(tools, destinations),
         effort=ASSISTANT.effort,
         max_tokens=ASSISTANT.max_tokens,
         deadline_seconds=ASSISTANT.deadline_seconds,
@@ -283,25 +267,12 @@ def check_answer(raw: str) -> str:
     return answer
 
 
-def sources(portal: Portal, used: tuple[str, ...]) -> list[dict]:
-    """سطر المصدر لما استند إليه الجواب من المهامّ أو المهارات، مرةً لكلٍّ، بلا تكرار."""
-    lines: list[str] = []
-    if any(_TASK_ID.fullmatch(ref) for ref in used):
-        lines.append(source_line(portal, "tasks"))
-    if any(_SKILL_ID.fullmatch(ref) for ref in used):
-        skills = source_line(portal, "skills")
-        if skills not in lines:
-            lines.append(skills)
-    return [{"line": line, "href": SOURCES_HREF} for line in lines]
-
-
 @dataclass(frozen=True, slots=True)
 class Parsed:
     status: str
     #: ما يُعرض: الجواب بعد فحصه، أو النصّ الثابت للحالتين الأخريين؛ وفي TOOL فارغ.
     text: str
     used: tuple[str, ...]
-    sources: list[dict]
     #: TOOL وحدها: الأداة ومدخلها.
     tool: str | None = None
     tool_input: str = ""
@@ -309,7 +280,7 @@ class Parsed:
     open: str | None = None
 
 
-def parse(reply: object, portal: Portal, tools: tuple[Tool, ...] = (),
+def parse(reply: object, tools: tuple[Tool, ...] = (),
           destinations: tuple[Destination, ...] = ()) -> tuple[Parsed | None, tuple[str, ...]]:
     """
     (الجواب المقروء أو None، ورموز الرفض). ANSWER يحتاج جواباً من 1 إلى 320 حرفاً
@@ -321,11 +292,10 @@ def parse(reply: object, portal: Portal, tools: tuple[Tool, ...] = (),
         return None, ("SHAPE",)
     status, answer, used = reply["status"], reply["answer"], reply["used"]
     tool, tool_input, place = reply["tool"], reply["tool_input"], reply["open"]
-    known = set(ids(portal))
     names = {item.name for item in tools}
     places = {destination.id for destination in destinations}
     if status not in STATUSES or not isinstance(answer, str) or not isinstance(used, list) \
-            or any(not isinstance(ref, str) or ref not in known for ref in used) \
+            or any(not isinstance(ref, str) or ref not in IDS for ref in used) \
             or not isinstance(tool, str) or (tool != "NONE" and tool not in names) \
             or not isinstance(tool_input, str) or not isinstance(place, str) or (place != "NONE" and place not in places):
         return None, ("SHAPE",)
@@ -333,15 +303,15 @@ def parse(reply: object, portal: Portal, tools: tuple[Tool, ...] = (),
         text_in = " ".join(tool_input.split())
         if tool == "NONE" or len(text_in) > TOOL_INPUT_MAX or ai_text.has_control(text_in) or ai_text.has_bidi(text_in):
             return None, ("TOOL",)
-        return Parsed(status, "", (), [], tool=tool, tool_input=text_in), ()
+        return Parsed(status, "", (), tool=tool, tool_input=text_in), ()
     refs = tuple(dict.fromkeys(used))
     if status == "DONT_KNOW":
-        return Parsed(status, DONT_KNOW_TEXT, (), []), ()
+        return Parsed(status, DONT_KNOW_TEXT, ()), ()
     if status == "OUT_OF_SCOPE":
-        return Parsed(status, OUT_OF_SCOPE_TEXT, (), []), ()
+        return Parsed(status, OUT_OF_SCOPE_TEXT, ()), ()
     text, codes = ai_text.check(answer, ANSWER_LENGTH[0], ANSWER_LENGTH[1], lines=ANSWER_MAX_LINES)
     if not refs:
         codes = (*codes, "UNGROUNDED")
     if codes:
         return None, codes
-    return Parsed(status, text, refs, sources(portal, refs), open=None if place == "NONE" else place), ()
+    return Parsed(status, text, refs, open=None if place == "NONE" else place), ()

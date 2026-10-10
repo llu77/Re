@@ -28,10 +28,10 @@ function Row({ entry, onNavigate }: { entry: NavEntry; onNavigate: (href: string
   // في الحجم الكبير بلا aria-haspopup: WebKit يجعله «زرّاً منبثقاً» بلا سمة الزرّ التي يقصدها «الانتقال إلى العنصر».
   const popup = useSize().size === "gaze" ? undefined : "dialog"
   const className = cn(
-    "flex min-h-ctl w-full items-center gap-3 rounded-ctl px-3 text-start font-semibold text-foreground",
+    "flex min-h-ctl w-full items-center gap-3 rounded-ctl px-3 text-start font-medium text-foreground",
     "hov:bg-muted",
     "[&[aria-current]]:bg-secondary [&[aria-current]]:text-secondary-foreground",
-    entry.accent && "border border-primary bg-primary text-primary-foreground shadow-pop hov:bg-primary/90",
+    entry.accent && "bg-primary text-primary-foreground hov:bg-primary/90",
   )
   const icon =
     entry.accent && entry.icon === "symbol" ? (
@@ -39,7 +39,7 @@ function Row({ entry, onNavigate }: { entry: NavEntry; onNavigate: (href: string
     ) : entry.icon === "symbol" ? (
       <SymbolMark className="size-icon shrink-0" />
     ) : (
-      <entry.icon aria-hidden="true" className="size-icon shrink-0 text-muted-foreground [[aria-current]_&]:text-secondary-foreground" strokeWidth={2.25} />
+      <entry.icon aria-hidden="true" className="size-icon shrink-0 text-muted-foreground [[aria-current]_&]:text-secondary-foreground" strokeWidth={1.75} />
     )
   if (entry.href) {
     return (

@@ -18,10 +18,9 @@ from psycopg import sql
 
 from eyework import auth, config
 from eyework.assistant import CAMPAIGN, HOME
-from eyework.assistant_prompt import DONT_KNOW_TEXT, OUT_OF_SCOPE_TEXT, SOURCES_HREF
+from eyework.assistant_prompt import DONT_KNOW_TEXT, OUT_OF_SCOPE_TEXT
 from eyework.db import Database
 from eyework.model_gateway import AnthropicGateway
-from eyework.professions import PORTALS, Profession, source_line
 from eyework.tests.api.conftest import LOGIN_KEY, ORIGIN, add_user, approve, expect, generate, log_in, set_budget, \
     set_days, upload
 from eyework.tests.conftest import app_url_for
@@ -33,7 +32,6 @@ KEEPER = "keeper@example.sa"
 NAME = "سارة"
 CANARY = "CANARY-3c7b"
 ANSWER_CANARY = "CANARY-a19f"
-TASKS_LINE = source_line(PORTALS[Profession.MARKETING], "tasks")
 
 
 @pytest.fixture
@@ -120,13 +118,12 @@ def _column_hits(owner, needle: str) -> list[str]:
 
 
 # ── الأسئلة والأجوبة ───────────────────────────────────────────────────
-def test_a_ready_question_is_answered_from_the_profession_and_the_screens_data(marketer, owner, gateway):
+def test_a_ready_question_is_answered_from_the_screens_data(marketer, owner, gateway):
     client, _ = marketer
     generate(client, upload(client))
     body = expect(_ask(client, "HOME", ready=0))
     assert body == {
         "status": "ANSWER", "text": ANSWER, "question_sent": HOME.ready_questions[0],
-        "sources": [{"line": TASKS_LINE, "href": SOURCES_HREF}],
         "usage": {"per_day": 60, "used_today": 1}, "tools": [], "open": None,
     }
     assert _requests(owner) == [("ASSISTANT", "OK", None)]
@@ -135,6 +132,8 @@ def test_a_ready_question_is_answered_from_the_profession_and_the_screens_data(m
     assert call.feature == "ASSISTANT" and call.effort == "low" and not call.stream
     assert "حملاتك: 1 نصٌّ مقترح" in call.user and "عنوان النسخة رقم 1 للمنتج" in call.user
     assert "<label>حملة جديدة</label>" in call.user and HOME.ready_questions[0] in call.user
+    # من المهنة اسمها وحده، ومعه أدواتها ووجهاتها: لا مهامّ ولا مهارات.
+    assert call.system[1]["text"].startswith('<profession name="التسويق"></profession>\n<tools>')
     assert NAME not in call.user and NAME not in json.dumps(call.system, ensure_ascii=False)
     assert "tools" not in AnthropicGateway.params(call)
 
@@ -152,14 +151,8 @@ def test_the_two_other_statuses_show_their_fixed_text_and_are_recorded(marketer,
     client, _ = marketer
     gateway.queue(assistant_reply(status, "نصٌّ من النموذج لا يُعرض"))
     body = expect(_ask(client))
-    assert (body["status"], body["text"], body["sources"]) == (status, text, [])
+    assert (body["status"], body["text"], body["open"]) == (status, text, None)
     assert _requests(owner) == [("ASSISTANT", status, None)]
-
-
-def test_a_screen_only_answer_carries_no_source_line(marketer, gateway):
-    client, _ = marketer
-    gateway.queue(assistant_reply(used=("SCREEN",)))
-    assert expect(_ask(client))["sources"] == []
 
 
 def test_the_campaign_screen_sends_the_campaigns_data_without_its_id(marketer, owner, gateway):
@@ -181,7 +174,7 @@ def test_a_tool_round_reads_the_users_own_campaigns_and_suggests_a_screen(market
     generate(client, upload(client))
     gateway.queue(tool_request("CAMPAIGNS"), assistant_reply(used=("TOOL",), open="campaigns"))
     body = expect(_ask(client, question="ما حال آخر حملةٍ لي؟", ready=None))
-    assert (body["status"], body["text"], body["sources"]) == ("ANSWER", ANSWER, [])
+    assert (body["status"], body["text"]) == ("ANSWER", ANSWER)
     assert body["tools"] == [{"name": "CAMPAIGNS", "label": "حملاتك", "input": ""}]
     assert body["open"] == {"id": "campaigns", "label": "حملاتي"}
 

@@ -1,8 +1,8 @@
 /*
  * Card — البطاقة
  * ==============
- * الأصل: shadcn/ui card (MIT). بطاقةٌ تُقرأ لا تُضغط: حدٌّ زخرفيٌّ خفيف وظلٌّ قليل؛
- * وما يُضغط فيها أزرارٌ بحدودها. بطاقةٌ كلّها هدفٌ تُبنى زرّاً (`CardButton`) لا
+ * الأصل: shadcn/ui card (MIT)، بظلّ سمة «Meridian Blue» (21st.dev). بطاقةٌ تُقرأ لا تُضغط: بيضاءُ
+ * على الورق الرمادي بلا حدٍّ مرسوم، وظلٌّ خفيف؛ وما يُضغط فيها أزرار. بطاقةٌ كلّها هدفٌ تُبنى زرّاً (`CardButton`) لا
  * <div> بمستمع: لوحة المفاتيح وقارئ الشاشة يعرفانه.
  */
 
@@ -15,7 +15,7 @@ export interface CardProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 export function Card({ as: Tag = "section", className, ...props }: CardProps) {
-  return <Tag className={cn("min-w-0 rounded-card border border-border bg-card text-foreground shadow-card", className)} {...props} />
+  return <Tag className={cn("min-w-0 rounded-card border border-transparent bg-card text-foreground shadow-card", className)} {...props} />
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -23,7 +23,7 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 }
 
 export function CardTitle({ className, as: Tag = "h2", ...props }: React.HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" }) {
-  return <Tag className={cn("text-title font-semibold leading-tight", className)} {...props} />
+  return <Tag className={cn("text-lead font-semibold leading-tight", className)} {...props} />
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {

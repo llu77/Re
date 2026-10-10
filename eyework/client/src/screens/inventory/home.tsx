@@ -4,7 +4,7 @@
  * أزرار المالك السبعة كما في الرئيسية المشتركة (HomeGrid)، وفوقها سطران من الخادم (/summary):
  * «يحتاج انتباهك» (جلسة الجرد المفتوحة، والمسودات، ونقص التسليم بلا مرتجع، والإشعارات الدائنة المتأخّرة أو المنتظرة،
  * وما تحت حدّ الطلب، وما لم يُجرد منذ تسعين يوماً)
- * و«هذا الشهر» (المشتريات والمرتجعات). في الحجم العادي كل بندٍ رابطٌ آمن إلى قائمته؛ وفي الحجم الكبير
+ * وأرقام الشهر (المشتريات والمرتجعات وقيمة المخزون). في الحجم العادي كل بندٍ رابطٌ آمن إلى قائمته؛ وفي الحجم الكبير
  * سطرٌ واحد يُقرأ (أوّل البنود وعدد ما بعده، أو «لا شيء ينتظرك»): الأزرار السبعة وشريط التبويب أحد عشر هدفاً، ورابط
  * الإعدادات الثاني عشر.
  */
@@ -16,7 +16,7 @@ import { ButtonLink } from "@/components/ui/button"
 import { BASE, countRoute, type Summary } from "@/lib/inventory"
 import { useSize } from "@/lib/size"
 import type { Workspace } from "@/lib/workspace"
-import { HomeGrid, homeTitle } from "@/screens/work-home"
+import { HomeGrid, HomeRow, homeTitle } from "@/screens/work-home"
 
 import { Money } from "./common"
 
@@ -63,7 +63,7 @@ export function InventoryHome({ workspace, userName, summary, onNavigate }: {
       <HomeGrid workspace={workspace} onNavigate={onNavigate} />
       {summary ? (
         // الحجم الكبير: سطرٌ بلا بطاقة، قريبٌ من الأزرار (نصٌّ لا هدف): أربعة صفوفٍ بمراكز 96 تملأ أضيق هاتف.
-        <section id="home-summary" aria-label="ملخّص المخزون" className="flex flex-col gap-2 rounded-card border border-border bg-card p-pad gaze:-mt-6 gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:short:hidden">
+        <section id="home-summary" aria-label="ملخّص المخزون" className="flex flex-col gap-tg gaze:-mt-6 gaze:short:hidden">
           {gaze ? (
             // سطرٌ واحد في الحجم الكبير: الأزرار السبعة تملأ الهاتف الأضيق (320×635).
             <p className="truncate text-small font-semibold">
@@ -77,11 +77,13 @@ export function InventoryHome({ workspace, userName, summary, onNavigate }: {
           ) : (
             <>
               {items.length ? (
-                <ul className="flex flex-col gap-tg-min text-small">
+                <ul className="flex flex-col gap-tg">
                   {items.slice(0, 4).map((item) => (
                     <li key={item.id}>
-                      <a href={item.href} data-safe="" onClick={(event) => { event.preventDefault(); onNavigate(item.href) }} className="inline-flex min-h-ctl items-center font-semibold text-warning underline decoration-2 underline-offset-4">
-                        {item.text}
+                      <a href={item.href} data-safe="" onClick={(event) => { event.preventDefault(); onNavigate(item.href) }}
+                         className="flex min-h-ctl items-center gap-2.5 rounded-card bg-warning-tint px-3 text-small font-semibold text-warning">
+                        <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-warning-line" />
+                        <span className="min-w-0 flex-1">{item.text}</span>
                       </a>
                     </li>
                   ))}
@@ -89,20 +91,27 @@ export function InventoryHome({ workspace, userName, summary, onNavigate }: {
               ) : (
                 <p className="text-small text-muted-foreground">لا شيء ينتظرك.</p>
               )}
-              <p className="text-small text-muted-foreground">
-                هذا الشهر: مشترياتٌ <Money halalas={summary.month_totals.purchases.gross} className="font-semibold text-foreground" /> ومرتجعاتٌ{" "}
-                <Money halalas={summary.month_totals.returns.gross} className="font-semibold text-foreground" />. قيمة المخزون{" "}
-                <Money halalas={summary.stock_value} className="font-semibold text-foreground" />.
-              </p>
+              <dl className="grid grid-cols-3 gap-2 rounded-card bg-card p-pad shadow-card">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-small text-muted-foreground">مشتريات الشهر</dt>
+                  <dd><Money halalas={summary.month_totals.purchases.gross} className="font-semibold" /></dd>
+                </div>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-small text-muted-foreground">مرتجعات الشهر</dt>
+                  <dd><Money halalas={summary.month_totals.returns.gross} className="font-semibold" /></dd>
+                </div>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-small text-muted-foreground">قيمة المخزون</dt>
+                  <dd><Money halalas={summary.stock_value} className="font-semibold" /></dd>
+                </div>
+              </dl>
             </>
           )}
         </section>
       ) : null}
       {/* الحجم الكبير على الهاتف: الإعدادات في ورقة الأدوات (inventory-flow.tsx). */}
       <div className="tablet:hidden gaze:hidden">
-        <ButtonLink id="home-settings-phone" href={`${BASE}/settings`} icon={Settings2} onClick={(event) => { event.preventDefault(); onNavigate(`${BASE}/settings`) }} className="gaze:w-full">
-          إعدادات المخزن
-        </ButtonLink>
+        <HomeRow id="home-settings-phone" href={`${BASE}/settings`} icon={Settings2} label="إعدادات المخزن" onNavigate={onNavigate} />
       </div>
     </Screen>
   )

@@ -384,7 +384,7 @@ def test_a_question_sends_the_screens_lines_and_closes_the_request_ok(assistant_
 def test_dont_know_is_recorded_as_such_and_an_invalid_answer_fails_billable(assistant_db):
     gateway = FakeGateway(assistant_reply("DONT_KNOW"), assistant_reply(answer="زر https://x.example"))
     body = _ask(assistant_db, gateway)
-    assert (body["status"], body["text"], body["sources"]) == ("DONT_KNOW", DONT_KNOW_TEXT, [])
+    assert (body["status"], body["text"], body["open"]) == ("DONT_KNOW", DONT_KNOW_TEXT, None)
     assert assistant_db.params_of(assistant._FINISH)[0][1] == "DONT_KNOW"
     with pytest.raises(assistant.AssistantError) as error:
         _ask(assistant_db, gateway)

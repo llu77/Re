@@ -33,7 +33,7 @@ export function NoticeKeptScreen({ notice, onNext, onBack }: { notice: Notice; o
     <AuthFrame
       toggle={false}
       end={
-        <Button id="notice-back" icon={BackIcon} onClick={onBack}>
+        <Button id="notice-back" variant="ghost" icon={BackIcon} onClick={onBack}>
           رجوع
         </Button>
       }
@@ -66,7 +66,7 @@ export function NoticeSentScreen({ notice, scope, onAgree, onBack }: {
     <AuthFrame
       toggle={false}
       end={
-        <Button id="notice-back" icon={BackIcon} onClick={onBack}>
+        <Button id="notice-back" variant="ghost" icon={BackIcon} onClick={onBack}>
           رجوع
         </Button>
       }

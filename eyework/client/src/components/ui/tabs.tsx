@@ -66,7 +66,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
         onClick={() => setOpen((shown) => !shown)}
         className={cn(
           "flex min-h-ctl w-full items-center justify-between gap-3 rounded-ctl border px-4 text-start",
-          open ? "border-primary-line bg-secondary" : "border-control bg-card",
+          open ? "border-primary bg-secondary" : "border-transparent bg-card shadow-card",
         )}
       >
         <span className="flex min-w-0 flex-col leading-tight">
@@ -96,7 +96,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
                   }}
                   className={cn(
                     "flex min-h-ctl items-center justify-between gap-2 rounded-ctl border px-3 text-start",
-                    checked ? "border-primary-line bg-secondary font-semibold" : "border-control bg-card",
+                    checked ? "border-primary bg-secondary font-semibold" : "border-transparent bg-card shadow-card",
                   )}
                 >
                   <span>
@@ -186,17 +186,17 @@ function TabList({ items, value, onValueChange, label, children, className, stre
                 "relative inline-flex min-h-ctl min-w-ctl items-center justify-center gap-2 rounded-ctl border px-3.5 text-body",
                 "[&_svg]:size-icon [&_svg]:shrink-0",
                 selected
-                  ? "border-primary-line bg-secondary font-semibold text-secondary-foreground"
-                  : "border-control bg-card font-medium text-foreground hov:bg-muted",
+                  ? "border-transparent bg-primary font-semibold text-primary-foreground"
+                  : "border-transparent bg-card font-medium text-foreground shadow-card hov:bg-muted",
               )}
             >
-              {Icon ? <Icon aria-hidden="true" strokeWidth={2.25} /> : null}
+              {Icon ? <Icon aria-hidden="true" strokeWidth={2} /> : null}
               <span>{item.label}</span>
               {item.count !== undefined ? (
                 <span
                   className={cn(
                     "num min-w-6 rounded-pill px-1.5 text-small font-semibold",
-                    selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                    selected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-foreground",
                   )}
                 >
                   {item.count}

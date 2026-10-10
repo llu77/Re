@@ -124,7 +124,7 @@ export function TicketScreen(props: TicketScreenProps) {
 
   /* ── الأجزاء ── */
   const live = ticket.live_reply ? (
-    <section aria-label="الردّ" className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary p-pad">
+    <section aria-label="الردّ" className="flex flex-col gap-tg rounded-card bg-secondary p-pad">
       <p className="font-semibold">{ticket.live_reply.state === "RELEASED" ? "نسختَ الردّ ولم تؤكّد إرساله." : "ردٌّ جاهز لم يُنسخ بعد."}</p>
       <Button id="ticket-open-reply" variant="primary" icon={Send} onClick={() => onAction("reply")} className="self-start gaze:w-full">
         {ticket.live_reply.state === "RELEASED" ? "أكّد الإرسال" : "افتح الردّ"}
@@ -184,7 +184,7 @@ export function TicketScreen(props: TicketScreenProps) {
   )
 
   const thread = gaze ? lastMessage : (
-    <section aria-label="المحادثة" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad">
+    <section aria-label="المحادثة" className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad">
       {earlier.length ? (
         <Button id="ticket-earlier" icon={showEarlier ? ChevronUp : ChevronDown} onClick={() => setShowEarlier(!showEarlier)} className="self-start">
           {showEarlier ? "أخفِ الرسائل السابقة" : `رسائل سابقة (${earlier.length})`}
@@ -211,7 +211,7 @@ export function TicketScreen(props: TicketScreenProps) {
         : current.result === "NOT_SUPPORT" ? `ليست طلب دعم${current.note_to_employee ? `: ${current.note_to_employee}` : "."}`
         : null
     draftBlock = (
-      <section id="ticket-draft" aria-label="مسودة سيمبول" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad gaze:gap-tg-min gaze:border-0 gaze:bg-transparent gaze:p-0">
+      <section id="ticket-draft" aria-label="مسودة سيمبول" className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad gaze:gap-tg-min gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="ai" icon={Sparkles}>مسودة سيمبول</Badge>
           {current.reply_kind ? <Badge tone="neutral">{REPLY_KIND[current.reply_kind]}</Badge> : null}

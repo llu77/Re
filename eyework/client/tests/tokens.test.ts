@@ -92,11 +92,13 @@ describe("the size tokens", () => {
     expect(rem(compact["--field"])).toBe(40)
   })
 
-  it("never let a field's text drop under 16px (iOS zooms otherwise), nor the body under 15", () => {
+  it("never let a field's text drop under 16px (iOS zooms otherwise), and keep the type small: 14/12 and 15/13", () => {
     expect(rem(compact["--fs-input"])).toBeGreaterThanOrEqual(16)
     expect(rem(gaze["--fs-input"])).toBeGreaterThanOrEqual(16)
-    expect(rem(compact["--fs-body"])).toBeGreaterThanOrEqual(15)
-    expect(rem(gaze["--fs-body"])).toBeGreaterThanOrEqual(16)
+    expect(rem(compact["--fs-body"])).toBe(14)
+    expect(rem(gaze["--fs-body"])).toBe(15)
+    // لا خطّ يكبر بـ«حجم النصّ» في النظام: لا `-apple-system-body` في الملفّ.
+    expect(css).not.toMatch(/-apple-system-body/)
   })
 
   it("draw every control with a hairline and the focus ring in the primary colour", () => {
@@ -119,7 +121,7 @@ describe("the size tokens", () => {
     expect(rem(compact["--sec"])).toBe(20)
     expect(rem(gaze["--sec"])).toBe(40)
     expect(rem(compact["--pad"])).toBe(14)
-    expect(rem(compact["--fs-small"])).toBe(13)
-    expect(rem(gaze["--fs-small"])).toBe(14)
+    expect(rem(compact["--fs-small"])).toBe(12)
+    expect(rem(gaze["--fs-small"])).toBe(13)
   })
 })

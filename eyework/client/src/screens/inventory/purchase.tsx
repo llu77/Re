@@ -63,7 +63,7 @@ export function PurchasesScreen({ data, status, onStatus, query, onQuery, page, 
       back={gaze ? undefined : { id: "purchases-back", label: "الرئيسية", onClick: onBack }}
       end={{ id: "purchases-new", label: "فاتورة جديدة", icon: Plus, onClick: onNew }}
     >
-      <Field label="ابحث" hint={gaze ? undefined : "باسم المورّد أو رقم فاتورته أو رقمنا."}>
+      <Field label="ابحث">
         <Input id="purchases-search" type="search" autoComplete="off" value={query} onChange={(event) => onQuery(event.target.value)} />
       </Field>
       <Tabs
@@ -267,7 +267,7 @@ function QuickItemCard({ name: initialName, choices, onCreate, onCancel, inBar, 
 
   return (
     <form id="quick-item-form" noValidate aria-labelledby="quick-item" onSubmit={(event) => { event.preventDefault(); void submit() }}
-          className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:min-h-0 gaze:flex-1 gaze:border-0 gaze:bg-transparent gaze:p-0">
+          className="flex flex-col gap-tg rounded-card bg-card p-pad shadow-card gaze:min-h-0 gaze:flex-1 gaze:bg-transparent gaze:p-0 gaze:shadow-none">
       <h3 id="quick-item" className="text-lead font-semibold gaze:hidden">منتجٌ جديد بسعره</h3>
       <GazeHost className={gaze ? "flex-1" : undefined}>
         {!gaze || page === 0 ? (
@@ -337,12 +337,12 @@ function QuickSupplierCard({ name: initialName, onCreate, onCancel, inBar, onBus
   }
   return (
     <form id="quick-supplier-form" noValidate aria-labelledby="quick-supplier" onSubmit={(event) => { event.preventDefault(); void submit() }}
-          className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:border-0 gaze:bg-transparent gaze:p-0">
+          className="flex flex-col gap-tg rounded-card bg-card p-pad shadow-card gaze:bg-transparent gaze:p-0 gaze:shadow-none">
       <h3 id="quick-supplier" className="text-lead font-semibold gaze:hidden">مورّدٌ جديد</h3>
       <Field label="اسم المورّد" required>
         <Input id="quick-supplier-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
       </Field>
-      <Field label="الرقم الضريبي" hint="اختياري الآن؛ والباقي من بطاقة المورّد.">
+      <Field label="الرقم الضريبي">
         <Input id="quick-supplier-vat" numeric inputMode="numeric" value={vat} maxLength={15} onChange={(event) => setVat(event.target.value)} />
       </Field>
       {fail ? (
@@ -571,7 +571,6 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
         setRep(value)
         if (!gaze) void onHeader({ rep_id: value || null }).then(setFail)
       }}
-      hint={gaze || (reps && reps.length) ? undefined : "يُضاف المندوب من بطاقة المورّد."}
       error={error("rep_id")}
     />
   ) : null
@@ -595,7 +594,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const invoiceMore = (
     <>
       <GazeSlot id="purchase-received">
-        <Field label="تاريخ الاستلام" hint={gaze ? undefined : "إن خالف تاريخ الفاتورة."} error={error("received_on")}>
+        <Field label="تاريخ الاستلام" error={error("received_on")}>
           <Input id="purchase-received" type="date" dir="ltr" value={receivedOn} max={today} onChange={(event) => setReceivedOn(event.target.value)} onBlur={blur} />
         </Field>
       </GazeSlot>
@@ -615,12 +614,12 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const amountMain = (
     <>
       <GazeSlot id="purchase-printed">
-        <Field label="الإجمالي المكتوب على الفاتورة" hint={gaze ? undefined : "شاملاً الضريبة؛ يُقارَن بمجموع الأسطر."} error={error("printed_total_halalas")} required>
+        <Field label="الإجمالي المكتوب على الفاتورة" error={error("printed_total_halalas")} required>
           <Input id="purchase-printed" numeric unit="ر.س" inputMode="decimal" value={printedTotal} onChange={(event) => setPrintedTotal(event.target.value)} onBlur={blur} />
         </Field>
       </GazeSlot>
       <GazeSlot id="purchase-printed-vat">
-        <Field label="الضريبة المكتوبة" hint={gaze ? undefined : "اختياري."} error={error("printed_vat_halalas")} className="gaze:short:hidden">
+        <Field label="الضريبة المكتوبة" error={error("printed_vat_halalas")} className="gaze:short:hidden">
           <Input id="purchase-printed-vat" numeric unit="ر.س" inputMode="decimal" value={printedVat} onChange={(event) => setPrintedVat(event.target.value)} onBlur={blur} />
         </Field>
       </GazeSlot>
@@ -708,7 +707,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
             </Field>
           </GazeSlot>
           <GazeSlot id="line-discount">
-            <Field label="خصم السطر" hint={gaze ? undefined : "مبلغٌ مطبوعٌ على السطر يُطرح منه؛ يُترك فارغاً إن لم يكن."} error={error("discount_halalas")}>
+            <Field label="خصم السطر" error={error("discount_halalas")}>
               <Input id="line-discount" numeric unit="ر.س" inputMode="decimal" value={line.discount} onChange={(event) => setLine((current) => ({ ...current, discount: event.target.value }))} />
             </Field>
           </GazeSlot>
@@ -718,7 +717,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       {!gaze || linePage === "more" ? (
         <>
           <GazeSlot id="line-received">
-            <Field label="ما وصل فعلاً" hint={gaze ? undefined : "يُترك فارغاً إن وصل كلّه."} error={error("received_quantity_milli")}>
+            <Field label="ما وصل فعلاً" error={error("received_quantity_milli")}>
               <Input id="line-received" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.received} onChange={(event) => setLine((current) => ({ ...current, received: event.target.value }))} />
             </Field>
           </GazeSlot>
@@ -730,7 +729,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const totals = purchase.totals
   const printed = purchase.printed_total_halalas
   const totalsBlock = (
-    <dl className="flex flex-col gap-1 rounded-card border border-border bg-card p-pad">
+    <dl className="flex flex-col gap-1 rounded-card bg-card shadow-card p-pad">
       <div className="flex justify-between gap-tg">
         <dt className="text-muted-foreground">قبل الضريبة</dt>
         <dd><Money halalas={totals.net} unit={false} /></dd>
@@ -882,7 +881,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
     <Screen
       title="فاتورة شراء"
       above={<Badge tone="info" className="self-start">مسودة لم تُسجَّل</Badge>}
-      description={missingText ?? "تزيد المخزون وتدخل المصاريف حين تسجّلها بعد المراجعة."}
+      description={missingText ?? undefined}
       back={{ id: "purchase-back", label: "الرئيسية", onClick: onBack }}
       end={{ id: "purchase-discard", label: "احذف المسودة", danger: true, icon: Trash, onClick: () => setDiscarding(true) }}
       actions={
@@ -892,7 +891,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       }
     >
       {failAlert}
-      <section aria-labelledby="purchase-header" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad">
+      <section aria-labelledby="purchase-header" className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad">
         <h2 id="purchase-header" className="text-lead font-semibold">المورّد والفاتورة</h2>
         <GazeHost className="tablet:grid tablet:grid-cols-2 tablet:gap-tg">
           {supplierField}
@@ -909,7 +908,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
         {purchase.lines.length ? (
           <ol id="purchase-line-list" className="flex flex-col gap-tg-min">
             {purchase.lines.map((saved) => (
-              <li key={saved.line_no} className={cn("flex flex-wrap items-center justify-between gap-tg rounded-card border bg-card px-3 py-2", line.lineNo === saved.line_no ? "border-primary-line" : "border-border")}>
+              <li key={saved.line_no} className={cn("flex flex-wrap items-center justify-between gap-tg rounded-card border bg-card px-3 py-2 shadow-card", line.lineNo === saved.line_no ? "border-primary" : "border-transparent")}>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-semibold"><span className="num text-muted-foreground">{saved.line_no}. </span>{saved.item.name}</span>
                   <span className="text-small text-muted-foreground">
@@ -927,7 +926,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
             ))}
           </ol>
         ) : null}
-        <div className={cn("flex flex-col gap-tg rounded-card border bg-card p-pad", line.lineNo === null ? "border-border" : "border-primary-line")}>
+        <div className={cn("flex flex-col gap-tg rounded-card border bg-card p-pad shadow-card", line.lineNo === null ? "border-transparent" : "border-primary")}>
           <h3 className="text-body font-semibold">{line.lineNo === null ? "سطرٌ جديد" : `تعديل السطر ${line.lineNo}`}</h3>
           {lineEditor}
           {creatingItem !== null ? null : (
@@ -1102,7 +1101,6 @@ export function ReverseScreen({ purchase, choices, onReverse, onBack }: {
   return (
     <Screen
       title={`عكس ${purchase.label ?? "الفاتورة"}`}
-      description="يخرج ما أدخلته الفاتورة من المخزون ويُخصم من المصاريف، وتبقى الفاتورة في السجلّ معكوسة."
       actions={
         <Slots
           actions

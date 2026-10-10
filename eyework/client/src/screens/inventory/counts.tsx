@@ -56,7 +56,6 @@ export function CountsScreen({ data, page, onPage, openSession, onOpen, onNew, o
   return (
     <Screen
       title="الجرد"
-      description={gaze ? undefined : "جلسةٌ تعدّ ما في المخزن وتسوّي الفرق بسنداتٍ حين تُرحَّل."}
       back={gaze ? undefined : { id: "counts-back", label: "الرئيسية", onClick: onBack }}
       end={{ id: "counts-new", label: openSession ? `تابع ${openSession.label}` : "جلسة جديدة", icon: openSession ? ClipboardList : Plus, onClick: onNew }}
     >
@@ -162,7 +161,7 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
       {scope === "SELECTED" ? (
         <>
           <GazeSlot id="count-items">
-            <Field id="count-items" label="أضف منتجاً" hint={gaze ? undefined : "اكتب بعض الاسم واختر؛ يُضاف إلى القائمة."} error={fail?.field === "item_ids" ? fail.message : null}>
+            <Field id="count-items" label="أضف منتجاً" error={fail?.field === "item_ids" ? fail.message : null}>
               <Combobox
                 listLabel="المنتجات المطابقة"
                 options={itemOptions.filter((option) => !picked.some((p) => p.value === option.value))}
@@ -198,7 +197,7 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
           </GazeSlot>
         </>
       ) : null}
-      {!needsDetails ? <p className="text-flow text-muted-foreground">{scope === "ALL" ? "كل المنتجات التي تُخزَّن." : "المنتجات التي رصيدها عند حدّ الطلب أو تحته."}</p> : null}
+      {!needsDetails ? null : null}
     </GazeHost>
   )
   const blindCards = (
@@ -352,11 +351,11 @@ export function CountScreen({ session, page, onPage, onOpenLine, onRefresh, onAd
       <Field label="تاريخ الجرد">
         <Input id="count-post-date" type="date" dir="ltr" value={date} max={today} onChange={(event) => setDate(event.target.value)} />
       </Field>
-      <p className="text-small text-muted-foreground">عُدّ {session.counted_so_far} من {session.items_total}؛ ما لم يُعدّ يبقى على رصيده.</p>
+      <p className="text-small text-muted-foreground">عُدّ {session.counted_so_far} من {session.items_total}.</p>
     </Dialog>
   )
   const cancelDialog = (
-    <Dialog open={cancelling} onClose={() => setCancelling(false)} alert title="إلغاء الجلسة" description="لا يتغيّر أيّ رصيد، وتبقى الجلسة في السجلّ ملغاة." closeLabel="رجوع"
+    <Dialog open={cancelling} onClose={() => setCancelling(false)} alert title="إلغاء الجلسة" description="لا يتغيّر أيّ رصيد." closeLabel="رجوع"
             footer={<Button id="count-cancel-yes" variant="danger" commit icon={X} busy={busy === "cancel"} onClick={() => void run("cancel", onCancel)}>نعم، ألغِ</Button>}>
       <p className="text-flow">{session.label}</p>
     </Dialog>
@@ -544,7 +543,7 @@ export function CountLineScreen({ session, line, choices, onSave, onPrevious, on
             <Field
               label={`العدد الفعلي بال${line.item.unit_name}`}
               // الحجم الكبير: الفرق في سطر المساعدة نفسه، فلا يأخذ صفّاً بين الحقلين.
-              hint={book === null ? (gaze ? undefined : "عدٌّ مغلق: يظهر الرصيد الدفتري بعد الحفظ.")
+              hint={book === null ? undefined
                 : gaze && differenceText ? <span role="status">{bookText} · {differenceText}</span> : <span>{bookText}</span>}
               error={error("counted_milli")}
             >
@@ -564,7 +563,7 @@ export function CountLineScreen({ session, line, choices, onSave, onPrevious, on
         ) : null}
         {needsCost && !reasonPage ? (
           <GazeSlot id="count-line-cost">
-            <Field label="تكلفة الوحدة" hint={gaze ? undefined : "الرصيد الدفتري صفر: تُقيَّم الزيادة بها."} error={error("unit_cost_halalas")} required>
+            <Field label="تكلفة الوحدة" error={error("unit_cost_halalas")} required>
               <Input id="count-line-cost" numeric unit="ر.س" inputMode="decimal" value={cost} onChange={(event) => setCost(event.target.value)} />
             </Field>
           </GazeSlot>

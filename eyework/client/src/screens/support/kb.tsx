@@ -105,7 +105,6 @@ export function KbListScreen({ view, query, data, page, onPage, onView, onSearch
         <EmptyState
           icon={BookOpen}
           title={query ? "لا مقالة تطابق" : view === "published" ? "لا مقالات منشورة بعد" : "لا شيء هنا"}
-          description={query || view !== "published" ? undefined : "كل مقالةٍ تعتمدها هنا يقتبس منها سيمبول في مسوداته."}
           // في الحجم الكبير «مقالة جديدة» في الصفّ العلوي وحده: زرٌّ ثانٍ بالاسم نفسه هدفٌ زائد في شاشةٍ لا تتّسع.
           action={query || gaze ? undefined : <Button variant="primary" icon={FilePlus2} onClick={onNew}>مقالة جديدة</Button>}
         />
@@ -120,7 +119,7 @@ export function KbListScreen({ view, query, data, page, onPage, onView, onSearch
     >
       {gaze ? null : (
         <form className="flex items-end gap-tg" onSubmit={(event) => { event.preventDefault(); onSearch(text) }}>
-          <Field label="ابحث" hint="بالعنوان أو المشكلة أو الحلّ: المنشورة وحدها." className="flex-1">
+          <Field label="ابحث" className="flex-1">
             <Input id="kb-search" type="search" autoComplete="off" maxLength={200} value={text} onChange={(event) => { setText(event.target.value); if (!event.target.value) onSearch("") }} />
           </Field>
           <Button id="kb-search-go" type="submit" icon={Search} disabled={text.trim().length < 2}>ابحث</Button>
@@ -227,7 +226,7 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
       ) : (
         <>
           {facts}
-          <dl className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad text-flow">
+          <dl className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad text-flow">
             <div><dt className="text-small font-semibold text-muted-foreground">المشكلة كما يصفها العميل</dt><dd>{latest.issue}</dd></div>
             {latest.environment ? <div><dt className="text-small font-semibold text-muted-foreground">البيئة</dt><dd>{latest.environment}</dd></div> : null}
             <div><dt className="text-small font-semibold text-muted-foreground">الحلّ</dt><dd className="whitespace-pre-line">{latest.resolution}</dd></div>
@@ -282,7 +281,7 @@ export function ArticleEditor({ article, sourceTicket, onSave, onBack }: {
     </Field>
   )
   const resolution = (
-    <Field label="الحلّ خطوةً خطوة" hint={gaze ? undefined : "سطرٌ لكل خطوة. بلا بريدٍ ولا رابطٍ ولا رقم هاتف."} error={error("resolution")} required>
+    <Field label="الحلّ خطوةً خطوة" error={error("resolution")} required>
       <Textarea id="article-resolution" rows={gaze ? 5 : 6} maxLength={4000} value={fields.resolution} onChange={set("resolution")} />
     </Field>
   )
@@ -457,7 +456,6 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
   return (
     <Screen
       title="تحسين المسودات"
-      description={gaze ? undefined : "من رفضك للمسودات في آخر ثلاثين يوماً: ما تحتاجه القاعدة لتكون المسودات أصحّ."}
       back={gaze ? undefined : { id: "improve-back", label: "قاعدة المعرفة", onClick: onBack }}
       actions={gaze ? <><Button id="improve-prev" icon={BackIcon} onClick={onBack}>القاعدة</Button><span aria-hidden="true" /></> : undefined}
     >
@@ -469,7 +467,6 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
       >
         {body}
       </Tabs>
-      {tab === "gaps" && data?.gaps.length && !gaze ? <p className="text-small text-muted-foreground">افتح الصفّ لتكتب مقالةً من التذكرة، أو ليقترحها سيمبول منها.</p> : null}
     </Screen>
   )
 }

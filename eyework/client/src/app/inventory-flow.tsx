@@ -520,7 +520,7 @@ function PurchaseContainer({ id, sub, path, choices, today, onDraft, setNotice }
           post={(rowVersion, acknowledged) => inv.postPurchase(id, rowVersion, acknowledged)}
           onPosted={(posted) => {
             purchase.setData(posted)
-            toast.show({ title: `سُجّلت الفاتورة ${posted.label ?? ""}`, description: "زاد المخزون ودخلت المصاريف.", tone: "success" })
+            toast.show({ title: `سُجّلت الفاتورة ${posted.label ?? ""}`, tone: "success" })
             go(purchaseRoute(id), { replace: true })
           }}
           onEdit={(lineNo) => go(purchaseRoute(id) + (lineNo ? `?line=${lineNo}` : ""))}
@@ -820,7 +820,7 @@ function ReturnContainer({ id, sub, choices, today, onDraft, setNotice }: {
           post={(rowVersion, acknowledged) => inv.postReturn(id, rowVersion, acknowledged)}
           onPosted={(posted) => {
             draft.setData(posted)
-            toast.show({ title: `سُجّل المرتجع ${posted.label ?? ""}`, description: "نقص المخزون وخُصم من المصاريف؛ ينتظر إشعار المورّد الدائن.", tone: "success" })
+            toast.show({ title: `سُجّل المرتجع ${posted.label ?? ""}`, tone: "success" })
             go(returnRoute(id), { replace: true })
           }}
           onEdit={() => go(returnRoute(id))}
@@ -1092,17 +1092,17 @@ export function InventoryFlow({ path, choices, me, workspace }: { path: string; 
   const tools: ToolEntry[] = [
     // «راجِع الآن» لمسودة فاتورةٍ أو مرتجعٍ مفتوحة وحدها: المسجَّل لا يُراجَع.
     ...(drafting && docId && !docSub && (docKind === "p" || docKind === "r")
-      ? [{ id: "review-now", label: "راجِع الآن", description: docKind === "p" ? "تنبيهات الفاتورة ومراجعة سيمبول" : "تنبيهات المرتجع ومراجعة سيمبول", icon: ClipboardCheck,
+      ? [{ id: "review-now", label: "راجِع الآن", icon: ClipboardCheck,
            route: docKind === "p" ? purchaseRoute(docId, "/review") : returnRoute(docId, "/review") }]
       : []),
-    { id: "vat", label: "حاسبة الضريبة", description: "قبل الضريبة وبعدها", icon: Calculator,
+    { id: "vat", label: "حاسبة الضريبة", icon: Calculator,
       panel: () => <VatCalculator rateBp={standardRate} compute={async (amount, basis) => {
         const result = await inv.vatTool(amount, basis)
         return result.status === 200 && result.data ? { net: result.data.net_halalas, vat: result.data.vat_halalas, gross: result.data.gross_halalas } : { error: detail(result) }
       }} /> },
     // في الورقة نفسها: لا يغادر مسودةً مفتوحة، ويعرض آخر أسعار الشراء.
-    { id: "find-item", label: "ابحث عن منتج", description: "رصيده وسعره وآخر أسعار شرائه", icon: PackageSearch, panel: () => <ItemLookup /> },
-    ...(settingsInTools ? [{ id: "settings", label: "إعدادات المخزن", description: "الاسم والموقع والتصنيفات", icon: Settings2, route: `${BASE}/settings` }] : []),
+    { id: "find-item", label: "ابحث عن منتج", icon: PackageSearch, panel: () => <ItemLookup /> },
+    ...(settingsInTools ? [{ id: "settings", label: "إعدادات المخزن", icon: Settings2, route: `${BASE}/settings` }] : []),
   ]
 
   let content: React.ReactNode = null

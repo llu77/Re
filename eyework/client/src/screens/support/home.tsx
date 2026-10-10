@@ -2,7 +2,7 @@
  * رئيسية مكتب الدعم، وإشعاره، وقوائم التذاكر
  * ==========================================
  *   • الرئيسية: الأزرار الستة بأعدادها من /api/support/home (والصفر لا يُكتب). قبل الموافقة على إشعار المكتب
- *     سطرٌ فوق الأزرار وزرّ «اقرأ الإشعار»؛ و«تذكرة جديدة» يفتح الإشعار أولاً. «قاعدة المعرفة» تعمل بلا إشعار.
+ *     زرّ «اقرأ إشعار المكتب» فوق الأزرار؛ و«تذكرة جديدة» يفتح الإشعار أولاً. «قاعدة المعرفة» تعمل بلا إشعار.
  *   • الإشعار: نصّ الخادم كما هو (support_notice.py)، ثم «قرأتُه»، ثم «أوافق وأتابع» في أعلى الخطوة الثانية
  *     بعيداً عن موضع «قرأتُه»: نظرةٌ باقية على الزرّ الأوّل لا تعتمد الثاني.
  *   • القوائم: «بانتظار قراري»، والمفتوحة (ومعها المحلولة والمغلقة)، وبانتظار العميل، والمُصعَّدة. صفٌّ واحدٌ يُفتح.
@@ -19,7 +19,7 @@ import { Tabs } from "@/components/ui/tabs"
 import { BASE, type DeskNotice, type Home, type Paged, type TicketRow, type TicketView } from "@/lib/support"
 import { useSize } from "@/lib/size"
 import type { Workspace } from "@/lib/workspace"
-import { HomeGrid, homeTitle } from "@/screens/work-home"
+import { HomeGrid, HomeRow, homeTitle } from "@/screens/work-home"
 
 import { NoTickets, TicketTable, type Fail } from "./common"
 
@@ -47,21 +47,13 @@ export function SupportHome({ workspace, userName, home, onNavigate }: {
       }
     >
       {needsNotice ? (
-        // في الحجم الكبير الزرّ وحده: الأزرار الستة وزرّ الإشعار ورابط الإعدادات تملأ الهاتف الأضيق.
-        <Alert tone="warning" title="قبل أن تلصق أول رسالة" className="gaze:hidden">
-          اقرأ إشعار المكتب ووافق عليه: لا تُحفظ رسائل العملاء ولا يكتب سيمبول قبله.
-        </Alert>
-      ) : null}
-      {needsNotice ? (
         <Button id="home-notice" variant="secondary" icon={ShieldCheck} onClick={() => onNavigate(`${BASE}/notice`)} className="self-start gaze:w-full">
-          اقرأ الإشعار
+          اقرأ إشعار المكتب
         </Button>
       ) : null}
       <HomeGrid workspace={workspace} onNavigate={onNavigate} counts={counts} />
       <div className={needsNotice ? "tablet:hidden gaze:hidden" : "tablet:hidden"}>
-        <ButtonLink id="home-settings-phone" href={settings} icon={Settings2} onClick={(event) => { event.preventDefault(); onNavigate(settings) }} className="gaze:w-full">
-          إعدادات الدعم
-        </ButtonLink>
+        <HomeRow id="home-settings-phone" href={settings} icon={Settings2} label="إعدادات الدعم" onNavigate={onNavigate} />
       </div>
     </Screen>
   )
@@ -152,7 +144,7 @@ export function DecideScreen({ data, page, onPage, onOpen, onOpenList, onBack }:
 }) {
   const { size } = useSize()
   return (
-    <Screen title="بانتظار قراري" description={size === "gaze" ? undefined : "ما نسختَه ولم تؤكّد إرساله أولاً، ثم الردود الجاهزة، ثم المسودات بالأقرب موعداً."} back={size === "gaze" ? undefined : { id: "decide-back", label: "الرئيسية", onClick: onBack }}>
+    <Screen title="بانتظار قراري" back={size === "gaze" ? undefined : { id: "decide-back", label: "الرئيسية", onClick: onBack }}>
       {data === null ? null : (
         <TicketTable
           caption="بانتظار قراري"

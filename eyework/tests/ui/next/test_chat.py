@@ -76,9 +76,9 @@ def test_the_conversation_carries_on_with_tools_and_opens_the_suggested_screen(n
     flow.screen("[aria-label='ابدأ عملاً']")
     flow.press("#nav-chat", lambda: flow.screen("dialog[open] [role=log]"), "اسأل سيمبول")
     flow.audit("chat-empty")
-    assert f"أهلاً {NAME}، أنا سيمبول" in page.inner_text("dialog[open] [role=log]")
+    assert f"أهلاً {NAME}، كيف أساعدك" in page.inner_text("dialog[open] [role=log]")
     ready = page.eval_on_selector_all("dialog[open] ul[aria-label='أسئلةٌ جاهزة'] button", "(bs) => bs.map((b) => b.textContent.trim())")
-    assert ready == ["من أين أبدأ عملي اليوم؟", "ما أهمّ مهامّ مهنتي؟"]
+    assert ready == ["من أين أبدأ عملي اليوم؟"]
 
     gateway.queue(assistant_reply(answer=ANSWER))
     flow.press("dialog[open] ul[aria-label='أسئلةٌ جاهزة'] button >> nth=0",
@@ -121,9 +121,9 @@ def test_the_gaze_size_pages_the_chat_without_scrolling_and_no_look_lands_on_a_s
     flow.press("#nav-chat", lambda: flow.screen("dialog[open] >> text=اكتب سؤالك"), "سيمبول")
     flow.audit("chat-start")
     names = page.eval_on_selector_all("dialog[open] button", "(bs) => bs.map((b) => b.textContent.trim())")
-    assert names == ["من أين أبدأ عملي اليوم؟", "ما أهمّ مهامّ مهنتي؟", "اكتب سؤالك", "الأدوات", "إغلاق"]
+    assert names == ["من أين أبدأ عملي اليوم؟", "اكتب سؤالك", "الأدوات", "إغلاق"]
 
-    gateway.queue(tool_request("CAMPAIGNS"), assistant_reply(answer=LONG, used=("T1", "TOOL"), open="campaigns"))
+    gateway.queue(tool_request("CAMPAIGNS"), assistant_reply(answer=LONG, used=("TOOL",), open="campaigns"))
     flow.press("dialog[open] >> text=من أين أبدأ عملي اليوم؟", lambda: flow.screen("dialog[open] >> text=سؤالٌ جديد"), "سؤالٌ جاهز")
     flow.audit("chat-answer")
     assert "حملاتك" in page.inner_text("dialog[open]")

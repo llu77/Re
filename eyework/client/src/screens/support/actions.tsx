@@ -71,7 +71,7 @@ export function AskInfoScreen({ ticket, phrases, onQuestions, onRedraft, onBack 
         return (
           <li key={q.code}>
             <Button id={`ask-q-${q.code}`} isValue aria-pressed={on} width="full" icon={on ? Check : undefined} disabled={!on && chosen.length >= 4}
-              onClick={() => toggle(q.code)} className={cn("justify-start text-start font-normal", on && "border-primary-line bg-secondary font-semibold")}>
+              onClick={() => toggle(q.code)} className={cn("justify-start text-start font-normal", on && "border-primary bg-secondary font-semibold")}>
               <span className="line-clamp-2">{english ? q.en : q.ar}</span>
             </Button>
           </li>
@@ -120,14 +120,13 @@ export function AskInfoScreen({ ticket, phrases, onQuestions, onRedraft, onBack 
           <>
             {prepare}
             <FailAlert fail={fail} title="لم يُجهَّز الطلب" />
-            <p className="text-small text-muted-foreground">{chosen.length} من الأسئلة بلغة العميل، بتمهيدٍ وختام.</p>
           </>
         ) : null}
       </Screen>
     )
   }
   return (
-    <Screen title="اطلب معلومات" description="اختر حتى أربعة أسئلة؛ يكتبها التطبيق بلغة العميل بتمهيدٍ وختام." back={{ id: "ask-back", label: "التذكرة", onClick: onBack }}
+    <Screen title="اطلب معلومات" back={{ id: "ask-back", label: "التذكرة", onClick: onBack }}
       actions={<><div>{redraft}</div><div className="ms-auto">{prepare}</div></>}>
       <FailAlert fail={fail} title="لم يُجهَّز الطلب" />
       {list}
@@ -183,7 +182,7 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
   )
   const noteField = (
     <div className="flex flex-col gap-tg">
-      <Field label="ملاحظة التصعيد" hint={gaze ? undefined : "عشرة أحرفٍ على الأقل: المشكلة وما جُرّب."} error={fail?.field === "note" ? fail.message : null}>
+      <Field label="ملاحظة التصعيد" error={fail?.field === "note" ? fail.message : null}>
         <Textarea id="escalate-note" rows={gaze ? 4 : 5} maxLength={1000} value={note} onChange={(event) => { setNote(event.target.value); setCopied(null) }} />
       </Field>
       <Button id="escalate-copy" icon={Copy} disabled={!noteOk} onClick={() => void copyNote()} className="self-start gaze:w-full">
@@ -251,7 +250,6 @@ export function RejectScreen({ onReject, onBack }: { onReject: (reason: RejectRe
   return (
     <Screen
       title="ارفض المسودة"
-      description={gaze ? undefined : "سببك يحسّن المسودات التالية. «معلومةٌ خاطئة» و«المقالة قديمة» تعلّمان المقالة المقتبسة «تحتاج مراجعة»."}
       back={gaze ? undefined : { id: "reject-back", label: "التذكرة", onClick: onBack }}
       actions={
         <>
@@ -267,7 +265,7 @@ export function RejectScreen({ onReject, onBack }: { onReject: (reason: RejectRe
         <Picker id="reject-reason" label="لماذا؟" options={reasons.map((r) => ({ value: r, label: REJECT_REASON[r] }))} value={reason} onValueChange={(v) => setReason(v as RejectReason)} />
         {/* حقلٌ في المضيف يُخفى حين يُفتح المنتقي، فلا تقع خياراته فوق حقلٍ ظاهر. */}
         <GazeSlot id="reject-note-field">
-          <Field label="ملاحظة" hint={gaze ? undefined : "اختيارية، حتى 200 حرف."}>
+          <Field label="ملاحظة">
             <Input id="reject-note" autoComplete="off" maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
           </Field>
         </GazeSlot>
@@ -415,7 +413,7 @@ export function RedraftScreen({ left, onRedraft, onBack }: {
       }
     >
       <GazeHost>
-        <Field label="ملاحظةٌ لسيمبول" hint={gaze ? undefined : "اختيارية، حتى 200 حرف: ما الذي ينقص المسودة؟"}>
+        <Field label="ملاحظةٌ لسيمبول">
           <Input id="redraft-hint" autoComplete="off" maxLength={200} value={hint} onChange={(event) => setHint(event.target.value)} />
         </Field>
         <Picker id="redraft-style" label="الأسلوب" options={styles.map((s) => ({ value: s, label: label(s) }))} value={style} onValueChange={(v) => setStyle(v as Style)} />

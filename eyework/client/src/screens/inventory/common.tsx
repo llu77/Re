@@ -58,7 +58,7 @@ export function Facts({ facts, columns = 2, className }: { facts: Fact[]; column
   const shown = facts.filter((fact) => fact.value !== null && fact.value !== undefined && fact.value !== "")
   return (
     // الحجم الكبير: الحقائق نصٌّ على الصفحة بلا بطاقة (لا حشو ولا إطار)، فيبقى للشاشة ما يتّسع لها بلا تمرير.
-    <dl className={cn("grid gap-x-tg gap-y-2 rounded-card border border-border bg-card p-pad gaze:border-0 gaze:bg-transparent gaze:p-0", columns === 1 ? "grid-cols-1" : columns === 2 ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-3", className)}>
+    <dl className={cn("grid gap-x-tg gap-y-2 rounded-card bg-card shadow-card p-pad gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none", columns === 1 ? "grid-cols-1" : columns === 2 ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-3", className)}>
       {shown.map((fact) => (
         <div key={fact.label} className={cn("flex min-w-0 flex-col gap-0.5", !fact.key && "gaze:hidden")}>
           <dt className="text-small text-muted-foreground">{fact.label}</dt>
@@ -242,7 +242,7 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
               }}
               className={cn(
                 "flex min-h-ctl w-full items-center justify-between gap-2 rounded-ctl border px-4 text-start font-semibold shadow-pop",
-                checked ? "border-primary-line bg-secondary text-secondary-foreground" : "border-control bg-card text-foreground",
+                checked ? "border-primary bg-secondary text-secondary-foreground" : "border-transparent bg-card text-foreground",
               )}
             >
               {option.label}
@@ -268,10 +268,7 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
   return (
     <GazeSlot id={id} className={cn("relative", className)}>
       <div ref={wrapper} className="flex flex-col gap-1">
-        <span className="text-small font-semibold text-foreground">
-          {label}
-          {required && !open ? <span className="text-muted-foreground"> (مطلوب)</span> : null}
-        </span>
+        <span className="text-small font-medium text-muted-foreground">{label}</span>
         {open ? (
           <Button id={`${id}-cancel`} icon={X} onClick={close}>
             إلغاء

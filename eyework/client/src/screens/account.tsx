@@ -1,31 +1,25 @@
 /*
  * حسابي
  * =====
- * الاسم والمهنة، و«طريقة الاستخدام» (الحجم)، والمصادر، والخروج، والحذف. لا شيء عن مفتاح
- * المرور هنا: هو زرّ دخولٍ وحده، والمتصفّح يحفظه بعد الدخول بكلمة المرور (قرار المالك).
- * «المصادر» باقية: سيمبول يُسنَد بمهامّ المهنة المأخوذة من O*NET (professions.py) وقد يقتبس
- * منها في جوابه، فيبقى إشعار O*NET (CC BY 4.0) على بعد ضغطة.
+ * الاسم والمهنة، و«طريقة الاستخدام» (الحجم)، والخروج، والحذف. لا شيء عن مفتاح المرور هنا: هو زرّ دخولٍ
+ * وحده، والمتصفّح يحفظه بعد الدخول بكلمة المرور (قرار المالك).
  *
- * طريقة الاستخدام (registration_spec §8.8): البطاقتان تختاران ولا تطبّقان؛ «طبّق» يرسل
- * PUT /api/me/ui-size، وبعد
- * ردّ الخادم يتبدّل الحجم كلّه (ردّ خادمٍ على ضغطة: مسموح). لماذا خطوتان؟ نظرةٌ عابرة على
- * «عادي» من حجمٍ كبير تصغّر الأهداف تحت من يحتاجها كبيرة؛ فالتبديل فعلٌ صريح بعد اختيار.
- * والزرّ في أسفل بطاقته والبطاقتان فوقه، فما يقع تحت موضعه بعد التبديل جزءٌ من البطاقة
- * نفسها أو نصّ، لا زرٌّ يعتمد (يقيسه tools/shoot.py). والخروج والحذف في آخر الشاشة.
+ * طريقة الاستخدام (registration_spec §8.8): البطاقتان تختاران ولا تطبّقان؛ «طبّق» يرسل PUT /api/me/ui-size،
+ * وبعد ردّ الخادم يتبدّل الحجم كلّه (ردّ خادمٍ على ضغطة: مسموح). لماذا خطوتان؟ نظرةٌ عابرة على «عادي» من
+ * حجمٍ كبير تصغّر الأهداف تحت من يحتاجها كبيرة؛ فالتبديل فعلٌ صريح بعد اختيار. والزرّ تحت البطاقتين، فما
+ * يقع تحت موضعه بعد التبديل جزءٌ من البطاقة نفسها أو نصّ، لا زرٌّ يعتمد. والخروج والحذف في آخر الشاشة.
  *
- * باللمس صفحةٌ واحدة: صفّ الملف، ثم بطاقة «طريقة الاستخدام» ببطاقتيها الراديويتين و«طبّق»، ثم
- * «المصادر»، ثم صفّ الخروج والحذف في أسفل الشاشة. وفي الحجم الكبير صفحتان (بفجوة 40 بين الأهداف لا
- * تتّسع واحدة في 320×635): «حسابي» بالاسم والمهنة سطراً تحت العنوان، و«طريقة الاستخدام: …» و«المصادر»
- * وصفّ الخروج والحذف؛ و«طريقة الاستخدام» بالبطاقتين و«طبّق» في أسفلها و«رجوع» في أعلاها. والشاشة تملأ ما
- * فوق الشريط في الحجمين (`fill`) فيقع «رجوع» في التأكيد على الزرّ الذي فُتح به لا على خيارٍ فوقه.
+ * باللمس صفحةٌ واحدة: صفّ الملف، ثم «طريقة الاستخدام» ببطاقتيها و«طبّق»، ثم صفّ الخروج والحذف في أسفل
+ * الشاشة. وفي الحجم الكبير صفحتان (لا تتّسع واحدة في 320×635): «حسابي» بالاسم والمهنة سطراً تحت العنوان،
+ * و«طريقة الاستخدام: …» وصفّ الخروج والحذف؛ و«طريقة الاستخدام» بالبطاقتين و«طبّق» في أسفلها و«رجوع» في
+ * أعلاها. والشاشة تملأ ما فوق الشريط في الحجمين (`fill`) فيقع «رجوع» في التأكيد على الزرّ الذي فُتح به.
  */
 
 import * as React from "react"
-import { BookOpen, Check, Hand, LogOut, ScanEye, SlidersHorizontal, Trash2 } from "lucide-react"
+import { Check, Hand, LogOut, ScanEye, SlidersHorizontal, Trash2 } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { Alert } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RadioCards } from "@/components/ui/radio-cards"
 import { useSize, type SizeMode } from "@/lib/size"
@@ -37,21 +31,20 @@ export interface AccountProps {
   sizeNames: Record<SizeMode, string>
   /** يرسل الحجم إلى الخادم؛ رسالة الخطأ أو null. */
   saveSize: (mode: SizeMode) => Promise<string | null>
-  onSources: () => void
   onLogout: () => void
   onDelete: () => void
   initialChoice?: SizeMode
 }
 
-export function AccountScreen({ name, profession, sizeNames, saveSize, onSources, onLogout, onDelete, initialChoice }: AccountProps) {
+export function AccountScreen({ name, profession, sizeNames, saveSize, onLogout, onDelete, initialChoice }: AccountProps) {
   const { size, setSize } = useSize()
   const gaze = size === "gaze"
   const [choice, setChoice] = React.useState<SizeMode>(initialChoice ?? size)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [applied, setApplied] = React.useState(false)
-  // في الحجم الكبير صفحتان: «حسابي» بأزرارٍ أربعة، و«طريقة الاستخدام» بالخيارين و«طبّق». الصفحة الواحدة
-  // لا تتّسع بفجوة 40 بين الأهداف في 320×635.
+  // في الحجم الكبير صفحتان: «حسابي» بأزراره، و«طريقة الاستخدام» بالخيارين و«طبّق». الصفحة الواحدة
+  // لا تتّسع في 320×635.
   const [sizePage, setSizePage] = React.useState(false)
 
   async function apply() {
@@ -71,15 +64,13 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
   const SIZE_NAMES = sizeNames
 
   const profile = (
-    <div className="flex items-center gap-3">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-primary text-lead font-semibold text-primary-foreground gaze:size-12">
+    <div className="flex items-center gap-3 rounded-card bg-card p-pad shadow-card">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-secondary text-lead font-semibold text-secondary-foreground">
         {initial ?? "؟"}
       </span>
-      <div className="flex min-w-0 flex-col gap-1">
-        <p className="truncate text-lead font-semibold text-heading">{name ?? "بلا اسم"}</p>
-        <Badge tone="info" className="self-start">
-          المهنة: {profession}
-        </Badge>
+      <div className="flex min-w-0 flex-col">
+        <p className="truncate font-semibold text-heading">{name ?? "بلا اسم"}</p>
+        <p className="truncate text-small text-muted-foreground">{profession}</p>
       </div>
     </div>
   )
@@ -119,11 +110,6 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
     </Alert>
   ) : null
 
-  const sources = (
-    <Button id="account-sources" icon={BookOpen} onClick={onSources}>
-      المصادر
-    </Button>
-  )
   // الخروج والحذف في شريط الإجراءات الأسفل، الحذف في البداية والخروج في النهاية: شاشة التأكيد تضع
   // «رجوع» في الخانة نفسها، فأقرب ما إلى نظرٍ باقٍ على الضغطة لا يعتمد شيئاً (كما في الواجهة القائمة).
   const leaving = (
@@ -142,7 +128,7 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
     return (
       <Screen
         title="طريقة الاستخدام"
-        description={`الحالية: ${SIZE_NAMES[size]}. تُحفظ مع حسابك.`}
+        description={`الحالية: ${SIZE_NAMES[size]}`}
         back={{ id: "account-size-back", label: "رجوع", onClick: () => setSizePage(false) }}
         fill
       >
@@ -152,7 +138,7 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
           <div className="grid grid-cols-2 items-center gap-tg">
             {applyButton}
             <p role="status" className="text-small text-muted-foreground">
-              {applied ? "حُفظت في حسابك." : "تُحفظ في حسابك لا في هذا الجهاز."}
+              {applied ? "حُفظت." : ""}
             </p>
           </div>
         </div>
@@ -162,11 +148,10 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
 
   if (gaze) {
     return (
-      <Screen title="حسابي" description={`${name ?? "بلا اسم"} · المهنة: ${profession}`} fill actions={leaving}>
+      <Screen title="حسابي" description={`${name ?? "بلا اسم"} · ${profession}`} fill actions={leaving}>
         <Button id="account-size" width="full" icon={SlidersHorizontal} onClick={() => setSizePage(true)} className="justify-between">
           <span className="min-w-0 truncate">طريقة الاستخدام: {SIZE_NAMES[size]}</span>
         </Button>
-        {sources}
       </Screen>
     )
   }
@@ -174,26 +159,18 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
   return (
     <Screen title="حسابي" fill actions={leaving}>
       {profile}
-      <section aria-labelledby="size-title" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card">
-        <div className="flex flex-col gap-0.5">
-          <h2 id="size-title" className="text-lead font-semibold text-heading">
-            طريقة الاستخدام
-          </h2>
-          <p className="text-small text-muted-foreground">
-            الحالية: {SIZE_NAMES[size]}. تُحفظ مع حسابك{gaze ? "." : "، ولا تُرسَل إلى مزوّد النموذج."}
-          </p>
-        </div>
+      <section aria-labelledby="size-title" className="flex flex-col gap-tg">
+        <h2 id="size-title" className="px-1 text-small font-medium text-muted-foreground">
+          طريقة الاستخدام
+        </h2>
         {choices}
         {failure}
         <div className="grid grid-cols-2 items-center gap-tg">
           {applyButton}
           <p role="status" className="text-small text-muted-foreground">
-            {applied ? "حُفظت في حسابك." : "تُحفظ في حسابك لا في هذا الجهاز."}
+            {applied ? "حُفظت." : ""}
           </p>
         </div>
-      </section>
-      <section aria-label="الحساب" className="grid grid-cols-2 gap-tg">
-        {sources}
       </section>
     </Screen>
   )
