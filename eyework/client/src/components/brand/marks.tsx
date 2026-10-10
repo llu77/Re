@@ -1,26 +1,60 @@
 /*
- * الاسم والعلامة
+ * الشعار والعلامة
  * ===============
- * Wordmark: الاسم «Symbol Work» بدل علامة «صياغة» (طلب المالك): بجانب عنوان كل شاشةٍ وورقةٍ ونافذة، وفي الترحيب
- * ورأس الشريط الجانبي. «Symbol» بالأزرق و«Work» بلون النصّ الهادئ، بخطٍّ لاتيني من اليسار إلى اليمين. الاسم لا يذكر
- * النظر ولا العين ولا الإعاقة (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق ليست معلومةً صحّية.
+ * Logo: شعار «Symbol Work» كما سلّمه المالك، بتصميمه وخطّه نفسيهما (الكلمتان بحدٍّ أسود والمكبّرة وفيها الشخص):
+ * الصورة نفسها، قُصّت إلى حدودها وصار ما حولها من البياض شفّافاً، وبقي بياض الحروف والعدسة كما هو. مكانه كما في
+ * المواقع الاحترافية (طلب المالك): رأس الصفحة (`AppHeader`)، شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته والشعار في أوّله
+ * (40، و32 في الحجم الكبير)، في كل صفحةٍ على الهاتف وفي ما قبل الدخول؛ وفي الآيباد والحاسوب رأس الشريط الجانبي
+ * (rail)؛ وفي الترحيب عنوانه في وسطه (hero). لا في سطر العنوان ولا في الأوراق. صورتان بحجمين (96 و240 بكسل
+ * ارتفاعاً)، يختار المتصفّح منهما ما يكفي كثافة الشاشة. الاسم لا يذكر النظر ولا العين ولا الإعاقة
+ * (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق ليست معلومةً صحّية.
  * SymbolMark: علامة المساعد «سيمبول» (لوحة الممارس): أربعة مستطيلاتٍ على شبكة 3×3.
- * كلاهما زخرفيٌّ بجانب نصٍّ يسمّي الصفحة، إلا الاسم في الترحيب فهو العنوان نفسه (`decorative={false}`).
+ * الشعار زخرفيٌّ بجانب نصٍّ يسمّي الصفحة، إلا في الترحيب فهو العنوان نفسه (`decorative={false}`).
  */
 
+import type * as React from "react"
+
+import logo96 from "@/assets/brand/symbol-work-logo-96.png"
+import logo240 from "@/assets/brand/symbol-work-logo-240.png"
 import { cn } from "@/lib/utils"
 
-export function Wordmark({ className, decorative = true }: { className?: string; decorative?: boolean }) {
+/** نسبة عرض الشعار إلى ارتفاعه (1306×394 بعد القصّ). */
+const RATIO = 1306 / 394
+const HEIGHT = { header: 40, rail: 44, hero: 72 } as const
+const HEIGHT_CLASS = { header: "h-10 gaze:h-8", rail: "h-11", hero: "h-[4.5rem]" } as const
+
+export function Logo({ size = "header", className, decorative = true }: { size?: keyof typeof HEIGHT; className?: string; decorative?: boolean }) {
+  const height = HEIGHT[size]
+  const width = Math.round(height * RATIO)
   return (
-    // مسافةٌ حقيقية بين الكلمتين (لا فجوة flex) فيُقرأ الاسم «Symbol Work» لا «SymbolWork».
-    <span
+    <img
+      src={logo240}
+      srcSet={`${logo96} 318w, ${logo240} 796w`}
+      sizes={`${width}px`}
+      width={width}
+      height={height}
+      alt={decorative ? "" : "Symbol Work"}
       aria-hidden={decorative ? "true" : undefined}
-      dir="ltr"
-      translate="no"
-      className={cn("inline-block shrink-0 whitespace-nowrap font-num leading-none tracking-tight", className)}
-    >
-      <span className="font-bold text-primary">Symbol</span> <span className="font-semibold text-muted-foreground">Work</span>
-    </span>
+      draggable={false}
+      className={cn("block w-auto max-w-none shrink-0 select-none", HEIGHT_CLASS[size], className)}
+    />
+  )
+}
+
+/**
+ * رأس الصفحة: شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته، والشعار في أوّله؛ وفي آخره فعل الصفحة الوحيد إن كان
+ * («رجوع» في خطوات التسجيل). يمرّ مع الصفحة، فيلتصق صفّها العلوي («رجوع» والفعل الآخر) بأعلى الشاشة وحده.
+ * والرأس الذي يحمل فعلاً هو في الحجم الكبير بارتفاع الهدف ومساحة إصابته الخفيّة فوقه وتحته (72)، فلا يقصّها أعلى
+ * الشاشة؛ وبلا فعلٍ 48.
+ */
+export function AppHeader({ end, className }: { end?: React.ReactNode; className?: string }) {
+  return (
+    <header data-app-header="" className={cn("shrink-0 border-b border-border bg-card pt-[env(safe-area-inset-top)]", className)}>
+      <div className={cn("mx-auto flex h-header max-w-content items-center justify-between gap-tg px-edge", end && "gaze:h-[calc(var(--tg)+2*var(--hit-pad))]")}>
+        <Logo />
+        {end ?? null}
+      </div>
+    </header>
   )
 }
 

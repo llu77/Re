@@ -20,7 +20,7 @@ import * as React from "react"
 import { Eye, EyeOff, Fingerprint, Hand, LogIn, Maximize2, Minimize2, ScanEye, UserPlus } from "lucide-react"
 
 import { PageTitle } from "@/components/brand/page-title"
-import { Wordmark } from "@/components/brand/marks"
+import { AppHeader, Logo } from "@/components/brand/marks"
 import { Slots } from "@/components/shell/slots"
 import { Button, NextIcon, BackIcon } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -51,23 +51,31 @@ export function SizeToggle() {
 }
 
 /**
- * إطار ما قبل الدخول: عمودٌ واحد بعرض `max-w-md`، في أعلاه صفٌّ بخانتين ثابتتين كصفّ شاشات
- * البوابة («حجمٌ أكبر» في البداية، وفي النهاية ما يغادر أو يعود)، ثم المحتوى. في الحجم الكبير
- * بارتفاع الشاشة بلا تمرير.
+ * إطار ما قبل الدخول: رأس الصفحة بالشعار بعرض الشاشة، وفي آخره فعلها إن كان واحداً («رجوع»، أو «حجمٌ أكبر»)؛ ثم
+ * عمودٌ واحد بعرض `max-w-md`، في أعلاه حين يكون للصفحة فعلان صفٌّ بخانتين ثابتتين كصفّ شاشات البوابة («حجمٌ أكبر» في
+ * البداية، وفي النهاية ما يغادر أو يعود)، ثم المحتوى. والترحيب بلا رأس: الشعار عنوانه. في الحجم الكبير بارتفاع الشاشة
+ * بلا تمرير.
  */
-export function AuthFrame({ end, toggle = true, children, className }: {
+export function AuthFrame({ end, toggle = true, brand = true, children, className }: {
   end?: React.ReactNode
   toggle?: boolean
+  /** رأس الصفحة بالشعار؛ إلا في الترحيب، فالشعار عنوانه. */
+  brand?: boolean
   children: React.ReactNode
   className?: string
 }) {
   const { size } = useSize()
+  const gaze = size === "gaze"
+  // فعلٌ واحد («رجوع»، أو «حجمٌ أكبر» وحده) في آخر رأس الصفحة؛ والفعلان («حجمٌ أكبر» و«أنشئ حساباً») صفٌّ تحته.
+  const lone = toggle && end ? null : toggle ? <SizeToggle /> : end ?? null
+  const slots = !brand || (toggle && end) ? <Slots top start={toggle ? <SizeToggle /> : undefined} end={end} /> : null
   return (
-    <div className={cn("mx-auto flex w-full max-w-md flex-col px-edge pb-safe pt-safe", size === "gaze" ? "h-dvh overflow-hidden" : "min-h-dvh", className)}>
-      <header>
-        <Slots top start={toggle ? <SizeToggle /> : undefined} end={end} />
-      </header>
-      {children}
+    <div className={cn("flex flex-col", gaze ? "h-dvh overflow-hidden" : "min-h-dvh")}>
+      {brand ? <AppHeader end={lone} /> : null}
+      <div className={cn("mx-auto flex w-full max-w-md flex-1 flex-col px-edge pb-safe", !brand && "pt-safe", gaze && "min-h-0", className)}>
+        {slots ? <div className={brand ? "pt-tg-min" : undefined}>{slots}</div> : null}
+        {children}
+      </div>
     </div>
   )
 }
@@ -78,13 +86,13 @@ export type RegistrationMode = "open" | "code" | "closed"
 
 export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationMode; onSignup: () => void; onLogin: () => void }) {
   return (
-    <AuthFrame>
+    <AuthFrame brand={false}>
       {/* الزرّان بعد الاسم مباشرةً: «ادخل» في أعلى الشاشة يقع بعد الانتقال على حقول الدخول، و«ادخل» الذي
           يعتمد في أسفل شاشة الدخول. */}
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
-        {/* الاسم عنوان الترحيب، بارتفاع العلامة التي كان بجانبها (44) فلا يتحرّك ما تحته. */}
-        <h1 className="flex min-h-11 items-center">
-          <Wordmark decorative={false} className="text-[1.75rem]" />
+        {/* الشعار عنوان الترحيب في وسطه، واسمه «Symbol Work» لقارئ الشاشة. */}
+        <h1 className="flex items-center justify-center">
+          <Logo size="hero" decorative={false} />
         </h1>
         <div className="flex flex-col gap-tg">
           {mode === "open" ? (

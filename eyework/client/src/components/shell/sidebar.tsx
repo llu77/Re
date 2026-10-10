@@ -12,7 +12,7 @@
 
 import { MessageCircle } from "lucide-react"
 
-import { SymbolMark, Wordmark } from "@/components/brand/marks"
+import { Logo, SymbolMark } from "@/components/brand/marks"
 import type { NavEntry } from "@/components/shell/tab-bar"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
@@ -76,7 +76,7 @@ export function Sidebar({ workspaceName, userName, groups, onNavigate }: Sidebar
       className="sticky top-0 flex h-dvh w-side shrink-0 flex-col gap-sec border-e border-border bg-card px-edge pb-safe pt-safe"
     >
       <div className="flex min-w-0 flex-col items-start gap-1 px-1">
-        <Wordmark className="text-lead" />
+        <Logo size="rail" />
         <span className="max-w-full truncate pb-0.5 text-small text-muted-foreground">{workspaceName}</span>
       </div>
       <nav aria-label="أقسام البوابة" className="flex min-h-0 flex-1 flex-col gap-sec">

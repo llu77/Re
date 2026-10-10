@@ -32,6 +32,7 @@ const sizes = {
   row: "var(--row)",
   bar: "var(--bar)",
   tab: "var(--tab)",
+  header: "var(--header)",
   side: "var(--side)",
   field: "var(--field)",
 }
