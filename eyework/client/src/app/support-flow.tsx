@@ -751,7 +751,11 @@ export function SupportFlow({ path, choices, me, workspace }: { path: string; ch
   if (clean === "" || clean === "/") {
     content = <SupportHome workspace={workspace} userName={me.display_name} home={home.data} onNavigate={navigate} />
   } else if (clean === "/notice") {
-    content = <NoticeContainer home={home.data} then={params.get("then")} onAccepted={home.reload} />
+    // الموافقة تُرى في الرئيسية فور عودتها: لا يبقى «اقرأ الإشعار» حتى تصل القراءة الجديدة.
+    content = <NoticeContainer home={home.data} then={params.get("then")} onAccepted={() => {
+      if (home.data) home.setData({ ...home.data, notice: { ...home.data.notice, accepted: home.data.notice.current } })
+      home.reload()
+    }} />
   } else if (clean === "/settings") {
     content = <SettingsContainer setNotice={setNotice} />
   } else if (clean === "/decide") {
