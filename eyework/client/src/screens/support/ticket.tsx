@@ -13,7 +13,7 @@
 import * as React from "react"
 import {
   ArrowUpRight, Ban, CheckCircle2, ChevronDown, ChevronUp, CircleHelp, FilePlus2, MessageSquarePlus, NotebookPen,
-  PencilLine, RefreshCw, RotateCcw, Send, Sparkles, StickyNote, Undo2,
+  PencilLine, RefreshCw, RotateCcw, Send, Sparkles, StickyNote, Tags, Undo2,
 } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
@@ -24,8 +24,8 @@ import { PagedText } from "@/components/ui/paged-text"
 import { useToast } from "@/components/ui/toast"
 import { formatDay, formatTime } from "@/lib/format"
 import {
-  AUTHOR, CATEGORY, CHANNEL, ESCALATION_TARGET, PRIORITY, REJECT_REASON, REPLY_KIND, ticketTitle, type DismissReason, type Message, type RuleFlag,
-  type Ticket,
+  AUTHOR, CATEGORY, CHANNEL, CLOSE_REASON, ESCALATION_TARGET, OUTCOME, PRIORITY, REJECT_REASON, REPLY_KIND, ticketTitle, type DismissReason,
+  type Message, type RuleFlag, type Ticket,
 } from "@/lib/support"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
@@ -35,7 +35,7 @@ import { RuleFlagCard } from "./reply"
 
 export type TicketAction =
   | "compose-draft" | "compose-blank" | "ask" | "escalate" | "reject" | "resolve" | "customer" | "note" | "classify" | "redraft"
-  | "reply" | "follow-up"
+  | "reply" | "follow-up" | "return"
 
 export interface TicketScreenProps {
   ticket: Ticket
@@ -47,7 +47,6 @@ export interface TicketScreenProps {
   onSendAsIs: () => Promise<Fail>
   onAcceptSuggestion: () => Promise<Fail>
   onReopen: () => Promise<Fail>
-  onReturnEscalation: () => Promise<Fail>
   /** تنبيه قاعدةٍ على التذكرة (أولويةٌ أدنى من المقترحة): «تابع رغم ذلك» بسببه. */
   onAckRule: (flag: RuleFlag, action: "HEEDED" | "DISMISSED", reason: DismissReason | null) => Promise<Fail>
   onAction: (action: TicketAction) => void
@@ -66,6 +65,15 @@ function when(iso: string | null): string {
   return iso ? `${formatDay(iso)} ${formatTime(iso)}` : ""
 }
 
+/** من أين جاءت التذكرة وكيف انتهت: «متابعة للتذكرة #12 · حُلّت بالردّ · أُغلقت تلقائياً بعد الحلّ». */
+export function outcomeLine(ticket: Ticket): string {
+  return [
+    ticket.follow_up_number ? `متابعة للتذكرة #${ticket.follow_up_number}` : null,
+    ticket.resolution ? OUTCOME[ticket.resolution] : null,
+    ticket.close_reason ? CLOSE_REASON[ticket.close_reason] : null,
+  ].filter(Boolean).join(" · ")
+}
+
 function suggestionPending(ticket: Ticket): boolean {
   const draft = ticket.draft
   if (!draft || !draft.current) return false
@@ -82,7 +90,7 @@ function suggestionPending(ticket: Ticket): boolean {
 const DECISIONS_PER_PAGE = 3
 
 export function TicketScreen(props: TicketScreenProps) {
-  const { ticket, drafting, draftFail, onRequestDraft, onSendAsIs, onAcceptSuggestion, onReopen, onReturnEscalation, onAction, onBack, backLabel } = props
+  const { ticket, drafting, draftFail, onRequestDraft, onSendAsIs, onAcceptSuggestion, onReopen, onAction, onBack, backLabel } = props
   const { size } = useSize()
   const gaze = size === "gaze"
   const [fail, setFail] = React.useState<Fail>(null)
@@ -163,12 +171,20 @@ export function TicketScreen(props: TicketScreenProps) {
     </div>
   ) : null
 
+  // التصعيد ما دام قائماً، ثم بعد إنهائه بما عاد من الجهة إن سُجّل.
+  const returned = ticket.status !== "ESCALATED" && ticket.escalation?.returned_at ? ticket.escalation : null
   const escalation = ticket.status === "ESCALATED" && ticket.escalation ? (
     <section aria-label="التصعيد" className="flex flex-col gap-1 rounded-card border border-warning-line bg-warning-tint p-pad">
       <p className="font-semibold">صُعّدت إلى {ESCALATION_TARGET[ticket.escalation.target]}</p>
       <p className="text-small text-muted-foreground gaze:line-clamp-3">{ticket.escalation.note}</p>
     </section>
+  ) : returned ? (
+    <section aria-label="التصعيد" className="flex flex-col gap-1 rounded-card bg-card shadow-card p-pad">
+      <p className="font-semibold">انتهى التصعيد إلى {ESCALATION_TARGET[returned.target]} · {when(returned.returned_at)}</p>
+      {returned.return_note ? <p className="text-small text-muted-foreground gaze:line-clamp-3">{returned.return_note}</p> : null}
+    </section>
   ) : null
+  const outcome = outcomeLine(ticket)
 
   const lastMessage = ticket.texts_purged ? (
     <p className="text-flow text-muted-foreground">حُذفت نصوص هذه التذكرة بعد إغلاقها.</p>
@@ -250,9 +266,7 @@ export function TicketScreen(props: TicketScreenProps) {
   if (allowed.ask_info) main.push(<Button key="ask" id="decide-ask" icon={CircleHelp} onClick={() => onAction("ask")}>اطلب معلومات</Button>)
   if (allowed.escalate) main.push(<Button key="escalate" id="decide-escalate" icon={ArrowUpRight} onClick={() => onAction("escalate")}>صعّد</Button>)
   if (allowed.reject) main.push(<Button key="reject" id="decide-reject" icon={Ban} onClick={() => onAction("reject")}>ارفض المسودة</Button>)
-  if (allowed.return_escalation) {
-    main.push(<Button key="returned" id="decide-returned" variant="secondary" icon={Undo2} busy={busy === "returned"} onClick={() => void run("returned", onReturnEscalation)}>عاد الجواب من التصعيد</Button>)
-  }
+  if (allowed.return_escalation) main.push(<Button key="returned" id="decide-returned" variant="secondary" icon={Undo2} onClick={() => onAction("return")}>أنهِ التصعيد</Button>)
   if (allowed.reopen) main.push(<Button key="reopen" id="decide-reopen" icon={RotateCcw} busy={busy === "reopen"} onClick={() => void run("reopen", onReopen)}>أعد فتح التذكرة</Button>)
   if (allowed.follow_up) main.push(<Button key="follow" id="decide-follow-up" variant="secondary" icon={FilePlus2} onClick={() => onAction("follow-up")}>افتح تذكرة متابعة</Button>)
 
@@ -264,6 +278,8 @@ export function TicketScreen(props: TicketScreenProps) {
     more.push(<Button key="note" id="decide-note" icon={StickyNote} onClick={() => onAction("note")}>ملاحظة داخلية</Button>)
   }
   if (allowed.resolve) more.push(<Button key="resolve" id="decide-resolve" icon={CheckCircle2} onClick={() => onAction("resolve")}>حُلّت دون ردٍّ مكتوب</Button>)
+  // «غيّر التصنيف» من «المزيد» في كل حالٍ عدا المغلقة، ومن الاقتراح حين يكون (لا زرّان بالاسم نفسه).
+  if (allowed.classify && !suggestion) more.push(<Button key="classify" id="decide-classify" icon={Tags} onClick={() => onAction("classify")}>غيّر التصنيف</Button>)
 
   const header = (
     <div className="flex flex-wrap items-center gap-2">
@@ -281,13 +297,18 @@ export function TicketScreen(props: TicketScreenProps) {
     if (live) pages.push({ id: "reply", label: "الردّ", body: live })
     if (suggestion) pages.push({ id: "suggestion", label: "الاقتراح", body: suggestion })
     if (flagNotes) pages.push({ id: "flags", label: "تنبيه", body: flagNotes })
-    if (escalation) pages.push({ id: "escalation", label: "التصعيد", body: escalation })
-    pages.push({ id: "message", label: "الرسالة", body: lastMessage })
+    // التصعيد القائم قبل الرسالة؛ والمنتهي سجلٌّ بعد المحادثة، فتبدأ المحلولة برسالتها وسطر نهايتها.
+    if (escalation && !returned) pages.push({ id: "escalation", label: "التصعيد", body: escalation })
+    pages.push({
+      id: "message", label: "الرسالة",
+      body: <>{outcome ? <p id="ticket-outcome" className="text-small font-semibold text-muted-foreground">{outcome}</p> : null}{lastMessage}</>,
+    })
     // ما قبل آخر رسالة: رسائل العميل السابقة، وردودك المرسلة، وملاحظاتك الداخلية — نصّاً مقسّماً صفحات.
     if (earlier.length && !ticket.texts_purged) {
       const text = earlier.map((m) => `${AUTHOR[m.author]} · ${when(m.at)}\n${m.body}`).join("\n\n")
       pages.push({ id: "thread", label: "المحادثة", body: <PagedText text={text} label="المحادثة" perPage={{ gaze: 240, gazeShort: 120 }} /> })
     }
+    if (escalation && returned) pages.push({ id: "escalation", label: "التصعيد", body: escalation })
     if (drafting || current || draftAlert || askDraft || draftBlock) pages.push({ id: "draft", label: "المسودة", body: <>{draftAlert}{draftBlock}{askDraft}</> })
     // القرارات أربعةً في كل صفحة (ومعها تنبيه الخطأ إن وُجد): ستّةٌ في صفحةٍ لا تتّسع لها أقصر الهواتف حين يلتفّ
     // سطر الشارات أو يظهر التنبيه. والتالية «المزيد» بزرّ «التالي» في الشريط.
@@ -335,6 +356,7 @@ export function TicketScreen(props: TicketScreenProps) {
   return (
     <Screen
       title={ticketTitle(ticket)}
+      description={outcome ? <span id="ticket-outcome">{outcome}</span> : undefined}
       above={header}
       back={{ id: "ticket-back", label: backLabel, onClick: onBack }}
     >

@@ -17,7 +17,7 @@ describe("the service-level badge", () => {
     expect(slaText({ kind: "FIRST_REPLY", state: "BREACHED", minutes: 61 })).toEqual({ text: "تأخّر الردّ 1 س", tone: "danger" })
     expect(slaText({ kind: "RESOLVE", state: "PAUSED", minutes: null })).toEqual({ text: "الوقت متوقّف", tone: "neutral" })
     expect(slaText({ kind: "RESOLVE", state: "MET", minutes: null })).toBeNull()
-    expect(duration(3 * 1440)).toBe("3 ي")
+    expect(duration(3 * 1440)).toBe("3 يوم")
   })
 })
 

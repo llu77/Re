@@ -1,7 +1,7 @@
 /*
  * إعدادات الدعم
  * =============
- * التوقيع في آخر كل ردّ (لا يُرسل إلى سيمبول)، وأهداف زمن الخدمة لكل أولوية (أول ردٍّ والحلّ)، واستعمال سيمبول
+ * التوقيع في آخر كل ردّ (لا يُرسل إلى سيمبول)، واتفاقية مستوى الخدمة لكل أولوية (زمن الردّ الأول وزمن الحلّ)، واستعمال سيمبول
  * اليوم، وإشعار المكتب والنسخة التي وافقتَ عليها. في الحجم الكبير قسمٌ واحد في الشاشة، ولكل أولويةٍ قسمها: هدفاها
  * عدّادان بقيمهما (أقصر/أطول، لا منتقٍ تنزل خياراته تحت الشاشة)، و«احفظ الأهداف» في الشريط.
  */
@@ -68,10 +68,10 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
 
   const target = (p: Priority) => (
     <div key={p} className="grid grid-cols-2 gap-tg gaze:gap-x-6">
-      <Picker id={`settings-first-${p}`} label={`${PRIORITY[p]}: أول ردّ خلال`}
+      <Picker id={`settings-first-${p}`} label={`${PRIORITY[p]}: زمن الردّ الأول`}
         options={Object.entries(SLA_FIRST).map(([value, label]) => ({ value, label }))} value={String(sla[p].first_reply_minutes)}
         onValueChange={(value) => setSla({ ...sla, [p]: { ...sla[p], first_reply_minutes: Number(value) } })} />
-      <Picker id={`settings-resolve-${p}`} label={`${PRIORITY[p]}: الحلّ خلال`}
+      <Picker id={`settings-resolve-${p}`} label={`${PRIORITY[p]}: زمن الحلّ`}
         options={Object.entries(SLA_RESOLVE).map(([value, label]) => ({ value, label }))} value={String(sla[p].resolve_minutes)}
         onValueChange={(value) => setSla({ ...sla, [p]: { ...sla[p], resolve_minutes: Number(value) } })} />
     </div>
@@ -79,9 +79,9 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
   // الحجم الكبير: أولويةٌ في كل قسم، وهدفاها عدّادان (حقلان بعنوانيهما بينهما 28).
   const gazeTargets = (p: Priority) => (
     <div className="flex flex-col gap-tg">
-      <ChoiceStepper id={`settings-first-${p}`} label="أول ردّ خلال" options={durations(SLA_FIRST)} value={sla[p].first_reply_minutes} prevLabel="أقصر" nextLabel="أطول"
+      <ChoiceStepper id={`settings-first-${p}`} label="زمن الردّ الأول" options={durations(SLA_FIRST)} value={sla[p].first_reply_minutes} prevLabel="أقصر" nextLabel="أطول"
         onChange={(minutes) => { setSaved(null); setSla({ ...sla, [p]: { ...sla[p], first_reply_minutes: minutes } }) }} />
-      <ChoiceStepper id={`settings-resolve-${p}`} label="الحلّ خلال" options={durations(SLA_RESOLVE)} value={sla[p].resolve_minutes} prevLabel="أقصر" nextLabel="أطول"
+      <ChoiceStepper id={`settings-resolve-${p}`} label="زمن الحلّ" options={durations(SLA_RESOLVE)} value={sla[p].resolve_minutes} prevLabel="أقصر" nextLabel="أطول"
         onChange={(minutes) => { setSaved(null); setSla({ ...sla, [p]: { ...sla[p], resolve_minutes: minutes } }) }} />
       {saved === "sla" ? <p role="status" className="sr-only">حُفظت الإعدادات.</p> : null}
     </div>
@@ -142,7 +142,7 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
       {failAlert}
       <section aria-label="التوقيع" className="flex flex-col gap-tg">{signatureBlock}</section>
       <section aria-labelledby="settings-sla-title" className="flex flex-col gap-tg">
-        <h2 id="settings-sla-title" className="text-lead font-semibold">أهداف زمن الخدمة</h2>
+        <h2 id="settings-sla-title" className="text-lead font-semibold">اتفاقية مستوى الخدمة</h2>
         {slaBlock}
       </section>
       <section aria-labelledby="settings-usage-title" className="flex flex-col gap-tg">

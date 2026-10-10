@@ -105,7 +105,7 @@ def _status(owner, sql: str, params: tuple = ()):
 
 # ── قاعدة المعرفة ───────────────────────────────────────────────────────
 def _article(flow: Flow) -> None:
-    """مقالةٌ جديدة بحقولها، ثم «اعتمد» بمراجعة سيمبول (بلا ملاحظات) ثم «اعتمد المقالة»."""
+    """مقالةٌ جديدة بحقولها، ثم «انشر» بمراجعة سيمبول (بلا ملاحظات) ثم «انشر المقالة»."""
     page = flow.page
     gaze = _gaze(page)
     flow.press("#home-knowledge", lambda: flow.screen("#kb-new"), "قاعدة المعرفة")
@@ -128,13 +128,13 @@ def _article(flow: Flow) -> None:
         # في الحجم الكبير المقالة صفحةٌ تُقرأ وإجراءاتها صفحةٌ ثانية.
         flow.press("#article-actions", lambda: flow.screen("#article-publish"), "الإجراءات")
         _audit(flow, "article-actions")
-    flow.press("#article-publish", lambda: flow.screen("#publish-prev, #publish-back"), "اعتمد")
+    flow.press("#article-publish", lambda: flow.screen("#publish-prev, #publish-back"), "انشر")
     flow.until("document.querySelector('#publish-review') && !document.querySelector('#publish-review').textContent.includes('يراجع')")
     _audit(flow, "publish")
     if gaze:
         flow.press("#publish-next", lambda: flow.screen("#publish-submit"), "التالي")
         _audit(flow, "publish-submit")
-    flow.press("#publish-submit", lambda: flow.screen("#article-actions" if gaze else "#article-needs-review"), "اعتمد المقالة")
+    flow.press("#publish-submit", lambda: flow.screen("#article-actions" if gaze else "#article-needs-review"), "انشر المقالة")
     _audit(flow, "article-published")
     if gaze:
         flow.press("#article-actions", lambda: flow.screen("#article-needs-review"), "الإجراءات")
@@ -293,7 +293,7 @@ def test_a_reply_the_agent_writes_waits_for_a_decision_on_each_flag(next_page, s
         _audit(flow, "reply-rule-flag")
     # معرّف التنبيه من المنتقي (العادي) أو من قيمة العدّاد (الكبير؛ وزرّاه `-prev` و`-next`).
     flag_id = page.get_attribute("[id^='flag-reason-']:not([id$='-prev']):not([id$='-next'])", "id").removeprefix("flag-reason-")
-    _pick(flow, f"flag-reason-{flag_id}", "EMPLOYER_APPROVED", "جهة العمل موافقة")
+    _pick(flow, f"flag-reason-{flag_id}", "EMPLOYER_APPROVED", "بموافقة الإدارة")
     flow.press(f"#flag-dismiss-{flag_id}", lambda: flow.until("!document.querySelector('[id^=\"flag-dismiss-\"]')"), "تابع رغم ذلك")
     if gaze:
         flow.press("#reply-next", lambda: flow.screen("[data-flag-status='open']"), "التالي")
@@ -316,7 +316,10 @@ def test_a_reply_the_agent_writes_waits_for_a_decision_on_each_flag(next_page, s
 
 @pytest.mark.parametrize("size", SIZES)
 def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, server, owner, size):
-    """«ارفض المسودة» بسببه، ثم «صعّد» إلى جهةٍ بملاحظة، ثم «عاد الجواب»، ثم «حُلّت» وتذكيرٌ بآخر رسالةٍ بلا ردّ."""
+    """
+    «ارفض المسودة» بسببه، ثم «صعّد» إلى جهةٍ بملاحظة (والردّ بالحلّ لا يُعرض ما دامت مُصعَّدة)، ثم «أنهِ التصعيد» بما
+    عاد من الجهة، ثم «حُلّت» وتذكيرٌ بآخر رسالةٍ بلا ردّ؛ والمحلولة تقول كيف انتهت وما عاد من التصعيد، وتُصنَّف من «المزيد».
+    """
     page = _page(next_page, owner, server, size, *PHONES[0])
     flow = Flow(page)
     gaze = size == "gaze"
@@ -370,11 +373,22 @@ def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, s
         assert page.input_value("#escalate-note").startswith("التذكرة #1")
     flow.press("#escalate-submit", lambda: flow.until("!location.hash.includes('/escalate')"), "صعّد التذكرة")
     assert _status(owner, "SELECT status, escalation_target FROM support_tickets") == ("ESCALATED", "VENDOR")
+    if not gaze:
+        # ما دامت مُصعَّدة: «اكتب الردّ بنفسك» بلا «ردٌّ بالحلّ» (القاعدة ترفضه)، و«تحديث الحالة» مختارٌ أوّلاً.
+        flow.press("#decide-write", lambda: flow.screen("#compose-kind-UPDATE"), "اكتب الردّ بنفسك")
+        assert page.locator("#compose-kind-ANSWER").count() == 0
+        assert page.get_attribute("#compose-kind-UPDATE", "aria-checked") == "true"
+        flow.press("#compose-back", lambda: flow.screen("#ticket-back"), "التذكرة")
     _to_decisions(flow)
     if gaze:
         _press_until(flow, "#ticket-next", "#decide-returned", "التالي")
-    flow.press("#decide-returned", lambda: flow.until("!document.querySelector('#decide-returned')"), "عاد الجواب من التصعيد")
-    assert _status(owner, "SELECT status FROM support_tickets") == ("OPEN",)
+    flow.press("#decide-returned", lambda: flow.screen("#return-note"), "أنهِ التصعيد")
+    _audit(flow, "return")
+    page.fill("#return-note", "استبدل المورّد الخرطوشة تحت الضمان.")
+    page.locator("#return-note").blur()
+    flow.press("#return-submit", lambda: flow.until("!location.hash.includes('/return')"), "أنهِ التصعيد")
+    assert _status(owner, "SELECT t.status, e.return_note FROM support_tickets t JOIN support_escalations e ON e.ticket_id = t.id") == (
+        "OPEN", "استبدل المورّد الخرطوشة تحت الضمان.")
     if gaze:
         _audit(flow, "ticket-returned")
         _press_until(flow, "#ticket-next", "#decide-resolve", "التالي")
@@ -387,8 +401,20 @@ def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, s
         flow.press("#resolve-DUPLICATE", lambda: None, "مكرّرة")
     flow.press("#resolve-submit", lambda: flow.screen("#resolve-confirm"), "حُلّت")
     _audit(flow, "resolve-unanswered")
-    flow.press("#resolve-confirm", lambda: flow.until("!location.hash.includes('/resolve')"), "أغلقها رغم ذلك")
+    flow.press("#resolve-confirm", lambda: flow.until("!location.hash.includes('/resolve')"), "حُلّها رغم ذلك")
     assert _status(owner, "SELECT status, resolution FROM support_tickets") == ("RESOLVED", "DUPLICATE")
+    # كيف انتهت، وما عاد من التصعيد؛ و«غيّر التصنيف» من «المزيد» بلا اقتراحٍ من سيمبول.
+    flow.screen("#ticket-outcome")
+    assert "مكرّرة" in page.text_content("#ticket-outcome")
+    _audit(flow, "ticket-resolved")
+    if gaze:
+        _press_until(flow, "#ticket-next", "text=استبدل المورّد الخرطوشة تحت الضمان.", "التالي")
+        _audit(flow, "ticket-escalation-ended")
+        _press_until(flow, "#ticket-next", "#decide-classify", "التالي")
+    else:
+        flow.screen("text=استبدل المورّد الخرطوشة تحت الضمان.")
+    flow.press("#decide-classify", lambda: flow.screen("#classify-save"), "غيّر التصنيف")
+    _audit(flow, "classify")
     assert not flow.failures(), "\n".join(flow.failures())
     if gaze:
         assert not flow.landings, "\n".join(flow.landings)
@@ -403,8 +429,8 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
     flow = Flow(page)
     page.goto(page.next + BASE)
     flow.screen("#home-new")
-    for entry, text in (("decide", "لا شيء ينتظر قرارك الآن."), ("open", "لا تذاكر مفتوحة."), ("pending", "لا أحد بانتظار ردّه."),
-                        ("escalated", "لا تذاكر عند جهةٍ أخرى.")):
+    for entry, text in (("decide", "لا شيء ينتظر قرارك الآن."), ("open", "لا تذاكر مفتوحة."), ("pending", "لا تذاكر بانتظار العميل."),
+                        ("escalated", "لا تذاكر مُصعَّدة.")):
         flow.press("#nav-home", lambda: flow.screen(f"#home-{entry}"), "الرئيسية")
         flow.press(f"#home-{entry}", lambda: flow.screen(f"text={text}"), entry)
         _audit(flow, f"list-{entry}")
@@ -441,7 +467,7 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
     flow.open_tools()
     flow.press("text=عبارات وأسئلة جاهزة", lambda: flow.screen("#phrase-copy-THANKS_SORRY"), "عبارات وأسئلة جاهزة")
     _audit(flow, "tool-phrases")
-    flow.press("#phrase-copy-THANKS_SORRY", lambda: flow.screen("text=نُسخت. الصقها في الردّ."), "انسخ")
+    flow.press("#phrase-copy-THANKS_SORRY", lambda: flow.screen("[role=status]:has-text('نُسخت.')"), "انسخ")
     assert page.evaluate("() => navigator.clipboard.readText()") == "شكراً على تواصلكم، ونأسف لما حدث."
     assert not flow.failures(), "\n".join(flow.failures())
     if size == "gaze":

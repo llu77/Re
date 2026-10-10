@@ -64,7 +64,10 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
   const gaze = size === "gaze"
   const draft = fromDraft && ticket.draft?.current ? ticket.draft : null
   const english = ticket.language === "EN"
-  const [kind, setKind] = React.useState<ReplyKind>(initial?.kind ?? draft?.reply_kind ?? "ANSWER")
+  // ما دامت التذكرة مُصعَّدة فلا ردّ بالحلّ (القاعدة ترفضه): تحديث الحالة أو طلب معلومات.
+  const kinds: ReplyKind[] = ticket.status === "ESCALATED" ? ["UPDATE", "ASK_INFO"] : ["ANSWER", "ASK_INFO", "UPDATE"]
+  const wanted = initial?.kind ?? draft?.reply_kind ?? kinds[0]
+  const [kind, setKind] = React.useState<ReplyKind>(kinds.includes(wanted) ? wanted : kinds[0])
   const [text, setText] = React.useState(initial?.text ?? draft?.body ?? "")
   const [tool, setTool] = React.useState<Tool | null>(null)
   const [removed, setRemoved] = React.useState<Set<number>>(new Set())
@@ -122,11 +125,11 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
   const kindField = (
     <RadioCards<ReplyKind>
       label="نوع الردّ"
-      options={(["ANSWER", "ASK_INFO", "UPDATE"] as ReplyKind[]).map((value) => ({ value, title: REPLY_KIND[value] }))}
+      options={kinds.map((value) => ({ value, title: REPLY_KIND[value] }))}
       value={kind}
       onValueChange={setKind}
       columns={gaze ? 1 : 2}
-      ids={{ ANSWER: "compose-kind-ANSWER", ASK_INFO: "compose-kind-ASK_INFO", UPDATE: "compose-kind-UPDATE" }}
+      ids={Object.fromEntries(kinds.map((value) => [value, `compose-kind-${value}`]))}
     />
   )
   const textField = (
@@ -263,7 +266,7 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
     }
     const kindPicker = (
       <GazeHost>
-        <Picker id="compose-kind" label="نوع الردّ" options={(["ANSWER", "ASK_INFO", "UPDATE"] as ReplyKind[]).map((value) => ({ value, label: REPLY_KIND[value] }))} value={kind} onValueChange={(value) => setKind(value as ReplyKind)} />
+        <Picker id="compose-kind" label="نوع الردّ" options={kinds.map((value) => ({ value, label: REPLY_KIND[value] }))} value={kind} onValueChange={(value) => setKind(value as ReplyKind)} />
       </GazeHost>
     )
     return (

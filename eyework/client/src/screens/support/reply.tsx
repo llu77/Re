@@ -51,9 +51,9 @@ export interface ReplyScreenProps {
 
 function reviewLine(reply: Ticket["live_reply"], reviewing: boolean, answer: ReviewAnswer | null, flags: AiFlag[]): string | null {
   if (!reply?.needs_review) return null
-  if (reviewing) return "سيمبول يراجع الردّ… يمكنك نسخه دون انتظار."
+  if (reviewing) return "سيمبول يراجع الردّ…"
   if (!answer) return null
-  if (answer.review.status !== "DONE") return answer.review.message ?? "مراجعة سيمبول غير متاحة الآن. يمكنك المتابعة."
+  if (answer.review.status !== "DONE") return answer.review.message ?? "مراجعة سيمبول غير متاحة الآن."
   if (!flags.length) return "راجع سيمبول الردّ ولم يجد ما يُستغرب."
   const open = flags.filter((f) => f.decision !== "PROCEED").length
   if (open === 0) return "قرّرتَ في ملاحظات سيمبول."
@@ -395,7 +395,7 @@ export function ReplyScreen(props: ReplyScreenProps) {
           {again}
           {cards.length ? <div className="flex flex-col gap-tg">{cards}</div> : null}
           {sendButtons}
-          {blocked ? <p className="text-small font-semibold text-warning">قرّر في كل تنبيهٍ قبل النسخ.</p> : null}
+          {blocked ? <p className="text-small font-semibold text-warning">لم تقرّر في كل تنبيه.</p> : null}
           {body}
         </>
       )}

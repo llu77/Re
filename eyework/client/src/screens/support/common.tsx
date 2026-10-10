@@ -2,7 +2,7 @@
  * ما تشترك فيه شاشات مكتب الدعم
  * ==============================
  *   • شارات التذكرة: الحالة، والأولوية، وزمن الخدمة («متبقٍّ للردّ ٣٥ د»، «تأخّر الردّ ١ س»، «الوقت متوقّف»).
- *   • `TicketTable`: قوائم التذاكر بصفٍّ واحدٍ يُفتح (DataTable): «#12 · الموضوع» ثم الأولوية والزمن وما ينتظر.
+ *   • `TicketTable`: قوائم التذاكر بصفٍّ واحدٍ يُفتح (DataTable): «#12 · الموضوع» ثم العميل والقناة والأولوية والزمن وما ينتظر.
  *   • `MaskedText`: نصّ العميل كما حُفظ، وما حُذف منه («[بريد محذوف]») شارةً لا نصّاً عادياً.
  *   • `Steps`: خطوات الحجم الكبير: الخطوة الحالية وحدها، و«السابق»/«التالي» في شريط الإجراءات.
  *   • `Fail`: رسالة الخادم كما هي، وحقلها إن سمّاه.
@@ -16,7 +16,7 @@ import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { DataTable } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { detail, errorField, type ApiResult } from "@/lib/api"
-import { CATEGORY, PRIORITY, STATUS, slaText, ticketTitle, type Paged, type Priority, type TicketRow, type TicketStatus } from "@/lib/support"
+import { CATEGORY, CHANNEL, PRIORITY, STATUS, slaText, ticketTitle, type Paged, type Priority, type TicketRow, type TicketStatus } from "@/lib/support"
 import { LONG_LIST_PAGE, usePageSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
@@ -70,12 +70,13 @@ export function TicketTable({ caption, data, page, onPage, onOpen, empty }: {
       rowKey={(row) => row.id}
       columns={[
         { id: "title", header: "التذكرة", cell: (row) => ticketTitle(row) },
+        { id: "customer", header: "العميل", cell: (row) => [row.customer_label, CHANNEL[row.channel]].filter(Boolean).join(" · ") },
         { id: "priority", header: "الأولوية", cell: (row) => <PriorityBadge priority={row.priority} /> },
         { id: "sla", header: "الوقت", cell: (row) => <SlaBadge row={row} /> },
         { id: "waiting", header: "ينتظر", cell: (row) => waitingText(row) ?? STATUS[row.status] },
       ]}
       primary={(row) => ticketTitle(row)}
-      secondary={(row) => [PRIORITY[row.priority], row.category ? CATEGORY[row.category] : null, slaText(row.sla)?.text, waitingText(row)].filter(Boolean).join(" · ")}
+      secondary={(row) => [row.customer_label, CHANNEL[row.channel], PRIORITY[row.priority], row.category ? CATEGORY[row.category] : null, slaText(row.sla)?.text, waitingText(row)].filter(Boolean).join(" · ")}
       trailing={(row) => <StatusBadge status={row.status} className="gaze:hidden" />}
       onOpen={onOpen}
       openLabel={(row) => `افتح التذكرة ${row.number}`}

@@ -152,10 +152,12 @@ CREATE TABLE support_tickets (
     -- من أين جاءت الرسالة. الردّ يُرسل من القناة نفسها، خارج التطبيق.
     channel            text NOT NULL CONSTRAINT support_ticket_channel
                            CHECK (channel IN ('MESSAGING', 'EMAIL', 'PHONE', 'IN_PERSON', 'WEB_FORM', 'OTHER')),
-    -- ما يعرف به الموظف العميل في الطابور وفي التحية. لا يصل النموذج أبداً.
+    -- ما يعرف به الموظف العميل في الطابور وفي التحية. لا يصل النموذج أبداً. كلماتٌ بحروفٍ وأرقام، تصل بينها
+    -- داخل الكلمة شَرطةٌ أو فاصلةٌ عليا أو نقطة (Al-Otaibi، O'Brien، د. سارة)؛ ونظيره LABEL_SHAPE في support.py.
     customer_label     text CONSTRAINT support_customer_label_shape CHECK (customer_label IS NULL OR (
                            char_length(customer_label) BETWEEN 1 AND 30
-                           AND customer_label ~ '^[ء-غف-يa-zA-Z0-9٠-٩]+( [ء-غف-يa-zA-Z0-9٠-٩]+)*$'
+                           AND customer_label ~ ('^[ء-غف-يa-zA-Z0-9٠-٩]+([''.-][ء-غف-يa-zA-Z0-9٠-٩]+)*\.?'
+                                                 '( [ء-غف-يa-zA-Z0-9٠-٩]+([''.-][ء-غف-يa-zA-Z0-9٠-٩]+)*\.?)*$')
                            AND ew_support_contact_free(customer_label))),
     subject            text CONSTRAINT support_subject_shape CHECK (subject IS NULL OR (
                            char_length(subject) BETWEEN 3 AND 80 AND ew_support_text_ok(subject, false)

@@ -432,7 +432,7 @@ QUESTIONS = {
 QUESTION_INTRO = ("لنساعد في حلّ المشكلة بسرعة، نرجو تزويدنا بما يلي:", "To help us solve this quickly, please tell us:")
 QUESTION_CLOSE = ("وسنعود إليكم فور وصولها.", "We will get back to you as soon as we have these.")
 UPDATE_TEMPLATES = {
-    "ESCALATED": ("أُحيلت المسألة إلى الفريق المختص، وسنبلغكم بما يصل.",
+    "ESCALATED": ("أُحيلت المسألة إلى الفريق المختص، وسنوافيكم بالمستجدات.",
                   "We have passed your request to the specialist team and will let you know as soon as we hear back."),
     "WORKING": ("نعمل على المشكلة الآن، وسنعود إليكم بالنتيجة.",
                 "We are working on the problem now and will get back to you with the result."),

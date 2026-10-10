@@ -1,11 +1,11 @@
 /*
- * قاعدة المعرفة: القائمة، والمقالة، والمحرّر، والاعتماد، و«تحسين المسودات»
- * =======================================================================
+ * قاعدة المعرفة: القائمة، والمقالة، والمحرّر، والنشر، و«تحسين المسودات»
+ * =====================================================================
  * المقالات المنشورة وحدها يقرؤها سيمبول ويقتبس منها. المقالة بهيكل KCS: المشكلة كما يصفها العميل، والبيئة،
- * والحلّ خطوةً خطوة، والسبب. كل تعديلٍ نسخةٌ جديدة لا تُقرأ حتى تُعتمد؛ و«اعتمد» يراجعه سيمبول أولاً
- * (/api/ai/review بالأداة SUPPORT_ARTICLE_REVIEW) وملاحظاته تنتظر قرار الموظف قبل الاعتماد.
+ * والحلّ خطوةً خطوة، والسبب. كل تعديلٍ نسخةٌ جديدة لا تُقرأ حتى تُنشر؛ و«انشر» يراجعه سيمبول أولاً
+ * (/api/ai/review بالأداة SUPPORT_ARTICLE_REVIEW) وملاحظاته تنتظر قرار الموظف قبل النشر.
  * و«تحسين المسودات»: لماذا رُفضت المسودات، والتذاكر التي لم تجد القاعدة لها جواباً (منها تُكتب مقالة، أو
- * يقترحها سيمبول من التذكرة)، والمقالات التي تحتاج نظرة.
+ * تبدأ بموضوع التذكرة وكلام العميل)، والمقالات التي تحتاج مراجعة.
  */
 
 import * as React from "react"
@@ -36,7 +36,7 @@ const STATE_TONE: Record<ArticleRow["state"], "success" | "info" | "neutral" | "
 
 function rowLine(row: ArticleRow): string {
   const parts = [ARTICLE_STATE[row.state]]
-  if (row.state === "PUBLISHED" && row.published_version !== row.latest_version) parts.push("نسخةٌ جديدة لم تُعتمد")
+  if (row.state === "PUBLISHED" && row.published_version !== row.latest_version) parts.push("نسخةٌ جديدة لم تُنشر")
   if (row.needs_review) parts.push("تحتاج مراجعة")
   if (row.reuse_count) parts.push(`استُعملت ${row.reuse_count} مرة`)
   return parts.join(" · ")
@@ -59,7 +59,7 @@ function ArticleTable({ caption, rows, total, page, onPage, onOpen, empty }: {
       rowKey={(row) => row.id}
       columns={[
         { id: "title", header: "المقالة", cell: (row) => `KB-${row.number} · ${row.title}` },
-        { id: "state", header: "الحال", cell: (row) => rowLine(row) },
+        { id: "state", header: "الحالة", cell: (row) => rowLine(row) },
       ]}
       primary={(row) => `KB-${row.number} · ${row.title}`}
       secondary={rowLine}
@@ -127,7 +127,7 @@ export function KbListScreen({ view, query, data, page, onPage, onView, onSearch
       )}
       {query ? table : (
         <Tabs
-          items={[{ id: "published", label: "المنشورة" }, { id: "attention", label: "تحتاج نظرة" }, { id: "drafts", label: "المسودات" }, { id: "archived", label: "المؤرشفة" }]}
+          items={[{ id: "published", label: "المنشورة" }, { id: "attention", label: "تحتاج مراجعة" }, { id: "drafts", label: "المسودات" }, { id: "archived", label: "المؤرشفة" }]}
           value={view}
           onValueChange={(id) => onView(id as KbView)}
           label="المقالات"
@@ -178,7 +178,7 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
   }
   const actions: React.ReactNode[] = []
   if (article.state !== "DISCARDED") actions.push(<Button key="edit" id="article-edit" icon={PencilLine} onClick={onEdit}>عدّل</Button>)
-  if (article.state !== "DISCARDED" && unpublished) actions.push(<Button key="publish" id="article-publish" variant="secondary" icon={CheckCircle2} onClick={onPublish}>اعتمد</Button>)
+  if (article.state !== "DISCARDED" && unpublished) actions.push(<Button key="publish" id="article-publish" variant="secondary" icon={CheckCircle2} onClick={onPublish}>انشر</Button>)
   if (article.state === "PUBLISHED") {
     actions.push(article.needs_review
       ? <Button key="fixed" id="article-fixed" icon={FlagOff} busy={busy === "review"} onClick={() => void run("review", () => onMarkReview(false))}>أُصلحت</Button>
@@ -243,9 +243,11 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
 
 const EMPTY: ArticleFields = { title: "", issue: "", environment: null, resolution: "", cause: null }
 
-export function ArticleEditor({ article, sourceTicket, onSave, onBack }: {
+export function ArticleEditor({ article, initial = null, sourceTicket, onSave, onBack }: {
   /** المقالة التي تُضاف إليها نسخة، أو null لمقالةٍ جديدة. */
   article: Article | null
+  /** ما تبدأ به المقالة الجديدة (من تذكرتها)، أو null لصفحةٍ فارغة. */
+  initial?: ArticleFields | null
   /** التذكرة التي تُكتب منها المقالة («ثغرات القاعدة»)، أو null. */
   sourceTicket: { id: string; number: number | null } | null
   onSave: (fields: ArticleFields) => Promise<Fail>
@@ -254,7 +256,7 @@ export function ArticleEditor({ article, sourceTicket, onSave, onBack }: {
   const { size } = useSize()
   const gaze = size === "gaze"
   const latest = article?.versions[0]
-  const [fields, setFields] = React.useState<ArticleFields>(latest ? { title: latest.title, issue: latest.issue, environment: latest.environment, resolution: latest.resolution, cause: latest.cause } : EMPTY)
+  const [fields, setFields] = React.useState<ArticleFields>(latest ? { title: latest.title, issue: latest.issue, environment: latest.environment, resolution: latest.resolution, cause: latest.cause } : initial ?? EMPTY)
   const [step, setStep] = React.useState(0)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [fail, setFail] = React.useState<Fail>(null)
@@ -332,7 +334,7 @@ export function ArticleEditor({ article, sourceTicket, onSave, onBack }: {
   )
 }
 
-/* ── الاعتماد ────────────────────────────────────────────────────── */
+/* ── النشر ───────────────────────────────────────────────────────── */
 
 export function PublishScreen({ article, reviewing, answer, late, onReviewAgain, onDecide, onPublish, onBack }: {
   article: Article
@@ -346,7 +348,7 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
 }) {
   const { size } = useSize()
   const gaze = size === "gaze"
-  // بمعرّف الصفحة لا رقمها: ملاحظاتٌ متأخرة (409 بعد «اعتمد المقالة») تُدرج قبل صفحة الاعتماد ولا تحلّ محلّها.
+  // بمعرّف الصفحة لا رقمها: ملاحظاتٌ متأخرة (409 بعد «انشر المقالة») تُدرج قبل صفحة النشر ولا تحلّ محلّها.
   const [pageId, setPageId] = React.useState("summary")
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
@@ -355,7 +357,7 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
   const latest = article.versions[0]
   const line = reviewing ? "سيمبول يراجع المقالة…"
     : !answer ? null
-    : answer.review.status !== "DONE" ? answer.review.message ?? "مراجعة سيمبول غير متاحة الآن. يمكنك الاعتماد."
+    : answer.review.status !== "DONE" ? answer.review.message ?? "مراجعة سيمبول غير متاحة الآن."
     : flags.length === 0 ? "راجع سيمبول المقالة ولم يجد ما يُستغرب."
     : open.length ? `${open.length} من ملاحظات سيمبول تنتظر قرارك.` : "قرّرتَ في ملاحظات سيمبول."
   const statusLine = line ? <p id="publish-review" role="status" className="text-small font-semibold text-muted-foreground">{line}</p> : null
@@ -366,19 +368,19 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
     setBusy(false)
   }
   const cards = flags.map((flag) => (
-    <AIFlag key={flag.id} name={null} message={flag.headline} reason={flag.suggestion ?? "راجع المقالة قبل اعتمادها."} evidence={gaze ? undefined : flag.evidence}
+    <AIFlag key={flag.id} name={null} message={flag.headline} reason={flag.suggestion ?? "راجع المقالة قبل نشرها."} evidence={gaze ? undefined : flag.evidence}
       status={flag.decision === "PROCEED" ? "acknowledged" : "open"} onEdit={() => void onDecide(flag, "EDIT").then(() => onBack(true))}
       onProceed={() => void onDecide(flag, "PROCEED")} onUndo={() => void onDecide(flag, "UNDO")} actionsFirst={gaze} />
   ))
   const publishButton = (
     <Button id="publish-submit" variant="primary" size="lg" commit icon={CheckCircle2} busy={busy} disabled={reviewing || open.length > 0} onClick={() => void publish()} className="gaze:w-full">
-      اعتمد المقالة
+      انشر المقالة
     </Button>
   )
   const again = !reviewing && answer && answer.review.status !== "DONE" ? <Button id="publish-review-again" icon={RefreshCw} onClick={onReviewAgain}>أعد المراجعة</Button> : null
-  const failAlert = fail ? <Alert tone="danger" title="لم تُعتمد" live>{fail.message}</Alert> : null
+  const failAlert = fail ? <Alert tone="danger" title="لم تُنشر" live>{fail.message}</Alert> : null
   if (gaze) {
-    // الملخّص أوّلاً (لا شيء يُضغط تحت نظرٍ وصل من «اعتمد»)، ثم ملاحظةٌ في كل صفحة، ثم «اعتمد المقالة» في أعلى آخرها.
+    // الملخّص أوّلاً (لا شيء يُضغط تحت نظرٍ وصل من «انشر»)، ثم ملاحظةٌ في كل صفحة، ثم «انشر المقالة» في أعلى آخرها.
     const pages = [{ id: "summary" }, ...flags.map((f) => ({ id: `flag-${f.id}` })), { id: "publish" }]
     const index = Math.max(0, pages.findIndex((p) => p.id === pageId))
     const at = pages[index]
@@ -386,7 +388,7 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
     const flagIndex = index - 1
     const decided = at.id.startsWith("flag-") ? flags[flagIndex].decision === "PROCEED" : !(at.id === "summary" && reviewing)
     return (
-      <Screen title={at.id.startsWith("flag-") ? `ملاحظة ${flagIndex + 1} من ${cards.length}` : "اعتمد المقالة"}
+      <Screen title={at.id.startsWith("flag-") ? `ملاحظة ${flagIndex + 1} من ${cards.length}` : "انشر المقالة"}
         actions={
           <>
             <Button id="publish-prev" icon={BackIcon} onClick={index === 0 ? () => onBack(false) : () => setPage(index - 1)}>{index === 0 ? "المقالة" : "السابق"}</Button>
@@ -400,7 +402,7 @@ export function PublishScreen({ article, reviewing, answer, late, onReviewAgain,
     )
   }
   return (
-    <Screen title="اعتمد المقالة" description={`KB-${article.number} · ${latest.title} · النسخة ${latest.version}`} back={{ id: "publish-back", label: "المقالة", onClick: () => onBack(false) }}
+    <Screen title="انشر المقالة" description={`KB-${article.number} · ${latest.title} · النسخة ${latest.version}`} back={{ id: "publish-back", label: "المقالة", onClick: () => onBack(false) }}
       actions={<><div>{again}</div><div className="ms-auto">{publishButton}</div></>}>
       {failAlert}
       {statusLine}
@@ -441,7 +443,7 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
           { id: "reason", header: "السبب", cell: (g) => `${REJECT_REASON[g.reason]}${g.note ? `: ${g.note}` : ""}` },
         ]}
         primary={(g) => `#${g.ticket_number} · ${REJECT_REASON[g.reason]}`}
-        secondary={(g) => g.note ?? "اكتب مقالةً تجيب عنها"}
+        secondary={(g) => g.note ?? "بلا ملاحظة"}
         onOpen={onWrite}
         openLabel={(g) => `اكتب مقالة من التذكرة ${g.ticket_number}`}
         pageSize={{ compact: 20, gaze: 2, gazeShort: 1 }}
@@ -451,7 +453,7 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
       />
     )
   } else if (data && tab === "attention") {
-    body = <ArticleTable caption="تحتاج نظرة" rows={data.attention} page={page} onPage={setPage} onOpen={onOpenArticle} empty={<EmptyState icon={BookOpen} title="لا مقالة تحتاج نظرة" />} />
+    body = <ArticleTable caption="تحتاج مراجعة" rows={data.attention} page={page} onPage={setPage} onOpen={onOpenArticle} empty={<EmptyState icon={BookOpen} title="لا مقالة تحتاج مراجعة" />} />
   }
   return (
     <Screen
@@ -460,7 +462,7 @@ export function ImproveScreen({ data, onWrite, onOpenArticle, onBack }: {
       actions={gaze ? <><Button id="improve-prev" icon={BackIcon} onClick={onBack}>القاعدة</Button><span aria-hidden="true" /></> : undefined}
     >
       <Tabs
-        items={[{ id: "gaps", label: "ثغرات القاعدة", count: data?.gaps.length }, { id: "reasons", label: "أسباب الرفض" }, { id: "attention", label: "تحتاج نظرة", count: data?.attention.length }]}
+        items={[{ id: "gaps", label: "ثغرات القاعدة", count: data?.gaps.length }, { id: "reasons", label: "أسباب الرفض" }, { id: "attention", label: "تحتاج مراجعة", count: data?.attention.length }]}
         value={tab}
         onValueChange={(id) => { setTab(id as ImproveTab); setPage(0) }}
         label="تحسين المسودات"

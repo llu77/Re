@@ -465,7 +465,7 @@ def _reply_evidence(payload: Mapping, _number: int | None) -> tuple[str, ...]:
     return (f"رسالة العميل: {payload.get('last_message', '')}", f"أوّل الردّ: {first}")
 
 
-_KIND_NAMES = {"ANSWER": "جوابٌ يحلّ المشكلة", "ASK_INFO": "طلب معلومات", "UPDATE": "إفادةٌ بالمتابعة"}
+_KIND_NAMES = {"ANSWER": "ردٌّ بالحلّ", "ASK_INFO": "طلب معلومات", "UPDATE": "تحديث الحالة"}
 
 
 def _kind_evidence(payload: Mapping, _number: int | None) -> tuple[str, ...]:

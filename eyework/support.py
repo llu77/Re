@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 import uuid
 from contextlib import contextmanager
 from typing import Iterator, Mapping, Sequence
@@ -197,9 +198,18 @@ _VIEWS = {
     "resolved": "t.status = 'RESOLVED'",
     "closed": "t.status = 'CLOSED'",
 }
-_ORDER = """
- ORDER BY CASE t.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'NORMAL' THEN 2 ELSE 3 END,
-          t.first_reply_due_at, t.number
+#: الموعد الذي يسري الآن: موعد أول ردٍّ ما لم يُردّ، وإلا موعد الحلّ (بدء الساعة الجارية وما بقي من مدّتها).
+_DUE = ("CASE WHEN t.first_replied_at IS NULL THEN t.first_reply_due_at"
+        " ELSE t.clock_since + make_interval(secs => t.resolve_minutes * 60 - t.wait_seconds) END")
+#: الأقرب موعداً أولاً، فالمتجاوزة مهلتها قبل غيرها؛ ثم الأعلى أولوية.
+_ORDER = f"""
+ ORDER BY {_DUE} NULLS LAST,
+          CASE t.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'NORMAL' THEN 2 ELSE 3 END, t.number
+"""
+#: بانتظار العميل: أقدمها انتظاراً أولاً، من دخولها الانتظار (الملاحظة الداخلية لا تؤخّرها).
+_ORDER_WAITING = """
+ ORDER BY (SELECT max(e.at) FROM support_events e WHERE e.ticket_id = t.id AND e.to_status = 'PENDING') NULLS LAST,
+          t.number
 """
 _COUNTS = """
 SELECT (SELECT count(*) FROM support_tickets t
@@ -281,7 +291,8 @@ def list_tickets(db: Database, user_id: UUID, view: str, page: int, size: int = 
     if view not in _VIEWS:
         raise Invalid("VIEW", field="view")
     page, size = _page(page), _size(size)
-    order = " ORDER BY t.updated_at DESC, t.number DESC" if view in ("resolved", "closed") else _ORDER
+    order = (" ORDER BY t.updated_at DESC, t.number DESC" if view in ("resolved", "closed")
+             else _ORDER_WAITING if view == "pending" else _ORDER)
     with db.session(user_id) as cursor:
         rows = _rows(cursor, _TICKET_COLUMNS.replace("SELECT t.id,", "SELECT count(*) OVER () AS total, t.id,", 1)
                      + f" WHERE {_VIEWS[view]}" + order + " LIMIT %s OFFSET %s", (size, (page - 1) * size))
@@ -313,6 +324,7 @@ _ESCALATION = """
 SELECT target, note, created_at, returned_at, return_note FROM support_escalations
  WHERE ticket_id = %s ORDER BY created_at DESC LIMIT 1
 """
+_PARENT_NUMBER = "SELECT number FROM support_tickets WHERE id = %s"
 _SIGNATURE = "SELECT signature FROM support_settings"
 _DRAFTS_TODAY = """
 SELECT count(*) AS n FROM ai_requests
@@ -390,6 +402,7 @@ def _ticket_view(db: Database, user_id: UUID, ticket_id: UUID) -> dict:
         live = _one(cursor, _LIVE_REPLY, (ticket_id,))
         live_view = None if live is None else _reply_view(db, user_id, cursor, live, language)
         escalation = _one(cursor, _ESCALATION, (ticket_id,))
+        parent = None if row["follow_up_of"] is None else _one(cursor, _PARENT_NUMBER, (row["follow_up_of"],))
         facts = {"priority": row["priority"], "suggested_priority": row["suggested_priority"], "language": language,
                  "resolution": row["resolution"],
                  "because": None if draft is None else rules.priority_reason(draft["impact"], draft["urgency"],
@@ -415,6 +428,7 @@ def _ticket_view(db: Database, user_id: UUID, ticket_id: UUID) -> dict:
             "returned_at": _iso(escalation["returned_at"]), "return_note": escalation["return_note"]},
         "flags": ticket_flags,
         "follow_up_of": None if row["follow_up_of"] is None else str(row["follow_up_of"]),
+        "follow_up_number": None if parent is None else parent["number"],
         "resolution": row["resolution"], "close_reason": row["close_reason"],
         "texts_purged": row["texts_purged_at"] is not None,
         "allowed": {
@@ -430,7 +444,9 @@ def _ticket_view(db: Database, user_id: UUID, ticket_id: UUID) -> dict:
             "resolve": status in ("NEW", "OPEN", "PENDING") and live is None,
             "reopen": status == "RESOLVED",
             "follow_up": status == "CLOSED",
-            "note": status in open_states,
+            # ردّ العميل على المحلولة يعيد فتحها (0011)، والملاحظة تبقيها محلولة.
+            "note": status in open_states or status == "RESOLVED",
+            "classify": status != "CLOSED",
         },
         "ai": {"draft_left_today": None if usage["per_day"] is None else max(0, min(
             usage["per_day"] - (usage["used_today"] or 0), 8 - used))},
@@ -467,11 +483,20 @@ def mask_preview(text: str) -> dict:
     return {"text": masked, "masked": counts, "language": rules.language_of(masked)}
 
 
+#: التشكيل والتطويل لا يُحفظان: «محمّد» يُحفظ «محمد».
+_MARKS = re.compile("[\u0610-\u061a\u0640\u064b-\u065f\u0670\u06d6-\u06ed]")
+#: نظير `support_customer_label_shape` في 0011: كلماتٌ بحروفٍ وأرقام، تصل بينها داخل الكلمة شَرطةٌ أو فاصلةٌ عليا
+#: أو نقطة (Al-Otaibi، O'Brien، د. سارة)، وبين الكلمات مسافةٌ واحدة.
+_WORD = "[ء-غف-يa-zA-Z0-9٠-٩]+(?:['.-][ء-غف-يa-zA-Z0-9٠-٩]+)*\\.?"
+LABEL_SHAPE = f"^{_WORD}(?: {_WORD})*$"
+
+
 def _label(value: str | None) -> str | None:
     if value is None or not value.strip():
         return None
-    label = " ".join(value.split())
-    if not 1 <= len(label) <= 30 or not rules.contact_free(label):
+    # الفاصلة العليا كما يكتبها iOS (’) هي الفاصلة نفسها.
+    label = " ".join(_MARKS.sub("", value).replace("\u2019", "'").replace("\u2018", "'").split())
+    if not 1 <= len(label) <= 30 or not re.fullmatch(LABEL_SHAPE, label) or not rules.contact_free(label):
         raise Invalid("LABEL", field="customer_label")
     return label
 
