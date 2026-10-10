@@ -9,9 +9,13 @@
 
 **شكل الطلب ثابت.** النموذج `claude-opus-5-5` عبر `client.beta.messages`
 بالبديل من جهة الخادم والمخرجات المنظّمة والجهد الصريح. لا `thinking`
-(التفكير دائمٌ على هذا النموذج، وتحديده يعيد 400)، ولا أدوات ولا إجبار
-(400 كذلك)، ولا معاملات عيّنة. `max_retries=0`: محاولةٌ انتهت مهلتها ربما
-فُوتر، وإعادتها خفيةً تُخفي ذلك عن السقوف.
+(التفكير دائمٌ على هذا النموذج، وتحديده يعيد 400)، ولا إجبار على أداة
+(`tool_choice` من نوع any/tool يعيد 400 كذلك)، ولا معاملات عيّنة. أدوات القراءة
+في `tools` حين يحملها الطلب (المساعد)، صارمةً (`strict`)، والجواب الأخير بالمخرجات
+المنظّمة نفسها: طلب أداةٍ يعود بـ`stop_reason = tool_use` وكتلها، ويُعاد محتوى
+دور المساعد كما هو (بكتل التفكير) قبل نتائج الأدوات في الاستدعاء التالي.
+`max_retries=0`: محاولةٌ انتهت مهلتها ربما فُوتر، وإعادتها خفيةً تُخفي ذلك عن
+السقوف.
 
 **البثّ من جهة الخادم وحده** للاستدعاءات الطويلة (مسودات الدعم): يُفحص الوقت
 مع كل حدث، وبعد المهلة يُغلق الردّ وتُسجَّل مهلةٌ محسوبة. لا يصل العميل حرفٌ
@@ -41,7 +45,7 @@ from eyework.ai_limits import (
     BREAKER_WINDOW_SECONDS,
     STREAM_TIMEOUT_SECONDS,
 )
-from eyework.prompt_kit import Gateway, ModelCall, ModelReply
+from eyework.prompt_kit import Gateway, ModelCall, ModelReply, ToolCall
 
 __all__ = [
     "BETAS",
@@ -182,6 +186,14 @@ def _read(message, request: ModelCall, request_id: str | None) -> ModelReply:
                           thinking_tokens=thinking)
     if message.stop_reason == "max_tokens":
         return ModelReply("OUTPUT_INVALID", None, usage, "max_tokens", None, True, None, thinking_tokens=thinking)
+    if message.stop_reason == "tool_use":
+        # طلب أدوات: كتل tool_use بمدخلٍ يطابق مخطّطها (strict)، ومحتوى الدور كما عاد ليُعاد في الاستدعاء التالي.
+        calls = tuple(ToolCall(block.id, block.name, dict(block.input))
+                      for block in message.content if block.type == "tool_use")
+        if not calls:
+            return ModelReply("OUTPUT_INVALID", None, usage, "tool_use", None, True, None, thinking_tokens=thinking)
+        return ModelReply("OK", None, usage, "tool_use", None, True, None, thinking_tokens=thinking,
+                          tool_calls=calls, content=tuple(message.content))
     text = next((block.text for block in message.content if block.type == "text"), None)
     try:
         parsed = json.loads(text) if text is not None else None
@@ -201,16 +213,19 @@ class AnthropicGateway:
 
     @staticmethod
     def params(request: ModelCall) -> dict:
-        """جسم الطلب كما يغادر. ما ليس هنا لا يُرسل."""
-        return {
+        """جسم الطلب كما يغادر. ما ليس هنا لا يُرسل؛ و`tools` حين يحملها الطلب وحده."""
+        params = {
             "model": MODEL,
             "max_tokens": request.max_tokens,
             "betas": list(BETAS),
             "fallbacks": "default",
             "output_config": {"effort": request.effort, "format": {"type": "json_schema", "schema": request.schema}},
             "system": list(request.system),
-            "messages": [{"role": "user", "content": request.user}],
+            "messages": [{"role": "user", "content": request.user}, *request.turns],
         }
+        if request.tools:
+            params["tools"] = list(request.tools)
+        return params
 
     def _stream(self, params: dict, deadline: float):
         """

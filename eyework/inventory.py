@@ -1949,7 +1949,7 @@ SELECT i.name, i.unit, i.on_hand_milli, i.reorder_level_milli, i.target_level_mi
   FROM inv_items i
  WHERE i.is_active AND i.kind = 'STOCK' AND i.reorder_level_milli IS NOT NULL AND i.on_hand_milli <= i.reorder_level_milli
  ORDER BY (i.on_hand_milli - i.reorder_level_milli), i.name_key
- LIMIT 8
+ LIMIT %s
 """
 _TOOL_PURCHASES = """
 SELECT p.number, p.invoice_date, p.printed_total_halalas,
@@ -1961,16 +1961,20 @@ SELECT p.number, p.invoice_date, p.printed_total_halalas,
 """
 
 
-def _tool_items(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
-    query = normalise_text(text)
-    if not query:
-        return ("يُكتب اسم المنتج أو رمزه.",)
+#: ما تعيده أدوات سيمبول للمخزون على الأكثر؛ وواحدٌ بعده يُعرف به أن غيره موجود.
+_TOOL_ITEMS, _TOOL_LOW_ROWS = 5, 8
+
+
+def _tool_items(cursor, user_id: UUID, tool_input: Mapping[str, Any]) -> tuple[str, ...]:
+    query = normalise_text(tool_input["query"])
+    if not query or len(query) > assistant.QUERY_MAX:
+        raise assistant.ToolError("query فارغ أو طويل. اكتب اسم المنتج أو كلمةً منه، أو رقمه أو رمزه عند المورّد أو الباركود.")
     digits = normalise_digits(query)
-    rows = _rows(cursor, _ITEM_SEARCH, (query, query, digits, digits, query, digits, 5))
+    rows = _rows(cursor, _ITEM_SEARCH, (query, query, digits, digits, query, digits, _TOOL_ITEMS + 1))
     if not rows:
-        return (f"لا منتج يطابق «{query}».",)
+        return (f"لا منتج نشطاً يطابق «{query}». جرّب كلمةً أقصر من الاسم، أو الرمز أو الباركود.",)
     lines = []
-    for row in rows:
+    for row in rows[:_TOOL_ITEMS]:
         line = f"{row['name']} (رقم {row['number']}"
         line += f"، رمز المورّد {row['supplier_code']})" if row["supplier_code"] else ")"
         if row["kind"] == "STOCK":
@@ -1982,25 +1986,29 @@ def _tool_items(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
         if row["last_price_halalas"] is not None:
             line += f"، وآخر سعر شراء {halalas_words(row['last_price_halalas'])} قبل الضريبة"
         lines.append(line)
+    if len(rows) > _TOOL_ITEMS:
+        lines.append(f"تطابق «{query}» أكثر من {_TOOL_ITEMS} منتجات: ابحث بكلمةٍ أدقّ أو بالرمز.")
     return assistant.fit(lines)
 
 
-def _tool_low(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
-    rows = _rows(cursor, _TOOL_LOW, ())
+def _tool_low(cursor, user_id: UUID, tool_input: Mapping[str, Any]) -> tuple[str, ...]:
+    rows = _rows(cursor, _TOOL_LOW, (_TOOL_LOW_ROWS + 1,))
     if not rows:
         return ("لا منتج تحت حدّ طلبه.",)
     lines = []
-    for row in rows:
+    for row in rows[:_TOOL_LOW_ROWS]:
         line = (f"{row['name']}: الرصيد {quantity_words(row['on_hand_milli'], row['unit'])}، "
                 f"وحدّ الطلب {quantity_words(row['reorder_level_milli'], row['unit'])}")
         suggestion = suggested_order(row["on_hand_milli"], row["reorder_level_milli"], row["target_level_milli"])
         if suggestion:
             line += f"، والمقترح طلبه {quantity_words(suggestion, row['unit'])}"
         lines.append(line)
+    if len(rows) > _TOOL_LOW_ROWS:
+        lines.append(f"هذه أبعد {_TOOL_LOW_ROWS} منتجات تحت حدّها؛ وفي «المخزون» غيرها.")
     return assistant.fit(lines)
 
 
-def _tool_purchases(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+def _tool_purchases(cursor, user_id: UUID, tool_input: Mapping[str, Any]) -> tuple[str, ...]:
     rows = _rows(cursor, _TOOL_PURCHASES, ())
     if not rows:
         return ("لا فاتورة شراءٍ مسجّلة بعد.",)
@@ -2018,19 +2026,34 @@ def _tool_purchases(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
 
 
 assistant.register_tool(assistant.Tool(
-    name="ITEMS", profession=Profession.STOREKEEPER,
-    description="المنتجات المطابقة لاسمٍ أو رمز (خمسة على الأكثر): الرصيد وحدّ الطلب وآخر سعر شراء.",
-    input_hint="اسم المنتج أو رمزه", label="بحث في المنتجات", run=_tool_items,
+    name="search_items", profession=Profession.STOREKEEPER,
+    description=(
+        "تبحث في منتجات المخزن النشطة بالاسم أو كلمةٍ منه، أو برقم المنتج في التطبيق، أو برمزه عند المورّد، أو "
+        "بالباركود، وتعيد خمسة على الأكثر: الاسم والرقم ورمز المورّد، والرصيد وحدّ الطلب للمنتج المخزّن، وآخر سعر "
+        "شراءٍ قبل الضريبة. استدعِها حين يسأل الموظف عن رصيد منتجٍ أو سعره أو وجوده. إن طابق أكثر من خمسة فالنتيجة "
+        "تقول ذلك: ابحث ثانيةً بكلمةٍ أدقّ أو بالرمز. لا تعيد الحركات ولا الفواتير ولا أسماء المورّدين."
+    ),
+    properties={"query": {"type": "string", "description": "ما يُبحث عنه: اسم المنتج أو كلمةٌ منه، أو رقمه، أو رمزه عند "
+                                                          "المورّد، أو الباركود؛ بلا كلماتٍ زائدة مثل «منتج» أو «رصيد»."}},
+    label="بحث في المنتجات", run=_tool_items, shown=lambda tool_input: normalise_text(tool_input["query"]),
 ))
 assistant.register_tool(assistant.Tool(
-    name="LOW_STOCK", profession=Profession.STOREKEEPER,
-    description="المنتجات التي بلغت حدّ طلبها أو نزلت تحته (ثمانية على الأكثر)، والمقترح طلبه.",
-    input_hint=None, label="المنتجات تحت حدّ الطلب", run=_tool_low,
+    name="list_low_stock_items", profession=Profession.STOREKEEPER,
+    description=(
+        "تعيد المنتجات النشطة التي بلغ رصيدها حدّ طلبها أو نزل تحته، الأبعد تحت حدّه أولاً، ثمانية على الأكثر: الرصيد "
+        "وحدّ الطلب والكمية المقترح طلبها حين يُعرف المستوى المستهدف، وتقول إن كان غيرها. استدعِها حين يسأل الموظف "
+        "عمّا يجب طلبه أو ما نقص من المخزن. لا تعيد المورّدين ولا الأسعار. لا تحتاج مدخلاً."
+    ),
+    properties={}, label="المنتجات تحت حدّ الطلب", run=_tool_low,
 ))
 assistant.register_tool(assistant.Tool(
-    name="PURCHASES", profession=Profession.STOREKEEPER,
-    description="آخر خمس فواتير شراءٍ مسجّلة: رقمها وتاريخها وعدد أسطرها وإجماليها المطبوع.",
-    input_hint=None, label="آخر فواتير الشراء", run=_tool_purchases,
+    name="list_recent_purchases", profession=Profession.STOREKEEPER,
+    description=(
+        "تعيد آخر خمس فواتير شراءٍ مسجّلة (لا المسودات)، الأحدث تسجيلاً أولاً: رقم الفاتورة في التطبيق وتاريخها وعدد "
+        "أسطرها وإجماليها المطبوع. استدعِها حين يسأل الموظف عن آخر مشترياته أو عن فاتورةٍ سجّلها مؤخراً. لا تعيد "
+        "أسماء المورّدين ولا أسطر الفاتورة. لا تحتاج مدخلاً."
+    ),
+    properties={}, label="آخر فواتير الشراء", run=_tool_purchases,
 ))
 #: معرّفات بنود رئيسية أمين المخزون في العميل (lib/workspace.ts)، بأسمائها.
 assistant.register_destinations(Profession.STOREKEEPER, (

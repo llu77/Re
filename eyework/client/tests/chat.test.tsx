@@ -30,7 +30,7 @@ function reply(status: number, body: unknown): Response {
 
 const ANSWER = {
   status: "ANSWER", text: "رصيد الماء 2 كرتون، تحت حدّ الطلب.", question_sent: "هل أطلب ماءً؟",
-  usage: { per_day: 60, used_today: 4 }, tools: [{ name: "ITEMS", label: "بحث في المنتجات", input: "ماء" }],
+  usage: { per_day: 60, used_today: 4 }, tools: [{ name: "search_items", label: "بحث في المنتجات", input: "ماء" }],
   open: { id: "stock", label: "المخزون" },
 }
 
@@ -90,8 +90,8 @@ describe("what goes with a question", () => {
   })
 
   it("names each tool as the employee reads it", () => {
-    expect(toolLine({ name: "ITEMS", label: "بحث في المنتجات", input: "ماء" })).toBe("بحث في المنتجات: «ماء»")
-    expect(toolLine({ name: "LOW_STOCK", label: "المنتجات تحت حدّ الطلب", input: "" })).toBe("المنتجات تحت حدّ الطلب")
+    expect(toolLine({ name: "search_items", label: "بحث في المنتجات", input: "ماء" })).toBe("بحث في المنتجات: «ماء»")
+    expect(toolLine({ name: "list_low_stock_items", label: "المنتجات تحت حدّ الطلب", input: "" })).toBe("المنتجات تحت حدّ الطلب")
     expect(historyOf([turn(1)])).toEqual([{ question: "سؤال 1", answer: "جواب 1" }])
   })
 })

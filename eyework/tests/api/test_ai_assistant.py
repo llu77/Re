@@ -24,7 +24,7 @@ from eyework.model_gateway import AnthropicGateway
 from eyework.tests.api.conftest import LOGIN_KEY, ORIGIN, add_user, approve, expect, generate, log_in, set_budget, \
     set_days, upload
 from eyework.tests.conftest import app_url_for
-from eyework.tests.fakes import ANSWER, FakeGateway, assistant_reply, model_reply, tool_request
+from eyework.tests.fakes import ANSWER, FakeGateway, assistant_reply, model_reply, tool_request, tool_requests
 from eyework.web.app import create_app
 
 MARKETER = "marketer@example.sa"
@@ -82,6 +82,15 @@ def _ask(client, kind: str = "HOME", *, screen_id: str | None = None, question: 
     return client.post("/api/ai/assistant", json=body)
 
 
+def _results(call) -> list[dict]:
+    """نتائج الأدوات التي حملها استدعاءٌ في أدوار حلقة الأدوات، بالترتيب."""
+    return [block for turn in call.turns if turn["role"] == "user" for block in turn["content"]]
+
+
+def _tools_sent(call) -> list[str]:
+    return [tool["name"] for tool in AnthropicGateway.params(call).get("tools", [])]
+
+
 def _tokens(owner) -> list[tuple]:
     with owner.cursor() as cursor:
         cursor.execute("SELECT input_tokens, output_tokens FROM ai_requests ORDER BY started_at")
@@ -132,10 +141,10 @@ def test_a_ready_question_is_answered_from_the_screens_data(marketer, owner, gat
     assert call.feature == "ASSISTANT" and call.effort == "low" and not call.stream
     assert "حملاتك: 1 نصٌّ مقترح" in call.user and "عنوان النسخة رقم 1 للمنتج" in call.user
     assert "<label>حملة جديدة</label>" in call.user and HOME.ready_questions[0] in call.user
-    # من المهنة اسمها وحده، ومعه أدواتها ووجهاتها: لا مهامّ ولا مهارات.
-    assert call.system[1]["text"].startswith('<profession name="التسويق"></profession>\n<tools>')
+    # من المهنة اسمها وحده، ومعه وجهاتها: لا مهامّ ولا مهارات. وأدواتها في `tools` صارمةً.
+    assert call.system[1]["text"].startswith('<profession name="التسويق"></profession>\n<destinations>')
     assert NAME not in call.user and NAME not in json.dumps(call.system, ensure_ascii=False)
-    assert "tools" not in AnthropicGateway.params(call)
+    assert _tools_sent(call) == ["calculate_vat", "list_campaigns"] and call.turns == ()
 
 
 def test_a_typed_question_is_masked_before_it_leaves_and_echoed_as_sent(marketer, owner, gateway):
@@ -170,80 +179,110 @@ def test_the_campaign_screen_sends_the_campaigns_data_without_its_id(marketer, o
 
 # ── الأدوات والمحادثة والوجهات ──────────────────────────────────────────
 def test_a_tool_round_reads_the_users_own_campaigns_and_suggests_a_screen(marketer, owner, gateway):
+    """«Handle tool calls»: دور المساعد بطلبه كما عاد، ثم النتيجة أوّل رسالة المستخدم بمعرّف الطلب."""
     client, _ = marketer
     generate(client, upload(client))
-    gateway.queue(tool_request("CAMPAIGNS"), assistant_reply(used=("TOOL",), open="campaigns"))
+    request = tool_request("list_campaigns")
+    gateway.queue(request, assistant_reply(used=("TOOL",), open="campaigns"))
     body = expect(_ask(client, question="ما حال آخر حملةٍ لي؟", ready=None))
     assert (body["status"], body["text"]) == ("ANSWER", ANSWER)
-    assert body["tools"] == [{"name": "CAMPAIGNS", "label": "حملاتك", "input": ""}]
+    assert body["tools"] == [{"name": "list_campaigns", "label": "حملاتك", "input": ""}]
     assert body["open"] == {"id": "campaigns", "label": "حملاتي"}
 
     first, second = gateway.calls
-    assert "<tool_result" not in first.user and "<tools>" in json.dumps(first.system, ensure_ascii=False)
-    assert '<tool_result name="CAMPAIGNS">' in second.user and "«عنوان النسخة رقم 1 للمنتج» — نصٌّ مقترح" in second.user
-    assert first.system == second.system and "tools" not in AnthropicGateway.params(second)
+    assert first.turns == () and first.user == second.user and first.system == second.system
+    assistant_turn, user_turn = second.turns
+    assert assistant_turn == {"role": "assistant", "content": list(request.content)}
+    (result,) = user_turn["content"]
+    assert result["type"] == "tool_result" and result["tool_use_id"] == request.tool_calls[0].id
+    assert "«عنوان النسخة رقم 1 للمنتج» — نصٌّ مقترح" in result["content"] and "is_error" not in result
+    assert _tools_sent(first) == _tools_sent(second) == ["calculate_vat", "list_campaigns"]
     # سؤالٌ واحد صفٌّ واحد في الدفتر، بما استهلكه الاستدعاءان معاً.
     assert _requests(owner) == [("ASSISTANT", "OK", None)] and _tokens(owner) == [(2400, 300)]
 
 
-def test_a_tool_reads_under_isolation_and_the_calculator_reads_arabic_digits(owner, browser, gateway):
-    """أداة الحملات لموظفٍ آخر لا ترى حملات الأوّل؛ والحاسبة تقرأ الأرقام العربية وتحسب الوجهين."""
+def test_a_tool_reads_under_isolation_and_the_calculator_answers_the_basis_asked(owner, browser, gateway):
+    """أداة الحملات لموظفٍ آخر لا ترى حملات الأوّل؛ والحاسبة تحسب على الأساس الذي طُلب."""
     first, _ = _signed_in(owner, browser)
     generate(first, upload(first))
     second, _ = _signed_in(owner, browser, "second@example.sa")
-    gateway.queue(tool_request("CAMPAIGNS"), assistant_reply(used=("TOOL",)))
+    gateway.queue(tool_request("list_campaigns"), assistant_reply(used=("TOOL",)))
     expect(_ask(second, question="ما حال حملاتي؟", ready=None))
-    assert "لا حملات بعد." in gateway.calls[-1].user and "عنوان النسخة" not in gateway.calls[-1].user
+    (result,) = _results(gateway.calls[-1])
+    assert result["content"] == "لا حملات بعد."
 
-    gateway.queue(tool_request("VAT", "١١٥ ريال"), assistant_reply(used=("TOOL",)))
-    body = expect(_ask(second, question="كم الضريبة في 115 ريالاً؟", ready=None))
-    assert body["tools"] == [{"name": "VAT", "label": "حاسبة الضريبة", "input": "١١٥ ريال"}]
-    assert "<input>١١٥ ريال</input>" in gateway.calls[-1].user
-    assert "115.00 ر.س قبل الضريبة: الضريبة 17.25 ر.س، والإجمالي 132.25 ر.س." in gateway.calls[-1].user
-    assert "115.00 ر.س شاملةً الضريبة: قبلها 100.00 ر.س، والضريبة 15.00 ر.س." in gateway.calls[-1].user
+    gateway.queue(tool_request("calculate_vat", {"amount_sar": 115, "basis": "before_vat"}), assistant_reply(used=("TOOL",)))
+    body = expect(_ask(second, question="كم الضريبة على 115 ريالاً قبل الضريبة؟", ready=None))
+    assert body["tools"] == [{"name": "calculate_vat", "label": "حاسبة الضريبة", "input": "115 ريال، قبل الضريبة"}]
+    (result,) = _results(gateway.calls[-1])
+    assert result["content"] == "115.00 ر.س قبل الضريبة: الضريبة 17.25 ر.س، والإجمالي 132.25 ر.س."
 
 
-def test_a_third_or_repeated_tool_ends_as_dont_know_without_a_fourth_call(marketer, owner, gateway):
+def test_a_bad_input_returns_an_instructive_error_the_model_can_correct(marketer, owner, gateway):
+    """«Handle tool calls»: خطأ المدخل نتيجةٌ بـis_error تقول ما الخطأ وما يُجرَّب؛ ولا يظهر تحت الجواب."""
     client, _ = marketer
-    gateway.queue(tool_request("VAT", "100"), tool_request("VAT", "200"), tool_request("VAT", "300"))
-    body = expect(_ask(client, question="كم الضريبة في 100 و200 و300؟", ready=None))
-    assert (body["status"], body["text"], body["open"]) == ("DONT_KNOW", DONT_KNOW_TEXT, None)
-    assert [tool["input"] for tool in body["tools"]] == ["100", "200"] and len(gateway.calls) == 3
-
-    gateway.queue(tool_request("VAT", "100"), tool_request("VAT", "100"))
-    body = expect(_ask(client, question="كم الضريبة في 100؟", ready=None))
-    assert body["status"] == "DONT_KNOW" and len(body["tools"]) == 1 and len(gateway.calls) == 5
-    assert _requests(owner) == [("ASSISTANT", "DONT_KNOW", None)] * 2
+    gateway.queue(tool_request("calculate_vat", {"amount_sar": 0, "basis": "both"}),
+                  tool_request("calculate_vat", {"amount_sar": 115, "basis": "both"}), assistant_reply(used=("TOOL",)))
+    body = expect(_ask(client, question="كم الضريبة؟", ready=None))
+    assert body["status"] == "ANSWER" and [tool["input"] for tool in body["tools"]] == ["115 ريال"]
+    error, fixed = _results(gateway.calls[-1])
+    assert error["is_error"] is True and "من 0.01 إلى مئة مليون ريال" in error["content"]
+    assert "is_error" not in fixed and "قبل الضريبة: الضريبة 17.25 ر.س" in fixed["content"]
 
 
-def test_a_tool_or_screen_outside_the_profession_is_an_invalid_answer(marketer, owner, gateway):
-    client, _ = marketer
-    gateway.queue(tool_request("ITEMS", "ماء"))
-    response = _ask(client, question="كم رصيد الماء؟", ready=None)
-    assert (response.status_code, response.json()["code"]) == (502, "AI_INVALID") and len(gateway.calls) == 1
-
-    gateway.queue(assistant_reply(open="stock"))
-    response = _ask(client, question="أين المخزون؟", ready=None)
-    assert (response.status_code, response.json()["code"]) == (502, "AI_INVALID")
-    assert _requests(owner) == [("ASSISTANT", "OUTPUT_INVALID", None)] * 2
-    schema = gateway.calls[-1].schema["properties"]
-    assert schema["tool"]["enum"] == ["NONE", "VAT", "CAMPAIGNS"]
-    assert schema["open"]["enum"] == ["NONE", "new", "campaigns"]
-
-
-def test_the_storekeepers_tools_find_items_and_low_stock(owner, browser, gateway):
+def test_two_tools_asked_together_return_together_in_one_message(owner, browser, gateway):
+    """«Parallel tool use»: أداتان في دورٍ واحد، ونتيجتاهما معاً في رسالةٍ واحدة بمعرّفيهما؛ استدعاءان لا ثلاثة."""
     keeper, _ = _signed_in(owner, browser, KEEPER, profession="STOREKEEPER")
     expect(keeper.put("/api/inventory/settings", json={"cost_includes_vat": False}))
     expect(keeper.post("/api/inventory/items", json={"name": "ماء نقي 330 مل", "kind": "STOCK", "unit": "CARTON",
                                                     "price_halalas": 1500, "reorder_level_milli": 5000}), 201)
-    gateway.queue(tool_request("ITEMS", "ماء"), tool_request("LOW_STOCK"),
-                  assistant_reply(used=("TOOL",), open="stock"))
+    both = tool_requests(("search_items", {"query": "ماء"}), ("list_low_stock_items", {}))
+    gateway.queue(both, assistant_reply(used=("TOOL",), open="stock"))
     body = expect(_ask(keeper, question="هل أطلب ماءً؟", ready=None))
-    assert [tool["name"] for tool in body["tools"]] == ["ITEMS", "LOW_STOCK"]
-    assert body["open"] == {"id": "stock", "label": "المخزون"}
-    last = gateway.calls[-1].user
-    assert '<tool_result name="ITEMS">' in last and "ماء نقي 330 مل (رقم" in last and ": الرصيد 0 كرتون" in last
-    assert '<tool_result name="LOW_STOCK">' in last and "وحدّ الطلب 5 كرتون" in last
+    assert [tool["name"] for tool in body["tools"]] == ["search_items", "list_low_stock_items"]
+    assert body["tools"][0]["input"] == "ماء" and body["open"] == {"id": "stock", "label": "المخزون"}
+    assert len(gateway.calls) == 2
+    items, low = _results(gateway.calls[-1])
+    assert [items["tool_use_id"], low["tool_use_id"]] == [call.id for call in both.tool_calls]
+    assert "ماء نقي 330 مل (رقم" in items["content"] and ": الرصيد 0 كرتون" in items["content"]
+    assert "وحدّ الطلب 5 كرتون" in low["content"]
+    assert _tools_sent(gateway.calls[0]) == ["calculate_vat", "search_items", "list_low_stock_items",
+                                             "list_recent_purchases"]
+
+
+def test_a_third_or_repeated_tool_ends_as_dont_know_without_a_fourth_call(marketer, owner, gateway):
+    client, _ = marketer
+    vat = lambda amount: tool_request("calculate_vat", {"amount_sar": amount, "basis": "both"})  # noqa: E731
+    gateway.queue(vat(100), vat(200), vat(300))
+    body = expect(_ask(client, question="كم الضريبة في 100 و200 و300؟", ready=None))
+    assert (body["status"], body["text"], body["open"]) == ("DONT_KNOW", DONT_KNOW_TEXT, None)
+    assert [tool["input"] for tool in body["tools"]] == ["100 ريال", "200 ريال"] and len(gateway.calls) == 3
+
+    gateway.queue(vat(100), vat(100))
+    body = expect(_ask(client, question="كم الضريبة في 100؟", ready=None))
+    assert body["status"] == "DONT_KNOW" and len(body["tools"]) == 1 and len(gateway.calls) == 5
+    gateway.queue(tool_requests(("calculate_vat", {"amount_sar": 1, "basis": "both"}),
+                                ("calculate_vat", {"amount_sar": 2, "basis": "both"}),
+                                ("list_campaigns", {})))
+    body = expect(_ask(client, question="ثلاث أدواتٍ معاً", ready=None))
+    assert body["status"] == "DONT_KNOW" and body["tools"] == [] and len(gateway.calls) == 6
+    assert _requests(owner) == [("ASSISTANT", "DONT_KNOW", None)] * 3
+
+
+def test_a_tool_or_screen_outside_the_profession_never_runs_or_opens(marketer, owner, gateway):
+    """الوضع الصارم لا يسمّي إلا أداةً أُرسلت؛ واسمٌ غيرها حارسٌ يعود خطأً ولا يُنفَّذ. ووجهةٌ غريبة جوابٌ مرفوض."""
+    client, _ = marketer
+    gateway.queue(tool_request("search_items", {"query": "ماء"}), assistant_reply(used=("SCREEN",)))
+    body = expect(_ask(client, question="كم رصيد الماء؟", ready=None))
+    assert body["status"] == "ANSWER" and body["tools"] == []
+    (result,) = _results(gateway.calls[-1])
+    assert result["is_error"] is True and result["content"] == "لا أداة بهذا الاسم في بوابتك."
+
+    gateway.queue(assistant_reply(open="stock"))
+    response = _ask(client, question="أين المخزون؟", ready=None)
+    assert (response.status_code, response.json()["code"]) == (502, "AI_INVALID")
+    assert _requests(owner) == [("ASSISTANT", "OK", None), ("ASSISTANT", "OUTPUT_INVALID", None)]
+    assert gateway.calls[-1].schema["properties"]["open"]["enum"] == ["NONE", "new", "campaigns"]
 
 
 def test_the_support_tools_search_published_articles_and_count_the_desk(owner, browser, gateway):
@@ -255,14 +294,15 @@ def test_the_support_tools_search_published_articles_and_count_the_desk(owner, b
         if publish:
             expect(agent.post(f"/api/support/kb/{a['id']}/publish",
                               json={"expected_row_version": a["row_version"], "version": a["latest_version"]}))
-    gateway.queue(tool_request("KB", "الطابعة"), tool_request("DESK"), assistant_reply(used=("TOOL",), open="knowledge"))
+    gateway.queue(tool_request("search_knowledge_base", {"query": "الطابعة"}), tool_request("get_desk_counts"),
+                  assistant_reply(used=("TOOL",), open="knowledge"))
     body = expect(_ask(agent, question="كيف أحلّ مشكلة الطابعة؟", ready=None))
     assert [tool["label"] for tool in body["tools"]] == ["بحث في قاعدة المعرفة", "أعداد المكتب"]
-    assert body["open"] == {"id": "knowledge", "label": "قاعدة المعرفة"}
-    last = gateway.calls[-1].user
-    assert "«الطابعة تطبع صفحاتٍ فارغة»" in last and "لا تتصل بالشبكة" not in last
-    assert "0551234567" not in last and "[رقم]" in last
-    assert "بانتظار قرارك: 0، والتذاكر المفتوحة: 0" in last
+    assert body["tools"][0]["input"] == "الطابعة" and body["open"] == {"id": "knowledge", "label": "قاعدة المعرفة"}
+    articles, desk = _results(gateway.calls[-1])
+    assert "«الطابعة تطبع صفحاتٍ فارغة»" in articles["content"] and "لا تتصل بالشبكة" not in articles["content"]
+    assert "0551234567" not in articles["content"] and "[رقم]" in articles["content"]
+    assert "بانتظار قرارك: 0، والتذاكر المفتوحة: 0" in desk["content"]
 
 
 def test_the_conversation_goes_with_the_question_after_the_same_checks(marketer, gateway):

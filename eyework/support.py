@@ -25,7 +25,7 @@ import json
 import re
 import uuid
 from contextlib import contextmanager
-from typing import Iterator, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 from uuid import UUID
 
 from psycopg import errors as pg_errors
@@ -1249,14 +1249,19 @@ def _assistant_ticket(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[st
 
 
 # ── أدوات سيمبول لموظف الدعم: تقرأ ولا تغيّر ───────────────────────────
-def _tool_kb(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+#: المقالات التي يعيدها البحث على الأكثر.
+_TOOL_ARTICLES = 3
+
+
+def _tool_kb(cursor, user_id: UUID, tool_input: Mapping[str, Any]) -> tuple[str, ...]:
     """أقرب ثلاث مقالاتٍ منشورة: العنوان والمشكلة وأوّل الحلّ؛ والنصّ كلّه يمرّ بالإخفاء بعدها."""
-    query = " ".join(text.split())
-    if not 2 <= len(query) <= 200:
-        return ("يُكتب ما يُبحث عنه بكلمتين على الأقل.",)
-    rows = _rows(cursor, _SEARCH, (query, 3))
+    query = " ".join(tool_input["query"].split())
+    if not 2 <= len(query) <= assistant.QUERY_MAX:
+        raise assistant.ToolError("query قصيرٌ أو طويل. اكتب المشكلة بكلمتين على الأقل كما يكتبها المستخدم، مثل «الطابعة "
+                                  "لا تطبع».")
+    rows = _rows(cursor, _SEARCH, (query, _TOOL_ARTICLES))
     if not rows:
-        return (f"لا مقالة منشورة تطابق «{query}».",)
+        return (f"لا مقالة منشورة تطابق «{query}». جرّب كلماتٍ أقلّ أو مرادفة مرةً واحدة.",)
     lines = []
     for row in rows:
         resolution = " ".join(row["resolution"].split())
@@ -1266,21 +1271,32 @@ def _tool_kb(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
     return assistant.fit(lines)
 
 
-def _tool_desk(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+def _tool_desk(cursor, user_id: UUID, tool_input: Mapping[str, Any]) -> tuple[str, ...]:
     c = _one(cursor, _COUNTS)
     return (f"بانتظار قرارك: {c['decide']}، والتذاكر المفتوحة: {c['open']}، وبانتظار العميل: {c['pending']}، "
             f"والمُصعَّدة: {c['escalated']}، ومقالاتٌ تحتاج مراجعة: {c['kb_attention']}",)
 
 
 assistant.register_tool(assistant.Tool(
-    name="KB", profession=Profession.SUPPORT,
-    description="أقرب ثلاث مقالاتٍ منشورة في قاعدة المعرفة لما يُبحث عنه: العنوان والمشكلة وأوّل الحلّ.",
-    input_hint="المشكلة بكلماتٍ قليلة", label="بحث في قاعدة المعرفة", run=_tool_kb,
+    name="search_knowledge_base", profession=Profession.SUPPORT,
+    description=(
+        "تبحث في مقالات قاعدة المعرفة المنشورة وتعيد أقربها إلى المشكلة، ثلاثاً على الأكثر: رقم المقالة وعنوانها "
+        "والمشكلة وأوّل الحلّ. استدعِها حين يسأل الموظف عن حلّ مشكلةٍ تقنية أو عن خطواتٍ مكتوبة في القاعدة، وابنِ "
+        "جوابك على ما تعيده لا على ما تعرفه أنت. لا تبحث في المسودات ولا في التذاكر ولا في رسائل العملاء. إن لم تعد "
+        "شيئاً فجرّب كلماتٍ أقلّ أو مرادفة مرةً واحدة."
+    ),
+    properties={"query": {"type": "string", "description": "المشكلة بكلماتٍ قليلة كما يكتبها المستخدم، مثل «الطابعة لا "
+                                                          "تطبع» أو «نسيت كلمة المرور»؛ من حرفين إلى 200."}},
+    label="بحث في قاعدة المعرفة", run=_tool_kb, shown=lambda tool_input: " ".join(tool_input["query"].split()),
 ))
 assistant.register_tool(assistant.Tool(
-    name="DESK", profession=Profession.SUPPORT,
-    description="أعداد المكتب الآن: بانتظار القرار، والمفتوحة، وبانتظار العميل، والمُصعَّدة، والمقالات التي تحتاج مراجعة.",
-    input_hint=None, label="أعداد المكتب", run=_tool_desk,
+    name="get_desk_counts", profession=Profession.SUPPORT,
+    description=(
+        "تعيد أعداد مكتب الدعم الآن: التذاكر بانتظار قرار الموظف، والمفتوحة، وبانتظار ردّ العميل، والمُصعَّدة، "
+        "والمقالات التي تحتاج مراجعة. استدعِها حين يسأل الموظف عمّا ينتظره أو من أين يبدأ ولم تكن الأعداد في "
+        "<screen>. لا تعيد محتوى التذاكر ولا أسماء العملاء. لا تحتاج مدخلاً."
+    ),
+    properties={}, label="أعداد المكتب", run=_tool_desk,
 ))
 #: معرّفات بنود رئيسية الدعم في العميل (lib/workspace.ts)، بأسمائها.
 assistant.register_destinations(Profession.SUPPORT, (
