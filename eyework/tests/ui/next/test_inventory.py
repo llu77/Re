@@ -65,11 +65,11 @@ def _gaze(page) -> bool:
 def _pick(flow: Flow, picker: str, key: str, label: str) -> None:
     """خيارٌ من منتقٍ: قائمة Select في الحجم العادي، وخياراتٌ مكان الخطوة في الكبير (بمفتاحه)."""
     page = flow.page
-    flow.press(f"#{picker}", lambda: flow.screen("[role=listbox]"), label)
+    flow.press(f"#{picker}", lambda: flow.screen("[role=listbox], [data-options]"), label)
     if _gaze(page):
-        while page.locator(f"[role=listbox] [data-key='{key}']").count() == 0:
+        while page.locator(f"[data-options] [data-key='{key}']").count() == 0:
             flow.press("[data-gaze-host] [role=group] button:has-text('التالية')", lambda: None, "التالية")
-        flow.press(f"[role=listbox] [data-key='{key}']", lambda: page.wait_for_selector("[role=listbox]", state="detached"), label)
+        flow.press(f"[data-options] [data-key='{key}']", lambda: page.wait_for_selector("[data-options]", state="detached"), label)
     else:
         flow.press(f"[role=listbox] [role=option][data-key='{key}'], [role=listbox] [role=option]:has-text('{key}')", lambda: page.wait_for_selector("[role=listbox]", state="detached"), label)
 
@@ -92,7 +92,8 @@ def _setup(flow: Flow) -> None:
     assert page.evaluate("() => location.hash") == BASE
     assert page.input_value("#settings-store-name") == "المخزن الرئيسي"
     # لا جواب مسبق عن أساس التكلفة: «احفظ وابدأ» معطّلٌ حتى يُختار.
-    assert page.locator("#settings-basis-net[aria-checked='true'], #settings-basis-gross[aria-checked='true']").count() == 0
+    assert page.locator("#settings-basis-net[aria-checked='true'], #settings-basis-gross[aria-checked='true'],"
+                        " #settings-basis-net[aria-pressed='true'], #settings-basis-gross[aria-pressed='true']").count() == 0
     assert page.locator("#settings-save").is_disabled()
     flow.press("#settings-basis-net", lambda: flow.until("!document.querySelector('#settings-save').disabled"), "نعم، مسجّلة وتخصمها")
     flow.press("#settings-save", lambda: flow.screen("#home-purchase"), "احفظ وابدأ")
@@ -215,8 +216,9 @@ def _return(flow: Flow, today: str) -> None:
     flow.press("#nav-home", lambda: flow.screen("#home-return"), "الرئيسية")
     flow.press("#home-return", lambda: flow.screen("#return-purchase"), "مرتجع من فاتورة")
     _audit(flow, "return-new")
-    flow.press("#return-purchase", lambda: flow.screen("[role=listbox] [role=option]"), "الفواتير")
-    flow.press("[role=listbox] [role=option]", lambda: flow.until("!document.querySelector('#return-start').disabled"), "الفاتورة")
+    invoice = "[data-options] button" if gaze else "[role=listbox] [role=option]"
+    flow.press("#return-purchase", lambda: flow.screen(invoice), "الفواتير")
+    flow.press(invoice, lambda: flow.until("!document.querySelector('#return-start').disabled"), "الفاتورة")
     _audit(flow, "return-pick")
     flow.press("#return-start", lambda: flow.screen("[aria-label='أسطر الفاتورة']"), "ابدأ المرتجع")
     _audit(flow, "return-empty")

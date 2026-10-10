@@ -12,6 +12,8 @@
  *     يفتح الخيارات مكان المحتوى، ثم يعود المحتوى بعد الاختيار. أربعة ألسنةٍ أربعة أهداف من
  *     اثني عشر، وزرٌّ واحدٌ هدفٌ واحد؛ ولا يُقصّ شيءٌ ولا تمرّ الشاشة.
  *   • الألسنة قيم (`data-value`): أثرها ظاهرٌ في مكانها ويُعكس بضغطة.
+ *   • وفي الحجم الكبير كل لسانٍ وكل خيارٍ زرٌّ بـaria-pressed في مجموعة، لا role="tab" ولا "radio":
+ *     «الانتقال إلى العنصر» في تتبّع العين والرأس يقصد ما له سمة الزرّ، وWebKit لا يعطيها للدورين.
  */
 
 import * as React from "react"
@@ -78,15 +80,14 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
       </button>
       <div id={regionId} className="min-h-0">
         {open ? (
-          <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-tg">
+          <div role="group" aria-label={label} className="grid grid-cols-2 gap-tg">
             {items.map((item) => {
               const checked = item.id === value
               return (
                 <button
                   key={item.id}
                   type="button"
-                  role="radio"
-                  aria-checked={checked}
+                  aria-pressed={checked}
                   data-value=""
                   onClick={() => {
                     onValueChange(item.id)
@@ -116,6 +117,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
 }
 
 function TabList({ items, value, onValueChange, label, children, className, stretch = false }: TabsProps) {
+  const gaze = useSize().size === "gaze"
   const base = React.useId()
   const refs = React.useRef(new Map<string, HTMLButtonElement>())
   const tabId = (id: string) => `${base}-tab-${id}`
@@ -150,7 +152,7 @@ function TabList({ items, value, onValueChange, label, children, className, stre
   return (
     <div className={cn("flex flex-col gap-tg", className)}>
       <div
-        role="tablist"
+        role={gaze ? "group" : "tablist"}
         aria-label={label}
         className={cn(
           "flex flex-wrap gap-tg-min",
@@ -170,14 +172,15 @@ function TabList({ items, value, onValueChange, label, children, className, stre
                 else refs.current.delete(item.id)
               }}
               type="button"
-              role="tab"
+              role={gaze ? undefined : "tab"}
               id={tabId(item.id)}
-              aria-selected={selected}
+              aria-selected={gaze ? undefined : selected}
+              aria-pressed={gaze ? selected : undefined}
               aria-controls={selected ? panelId(item.id) : undefined}
-              tabIndex={selected ? 0 : -1}
+              tabIndex={gaze || selected ? 0 : -1}
               data-value=""
               onClick={() => onValueChange(item.id)}
-              onKeyDown={(event) => onKeyDown(event, item.id)}
+              onKeyDown={gaze ? undefined : (event) => onKeyDown(event, item.id)}
               className={cn(
                 "relative inline-flex min-h-ctl min-w-ctl items-center justify-center gap-2 rounded-ctl border px-3.5 text-body",
                 "[&_svg]:size-icon [&_svg]:shrink-0",
@@ -202,7 +205,13 @@ function TabList({ items, value, onValueChange, label, children, className, stre
           )
         })}
       </div>
-      <div role="tabpanel" id={panelId(value)} aria-labelledby={tabId(value)} tabIndex={0} className="min-w-0 focus-visible:outline-offset-4">
+      <div
+        role={gaze ? undefined : "tabpanel"}
+        id={panelId(value)}
+        aria-labelledby={gaze ? undefined : tabId(value)}
+        tabIndex={gaze ? undefined : 0}
+        className="min-w-0 focus-visible:outline-offset-4"
+      >
         {children}
       </div>
     </div>

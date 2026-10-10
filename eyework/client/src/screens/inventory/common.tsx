@@ -147,9 +147,6 @@ export interface PickerProps {
   className?: string
 }
 
-/** أبعاد الحجم الكبير بالبكسل: الهدف 48 والفجوة 12 (globals.css)؛ تُقاس بها سعة القائمة لا تُرسم. */
-const GAZE_TARGET = 48
-const GAZE_GAP = 12
 const GAZE_PER_PAGE = 3
 
 interface Layout {
@@ -157,12 +154,21 @@ interface Layout {
   perPage: number
 }
 
+/** رمزٌ من globals.css بالبكسل («--ctl»، «--tg»): تُقاس به سعة القائمة كما رُسمت، لا برقمٍ منسوخ. */
+function token(name: string): number {
+  const style = getComputedStyle(document.documentElement)
+  const value = parseFloat(style.getPropertyValue(name))
+  return value * (parseFloat(style.fontSize) || 16)
+}
+
 /** كم خياراً يتّسع في مساحةٍ: مع صفّ التقليب إن لم تتّسع الخيارات كلّها. */
 function capacity(space: number, total: number): number {
-  const row = GAZE_TARGET + GAZE_GAP
-  const all = Math.floor((space - GAZE_GAP) / row)
+  const target = token("--ctl")
+  const gap = token("--tg")
+  const row = target + gap
+  const all = Math.floor((space - gap) / row)
   if (all >= total) return total
-  return Math.max(0, Math.floor((space - GAZE_GAP - row) / row))
+  return Math.max(0, Math.floor((space - gap - row) / row))
 }
 
 export function Picker({ id, label, options, value, onValueChange, emptyLabel = "اختر", hint, error, required, disabled, className }: PickerProps) {
@@ -209,16 +215,17 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
     setFocused(id)
   }
 
+  // أزرارٌ بـaria-pressed لا listbox وoption: «الانتقال إلى العنصر» في تتبّع العين والرأس يقصد ما له سمة الزرّ،
+  // وWebKit لا يعطيها role="option".
   const list = (
-    <ul role="listbox" aria-label={typeof label === "string" ? label : undefined} className="flex flex-col gap-tg">
+    <ul data-options="" aria-label={typeof label === "string" ? label : undefined} className="flex flex-col gap-tg">
       {visible.map((option) => {
         const checked = option.value === value
         return (
           <li key={option.value}>
             <button
               type="button"
-              role="option"
-              aria-selected={checked}
+              aria-pressed={checked}
               data-value=""
               data-key={option.value}
               onClick={() => {
@@ -266,7 +273,6 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
             id={id}
             type="button"
             data-safe=""
-            aria-haspopup="listbox"
             aria-expanded={false}
             disabled={disabled}
             onClick={show}

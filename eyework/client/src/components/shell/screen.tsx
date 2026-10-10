@@ -13,6 +13,7 @@
 import * as React from "react"
 
 import { Slots, TopButton, type TopAction } from "@/components/shell/slots"
+import { ToastLine, useToastMessage } from "@/components/ui/toast"
 import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
@@ -43,6 +44,9 @@ export function Screen({ title, description, back, end, above, aside, actions, f
   }, [title])
 
   const gaze = size === "gaze"
+  // الحجم الكبير: رسالة ما تمّ سطرٌ مكان الوصف، لا نافذةٌ تطفو فوق الأهداف.
+  const toast = useToastMessage()
+  const status = gaze && toast ? <ToastLine message={toast} /> : null
   return (
     <div data-screen-root="" className={cn("flex flex-col gap-sec", gaze && "min-h-0 flex-1 gap-tg", fill && "fill-screen", className)}>
       {/* الصفّ العلوي ابنٌ مباشر لجذر الشاشة: اللصق (sticky) يبقى ما بقيت الشاشة، لا مجموعة العنوان وحدها. */}
@@ -58,7 +62,7 @@ export function Screen({ title, description, back, end, above, aside, actions, f
             <h1 ref={heading} tabIndex={-1} className="text-display font-semibold leading-tight tracking-tight focus-visible:outline-none">
               {title}
             </h1>
-            {description ? <div className="text-flow text-muted-foreground gaze:text-small">{description}</div> : null}
+            {status ?? (description ? <div className="text-flow text-muted-foreground gaze:text-small">{description}</div> : null)}
           </div>
           {aside ? <div className="hidden flex-wrap gap-tg tablet:flex">{aside}</div> : null}
         </div>

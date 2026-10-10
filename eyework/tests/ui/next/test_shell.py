@@ -172,3 +172,35 @@ def test_the_tab_bar_hides_while_a_field_has_focus_in_the_touch_size_only(next_p
     flow.until("document.documentElement.dataset.keyboard === undefined")
     assert page.is_visible("#nav-home")
     assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", ["compact", "gaze"])
+def test_on_gaze_a_double_tap_never_zooms_and_a_long_press_never_selects_a_label(next_page, size):
+    """
+    تتبّع الرأس والعين في iOS يضغطان بمكوثٍ أو بحركة وجه، وقد تُربط حركةٌ بـ«نقرتين» أو بالضغط المطوّل من قائمة
+    AssistiveTouch. في الحجم الكبير: النقرتان ضغطتان لا تكبيرٌ للصفحة (التكبير بإصبعين باقٍ)، والضغط المطوّل على زرٍّ
+    أو رابطٍ لا يحدّد نصّه ولا يفتح قائمة الرابط؛ ونصّ المحتوى يبقى قابلاً للتحديد. والحجم العادي كما هو.
+    """
+    page = next_page(390, 664, size=size)
+    page.goto(page.next)
+    Flow(page).screen("#welcome-signup")
+    styles = page.evaluate(
+        """() => {
+            const style = (selector) => getComputedStyle(document.querySelector(selector));
+            const select = (s) => s.userSelect || s.webkitUserSelect;
+            return {
+                root: style('html').touchAction,
+                button: style('#welcome-signup').touchAction,
+                buttonSelect: select(style('#welcome-signup')),
+                buttonCallout: style('#welcome-signup').webkitTouchCallout ?? null,
+                text: select(style('main p')),
+            };
+        }"""
+    )
+    if size == "gaze":
+        assert styles["root"] == styles["button"] == "manipulation", styles
+        assert styles["buttonSelect"] == "none", styles
+        assert styles["buttonCallout"] in (None, "none"), styles  # Chromium لا يعرف الخاصّية؛ WebKit يعرفها
+    else:
+        assert styles["root"] == styles["button"] == "auto", styles
+    assert styles["text"] != "none", styles

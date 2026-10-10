@@ -5,11 +5,15 @@
  * لمجموعة الأزرار الراديوية: role="radiogroup" وكل بطاقةٍ role="radio" وaria-checked،
  * وتركيزٌ متنقّل بالأسهم. والضغط يختار ولا يطبّق: التطبيق زرٌّ بعده، فنظرةٌ عابرة لا
  * تغيّر شيئاً لا يُرى أثره.
+ *
+ * وفي الحجم الكبير كل بطاقةٍ زرٌّ بـaria-pressed في مجموعة: «الانتقال إلى العنصر» في تتبّع العين
+ * والرأس يقصد ما له سمة الزرّ، وWebKit لا يعطيها role="radio".
  */
 
 import * as React from "react"
 import { CircleCheck, Circle, type LucideIcon } from "lucide-react"
 
+import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 export interface RadioCardOption<V extends string> {
@@ -35,6 +39,7 @@ export interface RadioCardsProps<V extends string> {
 export function RadioCards<V extends string>({ label, options, value, onValueChange, columns = 2, ids, className }: RadioCardsProps<V>) {
   const refs = React.useRef(new Map<V, HTMLButtonElement>())
   const focusable = value ?? options[0]?.value
+  const gaze = useSize().size === "gaze"
 
   function onKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
     const rtl = getComputedStyle(event.currentTarget).direction === "rtl"
@@ -49,7 +54,8 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
   }
 
   return (
-    <div role="radiogroup" aria-label={label} className={cn("grid gap-tg", columns === 2 ? "grid-cols-2" : "grid-cols-1", className)}>
+    // في الحجم الكبير بطاقةٌ في كل صفّ: نصفُ عرض 320px لا يتّسع للأيقونة والعنوان والدائرة فيتراكبن.
+    <div role={gaze ? "group" : "radiogroup"} aria-label={label} className={cn("grid gap-tg", columns === 2 ? "grid-cols-2 gaze:grid-cols-1" : "grid-cols-1", className)}>
       {options.map((option, index) => {
         const checked = option.value === value
         const Icon = option.icon
@@ -62,12 +68,13 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
             }}
             type="button"
             id={ids?.[option.value]}
-            role="radio"
-            aria-checked={checked}
-            tabIndex={option.value === focusable ? 0 : -1}
+            role={gaze ? undefined : "radio"}
+            aria-checked={gaze ? undefined : checked}
+            aria-pressed={gaze ? checked : undefined}
+            tabIndex={gaze || option.value === focusable ? 0 : -1}
             data-value=""
             onClick={() => onValueChange(option.value)}
-            onKeyDown={(event) => onKeyDown(event, index)}
+            onKeyDown={gaze ? undefined : (event) => onKeyDown(event, index)}
             className={cn(
               "flex min-h-ctl min-w-0 flex-col items-stretch gap-1.5 rounded-card border px-pad py-2.5 text-start",
               checked ? "border-primary-line bg-secondary" : "border-control bg-card hov:bg-muted",
@@ -76,7 +83,7 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
             <span className="flex items-start justify-between gap-2">
               <span className="flex min-w-0 items-center gap-2 font-semibold text-foreground">
                 {Icon ? <Icon aria-hidden="true" className="size-icon shrink-0 text-secondary-foreground" /> : null}
-                {option.title}
+                <span className="min-w-0">{option.title}</span>
               </span>
               {checked ? (
                 <CircleCheck aria-hidden="true" className="size-icon shrink-0 text-primary" strokeWidth={2.5} />

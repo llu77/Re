@@ -3,8 +3,10 @@
 =======================================
 القواعد نفسها (tests/ui/flow.py) بقيم كل حجمٍ من `html[data-size]`:
 
-  • الكبير (gaze): أهدافٌ ≥48 (حدّ Apple 44pt وأربعة احتياطاً) وفجواتٌ ≥12 وحافّةٌ ≥16، اثنا عشر
-    هدفاً على الأكثر (أربعةٌ منها شريط التنقّل الثابت)، ولا تمرير ولا قصّ، ولا حركة.
+  • الكبير (gaze): أهدافٌ ≥56 وفجواتٌ ≥24 وحافّةٌ ≥16، ولا يقلّ البُعد بين مركزي هدفين عن 96 (`CENTRE`،
+    درجتان من 45 سم)؛ اثنا عشر هدفاً على الأكثر (ثلاثةٌ منها شريط التنقّل الثابت)، ولا تمرير ولا قصّ (ولا ما
+    يقصّه وعاؤه)، ولا هدفٌ يغطّيه غيره، ولا نصٌّ يخرج من زرّه، ولا حركة؛ وكل هدفٍ زرٌّ أو رابطٌ أو حقل
+    (`roles`): «الانتقال إلى العنصر» في تتبّع العين والرأس يقصد ما له سمة الزرّ.
   • العادي (compact): أهدافٌ ≥40 وفجواتٌ ≥8 وحافّةٌ ≥16، والتمرير مسموح؛ وما يقع تحت شريط التبويب
     الثابت أو في فجوته قبل التمرير تحت الطيّة لا مجاورٌ له إن كان التمرير المتبقّي يرفعه فوق الشريط
     بالفجوة كاملة (وإلا فالتراكب حقيقيٌّ ويُرفض).
@@ -16,6 +18,8 @@
 
 from __future__ import annotations
 
+import time
+
 MOTION = """
 () => document.documentElement.dataset.size !== 'gaze' ? [] : document.getAnimations()
     .filter((a) => a.playState === 'running')
@@ -26,7 +30,7 @@ MOTION = """
 AUDIT = """
 () => {
     const gaze = document.documentElement.dataset.size === 'gaze';
-    const MIN = gaze ? 47.5 : 39.5, GAP = gaze ? 11.5 : 7.5, EDGE = 15.5;
+    const MIN = gaze ? 55.5 : 39.5, GAP = gaze ? 23.5 : 7.5, EDGE = 15.5;
     const root = document.querySelector('dialog[open]') || document.querySelector('[role=alert][class*=fixed]')
         || document.querySelector('[data-content]:not([inert])') || document.body;
     const visible = (e) => {
@@ -71,6 +75,95 @@ AUDIT = """
         vertical: scroller.scrollHeight > innerHeight + 1,
         horizontal: scroller.scrollWidth > innerWidth + 1,
     };
+}
+"""
+
+#: الحجم الكبير وحده: ما لا تقيسه الأحجام والفجوات. النظر والرأس يختاران بأقرب عنصرٍ إلى موضع المؤشّر (والنظام
+#: يقفز إليه بـ«الانتقال إلى العنصر»)، فالبُعد بين مراكز الأهداف هو ما يفصل بينها لا الفجوة بين حوافّها: 96px
+#: درجتان من 45 سم على هاتفٍ بعرض 390؛ وما يغطّي جزءاً من هدفٍ يُضغط بدله؛ ونصٌّ يخرج من زرّه أو يُقصّ تحت شريطٍ
+#: يُقرأ لغيره. والقفز في عناصر التحكّم المخصّصة يقصد ما له سمة الزرّ (مهندس Apple في منتدى المطوّرين، 2024)،
+#: وWebKit لا يعطيها `role=radio|option|tab`: فهدف الحجم الكبير زرٌّ بلا دورٍ آخر، أو رابطٌ، أو حقل (`roles`).
+CENTRE = 95.5
+
+LAYOUT = r"""
+(centre) => {
+    if (document.documentElement.dataset.size !== 'gaze') return { occluded: [], spill: [], cut: [], centres: [], roles: [] };
+    const root = document.querySelector('dialog[open]') || document.querySelector('[data-content]:not([inert])') || document.body;
+    const SELECTOR = 'button, a[href], input:not([type=hidden]), textarea, select, [role=button], [role=option], [role=tab], [role=combobox], [role=radio]';
+    const visible = (e) => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]')
+            && !e.closest('[inert]') && !e.classList.contains('sr-only');
+    };
+    const name = (e) => e.id || e.getAttribute('aria-label') || e.textContent.trim().replace(/\s+/g, ' ').slice(0, 24);
+    const all = [...root.querySelectorAll(SELECTOR)].filter(visible);
+    const controls = all.filter((e) => !all.some((o) => o !== e && o.contains(e)));
+    const enabled = controls.filter((e) => !e.disabled && e.getAttribute('aria-disabled') !== 'true');
+    // ما فوق الهدف: نقاطٌ داخلية (لا زوايا مدوّرة) يجب أن يكون أعلى ما عندها الهدفَ نفسه أو ما فيه.
+    const occluded = [];
+    for (const e of enabled) {
+        const r = e.getBoundingClientRect();
+        const covers = new Set();
+        for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.3], [0.75, 0.3], [0.25, 0.7], [0.75, 0.7]]) {
+            const x = r.left + r.width * fx, y = r.top + r.height * fy;
+            if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+            const top = document.elementFromPoint(x, y);
+            if (top && top !== e && !e.contains(top) && !top.contains(e)) covers.add(name(top.closest(SELECTOR) || top) || top.tagName);
+        }
+        if (covers.size) occluded.push(`${name(e)} تحت ${[...covers].join('، ')}`);
+    }
+    // نصٌّ خارج زرّه (لا ما يُختصر بنقاطٍ عمداً).
+    const spill = [];
+    for (const e of controls) {
+        if (e.matches('input, textarea, select')) continue;
+        const r = e.getBoundingClientRect();
+        const walker = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+        let node, worst = 0;
+        while ((node = walker.nextNode())) {
+            if (!node.textContent.trim() || getComputedStyle(node.parentElement).textOverflow === 'ellipsis') continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            for (const t of range.getClientRects()) worst = Math.max(worst, r.left - t.left, t.right - r.right, r.top - t.top, t.bottom - r.bottom);
+        }
+        if (worst > 1) spill.push(`${name(e)}: ${Math.round(worst)}px`);
+    }
+    // ما يقصّه وعاؤه (الشاشة لا تمرّ، فالمحتوى يُقصّ في حدوده) ولو بقي داخل الشاشة.
+    const cut = [];
+    const texts = [...root.querySelectorAll('h1, h2, h3, p, li, dt, dd, label, legend, button, a[href], input, textarea, select')]
+        .filter(visible);
+    for (const e of texts) {
+        const r = e.getBoundingClientRect();
+        for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+            const style = getComputedStyle(a);
+            // الحوار المفتوح في الطبقة العليا: لا يقصّه ما وراءه، وحدّه هو.
+            if (a.tagName !== 'DIALOG' && style.overflowY === 'visible' && style.overflowX === 'visible') continue;
+            const b = a.getBoundingClientRect();
+            if (r.bottom > b.bottom + 1 || r.top < b.top - 1 || r.left < b.left - 1 || r.right > b.right + 1) {
+                cut.push(name(e) || e.tagName);
+            }
+            break;
+        }
+    }
+    // البُعد بين مراكز الأهداف المفعّلة.
+    const centres = [];
+    for (let i = 0; i < enabled.length; i += 1) {
+        for (let j = i + 1; j < enabled.length; j += 1) {
+            const a = enabled[i].getBoundingClientRect(), b = enabled[j].getBoundingClientRect();
+            const d = Math.hypot((a.left + a.right - b.left - b.right) / 2, (a.top + a.bottom - b.top - b.bottom) / 2);
+            if (d < centre) centres.push(`${name(enabled[i])} ↔ ${name(enabled[j])}: ${Math.round(d)}`);
+        }
+    }
+    // سمة الزرّ في WebKit: <button> بلا دورٍ يغلبه (وaria-pressed يبقيها)، أو role=button؛ والرابط والحقل كما
+    // هما. وaria-haspopup يجعل الزرّ «زرّاً منبثقاً» بلا سمة الزرّ (buttonRoleType في WebKit).
+    const roles = enabled.flatMap((e) => {
+        const role = e.getAttribute('role');
+        const popup = e.getAttribute('aria-haspopup');
+        const found = [];
+        if (role && role !== 'button' && !(e.matches('input, textarea, select') && role === 'combobox')) found.push(`role=${role}`);
+        if (popup && popup !== 'false' && !e.matches('input, textarea, select')) found.push(`aria-haspopup=${popup}`);
+        return found.map((what) => `${name(e)}: ${what}`);
+    });
+    return { occluded, spill, cut: [...new Set(cut)], centres, roles };
 }
 """
 
@@ -123,11 +216,25 @@ NEAREST = """
 """
 
 
+#: الحجم الكبير لا يحسب ضغطةً تأتي قبل 400ms من التي قبلها (client/src/lib/repeat-press.ts): «النقرتان» من
+#: حركة وجه. والمستخدم بالنظر أو بالرأس لا يضغط أسرع من ذلك، فلا يضغط الاختبار أسرع منه (بهامش).
+PRESS_GAP = 0.45
+
+
 class Flow:
     def __init__(self, page) -> None:
         self.page = page
         self.audits: list[dict] = []
         self.landings: list[str] = []
+        self.pressed = float("-inf")
+
+    def pace(self) -> None:
+        """في الحجم الكبير: ما بقي من مهلة الضغطة السابقة، كما يمضي بين ضغطتين بالنظر أو بالرأس."""
+        if self.page.evaluate("() => document.documentElement.dataset.size") == "gaze":
+            wait = PRESS_GAP - (time.monotonic() - self.pressed)
+            if wait > 0:
+                self.page.wait_for_timeout(wait * 1000)
+        self.pressed = time.monotonic()
 
     def screen(self, selector: str) -> None:
         self.page.wait_for_selector(selector)
@@ -148,6 +255,7 @@ class Flow:
         motion = self.page.evaluate(MOTION)
         self.fonts()
         result = self.page.evaluate(AUDIT)
+        result.update(self.page.evaluate(LAYOUT, CENTRE))
         result["label"] = label
         result["motion"] = motion
         self.audits.append(result)
@@ -168,6 +276,7 @@ class Flow:
             [box["x"] + inset, box["y"] + box["height"] - inset],
             [box["x"] + box["width"] - inset, box["y"] + box["height"] - inset],
         ]
+        self.pace()
         locator.click()
         settle()
         self.fonts()
@@ -182,7 +291,7 @@ class Flow:
     def failures(self) -> list[str]:
         failures = []
         for audit in self.audits:
-            for key in ("small", "close", "edge", "fonts", "clipped"):
+            for key in ("small", "close", "edge", "fonts", "clipped", "occluded", "spill", "cut", "centres", "roles"):
                 if audit[key]:
                     failures.append(f"{audit['label']} {key}: {audit[key]}")
             if audit["gaze"] and audit["enabled"] > 12:

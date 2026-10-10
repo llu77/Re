@@ -8,11 +8,15 @@
  *     يحرّك هدفاً تحت نظرٍ باقٍ.
  *   • «إغلاق» وحده فيها، ولا زرّ يعتمد: ما يُعتمد يُعتمد في الشاشة لا في رسالة.
  *   • تُعلَن بمنطقةٍ حيّة مهذّبة (role="status")؛ والخطأ بـrole="alert".
+ *   • في الحجم الكبير لا تطفو فوق الشاشة: كلّ موضعٍ فوقها يغطّي هدفاً يُنظر إليه. تُكتب سطراً تحت
+ *     عنوان الشاشة (Screen، بـuseToastMessage) بلا «إغلاق»، وتُغلق بالانتقال؛ والمنطقة الحيّة تبقى
+ *     لقارئ الشاشة وحده.
  */
 
 import * as React from "react"
 import { CheckCircle2, Info, OctagonAlert, X } from "lucide-react"
 
+import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 export type ToastTone = "success" | "info" | "danger"
@@ -29,6 +33,12 @@ interface ToastContextValue {
 }
 
 const ToastContext = React.createContext<ToastContextValue | null>(null)
+const ToastMessageContext = React.createContext<ToastMessage | null>(null)
+
+/** الرسالة الحالية: في الحجم الكبير يكتبها إطار الشاشة سطراً تحت عنوانها. */
+export function useToastMessage(): ToastMessage | null {
+  return React.useContext(ToastMessageContext)
+}
 
 export function useToast(): ToastContextValue {
   const value = React.useContext(ToastContext)
@@ -52,15 +62,26 @@ export function ToastProvider({ children, initial = null }: { children: React.Re
   )
   return (
     <ToastContext.Provider value={value}>
-      {children}
-      <Toaster current={current} onDismiss={value.dismiss} />
+      <ToastMessageContext.Provider value={current?.message ?? null}>
+        {children}
+        <Toaster current={current} onDismiss={value.dismiss} />
+      </ToastMessageContext.Provider>
     </ToastContext.Provider>
   )
 }
 
 function Toaster({ current, onDismiss }: { current: { key: number; message: ToastMessage } | null; onDismiss: () => void }) {
+  const { size } = useSize()
   const tone = current?.message.tone ?? "success"
   const Icon = ICONS[tone]
+  if (size === "gaze") {
+    // المنطقة الحيّة لقارئ الشاشة وحده؛ والسطر المرئيّ في إطار الشاشة.
+    return (
+      <div role={tone === "danger" ? "alert" : "status"} aria-live={tone === "danger" ? "assertive" : "polite"} className="sr-only">
+        {current ? <p key={current.key}>{current.message.title}{current.message.description ? `. ${current.message.description}` : ""}</p> : null}
+      </div>
+    )
+  }
   return (
     // المنطقة الحيّة موجودةٌ دائماً (فارغة)، فيُعلَن ما يُكتب فيها.
     <div
@@ -96,5 +117,22 @@ function Toaster({ current, onDismiss }: { current: { key: number; message: Toas
         </div>
       ) : null}
     </div>
+  )
+}
+
+/** سطر الرسالة تحت عنوان الشاشة في الحجم الكبير: بلا زرّ، ولا يغطّي شيئاً. */
+export function ToastLine({ message }: { message: ToastMessage }) {
+  const tone = message.tone ?? "success"
+  const Icon = ICONS[tone]
+  return (
+    <p aria-hidden="true" data-toast-line="" className="flex items-start gap-2 text-small font-semibold">
+      <Icon
+        className={cn("mt-0.5 size-icon shrink-0", tone === "danger" ? "text-destructive" : tone === "info" ? "text-primary" : "text-success")}
+      />
+      <span className="line-clamp-2 min-w-0">
+        {message.title}
+        {message.description ? <span className="font-normal text-muted-foreground"> — {message.description}</span> : null}
+      </span>
+    </p>
   )
 }

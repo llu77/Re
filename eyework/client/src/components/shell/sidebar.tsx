@@ -12,6 +12,7 @@
 
 import { BrandMark, SymbolMark } from "@/components/brand/marks"
 import type { NavEntry } from "@/components/shell/tab-bar"
+import { useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 
 export interface SidebarProps {
@@ -23,6 +24,8 @@ export interface SidebarProps {
 }
 
 function Row({ entry, onNavigate }: { entry: NavEntry; onNavigate: (href: string) => void }) {
+  // في الحجم الكبير بلا aria-haspopup: WebKit يجعله «زرّاً منبثقاً» بلا سمة الزرّ التي يقصدها «الانتقال إلى العنصر».
+  const popup = useSize().size === "gaze" ? undefined : "dialog"
   const className = cn(
     "flex min-h-ctl w-full items-center gap-3 rounded-ctl px-3 text-start font-semibold text-foreground",
     "hov:bg-muted",
@@ -53,7 +56,7 @@ function Row({ entry, onNavigate }: { entry: NavEntry; onNavigate: (href: string
     )
   }
   return (
-    <button id={entry.id} type="button" data-safe="" aria-haspopup="dialog" onClick={entry.onClick} className={className}>
+    <button id={entry.id} type="button" data-safe="" aria-haspopup={popup} onClick={entry.onClick} className={className}>
       {icon}
       <span className="truncate">{entry.label}</span>
     </button>
@@ -75,7 +78,8 @@ export function Sidebar({ workspaceName, userName, groups, onNavigate }: Sidebar
         </span>
       </div>
       <nav aria-label="أقسام البوابة" className="flex min-h-0 flex-1 flex-col gap-sec">
-        <ul className="flex flex-col gap-tg-min">
+        {/* بين بنود السكّة في الحجم الكبير فجوة الهدفين لا فجوة النصّين: مراكزها على بعد 96 على الأقل. */}
+        <ul className="flex flex-col gap-tg-min gaze:gap-tg">
           {main.map((entry) => (
             <li key={entry.id}>
               <Row entry={entry} onNavigate={onNavigate} />
@@ -83,7 +87,7 @@ export function Sidebar({ workspaceName, userName, groups, onNavigate }: Sidebar
           ))}
         </ul>
         {rest.map((group, index) => (
-          <ul key={index} className={cn("flex flex-col gap-tg-min border-t border-border pt-sec", index === rest.length - 1 && "mt-auto")}>
+          <ul key={index} className={cn("flex flex-col gap-tg-min gaze:gap-tg border-t border-border pt-sec", index === rest.length - 1 && "mt-auto")}>
             {group.map((entry) => (
               <li key={entry.id}>
                 <Row entry={entry} onNavigate={onNavigate} />

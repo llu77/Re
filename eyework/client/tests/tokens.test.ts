@@ -70,11 +70,14 @@ describe("the size tokens", () => {
     expect(rem(compact["--edge"])).toBe(16)
   })
 
-  it("keep the gaze targets at 48 (Apple's 44pt and four more) with 12 between them", () => {
-    expect(rem(gaze["--ctl"])).toBe(48)
-    expect(rem(gaze["--ctl-lg"])).toBe(48)
-    expect(rem(gaze["--row"])).toBe(48)
-    expect(rem(gaze["--tg"])).toBe(12)
+  it("keep the gaze targets at 56 with 40 between them, so two centres are at least 96 apart (2° at 45 cm)", () => {
+    expect(rem(gaze["--ctl"])).toBe(56)
+    expect(rem(gaze["--ctl-lg"])).toBe(56)
+    expect(rem(gaze["--row"])).toBe(56)
+    expect(rem(gaze["--tg"])).toBe(40)
+    expect(rem(gaze["--ctl"]) + rem(gaze["--tg"])).toBeGreaterThanOrEqual(96)
+    // آخر صفٍّ فوق شريط التبويب: نصف الهدف والفاصل ونصف البند.
+    expect(rem(gaze["--ctl"]) / 2 + rem(gaze["--sec"]) + rem(gaze["--bar"]) / 2).toBeGreaterThanOrEqual(96)
     expect(rem(gaze["--tg-min"])).toBe(12)
     expect(rem(gaze["--edge"])).toBe(16)
   })
@@ -95,7 +98,7 @@ describe("the size tokens", () => {
     expect(rem(compact["--tab"])).toBe(60)
     expect(rem(gaze["--tab"])).toBe(64)
     expect(rem(compact["--bar"])).toBe(44)
-    expect(rem(gaze["--bar"])).toBe(48)
+    expect(rem(gaze["--bar"])).toBe(56)
     expect(rem(compact["--side"])).toBe(240)
     expect(rem(gaze["--side"])).toBe(192)
   })
@@ -104,7 +107,7 @@ describe("the size tokens", () => {
     expect(rem(compact["--icon"])).toBe(18)
     expect(rem(gaze["--icon"])).toBe(20)
     expect(rem(compact["--sec"])).toBe(20)
-    expect(rem(gaze["--sec"])).toBe(16)
+    expect(rem(gaze["--sec"])).toBe(40)
     expect(rem(compact["--pad"])).toBe(14)
     expect(rem(compact["--fs-small"])).toBe(13)
     expect(rem(gaze["--fs-small"])).toBe(15)

@@ -61,7 +61,7 @@ def test_the_screen_data_and_question_live_only_in_the_user_message():
     assert CANARY in request.user and "ما أهمّ مهامّ مهنتي؟" in request.user
     assert CANARY not in json.dumps(request.system, ensure_ascii=False)
     assert CANARY not in json.dumps(request.schema)
-    assert request.system[0]["text"] == ASSISTANT_SYSTEM and len(ASSISTANT_SYSTEM) == 1272
+    assert request.system[0]["text"] == ASSISTANT_SYSTEM and len(ASSISTANT_SYSTEM) == 1281
     assert request.system[1]["cache_control"] == {"type": "ephemeral"} and "cache_control" not in request.system[0]
     assert "<label>حملة جديدة</label>" in request.user and "<label>حسابي</label>" in request.user
     assert request.user.endswith("<question>ما أهمّ مهامّ مهنتي؟</question>")

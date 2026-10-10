@@ -15,6 +15,8 @@
 
 import * as React from "react"
 
+import { guardRepeatPresses } from "@/lib/repeat-press"
+
 export type SizeMode = "compact" | "gaze"
 export const SIZE_MODES: readonly SizeMode[] = ["compact", "gaze"]
 
@@ -55,6 +57,8 @@ export function SizeProvider({ initial, children }: { initial: SizeMode; childre
   const [size, setSize] = React.useState<SizeMode>(initial)
   // قبل الرسم: لا إطار واحدٌ بالحجم الخطأ.
   React.useLayoutEffect(() => applySize(size), [size])
+  // في الحجم الكبير لا تُحسب «النقرة الثانية» من النظر أو الرأس (lib/repeat-press.ts).
+  React.useEffect(() => (size === "gaze" ? guardRepeatPresses() : undefined), [size])
   const value = React.useMemo(() => ({ size, setSize }), [size])
   return <SizeContext.Provider value={value}>{children}</SizeContext.Provider>
 }

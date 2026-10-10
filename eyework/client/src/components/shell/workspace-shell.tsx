@@ -91,7 +91,8 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
           className={cn(
             "chrome-portal mx-auto w-full px-edge focus-visible:outline-none",
             twoPanes ? "max-w-[72rem]" : "max-w-content",
-            gaze ? "flex min-h-0 flex-1 flex-col pb-safe pt-tg" : "pt-sec",
+            // الحجم الكبير على الهاتف: بين آخر صفٍّ وشريط التبويب فاصل قسمٍ كامل، فمركزاهما على بعد 96 على الأقل.
+            gaze ? cn("flex min-h-0 flex-1 flex-col pt-tg", tablet ? "pb-safe" : "pb-sec") : "pt-sec",
             !gaze && (tablet ? "pb-safe" : "pb-tab"),
           )}
         >
@@ -105,7 +106,9 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
           )}
         </main>
       </div>
-      {tablet ? null : <TabBar items={four} onNavigate={onNavigate} />}
+      {/* الحجم الكبير على الهاتف: ثلاثة بنود. أربعةٌ لا تتّسع في 320px بحدّ الهدف وفجوته، و«الأقسام» هي
+          أزرار الرئيسية نفسها: البلوغ إلى قسمٍ ضغطتان في الحالين. */}
+      {tablet ? null : <TabBar items={gaze ? [home, toolsEntry, account] : four} onNavigate={onNavigate} />}
       <SectionsSheet open={sections} workspace={workspace} current={current} onClose={() => setSections(false)} onNavigate={onNavigate} />
       <ToolsSheet
         key={tool.gen}

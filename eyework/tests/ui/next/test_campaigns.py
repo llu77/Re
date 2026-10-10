@@ -24,7 +24,7 @@ from eyework.tests.conftest import add_version, create_campaign
 from eyework.tests.fakes import NOTE, ok
 from eyework.tests.ui.flow import sample_photo
 from eyework.tests.ui.next.conftest import DESKTOP, FRAMES, LOGIN, PHONES, STRESS, TIGHTEST, frame_ids, member
-from eyework.tests.ui.next.flow import Flow
+from eyework.tests.ui.next.flow import PRESS_GAP, Flow
 
 SIZES = ["compact", "gaze"]
 PHOTO = {"name": "p.jpg", "mimeType": "image/jpeg", "buffer": sample_photo()}
@@ -143,7 +143,10 @@ def _proposal_text(page) -> str:
         forward = page.locator("#proposal-copy nav button >> nth=1")
         if forward.count() == 0 or forward.is_disabled():
             break
+        # ضغطتان بالنظر في الموضع نفسه بينهما مكوثٌ كامل: أقرب منه تُعدّ «نقرتين» فلا تُحسب الثانية.
+        page.wait_for_timeout(PRESS_GAP * 1000)
         forward.click()
+        page.wait_for_function("(before) => document.querySelector('#proposal-copy p').innerText !== before", arg=parts[-1])
     return "\n".join(parts)
 
 
@@ -193,6 +196,8 @@ def test_the_confirming_control_is_far_from_the_one_that_opened_it(next_page, se
 
     before = len([r for r in page.requests if r[0] != "GET"])
     for _ in range(6):
+        # كل مكوثٍ بعد الذي قبله بمهلةٍ كاملة: يُختبر ما تحت الموضع، لا حارس «النقرتين».
+        page.wait_for_timeout(PRESS_GAP * 1000)
         page.mouse.click(*centre)
     assert len([r for r in page.requests if r[0] != "GET"]) == before
     assert page.locator("#confirm-yes").is_visible()

@@ -48,15 +48,16 @@ export function HomeGrid({ workspace, onNavigate, counts }: { workspace: Workspa
                   "flex h-full min-h-ctl w-full items-center gap-3 rounded-card border px-4 py-3 font-bold",
                   "compact:min-h-[5.5rem] compact:flex-col compact:items-start compact:justify-between",
                   entry.primary
-                    ? "border-primary bg-primary text-primary-foreground compact:min-h-ctl-lg compact:flex-row compact:items-center compact:justify-start hov:bg-primary/90"
-                    : "border-control bg-card text-foreground hov:bg-muted",
-                  "gaze:justify-start",
+                    ? "border-primary bg-primary text-primary-foreground compact:min-h-ctl-lg compact:flex-row compact:items-center compact:justify-start hov:bg-primary/90 gaze:justify-start"
+                    // الحجم الكبير: نصف عرض 320px لا يتّسع لمربّع الأيقونة والنصّ معاً (يخرج النصّ من حدّ الزرّ)،
+                    // فالبنود الثانوية نصٌّ في الوسط بلا أيقونة؛ والرئيسي بعرض الشاشة يبقى بأيقونته.
+                    : "border-control bg-card text-foreground hov:bg-muted gaze:justify-center gaze:text-center",
                 )}
               >
                 <span
                   className={cn(
                     "flex size-9 shrink-0 items-center justify-center rounded-ctl gaze:size-10",
-                    entry.primary ? "bg-primary-foreground/15" : "bg-secondary text-secondary-foreground",
+                    entry.primary ? "bg-primary-foreground/15" : "bg-secondary text-secondary-foreground gaze:hidden",
                   )}
                 >
                   <Icon aria-hidden="true" className="size-5 gaze:size-6" strokeWidth={2.25} />

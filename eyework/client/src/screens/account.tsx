@@ -32,7 +32,7 @@ import { useSize, type SizeMode } from "@/lib/size"
 export interface AccountProps {
   name: string | null
   profession: string
-  /** «باللمس» و«بتتبّع العين» من /api/choices (`ui_sizes`). */
+  /** «باللمس» و«بالعين أو بالرأس» من /api/choices (`ui_sizes`). */
   sizeNames: Record<SizeMode, string>
   /** يرسل الحجم إلى الخادم؛ رسالة الخطأ أو null. */
   saveSize: (mode: SizeMode) => Promise<string | null>

@@ -134,7 +134,7 @@ export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationM
         </p>
         <p className="flex items-start gap-2 text-small text-muted-foreground gaze:short:hidden">
           <SymbolMark className="mt-0.5 size-4" />
-          يعمل باللمس وبتتبّع العين. للأزرار الكبيرة اضغط «حجمٌ أكبر» في الأعلى.
+          يعمل باللمس وبتتبّع العين أو الرأس. للأزرار الكبيرة اضغط «حجمٌ أكبر» في الأعلى.
         </p>
       </main>
     </AuthFrame>
