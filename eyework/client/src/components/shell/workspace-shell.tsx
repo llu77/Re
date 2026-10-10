@@ -3,8 +3,8 @@
  * ====================================
  * تطبيقٌ واحد ودخولٌ واحد وبوابةٌ واحدة؛ والمهنة تحدّد ما فيها (lib/workspace.ts):
  *
- *   الهاتف:            الشاشة، وتحتها شريط التبويب العائم [الرئيسية · الأقسام · الأدوات · حسابي] وبجانبه زرّ
- *                      سيمبول في طرف النهاية (tab-bar.tsx)
+ *   الهاتف:            رأس الصفحة بالشعار (`AppHeader`)، ثم الشاشة، وتحتها شريط التبويب العائم [الرئيسية · الأقسام ·
+ *                      الأدوات · حسابي] وبجانبه زرّ سيمبول في طرف النهاية (tab-bar.tsx)
  *   الآيباد والحاسوب:  شريطٌ جانبي [العلامة · الرئيسية · البنود · الأدوات · مساعدة · حسابي] والشاشة
  *                      بجانبه، وزرّ سيمبول عائمٌ في الركن السفلي؛ وفي العريض بحجم اللمس قائمةٌ وتفصيلٌ معاً (`pane`).
  *   الحجم الكبير:      لا شيء يطفو فوق المحتوى: شريط التبويب [الرئيسية · حسابي] وزرّ سيمبول بجانبه، والسكّة
@@ -19,6 +19,7 @@
 import * as React from "react"
 import { CircleHelp, House, LayoutGrid, UserRound, Wrench } from "lucide-react"
 
+import { AppHeader } from "@/components/brand/marks"
 import { ChatLauncher } from "@/components/chat/chat-launcher"
 import { ChatSheet } from "@/components/chat/chat-sheet"
 import { SectionsSheet } from "@/components/shell/sections-sheet"
@@ -91,6 +92,7 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
       >
         تخطَّ إلى المحتوى
       </a>
+      {tablet ? null : <AppHeader />}
       <div className={cn("flex", gaze && "min-h-0 flex-1")}>
         {tablet ? <Sidebar workspaceName={workspace.name} userName={userName} groups={sidebarGroups} onNavigate={onNavigate} /> : null}
         <main
@@ -101,7 +103,8 @@ export function WorkspaceShell({ workspace, current, userName, onNavigate, tools
             "chrome-portal mx-auto w-full px-edge focus-visible:outline-none",
             twoPanes ? "max-w-[72rem]" : "max-w-content",
             // الحجم الكبير على الهاتف: بين آخر صفٍّ وشريط التبويب فاصل قسمٍ كامل، فمركزاهما على بعد 96 على الأقل.
-            gaze ? cn("flex min-h-0 flex-1 flex-col pt-tg", tablet ? "pb-safe" : "pb-sec") : "pt-sec",
+            // تحت رأس الصفحة على الهاتف 8 (الرأس يفصل الشاشة عن أعلاها)، وفي الآيباد بلا رأس فاصل هدفين.
+            gaze ? cn("flex min-h-0 flex-1 flex-col", tablet ? "pb-safe pt-tg" : "pb-sec pt-2") : "pt-sec",
             // الحجم العادي: آخر المحتوى فوق شريط التبويب، أو فوق زرّ سيمبول العائم في الآيباد.
             !gaze && (tablet ? "pb-launcher" : "pb-tab"),
           )}

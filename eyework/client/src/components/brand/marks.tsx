@@ -2,15 +2,17 @@
  * الشعار والعلامة
  * ===============
  * Logo: شعار «Symbol Work» كما سلّمه المالك، بتصميمه وخطّه نفسيهما (الكلمتان بحدٍّ أسود والمكبّرة وفيها الشخص):
- * الصورة نفسها، قُصّت إلى حدودها وصار ما حولها من البياض شفّافاً، وبقي بياض الحروف والعدسة كما هو. في الحجم
- * العادي صفٌّ وحده في أعلى كل صفحة، في وسطها، فوق الخطوات والعنوان (`PageBrand`، 40)؛ وفي الحجم الكبير (لا تمرير،
- * ولا مكان لصفٍّ آخر في 320×635) في آخر سطر العنوان (`PageTitle`، 32). وفي رأس الشريط الجانبي في الآيباد (rail)؛
- * وعنوان الترحيب (hero)؛ وفي آخر سطر عنوان الورقة والنافذة (title). صورتان بحجمين (96 و240 بكسل ارتفاعاً)، يختار
- * المتصفّح منهما ما يكفي كثافة الشاشة. الاسم لا يذكر النظر ولا العين ولا
- * الإعاقة (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق ليست معلومةً صحّية.
+ * الصورة نفسها، قُصّت إلى حدودها وصار ما حولها من البياض شفّافاً، وبقي بياض الحروف والعدسة كما هو. مكانه كما في
+ * المواقع الاحترافية (طلب المالك): رأس الصفحة (`AppHeader`)، شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته والشعار في أوّله
+ * (40، و32 في الحجم الكبير)، في كل صفحةٍ على الهاتف وفي ما قبل الدخول؛ وفي الآيباد والحاسوب رأس الشريط الجانبي
+ * (rail)؛ وفي الترحيب عنوانه في وسطه (hero). لا في سطر العنوان ولا في الأوراق. صورتان بحجمين (96 و240 بكسل
+ * ارتفاعاً)، يختار المتصفّح منهما ما يكفي كثافة الشاشة. الاسم لا يذكر النظر ولا العين ولا الإعاقة
+ * (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق ليست معلومةً صحّية.
  * SymbolMark: علامة المساعد «سيمبول» (لوحة الممارس): أربعة مستطيلاتٍ على شبكة 3×3.
- * كلاهما زخرفيٌّ بجانب نصٍّ يسمّي الصفحة، إلا الشعار في الترحيب فهو العنوان نفسه (`decorative={false}`).
+ * الشعار زخرفيٌّ بجانب نصٍّ يسمّي الصفحة، إلا في الترحيب فهو العنوان نفسه (`decorative={false}`).
  */
+
+import type * as React from "react"
 
 import logo96 from "@/assets/brand/symbol-work-logo-96.png"
 import logo240 from "@/assets/brand/symbol-work-logo-240.png"
@@ -18,10 +20,10 @@ import { cn } from "@/lib/utils"
 
 /** نسبة عرض الشعار إلى ارتفاعه (1306×394 بعد القصّ). */
 const RATIO = 1306 / 394
-const HEIGHT = { title: 32, page: 40, rail: 44, hero: 72 } as const
-const HEIGHT_CLASS = { title: "h-8", page: "h-10", rail: "h-11", hero: "h-[4.5rem]" } as const
+const HEIGHT = { header: 40, rail: 44, hero: 72 } as const
+const HEIGHT_CLASS = { header: "h-10 gaze:h-8", rail: "h-11", hero: "h-[4.5rem]" } as const
 
-export function Logo({ size = "title", className, decorative = true }: { size?: keyof typeof HEIGHT; className?: string; decorative?: boolean }) {
+export function Logo({ size = "header", className, decorative = true }: { size?: keyof typeof HEIGHT; className?: string; decorative?: boolean }) {
   const height = HEIGHT[size]
   const width = Math.round(height * RATIO)
   return (
@@ -40,14 +42,19 @@ export function Logo({ size = "title", className, decorative = true }: { size?: 
 }
 
 /**
- * شعار الصفحة في الحجم العادي: صفٌّ وحده في أعلاها، في وسطها. في الآيباد والحاسوب في رأس الشريط الجانبي بدله
- * (`phoneOnly`)، وفي الحجم الكبير في آخر سطر العنوان.
+ * رأس الصفحة: شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته، والشعار في أوّله؛ وفي آخره فعل الصفحة الوحيد إن كان
+ * («رجوع» في خطوات التسجيل). يمرّ مع الصفحة، فيلتصق صفّها العلوي («رجوع» والفعل الآخر) بأعلى الشاشة وحده.
+ * والرأس الذي يحمل فعلاً هو في الحجم الكبير بارتفاع الهدف ومساحة إصابته الخفيّة فوقه وتحته (72)، فلا يقصّها أعلى
+ * الشاشة؛ وبلا فعلٍ 48.
  */
-export function PageBrand({ phoneOnly = false, className }: { phoneOnly?: boolean; className?: string }) {
+export function AppHeader({ end, className }: { end?: React.ReactNode; className?: string }) {
   return (
-    <div data-brand="" className={cn("flex justify-center gaze:hidden", phoneOnly && "tablet:hidden", className)}>
-      <Logo size="page" />
-    </div>
+    <header data-app-header="" className={cn("shrink-0 border-b border-border bg-card pt-[env(safe-area-inset-top)]", className)}>
+      <div className={cn("mx-auto flex h-header max-w-content items-center justify-between gap-tg px-edge", end && "gaze:h-[calc(var(--tg)+2*var(--hit-pad))]")}>
+        <Logo />
+        {end ?? null}
+      </div>
+    </header>
   )
 }
 

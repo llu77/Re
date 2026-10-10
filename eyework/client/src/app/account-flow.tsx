@@ -10,6 +10,7 @@ import * as React from "react"
 import { LogOut, Trash2 } from "lucide-react"
 
 import { chatApi, navigate, workspaceOf } from "@/app/workspace"
+import { AppHeader } from "@/components/brand/marks"
 import { Screen } from "@/components/shell/screen"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import { BackIcon, Button } from "@/components/ui/button"
@@ -146,9 +147,10 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
       {content}
     </WorkspaceShell>
   ) : (
-    // مهنةٌ بلا مساحة عملٍ بعد: «حسابي» هو الرئيسية، بلا قائمة أقسامٍ ولا أدوات؛ والشعار في أعلى شاشته كغيرها،
-    // والمهنة في سطرها تحت العنوان.
-    <div className="min-h-dvh bg-background pt-[env(safe-area-inset-top)]">
+    // مهنةٌ بلا مساحة عملٍ بعد: «حسابي» هو الرئيسية، بلا قائمة أقسامٍ ولا أدوات؛ ورأس الصفحة بالشعار كغيرها، والمهنة
+    // في سطرها تحت العنوان.
+    <div className="flex min-h-dvh flex-col bg-background">
+      <AppHeader />
       <main className="chrome-bare mx-auto w-full max-w-content px-edge pb-safe pt-sec">{content}</main>
     </div>
   )

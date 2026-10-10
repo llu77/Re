@@ -2,9 +2,8 @@
  * Screen — إطار كل شاشة عمل
  * =========================
  * بنمط iOS: صفٌّ علويٌّ بخانتين ثابتتين («رجوع» نصّاً بسهمه في البداية، وفي النهاية ما يغادر أو يتقدّم)
- * حين تحتاجه الشاشة، ثم شعار «Symbol Work» في وسط صفٍّ وحده (في الحجم الكبير في آخر سطر العنوان، وفي الآيباد في
- * الشريط الجانبي)، ثم ما فوق العنوان (الخطوات)، ثم العنوان الكبير (h1، يُركَّز عند الوصول فيُعلَن ما تغيّر)، ثم
- * المحتوى، ثم شريط الإجراءات بخانتين ثابتتين. لا شرح تحت العنوان: سطره
+ * حين تحتاجه الشاشة (تحت رأس الصفحة بالشعار، `AppHeader` في البوابة)، ثم ما فوق العنوان (الخطوات)، ثم العنوان
+ * الكبير (h1، يُركَّز عند الوصول فيُعلَن ما تغيّر)، ثم المحتوى، ثم شريط الإجراءات بخانتين ثابتتين. لا شرح تحت العنوان: سطره
  * لبياناتٍ (اسم المورّد، الشهر، الحالة) لا لوصف الشاشة.
  *
  *   • الحجم العادي: الصفحة تمرّ، والصفّ العلوي لاصقٌ بزجاجٍ خفيف، وشريط الإجراءات في آخر المحتوى.
@@ -14,7 +13,6 @@
 
 import * as React from "react"
 
-import { PageBrand } from "@/components/brand/marks"
 import { PageTitle } from "@/components/brand/page-title"
 
 import { Slots, TopButton, type TopAction } from "@/components/shell/slots"
@@ -63,11 +61,10 @@ export function Screen({ title, description, back, end, above, aside, actions, f
         </div>
       ) : null}
       <div className="flex flex-col gap-tg-min">
-        <PageBrand phoneOnly className="mb-1" />
         {above}
         <div className="flex flex-wrap items-end justify-between gap-tg">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <PageTitle ref={heading} tabIndex={-1} mark="phone" className="focus-visible:outline-none">
+            <PageTitle ref={heading} tabIndex={-1} className="focus-visible:outline-none">
               {title}
             </PageTitle>
             {status ?? (description ? <div className="text-flow text-muted-foreground gaze:text-small">{description}</div> : null)}

@@ -6,7 +6,7 @@
 و«الأدوات» و«مساعدة» وحسابي، والزرّ العائم في الركن؛ وفي الحجم الكبير لا شيء يطفو: «سيمبول» وسط شريط
 التبويب وفي السكّة، و«الأدوات» من ورقته (اثنا عشر هدفاً على الأكثر). ورقة الأدوات للتسويق «مساعدة» وحدها: السؤال
 إلى سيمبول من زرّه (test_chat.py). والشريط السفلي يختفي ما دام حقلٌ مركَّزاً فلا يركب لوحة المفاتيح؛
-وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة. وشعار المالك عنوان الترحيب، وفي وسط أعلى كل صفحة، وبجانب عنوان الورقة.
+وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة. وشعار المالك عنوان الترحيب، وفي أوّل رأس كل صفحة.
 """
 
 from __future__ import annotations
@@ -32,43 +32,59 @@ def _logo(page, scope: str) -> dict:
         selector,
         "(img) => { const r = img.getBoundingClientRect(); return { origin: new URL(img.currentSrc).origin === location.origin,"
         " height: Math.round(r.height), alt: img.alt, hidden: img.getAttribute('aria-hidden'),"
-        " centred: Math.abs((r.left + r.right) / 2 - innerWidth / 2) <= 1 }; }",
+        " centred: Math.abs((r.left + r.right) / 2 - innerWidth / 2) <= 1, start: Math.round(innerWidth - r.right) }; }",
     )
+
+
+def _header(page) -> dict:
+    """رأس الصفحة: عرضه من عرض الشاشة، وأعلاه وأسفله، وشعاره في أوّله (من اليمين) بعد الحافّة."""
+    head = page.eval_on_selector(
+        "[data-app-header]",
+        "(h) => { const r = h.getBoundingClientRect(); return { width: Math.round(r.width), screen: innerWidth,"
+        " top: Math.round(r.top), bottom: r.bottom }; }",
+    )
+    head["logo"] = _logo(page, "[data-app-header]")
+    return head
 
 
 @pytest.mark.parametrize("size", ["compact", "gaze"])
 def test_the_owners_logo_heads_every_page_and_names_the_welcome(next_page, server, owner, size):
     """
-    الشعار كما سلّمه المالك، صورةٌ من الأصل نفسه: عنوان الترحيب بارتفاع 72 واسمه «Symbol Work»؛ وفي الحجم العادي صفٌّ
-    وحده في وسط أعلى الصفحة فوق العنوان (40) لا في سطره، وفي الكبير (لا مكان لصفٍّ آخر) في آخر سطر العنوان (32)؛
-    وفي آخر سطر عنوان الورقة بارتفاع 32.
+    الشعار كما سلّمه المالك، صورةٌ من الأصل نفسه، في رأس الصفحة كما في المواقع الاحترافية: شريطٌ بعرض الشاشة في أعلاها
+    والشعار في أوّله بعد الحافّة (40، و32 في الحجم الكبير)، فوق العنوان لا في سطره، في الدخول وفي البوابة. والترحيب بلا
+    رأس: الشعار عنوانه في وسطه (72) واسمه «Symbol Work». ولا شعار في عنوان الورقة.
     """
+    height = 32 if size == "gaze" else 40
     page = next_page(size=size)
+    flow = Flow(page)
     page.goto(page.next)
-    Flow(page).screen("#welcome-login")
+    flow.screen("#welcome-login")
     welcome = _logo(page, "h1")
-    assert (welcome["origin"], welcome["height"], welcome["alt"], welcome["hidden"]) == (True, 72, "Symbol Work", None)
+    assert (welcome["origin"], welcome["height"], welcome["alt"], welcome["hidden"], welcome["centred"]) == (True, 72, "Symbol Work", None, True)
     assert page.get_by_role("heading", name="Symbol Work").count() == 1
-    assert page.locator("[data-brand]").count() == 0
+    assert page.locator("[data-app-header]").count() == 0
+    flow.press("#welcome-login", lambda: flow.screen("input[name='username']"), "ادخل")
+    head = _header(page)
+    assert (head["width"], head["top"]) == (head["screen"], 0)
+    assert head["logo"] == {"origin": True, "height": height, "alt": "", "hidden": "true", "centred": False, "start": 16}
+    assert page.locator("h1 img").count() == 0
+    flow.audit("sign-in-header")
     member(owner, size="GAZE" if size == "gaze" else "COMPACT")
     home = next_page(login=LOGIN)
     flow = Flow(home)
     home.goto(home.next)
     flow.screen("[aria-label='ابدأ عملاً']")
-    if size == "gaze":
-        title = _logo(home, "h1")
-        assert (title["origin"], title["height"], title["alt"], title["hidden"]) == (True, 32, "", "true")
-        assert not home.locator("[data-brand]").is_visible()
-    else:
-        assert _logo(home, "[data-brand]") == {"origin": True, "height": 40, "alt": "", "hidden": "true", "centred": True}
-        assert not home.locator("h1 img").is_visible()
-        brand, title = (home.eval_on_selector(s, "(e) => e.getBoundingClientRect().bottom") for s in ("[data-brand]", "h1"))
-        assert brand < title
+    head = _header(home)
+    assert (head["width"], head["top"]) == (head["screen"], 0)
+    assert head["logo"] == {"origin": True, "height": height, "alt": "", "hidden": "true", "centred": False, "start": 16}
+    assert home.locator("h1 img").count() == 0
+    assert head["bottom"] <= home.eval_on_selector("h1", "(e) => e.getBoundingClientRect().top")
+    flow.audit("home-header")
     flow.press("#nav-chat", lambda: flow.screen("dialog[open] h2"), "سيمبول")
-    sheet = _logo(home, "dialog[open] h2")
-    assert (sheet["origin"], sheet["height"], sheet["alt"], sheet["hidden"]) == (True, 32, "", "true")
-    flow.audit("chat-logo")
+    assert home.locator("dialog[open] h2 img").count() == 0
+    flow.audit("chat")
     assert not flow.failures(), "\n".join(flow.failures())
+    assert not page.errors, page.errors
     assert not home.errors, home.errors
 
 
