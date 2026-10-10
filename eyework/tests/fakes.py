@@ -95,13 +95,6 @@ def draft_reply(status: str = "CANNOT_ANSWER", kind: str = "ASK_INFO", body: str
                               "security_concern": security, "escalate": escalate, "note_to_employee": note})
 
 
-def proposal_reply(status: str = "PROPOSED", title: str = "الطابعة لا تطبع", issue: str = "الطابعة لا تطبع أيّ صفحة منذ الصباح.",
-                   environment: str = "", resolution: str = "1. أعد تشغيل الطابعة.\n2. اطبع صفحة اختبار من قائمتها.",
-                   cause: str = "") -> ModelReply:
-    return model_reply("OK", {"status": status, "title": title, "issue": issue, "environment": environment,
-                              "resolution": resolution, "cause": cause})
-
-
 def review_reply(*flags: dict) -> ModelReply:
     return model_reply("OK", {"flags": list(flags)})
 
@@ -141,8 +134,6 @@ class FakeGateway:
             reply = assistant_reply()
         elif request.feature == "SUPPORT_DRAFT":
             reply = draft_reply()
-        elif request.feature == "SUPPORT_ARTICLE_PROPOSAL":
-            reply = proposal_reply("NOT_ENOUGH", "", "", "", "", "")
         else:
             reply = review_reply()
         return replace(reply, usage={**reply.usage, "prompt_version": request.prompt_version})

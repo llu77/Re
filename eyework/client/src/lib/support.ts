@@ -27,8 +27,8 @@ export type DismissReason = "FALSE_ALARM" | "EMPLOYER_APPROVED" | "KB_OUTDATED" 
 export type ReleaseVia = "COPY" | "SHARE" | "SCRIPT"
 export type QuestionCode = "ERROR_TEXT" | "WHEN_STARTED" | "DEVICE" | "SCOPE" | "STEPS" | "TRIED" | "SCREENSHOT"
 export type TicketView = "open" | "pending" | "escalated" | "resolved" | "closed"
-export type KbView = "published" | "attention" | "drafts" | "proposals" | "archived"
-export type ArticleState = "DRAFT" | "PROPOSED" | "PUBLISHED" | "ARCHIVED" | "DISCARDED"
+export type KbView = "published" | "attention" | "drafts" | "archived"
+export type ArticleState = "DRAFT" | "PUBLISHED" | "ARCHIVED" | "DISCARDED"
 
 export interface Paged<T> {
   items: T[]
@@ -217,7 +217,6 @@ export interface ArticleVersion {
   environment: string | null
   resolution: string
   cause: string | null
-  origin: string
   at: string | null
 }
 
@@ -294,7 +293,7 @@ export const DISMISS_REASON: Record<DismissReason, string> = {
   FALSE_ALARM: "تنبيهٌ في غير محلّه", EMPLOYER_APPROVED: "جهة العمل موافقة", KB_OUTDATED: "المقالة قديمة", OTHER: "سببٌ آخر",
 }
 export const ARTICLE_STATE: Record<ArticleState, string> = {
-  DRAFT: "مسودة", PROPOSED: "مقترحة", PUBLISHED: "منشورة", ARCHIVED: "مؤرشفة", DISCARDED: "متروكة",
+  DRAFT: "مسودة", PUBLISHED: "منشورة", ARCHIVED: "مؤرشفة", DISCARDED: "متروكة",
 }
 export const AUTHOR: Record<Message["author"], string> = { CUSTOMER: "العميل", AGENT: "ردّك", NOTE: "ملاحظة داخلية" }
 export const REVIEW_REASON: Record<string, string> = {
@@ -303,7 +302,7 @@ export const REVIEW_REASON: Record<string, string> = {
 export const SLA_FIRST: Record<number, string> = { 30: "نصف ساعة", 60: "ساعة", 120: "ساعتان", 240: "٤ ساعات", 480: "٨ ساعات", 1440: "يوم" }
 export const SLA_RESOLVE: Record<number, string> = { 240: "٤ ساعات", 480: "٨ ساعات", 1440: "يوم", 2880: "يومان", 4320: "٣ أيام", 7200: "٥ أيام" }
 export const USAGE_KIND: Record<string, string> = {
-  SUPPORT_DRAFT: "المسودات", SUPPORT_REPLY_REVIEW: "مراجعة الردود", SUPPORT_ARTICLE_PROPOSAL: "اقتراح المقالات", SUPPORT_ARTICLE_REVIEW: "مراجعة المقالات",
+  SUPPORT_DRAFT: "المسودات", SUPPORT_REPLY_REVIEW: "مراجعة الردود", SUPPORT_ARTICLE_REVIEW: "مراجعة المقالات",
 }
 
 /** المدّة بالدقائق بكلماتٍ قصيرة: «35 د»، «3 س»، «2 ي». */
@@ -402,7 +401,6 @@ export const listArticles = (view: KbView, q: string, page: number, size = 20) =
 export const getArticle = (id: string) => get<Article>(`/kb/${id}`)
 export const createArticle = (fields: ArticleFields, token: string, sourceTicketId: string | null) =>
   post<Article>("/kb", { client_token: token, source_ticket_id: sourceTicketId, ...fields })
-export const proposeArticle = (ticketId: string) => post<Article>("/kb/proposals", { ticket_id: ticketId })
 export const addVersion = (id: string, rowVersion: number, fields: ArticleFields) => post<Article>(`/kb/${id}/versions`, { expected_row_version: rowVersion, ...fields })
 export const publishArticle = (id: string, rowVersion: number, version: number) => post<Article>(`/kb/${id}/publish`, { expected_row_version: rowVersion, version })
 export const setArticleState = (id: string, rowVersion: number, state: "ARCHIVED" | "DISCARDED") => post<Article>(`/kb/${id}/state`, { expected_row_version: rowVersion, state })

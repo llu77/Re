@@ -229,14 +229,14 @@ CREATE INDEX support_messages_ticket ON support_messages (ticket_id, created_at)
 CREATE INDEX support_messages_user_time ON support_messages (user_id, created_at DESC) WHERE author <> 'AGENT';
 
 -- ── قاعدة المعرفة ───────────────────────────────────────────────────────
--- PROPOSED: اقتراحٌ من المساعد لم يمسّه الموظف. DRAFT: كتبه الموظف أو عدّله ولم يعتمده.
+-- DRAFT: كتبه الموظف ولم يعتمده.
 -- PUBLISHED: اعتمده الموظف؛ النسخة المنشورة وحدها يراها المساعد. ARCHIVED وDISCARDED: خارجها.
 CREATE TABLE kb_articles (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     number              integer NOT NULL DEFAULT 0,
     state               text NOT NULL DEFAULT 'DRAFT' CONSTRAINT kb_article_state
-                            CHECK (state IN ('PROPOSED', 'DRAFT', 'PUBLISHED', 'ARCHIVED', 'DISCARDED')),
+                            CHECK (state IN ('DRAFT', 'PUBLISHED', 'ARCHIVED', 'DISCARDED')),
     published_version   smallint,
     latest_version      smallint NOT NULL DEFAULT 0,
     -- «علّمها أو أصلحها»: مقالةٌ منشورة يشكّ الموظف في صحّتها.
@@ -281,8 +281,6 @@ CREATE TABLE kb_versions (
     resolution  text NOT NULL CHECK (char_length(resolution) BETWEEN 20 AND 4000
                                      AND ew_support_text_ok(resolution, true)),
     cause       text CHECK (cause IS NULL OR (char_length(cause) BETWEEN 3 AND 400 AND ew_support_text_ok(cause, true))),
-    origin      text NOT NULL CONSTRAINT kb_version_origin CHECK (origin IN ('EMPLOYEE', 'AI')),
-    call_id     uuid REFERENCES ai_requests (id) ON DELETE SET NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
     search      tsvector GENERATED ALWAYS AS (
                     setweight(to_tsvector('arabic'::regconfig, title), 'A')
@@ -492,7 +490,7 @@ CREATE TABLE support_events (
                     'FLAG_RAISED', 'FLAG_HEEDED', 'FLAG_DISMISSED',
                     'REPLY_RELEASED', 'REPLY_SENT', 'REPLY_WITHDRAWN',
                     'ESCALATED', 'ESCALATION_RETURNED', 'RESOLVED', 'REOPENED', 'TEXTS_PURGED',
-                    'ARTICLE_CREATED', 'ARTICLE_PROPOSED', 'ARTICLE_PROPOSAL_FAILED', 'ARTICLE_VERSION_ADDED',
+                    'ARTICLE_CREATED', 'ARTICLE_VERSION_ADDED',
                     'ARTICLE_PUBLISHED', 'ARTICLE_ARCHIVED', 'ARTICLE_DISCARDED',
                     'ARTICLE_MARKED_REVIEW', 'ARTICLE_REVIEW_CLEARED')),
     actor       text NOT NULL DEFAULT 'EMPLOYEE' CONSTRAINT support_event_actor
@@ -521,23 +519,8 @@ CREATE TRIGGER trg_support_messages_append_only BEFORE UPDATE ON support_message
     FOR EACH ROW EXECUTE FUNCTION ew_forbid_update();
 CREATE TRIGGER trg_support_citations_append_only BEFORE UPDATE ON support_draft_citations
     FOR EACH ROW EXECUTE FUNCTION ew_forbid_update();
--- نسخة المقالة لا تتغيّر، إلا أن يُمحى رقم الاستدعاء الذي كتبها حين يُمحى سجلّه.
-CREATE FUNCTION ew_kb_version_update_guard() RETURNS trigger
-LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
-BEGIN
-    IF NOT (OLD.call_id IS NOT NULL AND NEW.call_id IS NULL
-            AND (NEW.article_id, NEW.version, NEW.user_id, NEW.title, NEW.issue, NEW.environment, NEW.resolution,
-                 NEW.cause, NEW.origin, NEW.created_at)
-                IS NOT DISTINCT FROM
-                (OLD.article_id, OLD.version, OLD.user_id, OLD.title, OLD.issue, OLD.environment, OLD.resolution,
-                 OLD.cause, OLD.origin, OLD.created_at)) THEN
-        RAISE EXCEPTION 'append-only: %', TG_TABLE_NAME USING ERRCODE = 'insufficient_privilege';
-    END IF;
-    RETURN NEW;
-END
-$$;
 CREATE TRIGGER trg_kb_versions_append_only BEFORE UPDATE ON kb_versions
-    FOR EACH ROW EXECUTE FUNCTION ew_kb_version_update_guard();
+    FOR EACH ROW EXECUTE FUNCTION ew_forbid_update();
 -- السجلّ ملحقٌ فقط، إلا أن يُمحى أحد مرجعيه والآخر باقٍ (ew_support_events_keep): حدثٌ يخصّ تذكرةً ومقالةً
 -- معاً يبقى ما بقيت إحداهما — مقالةٌ مهمَلة تُحذف بعد ثلاثين يوماً وسجلّ تذكرتها باقٍ سنة، والتذكرة تُحذف بعد
 -- سنة والمقالة باقية.
@@ -1000,7 +983,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'profession' USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'support_needs_support';
     END IF;
-    IF NEW.state NOT IN ('PROPOSED', 'DRAFT') THEN
+    IF NEW.state <> 'DRAFT' THEN
         RAISE EXCEPTION 'state' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_article_starts_unpublished';
     END IF;
     INSERT INTO support_settings (user_id) VALUES (NEW.user_id) ON CONFLICT (user_id) DO NOTHING;
@@ -1042,8 +1025,7 @@ BEGIN
         RAISE EXCEPTION 'state' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_article_transition';
     END IF;
     IF NEW.state <> OLD.state AND NOT (
-           (OLD.state = 'PROPOSED' AND NEW.state IN ('DRAFT', 'PUBLISHED', 'DISCARDED'))
-        OR (OLD.state = 'DRAFT' AND NEW.state IN ('PUBLISHED', 'DISCARDED'))
+           (OLD.state = 'DRAFT' AND NEW.state IN ('PUBLISHED', 'DISCARDED'))
         OR (OLD.state = 'PUBLISHED' AND NEW.state = 'ARCHIVED')
         OR (OLD.state = 'ARCHIVED' AND NEW.state = 'PUBLISHED')) THEN
         RAISE EXCEPTION 'state' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_article_transition';
@@ -1066,34 +1048,19 @@ $$;
 CREATE TRIGGER trg_kb_article_update BEFORE UPDATE ON kb_articles
     FOR EACH ROW EXECUTE FUNCTION ew_kb_article_update_guard();
 
--- النسخة: رقمها التالي، وفي حدّ ثلاثين، ومن المساعد على استدعاءٍ مفتوحٍ لاقتراح مقالة.
+-- النسخة: رقمها التالي، وفي حدّ ثلاثين. يكتبها الموظف وحده.
 CREATE FUNCTION ew_kb_version_insert_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
     a kb_articles%ROWTYPE;
-    c ai_requests%ROWTYPE;
 BEGIN
     SELECT * INTO a FROM kb_articles WHERE id = NEW.article_id AND user_id = NEW.user_id FOR UPDATE;
     IF NOT FOUND OR a.state = 'DISCARDED' THEN
         RAISE EXCEPTION 'state' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_article_transition';
     END IF;
-    IF NEW.origin = 'AI' THEN
-        SELECT * INTO c FROM ai_requests WHERE id = NEW.call_id;
-        IF NOT FOUND OR c.feature <> 'SUPPORT_ARTICLE_PROPOSAL' OR c.user_id <> NEW.user_id
-           OR c.finished_at IS NOT NULL OR a.latest_version <> 0
-           OR c.started_at <= now() - make_interval(secs => (SELECT lease_seconds FROM ai_features
-                                                              WHERE code = 'SUPPORT_ARTICLE_PROPOSAL')) THEN
-            RAISE EXCEPTION 'call' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_ai_version_needs_open_call';
-        END IF;
-    ELSIF NEW.call_id IS NOT NULL THEN
-        RAISE EXCEPTION 'call' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_ai_version_needs_open_call';
-    END IF;
     NEW.version := a.latest_version + 1;
     NEW.created_at := now();
-    UPDATE kb_articles
-       SET latest_version = NEW.version,
-           state = CASE WHEN a.state = 'PROPOSED' AND NEW.origin = 'EMPLOYEE' THEN 'DRAFT' ELSE a.state END
-     WHERE id = NEW.article_id;
+    UPDATE kb_articles SET latest_version = NEW.version WHERE id = NEW.article_id;
     RETURN NEW;
 END
 $$;
@@ -1413,8 +1380,7 @@ BEGIN
 END
 $$;
 
--- يُغلق استدعاءً لم يُنتج أثراً (رفضٌ أو خطأٌ أو جوابٌ مرفوض)، ويسجّله على تذكرته. واقتراح
--- مقالةٍ لا تكفي له التذكرة (CANNOT_ANSWER أو NOT_SUPPORT) نتيجةٌ بلا أثر.
+-- يُغلق استدعاءً لم يُنتج أثراً (رفضٌ أو خطأٌ أو جوابٌ مرفوض)، ويسجّله على تذكرته.
 CREATE FUNCTION ew_support_finish_call(p_request uuid, p_outcome text, p_usage jsonb) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
@@ -1424,8 +1390,7 @@ DECLARE
 BEGIN
     r := ew_support_request_for(uid, p_request, NULL);
     -- DISCARDED: جاءت رسالةٌ أو مسودةٌ أحدث أثناء الاستدعاء فلم يُكتب شيء؛ يُغلق الطلب ولا يبقى مفتوحاً يحجز التالي.
-    IF (r.feature = 'SUPPORT_ARTICLE_PROPOSAL' AND p_outcome IN ('CANNOT_ANSWER', 'NOT_SUPPORT'))
-       OR p_outcome = 'DISCARDED' THEN
+    IF p_outcome = 'DISCARDED' THEN
         PERFORM ew_ai_request_settle(p_request, p_outcome, NULL, p_usage);
     ELSE
         PERFORM ew_ai_request_fail(p_request, p_outcome, p_usage);
@@ -1438,9 +1403,6 @@ BEGIN
             PERFORM ew_support_log(uid, ticket, NULL, 'REVIEW_FAILED', p_outcome, NULL, r.subject_id, NULL,
                                    'ASSISTANT');
         END IF;
-    ELSIF r.feature = 'SUPPORT_ARTICLE_PROPOSAL' THEN
-        PERFORM ew_support_log(uid, r.subject_id, NULL, 'ARTICLE_PROPOSAL_FAILED', p_outcome, NULL, NULL, NULL,
-                               'ASSISTANT');
     END IF;
 END
 $$;
@@ -1857,8 +1819,8 @@ BEGIN
     INSERT INTO kb_articles (user_id, state, client_token, source_ticket_id)
     VALUES (uid, 'DRAFT', p_client_token, p_source_ticket)
     RETURNING id INTO aid;
-    INSERT INTO kb_versions (article_id, user_id, title, issue, environment, resolution, cause, origin)
-    VALUES (aid, uid, p_title, p_issue, p_environment, p_resolution, p_cause, 'EMPLOYEE');
+    INSERT INTO kb_versions (article_id, user_id, title, issue, environment, resolution, cause)
+    VALUES (aid, uid, p_title, p_issue, p_environment, p_resolution, p_cause);
     PERFORM ew_support_log(uid, p_source_ticket, aid, 'ARTICLE_CREATED', NULL, NULL, NULL, NULL, NULL);
     RETURN aid;
 END
@@ -1884,8 +1846,8 @@ BEGIN
     IF (SELECT count(*) FROM kb_versions WHERE user_id = uid AND created_at > now() - interval '24 hours') >= 100 THEN
         RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_daily_version_cap';
     END IF;
-    INSERT INTO kb_versions (article_id, user_id, title, issue, environment, resolution, cause, origin)
-    VALUES (p_article, uid, p_title, p_issue, p_environment, p_resolution, p_cause, 'EMPLOYEE')
+    INSERT INTO kb_versions (article_id, user_id, title, issue, environment, resolution, cause)
+    VALUES (p_article, uid, p_title, p_issue, p_environment, p_resolution, p_cause)
     RETURNING version INTO v;
     UPDATE kb_articles SET updated_at = now() WHERE id = p_article;
     PERFORM ew_support_log(uid, NULL, p_article, 'ARTICLE_VERSION_ADDED', NULL, NULL, NULL, NULL, NULL);
@@ -1991,50 +1953,6 @@ BEGIN
      WHERE a.user_id = uid AND a.state = 'PUBLISHED' AND v.search @@ q
      ORDER BY r DESC, a.reuse_count DESC, a.number
      LIMIT p_limit;
-END
-$$;
-
--- اقتراح مقالةٍ من تذكرةٍ أُرسل فيها ردّ: المساعد يقترح، والموظف يعتمد أو يتجاهل.
-CREATE FUNCTION ew_kb_begin_proposal(p_ticket uuid) RETURNS uuid
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
-DECLARE
-    uid uuid := ew_support_me(true);
-BEGIN
-    PERFORM ew_support_require_notice(uid);
-    PERFORM 1 FROM support_tickets WHERE id = p_ticket AND user_id = uid AND texts_purged_at IS NULL;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'ticket' USING ERRCODE = 'no_data_found';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM support_messages WHERE ticket_id = p_ticket AND author = 'AGENT')
-       AND NOT EXISTS (SELECT 1 FROM support_drafts WHERE ticket_id = p_ticket AND reject_reason = 'NOT_IN_KB') THEN
-        RAISE EXCEPTION 'source' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_proposal_needs_source';
-    END IF;
-    IF (SELECT count(*) FROM ai_requests
-         WHERE user_id = uid AND feature = 'SUPPORT_ARTICLE_PROPOSAL' AND subject_id = p_ticket
-           AND ew_is_billable(outcome)) >= 2 THEN
-        RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_ticket_proposal_cap';
-    END IF;
-    RETURN ew_ai_request_open('SUPPORT_ARTICLE_PROPOSAL', 'SUPPORT_TICKET', p_ticket, NULL);
-END
-$$;
-
-CREATE FUNCTION ew_kb_record_proposal(
-    p_request uuid, p_title text, p_issue text, p_environment text, p_resolution text, p_cause text, p_usage jsonb
-) RETURNS uuid
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
-DECLARE
-    uid uuid := ew_support_me(false);
-    r   ai_requests%ROWTYPE;
-    aid uuid;
-BEGIN
-    r := ew_support_request_for(uid, p_request, 'SUPPORT_ARTICLE_PROPOSAL');
-    INSERT INTO kb_articles (user_id, state, source_ticket_id) VALUES (uid, 'PROPOSED', r.subject_id)
-    RETURNING id INTO aid;
-    INSERT INTO kb_versions (article_id, user_id, title, issue, environment, resolution, cause, origin, call_id)
-    VALUES (aid, uid, p_title, p_issue, p_environment, p_resolution, p_cause, 'AI', p_request);
-    PERFORM ew_ai_request_settle(p_request, 'OK', NULL, p_usage);
-    PERFORM ew_support_log(uid, r.subject_id, aid, 'ARTICLE_PROPOSED', NULL, NULL, NULL, NULL, 'ASSISTANT');
-    RETURN aid;
 END
 $$;
 
@@ -2178,7 +2096,7 @@ REVOKE ALL ON FUNCTION ew_support_settings_defaults(), ew_support_ticket_insert_
                        ew_support_draft_update_guard(), ew_support_citation_guard(), ew_support_draft_grounded(),
                        ew_support_reply_insert_guard(), ew_support_reply_update_guard(),
                        ew_support_flag_insert_guard(), ew_support_flag_update_guard(), ew_kb_article_insert_guard(),
-                       ew_kb_article_update_guard(), ew_kb_version_insert_guard(), ew_kb_version_update_guard(),
+                       ew_kb_article_update_guard(), ew_kb_version_insert_guard(),
                        ew_support_me(boolean), ew_support_require_notice(uuid), ew_support_ticket_for(uuid, uuid, integer),
                        ew_support_log(uuid, uuid, uuid, text, text, uuid, uuid, uuid, text),
                        ew_kb_version_digest(uuid, smallint), ew_support_request_for(uuid, uuid, text),
@@ -2214,8 +2132,6 @@ REVOKE ALL ON FUNCTION
     ew_kb_set_state(uuid, integer, text),
     ew_kb_mark_review(uuid, integer, boolean),
     ew_kb_search(text, integer),
-    ew_kb_begin_proposal(uuid),
-    ew_kb_record_proposal(uuid, text, text, text, text, text, jsonb),
     ew_kb_review_begin(uuid, smallint),
     ew_kb_current_digest(uuid),
     ew_kb_review_record(uuid, jsonb, jsonb)
@@ -2248,8 +2164,6 @@ GRANT EXECUTE ON FUNCTION
     ew_kb_set_state(uuid, integer, text),
     ew_kb_mark_review(uuid, integer, boolean),
     ew_kb_search(text, integer),
-    ew_kb_begin_proposal(uuid),
-    ew_kb_record_proposal(uuid, text, text, text, text, text, jsonb),
     ew_kb_review_begin(uuid, smallint),
     ew_kb_current_digest(uuid),
     ew_kb_review_record(uuid, jsonb, jsonb)

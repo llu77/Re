@@ -616,13 +616,6 @@ function NewArticleContainer({ params, onChanged }: { params: URLSearchParams; o
         go(articleRoute(result.data.id), { replace: true })
         return null
       }}
-      onPropose={ticketId ? async () => {
-        const result = await sup.proposeArticle(ticketId)
-        if (result.status !== 201 || !result.data) return failOf(result)
-        onChanged()
-        go(articleRoute(result.data.id), { replace: true })
-        return null
-      } : null}
     />
   )
 }
@@ -662,7 +655,6 @@ function ArticleContainer({ id, sub, onChanged, setNotice }: { id: string; sub: 
       <ArticleEditor
         article={article}
         sourceTicket={null}
-        onPropose={null}
         onBack={back}
         onSave={async (fields) => {
           const fail = await write(await sup.addVersion(id, article.row_version, fields))

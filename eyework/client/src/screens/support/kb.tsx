@@ -9,7 +9,7 @@
  */
 
 import * as React from "react"
-import { Archive, BookOpen, CheckCircle2, FilePlus2, Flag, FlagOff, Lightbulb, PencilLine, RefreshCw, Save, Search, Sparkles, Trash2 } from "lucide-react"
+import { Archive, BookOpen, CheckCircle2, FilePlus2, Flag, FlagOff, Lightbulb, PencilLine, RefreshCw, Save, Search, Trash2 } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { AIFlag } from "@/components/ui/ai-flag"
@@ -31,7 +31,7 @@ import { LONG_LIST_PAGE, useSize } from "@/lib/size"
 import type { Fail } from "./common"
 
 const STATE_TONE: Record<ArticleRow["state"], "success" | "info" | "neutral" | "warning"> = {
-  PUBLISHED: "success", DRAFT: "neutral", PROPOSED: "info", ARCHIVED: "neutral", DISCARDED: "neutral",
+  PUBLISHED: "success", DRAFT: "neutral", ARCHIVED: "neutral", DISCARDED: "neutral",
 }
 
 function rowLine(row: ArticleRow): string {
@@ -182,8 +182,8 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
       : <Button key="review" id="article-needs-review" icon={Flag} busy={busy === "review"} onClick={() => void run("review", () => onMarkReview(true))}>علّمها تحتاج مراجعة</Button>)
     actions.push(<Button key="archive" id="article-archive" icon={Archive} busy={busy === "archive"} onClick={() => void run("archive", () => onState("ARCHIVED"))}>أرشف</Button>)
   }
-  if (article.state === "DRAFT" || article.state === "PROPOSED") {
-    actions.push(<Button key="discard" id="article-discard" variant="danger-outline" icon={Trash2} busy={busy === "discard"} onClick={() => void run("discard", () => onState("DISCARDED"))}>{article.state === "PROPOSED" ? "تجاهل الاقتراح" : "تجاهل المسودة"}</Button>)
+  if (article.state === "DRAFT") {
+    actions.push(<Button key="discard" id="article-discard" variant="danger-outline" icon={Trash2} busy={busy === "discard"} onClick={() => void run("discard", () => onState("DISCARDED"))}>تجاهل المسودة</Button>)
   }
   const facts = (
     <p className="text-small text-muted-foreground">
@@ -223,14 +223,12 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
 
 const EMPTY: ArticleFields = { title: "", issue: "", environment: null, resolution: "", cause: null }
 
-export function ArticleEditor({ article, sourceTicket, onSave, onPropose, onBack }: {
+export function ArticleEditor({ article, sourceTicket, onSave, onBack }: {
   /** المقالة التي تُضاف إليها نسخة، أو null لمقالةٍ جديدة. */
   article: Article | null
   /** التذكرة التي تُكتب منها المقالة («ثغرات القاعدة»)، أو null. */
   sourceTicket: { id: string; number: number | null } | null
   onSave: (fields: ArticleFields) => Promise<Fail>
-  /** «اقترح سيمبول مقالة» من التذكرة. */
-  onPropose: (() => Promise<Fail>) | null
   onBack: () => void
 }) {
   const { size } = useSize()
@@ -282,11 +280,6 @@ export function ArticleEditor({ article, sourceTicket, onSave, onPropose, onBack
       {article ? "احفظ نسخةً جديدة" : "احفظ المقالة"}
     </Button>
   )
-  const propose = onPropose ? (
-    <Button id="article-propose" variant="secondary" icon={Sparkles} busy={busy === "propose"} onClick={() => void run("propose", onPropose)} className="self-start gaze:w-full">
-      اقترح سيمبول مقالة من التذكرة
-    </Button>
-  ) : null
   const failAlert = fail && !["title", "issue", "resolution", "environment", "cause"].includes(fail.field ?? "") ? <Alert tone="danger" title="لم تُحفظ" live>{fail.message}</Alert> : null
   const heading = article ? `تعديل KB-${article.number}` : sourceTicket?.number ? `مقالة من التذكرة #${sourceTicket.number}` : "مقالة جديدة"
   if (gaze) {
@@ -303,14 +296,13 @@ export function ArticleEditor({ article, sourceTicket, onSave, onPropose, onBack
         {step === 0 ? <>{title}{issue}</> : null}
         {step === 1 ? resolution : null}
         {step === 2 ? <>{environment}{cause}</> : null}
-        {step === 3 ? <>{save}{failAlert}{fail && !failAlert ? <Alert tone="danger" title="لم تُحفظ" live>{fail.message}</Alert> : null}{propose}</> : null}
+        {step === 3 ? <>{save}{failAlert}{fail && !failAlert ? <Alert tone="danger" title="لم تُحفظ" live>{fail.message}</Alert> : null}</> : null}
       </Screen>
     )
   }
   return (
     <Screen title={heading} back={{ id: "article-back", label: "رجوع", onClick: onBack }} actions={<div className="ms-auto">{save}</div>}>
       {failAlert}
-      {propose}
       {title}
       {issue}
       {environment}

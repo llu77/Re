@@ -42,7 +42,6 @@ from eyework.web.schemas import (
     MaskPreviewBody,
     MessageBody,
     NoticeBody,
-    ProposalBody,
     RejectDraftBody,
     ReleaseBody,
     ReplyBody,
@@ -236,7 +235,7 @@ def reopen(ticket_id: UUID, body: RowVersionBody, request: Request, user_id: UUI
 # ── قاعدة المعرفة ───────────────────────────────────────────────────────
 @router.get("/kb")
 def list_articles(request: Request,
-                  view: Literal["published", "attention", "drafts", "proposals", "archived"] = Query("published"),
+                  view: Literal["published", "attention", "drafts", "archived"] = Query("published"),
                   q: str | None = Query(None, max_length=200), page: int = Page, size: int = Size,
                   user_id: UUID = Depends(require_user)) -> dict:
     _read(request, user_id)
@@ -255,12 +254,6 @@ def get_article(article_id: UUID, request: Request, user_id: UUID = Depends(requ
 def create_article(body: ArticleCreateBody, request: Request, user_id: UUID = Depends(require_user)) -> dict:
     _write(request, user_id)
     return support.create_article(_db(request), user_id, body.model_dump())
-
-
-@router.post("/kb/proposals", status_code=status.HTTP_201_CREATED)
-def propose_article(body: ProposalBody, request: Request, user_id: UUID = Depends(_ai_ready)) -> dict:
-    _ai(request, user_id)
-    return support.propose_article(_db(request), request.app.state.review_runner, user_id, body.ticket_id)
 
 
 @router.post("/kb/{article_id}/versions")

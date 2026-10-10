@@ -155,7 +155,7 @@ _PURGE_AI_OPEN_FLAGS = "DELETE FROM ai_flags WHERE closed_at IS NULL AND created
 _PURGE_INV_PURCHASE_DRAFTS = "DELETE FROM inv_purchases WHERE status = 'DRAFT' AND updated_at < now() - interval '30 days'"
 _PURGE_INV_RETURN_DRAFTS = "DELETE FROM inv_returns WHERE status = 'DRAFT' AND updated_at < now() - interval '30 days'"
 #: مكتب الدعم (0011): الإغلاق الآلي، ثم نصوص التذكرة بعد ثلاثين يوماً من إغلاقها، ثم التذكرة
-#: وسجلّها بعد سنة، ثم الاقتراحات التي لم يمسّها الموظف. بلا جلسة: لا يُنسب شيءٌ منها إلى أحد.
+#: وسجلّها بعد سنة، ثم المقالات المتروكة بعد ثلاثين يوماً. بلا جلسة: لا يُنسب شيءٌ منها إلى أحد.
 _SUPPORT_CLOSE_RESOLVED = """
 UPDATE support_tickets SET status = 'CLOSED', close_reason = 'AFTER_RESOLVED'
  WHERE status = 'RESOLVED' AND resolved_at < now() - interval '4 days'
@@ -201,9 +201,6 @@ UPDATE support_tickets t SET subject = NULL, customer_label = NULL, texts_purged
  WHERE t.status = 'CLOSED' AND t.texts_purged_at IS NULL AND t.closed_at < now() - interval '30 days'
 """
 _SUPPORT_PURGE_TICKETS = "DELETE FROM support_tickets WHERE status = 'CLOSED' AND closed_at < now() - interval '365 days'"
-_SUPPORT_DISCARD_PROPOSALS = """
-UPDATE kb_articles SET state = 'DISCARDED' WHERE state = 'PROPOSED' AND updated_at < now() - interval '30 days'
-"""
 _SUPPORT_PURGE_DISCARDED = "DELETE FROM kb_articles WHERE state = 'DISCARDED' AND discarded_at < now() - interval '30 days'"
 #: خروج الحساب من الدعم الفني: تُسحب ردوده الحيّة وتُغلق تذاكره المفتوحة (لا تُحذف؛ يمحو
 #: purge نصوصها بعد ثلاثين يوماً).
@@ -416,7 +413,6 @@ def purge() -> dict[str, int]:
                                 ("support_texts_events", _SUPPORT_TEXTS_EVENT),
                                 ("support_texts_purged", _SUPPORT_TEXTS_MARK),
                                 ("support_tickets", _SUPPORT_PURGE_TICKETS),
-                                ("kb_proposals_discarded", _SUPPORT_DISCARD_PROPOSALS),
                                 ("kb_articles_deleted", _SUPPORT_PURGE_DISCARDED)):
             cursor.execute(statement)
             counts[name] = cursor.rowcount

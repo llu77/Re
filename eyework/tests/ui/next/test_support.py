@@ -389,6 +389,10 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
         flow.press("#nav-home", lambda: flow.screen(f"#home-{entry}"), "الرئيسية")
         flow.press(f"#home-{entry}", lambda: flow.screen(f"text={text}"), entry)
         _audit(flow, f"list-{entry}")
+    # في الحجم الكبير يظهر رابط الإعدادات بعد الإشعار: الأزرار الستة وزرّ الإشعار تملأ الهاتف الأضيق.
+    if size == "gaze":
+        assert not page.locator("#home-settings-phone").is_visible()
+        _notice(flow)
     flow.press("#nav-home", lambda: flow.screen("#home-settings-phone"), "الرئيسية")
     flow.press("#home-settings-phone", lambda: flow.screen("#settings-signature"), "إعدادات الدعم")
     page.fill("#settings-signature", "فريق الدعم الفني")

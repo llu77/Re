@@ -19,7 +19,7 @@ from eyework import config, support_notice
 from eyework.db import Database
 from eyework.tests.api.conftest import LOGIN_KEY, ORIGIN, add_user, expect, log_in
 from eyework.tests.conftest import app_url_for
-from eyework.tests.fakes import FakeGateway, draft_reply, model_reply, proposal_reply, review_reply
+from eyework.tests.fakes import FakeGateway, draft_reply, model_reply, review_reply
 from eyework.web.app import create_app
 
 AGENT = "agent@example.sa"
@@ -360,27 +360,6 @@ def test_the_knowledge_base_is_written_reviewed_published_and_searched(agent, ga
     assert stale.json()["detail"] == "تغيّرت المقالة منذ عرضها. راجعها مرة أخرى."
 
 
-def test_an_article_is_proposed_from_a_ticket_that_had_a_sent_reply(agent, gateway):
-    client, _ = agent
-    accept(client)
-    t = ticket(client)
-    no_source = client.post(f"{BASE}/kb/proposals", json={"ticket_id": t["id"]})
-    assert no_source.json()["code"] == "KB_SOURCE"
-    reply = expect(client.post(f"{BASE}/tickets/{t['id']}/replies", json={
-        "client_token": str(uuid4()), "expected_row_version": t["row_version"], "kind": "ANSWER",
-        "core": "أعيدوا تشغيل الطابعة ثم اطبعوا صفحة اختبار من قائمتها."}), 201)
-    for f in reply["flags"]:
-        expect(client.post(f"{BASE}/flags/{f['id']}", json={"action": "DISMISSED", "reason": "EMPLOYER_APPROVED"}))
-    expect(client.post(f"{BASE}/replies/{reply['id']}/release", json={"via": "COPY", "body_sha256": reply["body_sha256"]}))
-    expect(client.post(f"{BASE}/replies/{reply['id']}/confirm", json={"sent": True}))
-    gateway.queue(proposal_reply())
-    proposed = expect(client.post(f"{BASE}/kb/proposals", json={"ticket_id": t["id"]}), 201)
-    assert proposed["state"] == "PROPOSED" and proposed["versions"][0]["origin"] == "AI"
-    assert expect(client.get(f"{BASE}/home"))["counts"]["kb_attention"] == 1
-    gateway.queue(proposal_reply("NOT_ENOUGH", "", "", "", "", ""))
-    assert client.post(f"{BASE}/kb/proposals", json={"ticket_id": t["id"]}).json()["code"] == "KB_NOT_ENOUGH"
-
-
 def test_settings_keep_a_signature_and_service_targets_and_phrases_are_static(agent):
     client, _ = agent
     settings = expect(client.put(f"{BASE}/settings", json={"signature": SIGNATURE,
@@ -390,8 +369,7 @@ def test_settings_keep_a_signature_and_service_targets_and_phrases_are_static(ag
     settings = expect(client.put(f"{BASE}/settings", json={"sla": {"HIGH": {"first_reply_minutes": 60, "resolve_minutes": 480}}}))
     assert settings["signature"] == SIGNATURE and settings["sla"]["HIGH"] == {"first_reply_minutes": 60, "resolve_minutes": 480}
     assert expect(client.put(f"{BASE}/settings", json={"signature": None}))["signature"] is None
-    assert {u["kind"] for u in settings["ai_usage"]} == {"SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_PROPOSAL",
-                                                          "SUPPORT_ARTICLE_REVIEW"}
+    assert {u["kind"] for u in settings["ai_usage"]} == {"SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_REVIEW"}
     bad = client.put(f"{BASE}/settings", json={"signature": "اتصل 0551234567"})
     assert (bad.status_code, bad.json()["code"]) == (422, "SIGNATURE")
     phrases = expect(client.get(f"{BASE}/phrases"))

@@ -240,14 +240,6 @@ def test_the_knowledge_base_search_ignores_the_masks():
     assert rules.without_masks("[رقم محذوف] الطابعة [رابط محذوف: example.com] [بريد محذوف]").split() == ["الطابعة"]
 
 
-def test_a_proposal_is_refused_with_contacts_and_accepted_clean():
-    with pytest.raises(prompt.DraftInvalid):
-        prompt.parse_proposal({"status": "PROPOSED", "title": "طابعة", "issue": "الطابعة لا تطبع أبداً.", "environment": "",
-                               "resolution": "اتصل على 0551234567 ليُصلح الطابعة.", "cause": ""})
-    assert prompt.parse_proposal({"status": "NOT_ENOUGH", "title": "", "issue": "", "environment": "", "resolution": "",
-                                  "cause": ""}) is None
-
-
 # ── الإشعار ─────────────────────────────────────────────────────────────
 def test_the_desk_notice_text_is_pinned_to_its_version():
     digest = hashlib.sha256(support_notice.normalized_text().encode("utf-8")).hexdigest()

@@ -92,16 +92,16 @@ def test_the_purge_forgets_ticket_texts_thirty_days_after_closing_and_the_ticket
     assert owner_scalar(owner, "SELECT count(*) FROM support_tickets WHERE id = %s", (old,)) == 0
 
 
-def test_an_untouched_proposal_is_discarded_after_thirty_days_and_deleted_after_sixty(owner, app, purge):
+def test_a_discarded_article_is_deleted_after_thirty_days(owner, app, purge):
     agent = desk_user(owner, b"purge-kb", app=app)
     article = scalar(app, agent, "SELECT ew_kb_create(gen_random_uuid(), 'الطابعة لا تطبع', 'الطابعة لا تطبع أيّ صفحة.',"
                                  " NULL, '1. أعد تشغيل الطابعة. 2. اطبع صفحة اختبار.', NULL, NULL)")
     with owner.transaction(), owner.cursor() as cursor:
         cursor.execute("ALTER TABLE kb_articles DISABLE TRIGGER USER")
-        cursor.execute("UPDATE kb_articles SET state = 'PROPOSED', updated_at = now() - interval '31 days' WHERE id = %s",
+        cursor.execute("UPDATE kb_articles SET state = 'DISCARDED', discarded_at = now() - interval '29 days' WHERE id = %s",
                        (article,))
         cursor.execute("ALTER TABLE kb_articles ENABLE TRIGGER USER")
-    assert purge()["kb_proposals_discarded"] == 1
+    assert purge()["kb_articles_deleted"] == 0
     with owner.transaction(), owner.cursor() as cursor:
         cursor.execute("ALTER TABLE kb_articles DISABLE TRIGGER USER")
         cursor.execute("UPDATE kb_articles SET discarded_at = now() - interval '31 days' WHERE id = %s", (article,))

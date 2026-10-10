@@ -66,7 +66,6 @@ __all__ = [
     "mask_preview",
     "phrases",
     "prepare_reply",
-    "propose_article",
     "publish",
     "reject_draft",
     "release_reply",
@@ -95,7 +94,7 @@ KB_IDS_MAX = 3
 
 
 class SupportAiFailure(Exception):
-    """استدعاءٌ لسيمبول لم يُنتج شيئاً: النتيجة (REFUSED، OUTPUT_INVALID، UPSTREAM_*، DOWN، SLOTS، NOT_ENOUGH)."""
+    """استدعاءٌ لسيمبول لم يُنتج شيئاً: النتيجة (REFUSED، OUTPUT_INVALID، UPSTREAM_*، DOWN، SLOTS)."""
 
     def __init__(self, outcome: str, retry_after_seconds: int | None = None) -> None:
         super().__init__(outcome)
@@ -215,7 +214,7 @@ SELECT (SELECT count(*) FROM support_tickets t
        (SELECT count(*) FROM support_tickets WHERE status IN ('NEW', 'OPEN')) AS open,
        (SELECT count(*) FROM support_tickets WHERE status = 'PENDING') AS pending,
        (SELECT count(*) FROM support_tickets WHERE status = 'ESCALATED') AS escalated,
-       (SELECT count(*) FROM kb_articles WHERE state = 'PROPOSED' OR needs_review) AS kb_attention
+       (SELECT count(*) FROM kb_articles WHERE needs_review) AS kb_attention
 """
 _SETTINGS = "SELECT signature, notice_version FROM support_settings"
 _ENSURE_SETTINGS = "SELECT ew_support_close_due() AS closed"
@@ -857,13 +856,12 @@ SELECT count(*) OVER () AS total, a.id, a.number, a.state, a.published_version, 
 """
 _KB_VIEWS = {
     "published": "a.state = 'PUBLISHED'",
-    "attention": "(a.state = 'PROPOSED' OR a.needs_review)",
-    "drafts": "a.state IN ('DRAFT', 'PROPOSED')",
-    "proposals": "a.state = 'PROPOSED'",
+    "attention": "a.needs_review",
+    "drafts": "a.state = 'DRAFT'",
     "archived": "a.state = 'ARCHIVED'",
 }
 _VERSIONS = """
-SELECT version, title, issue, environment, resolution, cause, origin, created_at
+SELECT version, title, issue, environment, resolution, cause, created_at
   FROM kb_versions WHERE article_id = %s ORDER BY version DESC
 """
 
@@ -907,7 +905,7 @@ def _article_view(db: Database, user_id: UUID, article_id: UUID) -> dict:
     view = _article_row(row)
     view["versions"] = [{"version": v["version"], "title": v["title"], "issue": v["issue"],
                          "environment": v["environment"], "resolution": v["resolution"], "cause": v["cause"],
-                         "origin": v["origin"], "at": _iso(v["created_at"])} for v in versions]
+                         "at": _iso(v["created_at"])} for v in versions]
     view["source_ticket_id"] = None if row["source_ticket_id"] is None else str(row["source_ticket_id"])
     view["digest"] = None if digest is None else bytes(digest).hex()
     view["flags"] = [] if digest is None else reviewer.flags_for(db, user_id, "KB_ARTICLE", article_id, bytes(digest))
@@ -991,46 +989,6 @@ def mark_review(db: Database, user_id: UUID, article_id: UUID, expected_row_vers
     return _article_view(db, user_id, article_id)
 
 
-_RECORD_PROPOSAL = "SELECT ew_kb_record_proposal(%s, %s, %s, %s, %s, %s, %s) AS id"
-
-
-def propose_article(db: Database, runner: ReviewRunner, user_id: UUID, ticket_id: UUID) -> dict:
-    """«اقترح مقالة من هذه التذكرة»: سيمبول يكتب، والمقالة اقتراحٌ لا يُقرأ حتى تُعتمد."""
-    with db.session(user_id) as cursor, _ticket_errors():
-        cursor.execute("SELECT ew_kb_begin_proposal(%s) AS id", (ticket_id,))
-        request_id = cursor.fetchone()["id"]
-        thread_rows = _rows(cursor, _THREAD, (ticket_id,))
-    try:
-        reply = _call(runner, prompt.proposal_call(_thread(thread_rows)))
-    except Exception:
-        # أيّ فشلٍ قبل الجواب (المقعد، أو خطأٌ غير متوقَّع في الطريق) يُغلق الطلب، فلا يبقى مفتوحاً يحجز التالي.
-        _finish(db, user_id, request_id, "UPSTREAM_ERROR", None)
-        raise
-    if reply.outcome != "OK":
-        _finish(db, user_id, request_id, reply.outcome, reply.usage)
-        raise SupportAiFailure(reply.outcome, reply.retry_after_seconds)
-    try:
-        article = prompt.parse_proposal(reply.data)
-    except prompt.DraftInvalid as invalid:
-        ai_log.event("support_proposal_invalid", request_id=str(request_id), outcome=invalid.code)
-        _finish(db, user_id, request_id, "OUTPUT_INVALID", reply.usage)
-        raise SupportAiFailure("OUTPUT_INVALID") from invalid
-    if article is None:
-        _finish(db, user_id, request_id, "CANNOT_ANSWER", reply.usage)
-        raise SupportAiFailure("NOT_ENOUGH")
-    try:
-        with db.session(user_id) as cursor:
-            cursor.execute(_RECORD_PROPOSAL, (request_id, article["title"], article["issue"], article["environment"],
-                                              article["resolution"], article["cause"], json.dumps(reply.usage)))
-            article_id = cursor.fetchone()["id"]
-    except pg_errors.IntegrityError as error:
-        ai_log.event("support_proposal_unrecorded", level="critical", request_id=str(request_id),
-                     constraint=getattr(error.diag, "constraint_name", None))
-        _finish(db, user_id, request_id, "OUTPUT_INVALID", reply.usage)
-        raise SupportAiFailure("OUTPUT_INVALID") from error
-    return _article_view(db, user_id, article_id)
-
-
 _REJECTIONS = """
 SELECT reject_reason AS reason, count(*) AS count FROM support_drafts
  WHERE rejected_at > now() - make_interval(days => %s) GROUP BY reject_reason ORDER BY count(*) DESC, reject_reason
@@ -1069,8 +1027,7 @@ def get_settings(db: Database, user_id: UUID) -> dict:
         sla = {r["priority"]: {"first_reply_minutes": r["first_reply_minutes"], "resolve_minutes": r["resolve_minutes"]}
                for r in _rows(cursor, _SLA_TARGETS)}
         usage = [{"kind": code, **reviewer.usage(cursor, code)}
-                 for code in ("SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_PROPOSAL",
-                              "SUPPORT_ARTICLE_REVIEW")]
+                 for code in ("SUPPORT_DRAFT", "SUPPORT_REPLY_REVIEW", "SUPPORT_ARTICLE_REVIEW")]
     return {"signature": settings.get("signature"), "sla": sla, "ai_usage": usage,
             "notice": support_notice.notice(settings.get("notice_version"))}
 
@@ -1249,7 +1206,7 @@ def _assistant_home(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str,
     return assistant.fit([
         f"بانتظار قرارك: {c['decide']}، والتذاكر المفتوحة: {c['open']}، وبانتظار العميل: {c['pending']}، "
         f"والمُصعَّدة: {c['escalated']}",
-        f"مقالاتٌ مقترحة أو تحتاج مراجعة: {c['kb_attention']}"])
+        f"مقالاتٌ تحتاج مراجعة: {c['kb_attention']}"])
 
 
 def _assistant_ticket(cursor, user_id: UUID, screen_id: UUID | None) -> tuple[str, ...]:

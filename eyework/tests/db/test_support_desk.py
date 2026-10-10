@@ -392,22 +392,16 @@ def test_resolving_and_escalating_follow_the_conversation(owner, app):
         "RESOLVE_UNANSWERED", "DISMISSED", "CONFIRMED")
 
 
-# ── اقتراح المقالة ونشرها ────────────────────────────────────────────────
-def test_a_proposed_article_is_reviewed_and_each_version_is_published_through_the_gate(owner, app):
+# ── المقالة ونشرها ──────────────────────────────────────────────────────
+def test_an_article_from_a_ticket_is_reviewed_and_each_version_is_published_through_the_gate(owner, app):
     s1 = desk_user(owner, b"s1", app=app)
     t1 = ticket(app, s1)
-    assert refusal(app, s1, "SELECT ew_kb_begin_proposal(%s)", (t1,)) == "kb_proposal_needs_source"
-    r1 = prepare(app, s1, t1, draft=answered(app, s1, t1, published(app, s1)))
-    release(app, s1, r1)
-    query(app, s1, "SELECT ew_support_confirm_reply(%s, true)", (r1,))
-
-    proposal = scalar(app, s1, "SELECT ew_kb_begin_proposal(%s)", (t1,))
-    a2 = scalar(app, s1, "SELECT ew_kb_record_proposal(%s, %s, %s, NULL, %s, NULL, %s::jsonb)",
-                (proposal, "الأضواء الحمراء في الموجّه بعد إعادة تشغيله", "الموجّه أضواؤه حمراء والإنترنت مقطوع بعد إعادة التشغيل",
+    a2 = scalar(app, s1, "SELECT ew_kb_create(gen_random_uuid(), %s, %s, NULL, %s, NULL, %s)",
+                ("الأضواء الحمراء في الموجّه بعد إعادة تشغيله", "الموجّه أضواؤه حمراء والإنترنت مقطوع بعد إعادة التشغيل",
                  "1. تأكّد من توصيل سلك الخط بالموجّه. 2. أعد تشغيله مرةً واحدة. 3. إن بقيت الأضواء حمراء فالمشكلة في الخط:"
-                 " صعّد التذكرة إلى مزوّد الخدمة.", USAGE))
-    assert query(app, s1, "SELECT a.state, v.origin, v.call_id FROM kb_articles a JOIN kb_versions v ON v.article_id = a.id"
-                          " WHERE a.id = %s", (a2,))[0] == ("PROPOSED", "AI", proposal)
+                 " صعّد التذكرة إلى مزوّد الخدمة.", t1))
+    assert query(app, s1, "SELECT state, latest_version, source_ticket_id FROM kb_articles WHERE id = %s", (a2,))[0] == (
+        "DRAFT", 1, t1)
     assert scalar(app, s1, "SELECT count(*) FROM ew_kb_search('الأضواء الحمراء الموجّه', 5) WHERE article_id = %s", (a2,)) == 0
 
     review, digest = query(app, s1, "SELECT request_id, content_digest FROM ew_kb_review_begin(%s, 1::smallint)", (a2,))[0]
@@ -428,11 +422,6 @@ def test_a_proposed_article_is_reviewed_and_each_version_is_published_through_th
     assert refusal(app, s1, "SELECT ew_kb_publish(%s, %s, 1::smallint)", (a2, rv(app, s1, "kb_articles", a2))) == "stale_row_version"
     query(app, s1, "SELECT ew_kb_publish(%s, %s, 2::smallint)", (a2, rv(app, s1, "kb_articles", a2)))
     assert scalar(app, s1, "SELECT count(*) FROM ew_kb_search('الأضواء حمراء', 5) WHERE article_id = %s", (a2,)) == 1
-
-    second = scalar(app, s1, "SELECT ew_kb_begin_proposal(%s)", (t1,))
-    query(app, s1, "SELECT ew_support_finish_call(%s, 'CANNOT_ANSWER', %s::jsonb)", (second, USAGE))
-    assert scalar(app, s1, "SELECT outcome FROM ai_requests WHERE id = %s", (second,)) == "CANNOT_ANSWER"
-    assert refusal(app, s1, "SELECT ew_kb_begin_proposal(%s)", (t1,)) == "kb_ticket_proposal_cap"
 
 
 # ── الإغلاق والمتابعة والمحو ─────────────────────────────────────────────

@@ -86,7 +86,6 @@ __all__ = [
     "MaskPreviewBody",
     "MessageBody",
     "NoticeBody",
-    "ProposalBody",
     "RejectDraftBody",
     "ReleaseBody",
     "ReplyBody",
@@ -675,10 +674,6 @@ class ArticleStateBody(_Body):
 class ArticleNeedsReviewBody(_Body):
     expected_row_version: RowVersion
     needs_review: StrictBool
-
-
-class ProposalBody(_Body):
-    ticket_id: UUID
 
 
 class SlaTarget(_Body):

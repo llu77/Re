@@ -32,7 +32,6 @@ __all__ = [
     "FEATURES",
     "KB_CHARS",
     "MAX_FLAGS",
-    "PROPOSAL",
     "QUESTION_LENGTH",
     "QUOTE_LENGTH",
     "READY_QUESTIONS_MAX",
@@ -98,8 +97,6 @@ ASSISTANT = CallSettings("low", 3_000, 25.0, False, ASSISTANT_PROMPT_VERSION)
 SUPPORT_PROMPT_VERSION = "sd-2026-10-10.1"
 #: مسودات الدعم: أطول، فتُبثّ من جهة الخادم ويُفحص الوقت مع كل حدث. والطلب كلّه ينتظرها.
 DRAFT = CallSettings("medium", 8_000, 120.0, True, SUPPORT_PROMPT_VERSION)
-#: اقتراح مقالةٍ من تذكرة: مثل المسودة، والنصّ أطول.
-PROPOSAL = CallSettings("medium", 8_000, 120.0, True, SUPPORT_PROMPT_VERSION)
 
 #: ما ينتظره طلب «راجع» قبل أن يجيب PENDING ويترك المراجعة تكمل. قيمة بدايةٍ
 #: تُقاس لا تُحفظ: بوّابة الإصدار p90 ≤ 12 ثانية على التجهيزات.

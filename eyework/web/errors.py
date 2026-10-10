@@ -428,8 +428,6 @@ SUPPORT_CONSTRAINTS: dict[str, ErrorSpec] = {
     "kb_publish_latest_only": _S_KB_STATE,
     "kb_article_starts_unpublished": _S_KB_STATE,
     "kb_review_only_published": _S_KB_STATE,
-    "kb_proposal_needs_source": ErrorSpec(409, "KB_SOURCE", "لا ردّ مرسل في هذه التذكرة ولا مسودةٌ رُفضت لنقصٍ في القاعدة."),
-    "kb_ticket_proposal_cap": ErrorSpec(409, "KB_PROPOSALS", "اقتُرحت من هذه التذكرة مقالتان، وهو الحدّ."),
     "kb_search_query": ErrorSpec(422, "SEARCH", "اكتب كلمتين على الأقل للبحث."),
     # قيمٌ يفحصها الخادم قبل القاعدة: لا تصل إلا من طلبٍ مصنوع.
     **{name: _S_INVALID for name in (
@@ -441,12 +439,12 @@ SUPPORT_CONSTRAINTS: dict[str, ErrorSpec] = {
     **{name: _S_INTERNAL for name in (
         "support_ticket_managed_columns", "kb_article_managed_columns", "support_agent_message_needs_sent_reply",
         "support_answer_needs_citation", "support_citation_count", "support_citation_needs_new_draft",
-        "support_citation_not_verbatim", "support_reply_immutable", "kb_ai_version_needs_open_call",
+        "support_citation_not_verbatim", "support_reply_immutable",
         "support_draft_body", "support_draft_subject", "support_draft_note", "support_draft_category",
         "support_draft_impact", "support_draft_urgency", "support_draft_escalate", "support_draft_language",
         "support_draft_shape", "support_draft_result", "support_draft_kind", "support_draft_priority",
         "support_draft_rejection", "kb_archived_time", "kb_article_number", "kb_discarded_time", "kb_ever_published",
-        "kb_published_has_version", "kb_review_iff_reason", "kb_review_reason", "kb_version_bound", "kb_version_origin",
+        "kb_published_has_version", "kb_review_iff_reason", "kb_review_reason", "kb_version_bound",
         "support_clock_runs", "support_close_reason", "support_closed_iff_time", "support_escalated_has_target",
         "support_escalation_return_time", "support_escalation_target", "support_event_actor", "support_event_detail",
         "support_event_kind", "support_event_target", "support_flag_resolution", "support_flag_state",
@@ -479,7 +477,7 @@ SUPPORT_INVALID: dict[str, ErrorSpec] = {
     "NOTICE_VERSION": ErrorSpec(409, "NOTICE", "تغيّر إشعار مكتب الدعم. اقرأه ووافق عليه أولاً."),
 }
 
-#: ما يعود من استدعاءٍ لسيمبول لم يُنتج مسودةً أو اقتراحاً. الاستدعاء حُسب في كل حال إلا الانشغال.
+#: ما يعود من استدعاءٍ لسيمبول لم يُنتج مسودة. الاستدعاء حُسب في كل حال إلا الانشغال.
 SUPPORT_AI: dict[str, ErrorSpec] = {
     "REFUSED": ErrorSpec(422, "AI_REFUSED", "لم يكتب سيمبول مسودةً لهذه الرسالة. اكتب الردّ بنفسك."),
     "OUTPUT_INVALID": ErrorSpec(502, "AI_OUTPUT_INVALID", "لم تكتمل المسودة هذه المرة. حاول مرة أخرى، أو اكتب الردّ بنفسك."),
@@ -489,5 +487,4 @@ SUPPORT_AI: dict[str, ErrorSpec] = {
     "UPSTREAM_ERROR": ErrorSpec(503, "AI_UNAVAILABLE", "سيمبول غير متاحٍ الآن. اكتب الردّ بنفسك."),
     "DOWN": ErrorSpec(503, "AI_UNAVAILABLE", "سيمبول غير متاحٍ الآن. اكتب الردّ بنفسك.", 60),
     "SLOTS": ErrorSpec(503, "AI_BUSY", "سيمبول مشغولٌ الآن. اكتب الردّ بنفسك، أو حاول لاحقاً.", 30),
-    "NOT_ENOUGH": ErrorSpec(422, "KB_NOT_ENOUGH", "لم يجد سيمبول في التذكرة ما يكفي لمقالة. اكتبها بنفسك."),
 }
