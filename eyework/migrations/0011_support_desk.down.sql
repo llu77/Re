@@ -67,6 +67,8 @@ DROP TABLE IF EXISTS support_ticket_transition;
 DROP TABLE IF EXISTS support_sla_targets;
 DROP TABLE IF EXISTS support_settings;
 
+DROP FUNCTION IF EXISTS ew_support_events_keep();
+DROP FUNCTION IF EXISTS ew_support_event_update_guard();
 DROP FUNCTION IF EXISTS ew_kb_version_update_guard();
 DROP FUNCTION IF EXISTS ew_kb_version_insert_guard();
 DROP FUNCTION IF EXISTS ew_kb_article_update_guard();

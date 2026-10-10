@@ -536,8 +536,35 @@ END
 $$;
 CREATE TRIGGER trg_kb_versions_append_only BEFORE UPDATE ON kb_versions
     FOR EACH ROW EXECUTE FUNCTION ew_kb_version_update_guard();
+-- السجلّ ملحقٌ فقط، إلا أن يُمحى أحد مرجعيه والآخر باقٍ (ew_support_events_keep): حدثٌ يخصّ تذكرةً ومقالةً
+-- معاً يبقى ما بقيت إحداهما — مقالةٌ مهمَلة تُحذف بعد ثلاثين يوماً وسجلّ تذكرتها باقٍ سنة، والتذكرة تُحذف بعد
+-- سنة والمقالة باقية.
+CREATE FUNCTION ew_support_event_update_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+    IF NOT ((NEW.ticket_id IS NULL AND OLD.ticket_id IS NOT NULL AND NEW.article_id IS NOT NULL
+             AND to_jsonb(NEW) - 'ticket_id' = to_jsonb(OLD) - 'ticket_id')
+         OR (NEW.article_id IS NULL AND OLD.article_id IS NOT NULL AND NEW.ticket_id IS NOT NULL
+             AND to_jsonb(NEW) - 'article_id' = to_jsonb(OLD) - 'article_id')) THEN
+        RAISE EXCEPTION 'append-only: %', TG_TABLE_NAME USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+END
+$$;
 CREATE TRIGGER trg_support_events_append_only BEFORE UPDATE ON support_events
-    FOR EACH ROW EXECUTE FUNCTION ew_forbid_update();
+    FOR EACH ROW EXECUTE FUNCTION ew_support_event_update_guard();
+
+CREATE FUNCTION ew_support_events_keep() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    IF TG_TABLE_NAME = 'kb_articles' THEN
+        UPDATE support_events SET article_id = NULL WHERE article_id = OLD.id AND ticket_id IS NOT NULL;
+    ELSE
+        UPDATE support_events SET ticket_id = NULL WHERE ticket_id = OLD.id AND article_id IS NOT NULL;
+    END IF;
+    RETURN OLD;
+END
+$$;
 
 -- الإعداد يُنشأ بأهداف زمن الخدمة الافتراضية لهذا التطبيق (قابلةٌ للتغيير، لا معيارٌ مفروض).
 CREATE FUNCTION ew_support_settings_defaults() RETURNS trigger
@@ -779,7 +806,11 @@ CREATE TRIGGER trg_support_draft_insert BEFORE INSERT ON support_drafts
 CREATE FUNCTION ew_support_draft_update_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
-    IF OLD.rejected_at IS NOT NULL OR NEW.rejected_at IS NULL
+    -- ON DELETE SET NULL على call_id وحده (محو سجلّ الاستدعاء بعد أيامه): لا يتغيّر معه عمودٌ آخر.
+    IF OLD.call_id IS NOT NULL AND NEW.call_id IS NULL AND to_jsonb(NEW) - 'call_id' = to_jsonb(OLD) - 'call_id' THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.rejected_at IS NOT NULL OR NEW.rejected_at IS NULL OR NEW.call_id IS DISTINCT FROM OLD.call_id
        OR (NEW.id, NEW.ticket_id, NEW.user_id, NEW.based_on_message_id, NEW.seq, NEW.result, NEW.reply_kind,
            NEW.body, NEW.subject, NEW.note_to_employee, NEW.suggested_category, NEW.impact, NEW.urgency,
            NEW.security_concern, NEW.suggested_priority, NEW.escalate_suggestion, NEW.language, NEW.presets,
@@ -789,16 +820,6 @@ BEGIN
            OLD.body, OLD.subject, OLD.note_to_employee, OLD.suggested_category, OLD.impact, OLD.urgency,
            OLD.security_concern, OLD.suggested_priority, OLD.escalate_suggestion, OLD.language, OLD.presets,
            OLD.hint, OLD.redraft_of, OLD.served_model, OLD.prompt_version, OLD.created_at) THEN
-        -- ON DELETE SET NULL على call_id وحده مسموح: محو سجلّ الاستدعاء بعد أيامه.
-        IF NOT (OLD.call_id IS NOT NULL AND NEW.call_id IS NULL
-                AND NEW.rejected_at IS NOT DISTINCT FROM OLD.rejected_at
-                AND NEW.reject_reason IS NOT DISTINCT FROM OLD.reject_reason
-                AND NEW.reject_note IS NOT DISTINCT FROM OLD.reject_note
-                AND (NEW.id, NEW.body, NEW.result) IS NOT DISTINCT FROM (OLD.id, OLD.body, OLD.result)) THEN
-            RAISE EXCEPTION 'draft' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_draft_immutable';
-        END IF;
-    END IF;
-    IF NEW.call_id IS DISTINCT FROM OLD.call_id AND NEW.call_id IS NOT NULL THEN
         RAISE EXCEPTION 'draft' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_draft_immutable';
     END IF;
     RETURN NEW;
@@ -899,6 +920,10 @@ BEGIN
        IS DISTINCT FROM
        (OLD.id, OLD.ticket_id, OLD.user_id, OLD.draft_id, OLD.kind, OLD.origin, OLD.core, OLD.body,
         OLD.body_sha256, OLD.client_token, OLD.created_at) THEN
+        RAISE EXCEPTION 'reply' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_reply_immutable';
+    END IF;
+    IF NEW.state = OLD.state AND (NEW.release_via, NEW.released_at, NEW.sent_at, NEW.withdrawn_at)
+                                 IS DISTINCT FROM (OLD.release_via, OLD.released_at, OLD.sent_at, OLD.withdrawn_at) THEN
         RAISE EXCEPTION 'reply' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_reply_immutable';
     END IF;
     IF NEW.state <> OLD.state AND NOT (
@@ -1213,6 +1238,8 @@ DECLARE
     uid uuid := ew_support_me(false);
     tid uuid;
 BEGIN
+    -- ضغطتان بالرمز نفسه معاً: الثانية تنتظر الأولى ثم تجد ما كتبته فتُرجعه.
+    PERFORM pg_advisory_xact_lock(hashtextextended('ew_support_token:' || uid::text, 0));
     SELECT id INTO tid FROM support_tickets WHERE user_id = uid AND client_token = p_client_token;
     IF FOUND THEN
         RETURN tid;
@@ -1239,6 +1266,8 @@ DECLARE
     t   support_tickets%ROWTYPE;
     mid uuid;
 BEGIN
+    -- ضغطتان بالرمز نفسه معاً: الثانية تنتظر الأولى ثم تجد ما كتبته فتُرجعه.
+    PERFORM pg_advisory_xact_lock(hashtextextended('ew_support_token:' || uid::text, 0));
     SELECT id INTO mid FROM support_messages WHERE user_id = uid AND client_token = p_client_token;
     IF FOUND THEN
         RETURN mid;
@@ -1461,6 +1490,8 @@ DECLARE
     f    jsonb;
     flag uuid;
 BEGIN
+    -- ضغطتان بالرمز نفسه معاً: الثانية تنتظر الأولى ثم تجد ما كتبته فتُرجعه.
+    PERFORM pg_advisory_xact_lock(hashtextextended('ew_support_token:' || uid::text, 0));
     SELECT id INTO rid FROM support_replies WHERE user_id = uid AND client_token = p_client_token;
     IF FOUND THEN
         RETURN rid;
@@ -1573,7 +1604,7 @@ BEGIN
     IF r.state <> 'READY' THEN
         RAISE EXCEPTION 'reply' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_reply_transition';
     END IF;
-    IF r.body_sha256 <> p_body_sha256 THEN
+    IF p_body_sha256 IS NULL OR r.body_sha256 IS DISTINCT FROM p_body_sha256 THEN
         RAISE EXCEPTION 'hash' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_reply_hash_mismatch';
     END IF;
     IF EXISTS (SELECT 1 FROM support_flags WHERE reply_id = p_reply AND state = 'OPEN') THEN
@@ -1645,6 +1676,10 @@ BEGIN
     t := ew_support_ticket_for(uid, p_ticket, p_expected_row_version);
     IF t.status NOT IN ('NEW', 'OPEN', 'PENDING') THEN
         RAISE EXCEPTION 'state' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_ticket_transition';
+    END IF;
+    -- ردٌّ جاهزٌ أو منسوخٌ لم يُؤكَّد: لو صُعّدت التذكرة لما أمكن تأكيده ولا إعادة التصعيد.
+    IF EXISTS (SELECT 1 FROM support_replies WHERE ticket_id = p_ticket AND state IN ('READY', 'RELEASED')) THEN
+        RAISE EXCEPTION 'reply' USING ERRCODE = 'check_violation', CONSTRAINT = 'support_live_reply_exists';
     END IF;
     INSERT INTO support_escalations (ticket_id, user_id, target, note) VALUES (p_ticket, uid, p_target, p_note)
     RETURNING id INTO eid;
@@ -1744,6 +1779,8 @@ DECLARE
     old support_tickets%ROWTYPE;
     tid uuid;
 BEGIN
+    -- ضغطتان بالرمز نفسه معاً: الثانية تنتظر الأولى ثم تجد ما كتبته فتُرجعه.
+    PERFORM pg_advisory_xact_lock(hashtextextended('ew_support_token:' || uid::text, 0));
     SELECT id INTO tid FROM support_tickets WHERE user_id = uid AND client_token = p_client_token;
     IF FOUND THEN
         RETURN tid;
@@ -1803,9 +1840,13 @@ DECLARE
     uid uuid := ew_support_me(false);
     aid uuid;
 BEGIN
+    PERFORM pg_advisory_xact_lock(hashtextextended('ew_support_token:' || uid::text, 0));
     SELECT id INTO aid FROM kb_articles WHERE user_id = uid AND client_token = p_client_token;
     IF FOUND THEN
         RETURN aid;
+    END IF;
+    IF (SELECT count(*) FROM kb_versions WHERE user_id = uid AND created_at > now() - interval '24 hours') >= 100 THEN
+        RAISE EXCEPTION 'cap' USING ERRCODE = 'check_violation', CONSTRAINT = 'kb_daily_version_cap';
     END IF;
     INSERT INTO kb_articles (user_id, state, client_token, source_ticket_id)
     VALUES (uid, 'DRAFT', p_client_token, p_source_ticket)
@@ -2045,6 +2086,10 @@ $$;
 -- ما قاله سيمبول عن ردٍّ أو مقالةٍ يُحذف معهما (حذف الحساب، ومحو نصوص التذكرة، والإسقاط).
 CREATE TRIGGER trg_support_replies_forget_ai AFTER DELETE ON support_replies
     FOR EACH ROW EXECUTE FUNCTION ew_ai_forget_subject('SUPPORT_REPLY');
+CREATE TRIGGER trg_kb_articles_events_keep BEFORE DELETE ON kb_articles
+    FOR EACH ROW EXECUTE FUNCTION ew_support_events_keep();
+CREATE TRIGGER trg_support_tickets_events_keep BEFORE DELETE ON support_tickets
+    FOR EACH ROW EXECUTE FUNCTION ew_support_events_keep();
 CREATE TRIGGER trg_kb_articles_forget_ai AFTER DELETE ON kb_articles
     FOR EACH ROW EXECUTE FUNCTION ew_ai_forget_subject('KB_ARTICLE');
 
@@ -2130,7 +2175,8 @@ REVOKE ALL ON FUNCTION ew_support_settings_defaults(), ew_support_ticket_insert_
                        ew_kb_article_update_guard(), ew_kb_version_insert_guard(), ew_kb_version_update_guard(),
                        ew_support_me(boolean), ew_support_require_notice(uuid), ew_support_ticket_for(uuid, uuid, integer),
                        ew_support_log(uuid, uuid, uuid, text, text, uuid, uuid, uuid, text),
-                       ew_kb_version_digest(uuid, smallint), ew_support_request_for(uuid, uuid, text)
+                       ew_kb_version_digest(uuid, smallint), ew_support_request_for(uuid, uuid, text),
+                       ew_support_event_update_guard(), ew_support_events_keep()
     FROM PUBLIC;
 
 -- واجهة دور الويب.

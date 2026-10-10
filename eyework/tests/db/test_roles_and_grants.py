@@ -180,6 +180,7 @@ INTERNAL_FUNCTIONS = frozenset({
     "ew_support_draft_update_guard", "ew_support_citation_guard", "ew_support_draft_grounded", "ew_support_reply_insert_guard",
     "ew_support_reply_update_guard", "ew_support_flag_insert_guard", "ew_support_flag_update_guard",
     "ew_kb_article_insert_guard", "ew_kb_article_update_guard", "ew_kb_version_insert_guard", "ew_kb_version_update_guard",
+    "ew_support_event_update_guard", "ew_support_events_keep",
 })
 
 

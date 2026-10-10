@@ -11,7 +11,8 @@
   • كل استدعاءٍ لسيمبول صفٌّ في الدفتر الواحد (0009)، وتنبيهاته في ai_flags: الإطلاق والنشر
     بوّابتهما ew_ai_gate. وتنبيهات القواعد في support_flags بإقرارها.
 
-منقولةٌ من فحوص المسودة (checks/*.sql، سبعون فحصاً) بعد إعادة التأسيس على طبقة الذكاء.
+منقولةٌ من فحوص المسودة (checks/*.sql) بعد إعادة التأسيس على طبقة الذكاء: ما يخصّ هذه الحزمة منها، لا السبعون كلّها؛
+وما يُفحص من قيود 0011 هنا وفي test_support_server.py (رسالة كل قيد) وfixtures المسار.
 """
 
 from __future__ import annotations
@@ -300,6 +301,8 @@ def test_the_saved_reply_is_released_by_its_hash_and_sending_it_resolves_the_tic
                    (t1, rv(app, s1, "support_tickets", t1), "نعمل على المشكلة الآن وسنعود إليك قريباً.",
                     "نعمل على المشكلة الآن وسنعود إليك قريباً.")) == "support_one_live_reply"
     assert refusal(app, s1, "SELECT ew_support_release_reply(%s, 'COPY', sha256('x'::bytea))", (r1,)) == "support_reply_hash_mismatch"
+    # بلا بصمةٍ لا يُطلق: لا يُثبت أن ما نُسخ هو المحفوظ.
+    assert refusal(app, s1, "SELECT ew_support_release_reply(%s, 'COPY', NULL)", (r1,)) == "support_reply_hash_mismatch"
     assert refusal(app, s1, "SELECT ew_support_confirm_reply(%s, true)", (r1,)) == "support_reply_transition"
     release(app, s1, r1)
     query(app, s1, "SELECT ew_support_confirm_reply(%s, true)", (r1,))
@@ -369,8 +372,12 @@ def test_resolving_and_escalating_follow_the_conversation(owner, app):
     resolve = "SELECT ew_support_resolve(%s, %s, %s, %s)"
     assert refusal(app, s1, resolve, (t1, rv(app, s1, "support_tickets", t1), "NOT_SUPPORT", False)) == "support_resolve_unanswered"
     assert refusal(app, s1, resolve, (t1, rv(app, s1, "support_tickets", t1), "NO_RESPONSE", True)) == "support_ticket_transition"
-    query(app, s1, "SELECT ew_support_escalate(%s, %s, 'VENDOR', 'الأضواء حمراء بعد إعادة التشغيل؛ يحتاج مزوّد الخدمة إلى فحص الخط.')",
-          (t1, rv(app, s1, "support_tickets", t1)))
+    escalate = "SELECT ew_support_escalate(%s, %s, 'VENDOR', 'الأضواء حمراء بعد إعادة التشغيل؛ يحتاج مزوّد الخدمة إلى فحص الخط.')"
+    # ردٌّ جاهز لم يُرسل: لو صُعّدت لما أمكن تأكيده ولا إعادة التصعيد؛ يُسحب أو يُرسل أولاً.
+    live = prepare(app, s1, t1, kind="ASK_INFO", core=ASK)
+    assert refusal(app, s1, escalate, (t1, rv(app, s1, "support_tickets", t1))) == "support_live_reply_exists"
+    query(app, s1, "SELECT ew_support_confirm_reply(%s, false)", (live,))
+    query(app, s1, escalate, (t1, rv(app, s1, "support_tickets", t1)))
     assert query(app, s1, "SELECT status, escalation_target FROM support_tickets WHERE id = %s", (t1,))[0] == ("ESCALATED", "VENDOR")
     assert refusal(app, s1, "SELECT ew_support_prepare_reply(%s, %s, gen_random_uuid(), NULL, 'ANSWER', false, %s, %s, NULL)",
                    (t1, rv(app, s1, "support_tickets", t1), "أصلح المزوّد الخط، والإنترنت يعمل الآن في المكتب.",
@@ -519,3 +526,70 @@ def test_the_web_role_reads_no_ledger_of_its_own_and_writes_no_table(owner, app)
             query(app, s1, statement)
     assert scalar(app, s1, "SELECT status FROM support_tickets WHERE id = %s", (t1,)) == "NEW"
     assert owner_scalar(owner, "SELECT to_regclass('support_ai_calls') IS NULL AND to_regclass('support_ai_limits') IS NULL")
+
+
+def test_a_draft_and_a_sent_reply_stay_as_written_even_for_the_owner(owner, app):
+    """محو سجلّ الاستدعاء (call_id) وحده مسموح، ومعه لا يتغيّر شيء؛ وأوقات الردّ وطريقته لا تتغيّر إلا مع حالته."""
+    s1 = desk_user(owner, b"s1", app=app)
+    t1 = ticket(app, s1)
+    a1 = published(app, s1)
+    d1 = answered(app, s1, t1, a1)
+    with owner.cursor() as cursor:
+        with pytest.raises(errors.CheckViolation):
+            cursor.execute("UPDATE support_drafts SET call_id = NULL, reply_kind = 'UPDATE' WHERE id = %s", (d1,))
+        cursor.execute("UPDATE support_drafts SET call_id = NULL WHERE id = %s", (d1,))
+    r1 = prepare(app, s1, t1, draft=d1)
+    release(app, s1, r1)
+    with owner.cursor() as cursor:
+        with pytest.raises(errors.CheckViolation):
+            cursor.execute("UPDATE support_replies SET release_via = 'SHARE' WHERE id = %s", (r1,))
+
+
+def test_creating_articles_counts_toward_the_daily_version_cap(owner, app):
+    s1 = desk_user(owner, b"s1", app=app)
+    create = ("SELECT ew_kb_create(gen_random_uuid(), %s, 'الطابعة لا تطبع أيّ صفحة.', NULL, '1. أعد تشغيل الطابعة.',"
+              " NULL, NULL)")
+    for n in range(100):
+        query(app, s1, create, (f"الطابعة لا تطبع {n}",))
+    # المقالة المئة والواحدة نسختها الأولى فوق سقف اليوم (مئة نسخة)، كما لو كانت نسخةً ثانية لمقالةٍ قائمة.
+    assert refusal(app, s1, create, ("الطابعة لا تطبع 100",)) == "kb_daily_version_cap"
+
+
+def test_two_presses_with_one_token_at_once_return_the_same_ticket(owner, app, app_url):
+    s1 = desk_user(owner, b"s1", app=app)
+    token = uuid.uuid4()
+    create = "SELECT ew_support_create_ticket(%s, 'EMAIL', 'NORMAL', NULL, NULL, NULL, 'الطابعة لا تعمل', 0::smallint)"
+    outcome: dict[str, object] = {}
+    connected = threading.Event()
+    with psycopg.connect(app_url) as holder:
+        first = query(holder, s1, create, (token,))[0][0]   # تبقى معاملتها مفتوحة
+
+        def racer() -> None:
+            with psycopg.connect(app_url, autocommit=True) as other:
+                outcome["pid"] = other.info.backend_pid
+                connected.set()
+                outcome["id"] = query(other, s1, create, (token,))[0][0]
+
+        thread = threading.Thread(target=racer)
+        thread.start()
+        assert connected.wait(5)
+        assert blocked_on_a_lock(app, outcome["pid"], thread)
+        holder.commit()
+        thread.join(5)
+    assert outcome["id"] == first
+
+
+def test_an_event_about_a_ticket_and_an_article_outlives_either_of_them(owner, app):
+    """مقالةٌ كُتبت من تذكرة: حذف المقالة يُبقي حدثها في سجلّ التذكرة، وحذف التذكرة يُبقيه في سجلّ المقالة."""
+    s1 = desk_user(owner, b"s1", app=app)
+    t1, t2 = ticket(app, s1), ticket(app, s1, "البريد لا يصلني منذ أمس", channel="EMAIL", label=None)
+    create = ("SELECT ew_kb_create(gen_random_uuid(), %s, 'الطابعة لا تطبع أيّ صفحة.', NULL, '1. أعد تشغيل الطابعة.', NULL, %s)")
+    a1 = scalar(app, s1, create, ("الطابعة لا تطبع", t1))
+    a2 = scalar(app, s1, create, ("البريد لا يصل", t2))
+    with owner.cursor() as cursor:
+        cursor.execute("DELETE FROM kb_articles WHERE id = %s", (a1,))
+        cursor.execute("DELETE FROM support_tickets WHERE id = %s", (t2,))
+        cursor.execute("SELECT ticket_id, article_id FROM support_events WHERE event = 'ARTICLE_CREATED' ORDER BY id")
+        assert cursor.fetchall() == [(t1, None), (None, a2)]
+        with pytest.raises(errors.InsufficientPrivilege):
+            cursor.execute("UPDATE support_events SET detail = 'X1' WHERE ticket_id = %s", (t1,))
