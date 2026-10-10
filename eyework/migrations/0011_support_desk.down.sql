@@ -13,6 +13,7 @@ DELETE FROM ai_flags WHERE subject_kind IN ('SUPPORT_REPLY', 'KB_ARTICLE');
 
 -- الدوالّ التي تُرجع صفوف الجداول أولاً، ثم الجداول، ثم دوالّ محفّزاتها وقيودها.
 DROP FUNCTION IF EXISTS ew_kb_review_record(uuid, jsonb, jsonb);
+DROP FUNCTION IF EXISTS ew_kb_current_digest(uuid);
 DROP FUNCTION IF EXISTS ew_kb_review_begin(uuid, smallint);
 DROP FUNCTION IF EXISTS ew_kb_record_proposal(uuid, text, text, text, text, text, jsonb);
 DROP FUNCTION IF EXISTS ew_kb_begin_proposal(uuid);

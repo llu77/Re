@@ -144,7 +144,7 @@ APP_FUNCTIONS = frozenset({
     "ew_support_ack_flag", "ew_support_release_reply", "ew_support_confirm_reply", "ew_support_escalate",
     "ew_support_return_escalation", "ew_support_resolve", "ew_support_reopen", "ew_support_follow_up", "ew_support_close_due",
     "ew_kb_create", "ew_kb_add_version", "ew_kb_publish", "ew_kb_set_state", "ew_kb_mark_review", "ew_kb_search",
-    "ew_kb_begin_proposal", "ew_kb_record_proposal", "ew_kb_review_begin", "ew_kb_review_record",
+    "ew_kb_begin_proposal", "ew_kb_record_proposal", "ew_kb_review_begin", "ew_kb_current_digest", "ew_kb_review_record",
     "ew_support_text_ok", "ew_support_contact_free", "ew_support_kb_clean", "ew_kb_norm", "ew_support_priority_for",
     "ew_support_priority_rank",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:

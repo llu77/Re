@@ -56,7 +56,7 @@ LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
 $$;
 
 -- صورةٌ موحّدة للنصّ يُقارَن بها الاقتباس: NFKC، وحروفٌ صغيرة، بلا تشكيلٍ ولا تطويل،
--- والمسافات واحدة. نظيرها support_rules.kb_norm في الخادم (اختبارٌ يقارنهما).
+-- والمسافات واحدة. نظيرها grounding.kb_norm في الخادم (اختبارٌ يقارنهما).
 CREATE FUNCTION ew_kb_norm(t text) RETURNS text
 LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
     SELECT btrim(regexp_replace(
@@ -1978,26 +1978,34 @@ BEGIN
 END
 $$;
 
--- مراجعة سيمبول لآخر نسخةٍ من مقالةٍ لم تُنشر بعد. البصمة من حقول النسخة؛ ونسخةٌ جديدة
--- بصمةٌ جديدة، فما قيل عن السابقة لا يُعرض على اللاحقة.
+-- مراجعة سيمبول لآخر نسخةٍ من مقالةٍ لم تُنشر بعد (p_version NULL: آخر نسخة). البصمة من حقول
+-- النسخة؛ ونسخةٌ جديدة بصمةٌ جديدة، فما قيل عن السابقة لا يُعرض على اللاحقة.
 CREATE FUNCTION ew_kb_review_begin(p_article uuid, p_version smallint)
 RETURNS TABLE (request_id uuid, content_digest bytea)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
     uid uuid := ew_support_me(true);
+    v   smallint;
     d   bytea;
 BEGIN
     PERFORM ew_support_require_notice(uid);
-    PERFORM 1 FROM kb_articles
-     WHERE id = p_article AND user_id = uid AND latest_version = p_version AND state NOT IN ('ARCHIVED', 'DISCARDED')
-       AND published_version IS DISTINCT FROM p_version
+    SELECT latest_version INTO v FROM kb_articles
+     WHERE id = p_article AND user_id = uid AND latest_version = coalesce(p_version, latest_version)
+       AND state NOT IN ('ARCHIVED', 'DISCARDED') AND published_version IS DISTINCT FROM latest_version
        FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'article' USING ERRCODE = 'no_data_found';
     END IF;
-    d := ew_kb_version_digest(p_article, p_version);
+    d := ew_kb_version_digest(p_article, v);
     RETURN QUERY SELECT ew_ai_request_open('SUPPORT_ARTICLE_REVIEW', 'KB_ARTICLE', p_article, d), d;
 END
+$$;
+
+-- بصمة آخر نسخةٍ من مقالةٍ لصاحب الجلسة: قرار «عدّل» أو «تابع» يقارنها بما رُوجع.
+CREATE FUNCTION ew_kb_current_digest(p_article uuid) RETURNS bytea
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+    SELECT ew_kb_version_digest(a.id, a.latest_version) FROM kb_articles a
+     WHERE a.id = p_article AND a.user_id = ew_current_user() AND a.latest_version >= 1
 $$;
 
 CREATE FUNCTION ew_kb_review_record(p_request uuid, p_flags jsonb, p_usage jsonb) RETURNS text
@@ -2144,6 +2152,7 @@ REVOKE ALL ON FUNCTION
     ew_kb_begin_proposal(uuid),
     ew_kb_record_proposal(uuid, text, text, text, text, text, jsonb),
     ew_kb_review_begin(uuid, smallint),
+    ew_kb_current_digest(uuid),
     ew_kb_review_record(uuid, jsonb, jsonb)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
@@ -2177,5 +2186,6 @@ GRANT EXECUTE ON FUNCTION
     ew_kb_begin_proposal(uuid),
     ew_kb_record_proposal(uuid, text, text, text, text, text, jsonb),
     ew_kb_review_begin(uuid, smallint),
+    ew_kb_current_digest(uuid),
     ew_kb_review_record(uuid, jsonb, jsonb)
 TO eyework_app;
