@@ -126,6 +126,7 @@ export interface LineBody {
   item_id: string
   quantity_milli: number
   unit_price_halalas: number
+  discount_halalas: number
   received_quantity_milli: number | null
 }
 
@@ -174,10 +175,11 @@ interface LineDraft {
   query: string
   quantity: string
   price: string
+  discount: string
   received: string
 }
 
-const EMPTY_LINE: LineDraft = { lineNo: null, item: null, query: "", quantity: "1", price: "", received: "" }
+const EMPTY_LINE: LineDraft = { lineNo: null, item: null, query: "", quantity: "1", price: "", discount: "", received: "" }
 const STEPS = [
   { id: "supplier", label: "المورّد" },
   { id: "invoice", label: "الفاتورة" },
@@ -196,7 +198,8 @@ function itemOption(item: ItemOption): ComboboxOption {
 function lineDraft(line: PurchaseLine): LineDraft {
   return {
     lineNo: line.line_no, item: itemOption(line.item), query: line.item.name, quantity: milliInput(line.quantity_milli),
-    price: money(line.unit_price_halalas), received: milliInput(line.received_quantity_milli),
+    price: money(line.unit_price_halalas), discount: line.discount_halalas ? money(line.discount_halalas) : "",
+    received: milliInput(line.received_quantity_milli),
   }
 }
 
@@ -341,6 +344,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   // الأسطر: المحفوظة من الخادم، وسطرٌ في اليد.
   const initialLine = focusLine ? purchase.lines.find((line) => line.line_no === focusLine) : undefined
   const [line, setLine] = React.useState<LineDraft>(initialLine ? lineDraft(initialLine) : EMPTY_LINE)
+  // في الحجم الكبير: حقول السطر صفحتان (الكمية والسعر، ثم الخصم وما وصل).
+  const [linePage, setLinePage] = React.useState<"main" | "more">("main")
   const [creatingItem, setCreatingItem] = React.useState<string | null>(null)
   const [quickBusy, setQuickBusy] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
@@ -354,6 +359,11 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   })()
 
   const error = (field: string) => (fail?.field === field ? fail.message : null)
+  // خطأ حقلٍ في صفحة السطر الأخرى يفتحها، فلا يبقى الخطأ مخفياً.
+  React.useEffect(() => {
+    if (fail?.field === "discount_halalas" || fail?.field === "received_quantity_milli") setLinePage("more")
+    else if (fail?.field === "quantity_milli" || fail?.field === "unit_price_halalas") setLinePage("main")
+  }, [fail])
 
   /** يحفظ ما تغيّر من الرأس؛ ويعيد false إن رفض الخادم. */
   async function commitHeader(): Promise<boolean> {
@@ -396,12 +406,15 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
     if (quantity === null) return { message: decimals ? "اكتب الكمية، ويجوز كسرٌ بثلاث منازل." : "اكتب الكمية عدداً صحيحاً من 1.", field: "quantity_milli" }
     const price = parseAmount(line.price)
     if (price === null) return { message: "اكتب سعر الوحدة مبلغاً.", field: "unit_price_halalas" }
+    // خصم السطر مبلغٌ مطبوعٌ يُطرح من (الكمية × السعر) على أساس أسعار الفاتورة نفسه، ولا يتجاوزه.
+    const discount = line.discount.trim() ? parseAmount(line.discount) : 0
+    if (discount === null || discount > Math.round((quantity * price) / 1000)) return { message: "الخصم من صفرٍ إلى مبلغ السطر.", field: "discount_halalas" }
     const received = line.received.trim() ? parseMilli(line.received, decimals, quantity) : null
     if (line.received.trim() && received === null) return { message: "ما وصل كميةٌ لا تزيد على كمية السطر.", field: "received_quantity_milli" }
-    return { item_id: line.item.value, quantity_milli: quantity, unit_price_halalas: price, received_quantity_milli: received }
+    return { item_id: line.item.value, quantity_milli: quantity, unit_price_halalas: price, discount_halalas: discount, received_quantity_milli: received }
   }
 
-  const lineDirty = line.item !== null || line.query.trim() !== "" || line.price.trim() !== "" || (line.lineNo !== null)
+  const lineDirty = line.item !== null || line.query.trim() !== "" || line.price.trim() !== "" || line.discount.trim() !== "" || (line.lineNo !== null)
 
   /** يحفظ السطر الذي في اليد إن كان فيه شيء؛ ويعيد false إن رُفض. */
   async function commitLine(): Promise<boolean> {
@@ -417,6 +430,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
     setFail(result)
     if (result) return false
     setLine(EMPTY_LINE)
+    setLinePage("main")
     onItemQuery("")
     return true
   }
@@ -615,22 +629,43 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           />
         </Field>
       </GazeSlot>
-      <GazeSlot id="line-quantity">
-        <Field label="الكمية" error={error("quantity_milli")} required>
-          <Input id="line-quantity" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.quantity} onChange={(event) => setLine((current) => ({ ...current, quantity: event.target.value }))} />
-        </Field>
-      </GazeSlot>
-      <GazeSlot id="line-price">
-        <Field label={basis === "gross" ? "سعر الوحدة شاملاً" : "سعر الوحدة قبل الضريبة"} error={error("unit_price_halalas")} required>
-          <Input id="line-price" numeric unit="ر.س" inputMode="decimal" value={line.price} onChange={(event) => setLine((current) => ({ ...current, price: event.target.value }))} />
-        </Field>
-      </GazeSlot>
-      {/* في الحجم الكبير على أقصر الهواتف (635px) لا يتّسع الحقل الرابع مع زرّي السطر: ما وصل يُكتب من الحجم العادي أو من إطارٍ أطول. */}
-      <GazeSlot id="line-received" className="gaze:[@media(max-height:40rem)]:hidden">
-        <Field label="ما وصل فعلاً" hint={gaze ? undefined : "يُترك فارغاً إن وصل كلّه."} error={error("received_quantity_milli")}>
-          <Input id="line-received" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.received} onChange={(event) => setLine((current) => ({ ...current, received: event.target.value }))} />
-        </Field>
-      </GazeSlot>
+      {!gaze || linePage === "main" ? (
+        <>
+          <GazeSlot id="line-quantity">
+            <Field label="الكمية" error={error("quantity_milli")} required>
+              <Input id="line-quantity" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.quantity} onChange={(event) => setLine((current) => ({ ...current, quantity: event.target.value }))} />
+            </Field>
+          </GazeSlot>
+          <GazeSlot id="line-price">
+            <Field label={basis === "gross" ? "سعر الوحدة شاملاً" : "سعر الوحدة قبل الضريبة"} error={error("unit_price_halalas")} required>
+              <Input id="line-price" numeric unit="ر.س" inputMode="decimal" value={line.price} onChange={(event) => setLine((current) => ({ ...current, price: event.target.value }))} />
+            </Field>
+          </GazeSlot>
+        </>
+      ) : null}
+      {/* الخصم وما وصل اختياريان. في الحجم الكبير يحلّان محلّ الكمية والسعر بزرّ «الخصم وما وصل» في مكانه نفسه، فلا تزيد الخطوة على 12 هدفاً ولا تتجاوز أقصر الهواتف. */}
+      {!gaze || linePage === "more" ? (
+        <>
+          <GazeSlot id="line-discount">
+            <Field label="خصم السطر" hint={gaze ? undefined : "مبلغٌ مطبوعٌ على السطر يُطرح منه؛ يُترك فارغاً إن لم يكن."} error={error("discount_halalas")}>
+              <Input id="line-discount" numeric unit="ر.س" inputMode="decimal" value={line.discount} onChange={(event) => setLine((current) => ({ ...current, discount: event.target.value }))} />
+            </Field>
+          </GazeSlot>
+          <GazeSlot id="line-received">
+            <Field label="ما وصل فعلاً" hint={gaze ? undefined : "يُترك فارغاً إن وصل كلّه."} error={error("received_quantity_milli")}>
+              <Input id="line-received" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.received} onChange={(event) => setLine((current) => ({ ...current, received: event.target.value }))} />
+            </Field>
+          </GazeSlot>
+        </>
+      ) : null}
+      {gaze ? (
+        <GazeSlot id="line-more">
+          <Button id="line-more" className="w-full" icon={linePage === "more" ? BackIcon : undefined} iconEnd={linePage === "main" ? NextIcon : undefined}
+                  onClick={() => setLinePage((current) => (current === "main" ? "more" : "main"))}>
+            {linePage === "main" ? "الخصم وما وصل" : "الكمية والسعر"}
+          </Button>
+        </GazeSlot>
+      ) : null}
     </GazeHost>
   )
 
@@ -678,6 +713,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       if (!(await commitLine())) return
       const target = savedLines[next]
       setLine(target ? lineDraft(target) : EMPTY_LINE)
+      setLinePage("main")
       if (target) onItemQuery("")
     }
     const nextStep = async () => {
@@ -690,7 +726,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
         description={step === 3 && !creatingItem && savedLines.length ? <span>الإجمالي حتى الآن <Money halalas={totals.gross} className="font-semibold text-foreground" /></span> : undefined}
         // حذف المسودة في الخطوة الأولى كما في الحجم العادي: لا تبقى مسودةٌ لا تُحذف (والحدّ عشرون).
         end={step === 0 && creatingItem === null && creatingSupplier === null ? { id: "purchase-discard", label: "احذف المسودة", danger: true, icon: Trash, onClick: () => setDiscarding(true) } : undefined}
-        above={<Stepper steps={STEPS} current={step} />}
+        // خطوة الأسطر على الهواتف القصيرة: يكفي عنوانها («سطرٌ جديد (1)»)، فيتّسع السطر لحقوله وزرّ «الخصم وما وصل».
+        above={<Stepper steps={STEPS} current={step} className={step === 3 ? "gaze:[@media(max-height:40rem)]:hidden" : undefined} />}
         actions={
           creatingSupplier !== null ? quickButtons("supplier", "أنشئ المورّد", quickBusy, () => setCreatingSupplier(null))
           : creatingItem !== null ? quickButtons("item", "أنشئ المنتج", quickBusy, () => setCreatingItem(null)) : (
@@ -785,6 +822,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
                   <span className="truncate font-semibold"><span className="num text-muted-foreground">{saved.line_no}. </span>{saved.item.name}</span>
                   <span className="text-small text-muted-foreground">
                     <Qty milli={saved.quantity_milli} unit={saved.item.unit_name} /> × <Money halalas={saved.unit_price_halalas} unit={false} />
+                    {saved.discount_halalas ? <span> − خصم <Money halalas={saved.discount_halalas} unit={false} /></span> : null}
                     {saved.received_quantity_milli !== null && saved.received_quantity_milli !== saved.quantity_milli ? <span className="text-warning"> · وصل {formatMilli(saved.received_quantity_milli)}</span> : null}
                   </span>
                 </span>
@@ -865,12 +903,13 @@ export function PurchaseView({ purchase, choices, onReturn, onReverse, onOpenRet
         { id: "qty", header: "الكمية", numeric: true, cell: (row) => `${formatMilli(row.quantity_milli)} ${row.item.unit_name}` },
         { id: "received", header: "وصل", numeric: true, cell: (row) => formatMilli(row.received_quantity_milli ?? row.quantity_milli) },
         { id: "price", header: "سعر الوحدة", numeric: true, cell: (row) => formatAmount(row.unit_price_halalas) },
+        ...(purchase.lines.some((row) => row.discount_halalas) ? [{ id: "discount", header: "الخصم", numeric: true, cell: (row: PurchaseLine) => formatAmount(row.discount_halalas) }] : []),
         { id: "net", header: "قبل الضريبة", numeric: true, cell: (row) => formatAmount(row.net_halalas) },
         { id: "vat", header: "الضريبة", numeric: true, cell: (row) => formatAmount(row.vat_halalas) },
         { id: "remaining", header: "بقي للإرجاع", numeric: true, cell: (row) => formatMilli(row.remaining_milli) },
       ]}
       primary={(row) => `${row.line_no}. ${row.item.name}`}
-      secondary={(row) => `${formatMilli(row.quantity_milli)} ${row.item.unit_name} × ${formatAmount(row.unit_price_halalas)}${row.received_quantity_milli !== null && row.received_quantity_milli !== row.quantity_milli ? ` · وصل ${formatMilli(row.received_quantity_milli)}` : ""}${row.remaining_milli !== row.quantity_milli ? ` · بقي ${formatMilli(row.remaining_milli)}` : ""}`}
+      secondary={(row) => `${formatMilli(row.quantity_milli)} ${row.item.unit_name} × ${formatAmount(row.unit_price_halalas)}${row.discount_halalas ? ` − خصم ${formatAmount(row.discount_halalas)}` : ""}${row.received_quantity_milli !== null && row.received_quantity_milli !== row.quantity_milli ? ` · وصل ${formatMilli(row.received_quantity_milli)}` : ""}${row.remaining_milli !== row.quantity_milli ? ` · بقي ${formatMilli(row.remaining_milli)}` : ""}`}
       trailing={(row) => <span className="num font-bold" dir="ltr">{formatAmount(row.net_halalas + row.vat_halalas)}</span>}
       pageSize={{ compact: 40, gaze: 3, gazeShort: 2 }}
     />
