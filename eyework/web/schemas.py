@@ -69,6 +69,30 @@ __all__ = [
     "ReverseBody",
     "SupplierCreateBody",
     "SupplierPatchBody",
+    # الدعم الفني
+    "ArticleBody",
+    "ArticleCreateBody",
+    "ArticleNeedsReviewBody",
+    "ArticlePublishBody",
+    "ArticleStateBody",
+    "ArticleVersionBody",
+    "ClassifyBody",
+    "ConfirmReplyBody",
+    "DraftRequestBody",
+    "EscalateBody",
+    "EscalationReturnBody",
+    "FlagActionBody",
+    "FollowUpBody",
+    "MaskPreviewBody",
+    "MessageBody",
+    "NoticeBody",
+    "ProposalBody",
+    "RejectDraftBody",
+    "ReleaseBody",
+    "ReplyBody",
+    "ResolveBody",
+    "SupportSettingsBody",
+    "TicketBody",
 ]
 
 RowVersion = Annotated[StrictInt, Field(ge=1, le=2_000_000_000)]
@@ -507,3 +531,165 @@ class CountItemBody(_Body):
 
 class CountPostBody(RowVersionBody):
     occurred_on: Day
+
+
+# ── الدعم الفني ─────────────────────────────────────────────────────────
+#: النصّ الملصق قبل الحذف: أطول قليلاً من حدّ القاعدة (4000) لأن الحذف يقصّره أحياناً.
+PastedText = Annotated[StrictStr, Field(min_length=1, max_length=6000)]
+SupportChannel = Literal["MESSAGING", "EMAIL", "PHONE", "IN_PERSON", "WEB_FORM", "OTHER"]
+SupportPriority = Literal["URGENT", "HIGH", "NORMAL", "LOW"]
+SupportCategory = Literal["ACCOUNT", "SOFTWARE", "HARDWARE", "PRINTING", "NETWORK", "EMAIL", "INSTALL", "HOW_TO",
+                          "OTHER"]
+CustomerLabel = Annotated[StrictStr, Field(min_length=1, max_length=40)]
+Subject = Annotated[StrictStr, Field(min_length=1, max_length=120)]
+ShortNote = Annotated[StrictStr, Field(min_length=1, max_length=300)]
+LongNote = Annotated[StrictStr, Field(min_length=1, max_length=1500)]
+Core = Annotated[StrictStr, Field(min_length=1, max_length=1500)]
+KbText = Annotated[StrictStr, Field(min_length=1, max_length=4500)]
+
+
+class MaskPreviewBody(_Body):
+    text: PastedText
+
+
+class TicketBody(_Body):
+    client_token: UUID
+    channel: SupportChannel
+    text: PastedText
+    customer_label: CustomerLabel | None = None
+    subject: Subject | None = None
+    priority: SupportPriority | None = None
+    category: SupportCategory | None = None
+
+
+class MessageBody(_Body):
+    client_token: UUID
+    expected_row_version: RowVersion
+    author: Literal["CUSTOMER", "NOTE"]
+    text: PastedText
+
+
+class FollowUpBody(_Body):
+    client_token: UUID
+    text: PastedText
+
+
+class ClassifyBody(_Body):
+    expected_row_version: RowVersion
+    category: SupportCategory | None = None
+    priority: SupportPriority
+    subject: Subject | None = None
+    accept_draft_id: UUID | None = None
+
+
+class DraftRequestBody(_Body):
+    expected_row_version: RowVersion
+    presets: list[Literal["SHORTER", "SIMPLER", "MORE_FORMAL", "WARMER", "ASK_INFO"]] = Field(default_factory=list,
+                                                                                               max_length=2)
+    hint: ShortNote | None = None
+    redraft_of: UUID | None = None
+
+
+class RejectDraftBody(_Body):
+    reason: Literal["WRONG_INFO", "NOT_IN_KB", "MISUNDERSTOOD", "TONE", "TOO_LONG", "INCOMPLETE", "OUTDATED_ARTICLE",
+                    "OTHER"]
+    note: ShortNote | None = None
+
+
+class ReplyBody(_Body):
+    client_token: UUID
+    expected_row_version: RowVersion
+    kind: Literal["ANSWER", "ASK_INFO", "UPDATE"]
+    draft_id: UUID | None = None
+    core: Core | None = None
+    template_questions: list[Literal["ERROR_TEXT", "WHEN_STARTED", "DEVICE", "SCOPE", "STEPS", "TRIED",
+                                     "SCREENSHOT"]] = Field(default_factory=list, max_length=4)
+    kb_article_ids: list[UUID] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode="after")
+    def _text_or_questions(self) -> "ReplyBody":
+        if (self.core is None) == (not self.template_questions):
+            raise ValueError("core أو template_questions، واحدٌ منهما")
+        return self
+
+
+class FlagActionBody(_Body):
+    action: Literal["HEEDED", "DISMISSED"]
+    reason: Literal["FALSE_ALARM", "EMPLOYER_APPROVED", "KB_OUTDATED", "OTHER"] | None = None
+
+
+class ReleaseBody(_Body):
+    via: Literal["COPY", "SHARE", "SCRIPT"]
+    body_sha256: Digest
+
+
+class ConfirmReplyBody(_Body):
+    sent: StrictBool
+
+
+class EscalateBody(_Body):
+    expected_row_version: RowVersion
+    target: Literal["TIER2", "SUPERVISOR", "VENDOR", "FIELD_TECH", "OTHER_TEAM"]
+    note: LongNote
+    notify_customer: StrictBool = False
+
+
+class EscalationReturnBody(_Body):
+    expected_row_version: RowVersion
+    note: ShortNote | None = None
+
+
+class ResolveBody(_Body):
+    expected_row_version: RowVersion
+    resolution: Literal["BY_PHONE", "IN_PERSON", "DUPLICATE", "NOT_SUPPORT", "NO_RESPONSE"]
+    confirmed: StrictBool = False
+
+
+class ArticleBody(_Body):
+    title: Annotated[StrictStr, Field(min_length=1, max_length=120)]
+    issue: Annotated[StrictStr, Field(min_length=1, max_length=600)]
+    environment: Annotated[StrictStr, Field(max_length=450)] | None = None
+    resolution: KbText
+    cause: Annotated[StrictStr, Field(max_length=600)] | None = None
+
+
+class ArticleCreateBody(ArticleBody):
+    client_token: UUID
+    source_ticket_id: UUID | None = None
+
+
+class ArticleVersionBody(ArticleBody):
+    expected_row_version: RowVersion
+
+
+class ArticlePublishBody(_Body):
+    expected_row_version: RowVersion
+    version: Annotated[StrictInt, Field(ge=1, le=30)]
+
+
+class ArticleStateBody(_Body):
+    expected_row_version: RowVersion
+    state: Literal["ARCHIVED", "DISCARDED"]
+
+
+class ArticleNeedsReviewBody(_Body):
+    expected_row_version: RowVersion
+    needs_review: StrictBool
+
+
+class ProposalBody(_Body):
+    ticket_id: UUID
+
+
+class SlaTarget(_Body):
+    first_reply_minutes: Literal[30, 60, 120, 240, 480, 1440]
+    resolve_minutes: Literal[240, 480, 1440, 2880, 4320, 7200]
+
+
+class SupportSettingsBody(_Body):
+    signature: Annotated[StrictStr, Field(max_length=120)] | None = None
+    sla: dict[SupportPriority, SlaTarget] | None = None
+
+
+class NoticeBody(_Body):
+    version: TermsVersion

@@ -13,7 +13,7 @@
  */
 
 import {
-  BarChart3, Boxes, ClipboardList, FilePlus2, Headset, Inbox, LibraryBig, Megaphone, PackagePlus, ReceiptText, SquarePen, Undo2, Wallet,
+  BarChart3, Boxes, ClipboardList, Clock, FilePlus2, Headset, Inbox, LibraryBig, Megaphone, PackagePlus, ReceiptText, SquarePen, Undo2, Users, Wallet,
   type LucideIcon,
 } from "lucide-react"
 
@@ -137,19 +137,45 @@ export const WORKSPACES: Record<ProfessionCode, Workspace> = {
     profession: "SUPPORT",
     name: "الدعم الفني",
     base: "#/support",
+    // أزرار الخطة §4 الستّة: «تذكرة جديدة» أوّلاً لأنها تبدأ العمل دائماً، ثم ما ينتظر الموظف.
     home: [
-      { id: "open", label: "التذاكر المفتوحة", icon: Inbox, route: "#/support/tickets", primary: true },
-      { id: "new", label: "تذكرة جديدة", icon: SquarePen, route: "#/support/tickets/new" },
-      { id: "decide", label: "بانتظار قراري", icon: Headset, route: "#/support/tickets?waiting=me" },
-      { id: "knowledge", label: "قاعدة المعرفة", icon: LibraryBig, route: "#/support/knowledge" },
+      { id: "new", label: "تذكرة جديدة", icon: SquarePen, route: "#/support/new", primary: true },
+      { id: "decide", label: "بانتظار قراري", icon: Inbox, route: "#/support/decide" },
+      { id: "open", label: "التذاكر المفتوحة", icon: Headset, route: "#/support/open" },
+      { id: "pending", label: "بانتظار العميل", icon: Clock, route: "#/support/pending" },
+      { id: "escalated", label: "المُصعَّدة", icon: Users, route: "#/support/escalated" },
+      { id: "knowledge", label: "قاعدة المعرفة", icon: LibraryBig, route: "#/support/kb" },
     ],
     help: {
-      home: { title: "الرئيسية", lines: ["كل زرٍّ هنا يبدأ عملاً. والأدوات («اسأل سيمبول» و«مساعدة») في شريط التبويب أو الشريط الجانبي في كل شاشة."] },
+      home: {
+        title: "الرئيسية",
+        lines: [
+          "كل زرٍّ هنا يبدأ عملاً، وعدده بجانبه. والأدوات («اسأل سيمبول» و«عبارات وأسئلة جاهزة» و«مساعدة») في شريط التبويب أو الشريط الجانبي.",
+          "ابدأ يومك من «بانتظار قراري»: ما نسختَه ولم تؤكّد إرساله أولاً.",
+        ],
+      },
+      new: {
+        title: "تذكرة جديدة",
+        lines: [
+          "اختر القناة، ثم الصق رسالة العميل أو اكتبها. يُحذف البريد والروابط والأرقام الطويلة قبل الحفظ، وترى ما سيُحفظ قبل أن تحفظ.",
+          "بعد الحفظ يكتب سيمبول مسودة ردٍّ من قاعدة المعرفة، ولا يرسل شيئاً.",
+        ],
+      },
+      decide: { title: "بانتظار قراري", lines: ["سيمبول يقترح، وأنت تقرّر. لا يصل العميلَ شيءٌ إلا بضغطتك ومن قناتك."] },
       open: {
         title: "التذاكر",
         lines: [
-          "سيمبول يقرأ رسالة العميل ويكتب مسودة ردّ، ولا يرسل شيئاً بنفسه.",
-          "أنت تقرّر لكل تذكرة: أرسل كما هي، أو عدّل ثم أرسل، أو اكتب بنفسك، أو صعّد.",
+          "الأقرب موعداً للردّ أولاً، ثم الأعلى أولوية. والمحلولة والمغلقة من أعلى القائمة.",
+          "في التذكرة: «أرسل كما هي» أو «عدّل ثم أرسل» أو «اطلب معلومات» أو «صعّد» أو «ارفض المسودة»، والباقي في «المزيد».",
+        ],
+      },
+      pending: { title: "بانتظار العميل", lines: ["طلبتَ من العميل معلومات. أضف ردّه حين يصل، فتعود التذكرة مفتوحةً ويكتب سيمبول مسودة."] },
+      escalated: { title: "المُصعَّدة", lines: ["تذاكر عند جهةٍ أخرى. سجّل «عاد الجواب من التصعيد» لتكمل الردّ."] },
+      knowledge: {
+        title: "قاعدة المعرفة",
+        lines: [
+          "المقالات المعتمدة وحدها يقرؤها سيمبول ويقتبس منها. كل تعديلٍ نسخةٌ جديدة لا تُقرأ حتى تعتمدها.",
+          "«تحسين المسودات»: لماذا رُفضت المسودات، والتذاكر التي لم تجد القاعدة لها جواباً.",
         ],
       },
     },

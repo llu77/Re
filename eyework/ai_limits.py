@@ -32,6 +32,7 @@ __all__ = [
     "FEATURES",
     "KB_CHARS",
     "MAX_FLAGS",
+    "PROPOSAL",
     "QUESTION_LENGTH",
     "QUOTE_LENGTH",
     "READY_QUESTIONS_MAX",
@@ -45,6 +46,7 @@ __all__ = [
     "SCREEN_DATA_CHARS",
     "STREAM_TIMEOUT_SECONDS",
     "SUGGESTION_LENGTH",
+    "SUPPORT_PROMPT_VERSION",
     "CallSettings",
     "FeatureLimits",
 ]
@@ -93,9 +95,11 @@ ASSISTANT_PROMPT_VERSION = "as-2026-10-09.1"
 REVIEW = CallSettings("low", 3_000, 30.0, False, REVIEW_PROMPT_VERSION)
 #: المساعد: الطلب كلّه ينتظره، بحالة انشغالٍ على زرّ «اسأل».
 ASSISTANT = CallSettings("low", 3_000, 25.0, False, ASSISTANT_PROMPT_VERSION)
-#: مسودات الدعم (الحزمة 4): أطول، فتُبثّ من جهة الخادم ويُفحص الوقت مع كل حدث.
-#: نسخة تعليماتها في مواصفة الدعم.
-DRAFT = CallSettings("medium", 8_000, 120.0, True, "support")
+SUPPORT_PROMPT_VERSION = "sd-2026-10-10.1"
+#: مسودات الدعم: أطول، فتُبثّ من جهة الخادم ويُفحص الوقت مع كل حدث. والطلب كلّه ينتظرها.
+DRAFT = CallSettings("medium", 8_000, 120.0, True, SUPPORT_PROMPT_VERSION)
+#: اقتراح مقالةٍ من تذكرة: مثل المسودة، والنصّ أطول.
+PROPOSAL = CallSettings("medium", 8_000, 120.0, True, SUPPORT_PROMPT_VERSION)
 
 #: ما ينتظره طلب «راجع» قبل أن يجيب PENDING ويترك المراجعة تكمل. قيمة بدايةٍ
 #: تُقاس لا تُحفظ: بوّابة الإصدار p90 ≤ 12 ثانية على التجهيزات.
