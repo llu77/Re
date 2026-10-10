@@ -75,3 +75,34 @@ def test_deleting_takes_two_steps_and_removes_the_account(next_page, server, own
         assert cursor.fetchone() == (0,)
     assert not flow.failures(), "\n".join(flow.failures())
     assert not flow.landings, "\n".join(flow.landings)
+
+
+def test_on_gaze_the_size_has_its_own_page_and_switching_back_to_touch_is_two_presses(next_page, server, owner):
+    """
+    في الحجم الكبير «حسابي» صفحتان (صفحةٌ واحدة لا تتّسع بفجوة 40 بين الأهداف): «طريقة الاستخدام: …» يفتح
+    صفحة الخيارين و«طبّق»، و«رجوع» يعود. ما تحت كل ضغطةٍ بعدها لا يعتمد ولا يغيّر قيمة، والرجوع إلى اللمس
+    اختيارٌ ثم «طبّق».
+    """
+    member(owner, size="GAZE")
+    page = next_page(login=LOGIN, size="gaze")
+    flow = Flow(page)
+    page.goto(page.next + "#/account")
+    flow.screen("#account-size")
+    flow.audit("account-gaze")
+    assert page.locator("#account-ui-size-apply").count() == 0
+    flow.press("#account-size", lambda: flow.screen("#account-ui-size-apply"), "طريقة الاستخدام")
+    flow.audit("account-gaze-size")
+    assert page.locator("#account-ui-size-apply").is_disabled()
+    flow.press("#account-size-back", lambda: flow.screen("#account-size"), "رجوع")
+    flow.press("#account-size", lambda: flow.screen("#account-ui-size-apply"), "طريقة الاستخدام")
+    flow.press("[aria-label='طريقة الاستخدام'] button[aria-pressed='false']", lambda: flow.until(
+        "!document.querySelector('#account-ui-size-apply').disabled"), "باللمس")
+    assert page.evaluate("() => document.documentElement.dataset.size") == "gaze"   # الاختيار لا يطبّق
+    flow.press("#account-ui-size-apply", lambda: flow.until(
+        "document.documentElement.dataset.size === 'compact'"), "طبّق")
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT ui_size FROM users")
+        assert cursor.fetchone() == ("COMPACT",)
+    assert not flow.failures(), "\n".join(flow.failures())
+    assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors

@@ -60,7 +60,7 @@ function StepFrame({ screen, title, hint, onBack, next, children }: {
         </Button>
       }
     >
-      <main className="flex min-h-0 flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
+      <main className="flex min-h-0 flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
         <div className="flex flex-col gap-tg-min">
           <Stepper steps={STEPS} current={stepNumber(screen) - 1} variant="brief" />
           <h1 className="text-display font-semibold leading-tight tracking-tight">{title}</h1>
@@ -164,6 +164,7 @@ function DateStep({ s, kind, earliest, onBack }: { s: SignupState; kind: "year" 
 /* ── المهنة ──────────────────────────────────────────────────────── */
 
 function ProfessionStep({ s, choices, onBack }: { s: SignupState; choices: Choices; onBack: () => void }) {
+  const { size } = useSize()
   const open = s.code === null
   const contact = choices.support_contact
   return (
@@ -192,8 +193,9 @@ function ProfessionStep({ s, choices, onBack }: { s: SignupState; choices: Choic
         onValueChange={(profession) => update({ profession })}
         columns={1}
         ids={Object.fromEntries(choices.professions.map((p) => [p.code, `signup-profession-${p.code}`]))}
-        // الاسم وسطره في الحجمين: ثلاث بطاقاتٍ بالحجم الجديد تتّسع مع «التالي» في أقصر إطار.
-        options={choices.professions.map((p) => ({ value: p.code, title: p.name, description: p.tagline }))}
+        // الاسم وسطره باللمس؛ وفي الحجم الكبير الاسم وحده: ثلاث بطاقاتٍ بفجوة 40 وسطرين لكلٍّ لا تتّسع مع
+        // «التالي» في 320×635، والاسم يكفي («التسويق»، «أمين المخزون»، «الدعم الفني»).
+        options={choices.professions.map((p) => ({ value: p.code, title: p.name, description: size === "gaze" ? undefined : p.tagline }))}
       />
     </StepFrame>
   )
