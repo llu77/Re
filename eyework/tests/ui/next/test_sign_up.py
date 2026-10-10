@@ -100,15 +100,16 @@ def test_signing_up_without_a_link_reaches_the_home_at_each_size(next_page, serv
         assert cursor.fetchall() == [("OPEN", "OK")]
 
 
-def test_support_lands_on_the_account_until_the_support_package(next_page, server, owner):
-    """مهنةٌ بلا مساحة عملٍ بعد (الدعم الفني حتى حزمته): «حسابي» هو الرئيسية، ولا زرٌّ يفتح ما ليس موجوداً."""
+def test_support_lands_on_its_desk_with_the_notice_first(next_page, server, owner):
+    """الدعم الفني بعد التسجيل: رئيسية المكتب بأزرارها الستة، و«اقرأ الإشعار» قبل أول رسالة."""
     page = next_page(size="compact")
     flow = Flow(page)
     page.goto(page.next)
     walk_sign_up(flow, page, size="compact", profession="SUPPORT")
-    flow.press("#signup-create", lambda: flow.screen("#account-ui-size-apply"), "أنشئ حسابي")
-    flow.audit("account-home")
-    assert page.locator("[aria-label='ابدأ عملاً']").count() == 0
+    flow.press("#signup-create", lambda: flow.screen("#home-notice"), "أنشئ حسابي")
+    flow.audit("support-home")
+    assert page.evaluate("() => location.hash") == "#/support"
+    assert page.locator("[aria-label='ابدأ عملاً'] a").count() == 6
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
 

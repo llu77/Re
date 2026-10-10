@@ -41,6 +41,11 @@ RLS_TABLES = (
     "public.inv_items", "public.inv_purchases", "public.inv_purchase_lines", "public.inv_returns", "public.inv_return_lines",
     "public.inv_count_sessions", "public.inv_vouchers", "public.inv_count_lines", "public.inv_movements", "public.inv_ledger",
     "public.inv_review_flags",
+    # 0011: مكتب الدعم الفني كلّه، وآلة حالات التذكرة للمالك وحده.
+    "public.support_settings", "public.support_sla_targets", "public.support_ticket_transition", "public.support_tickets",
+    "public.support_messages", "public.kb_articles", "public.kb_versions", "public.support_drafts",
+    "public.support_draft_citations", "public.support_replies", "public.support_flags", "public.support_escalations",
+    "public.support_events",
 )
 OWNERS_PER_TABLE = [
     "SELECT DISTINCT user_id FROM campaigns",

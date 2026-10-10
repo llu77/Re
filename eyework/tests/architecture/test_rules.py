@@ -94,10 +94,11 @@ def test_only_the_image_module_decodes_images():
 
 
 #: من يستورد psycopg مباشرةً، بالضبط: `db.py` يفتح الجلسات، و`admin.py` و`migrations/run.py`
-#: بدور المالك، و`campaigns.py` و`reviewer.py` و`inventory.py` يترجمون أخطاء القيود، و`web/app.py` يُنشئ
+#: بدور المالك، و`campaigns.py` و`reviewer.py` و`inventory.py` و`support.py` يترجمون أخطاء القيود، و`web/app.py` يُنشئ
 #: التجمّع ويترجم أخطاءه. سائر الخدمات (`auth` و`passkeys` والمساعد) تصل القاعدة عبر
 #: `eyework.db` وحده؛ وقاعدة المسارات في `test_web_routes_never_touch_the_database_directly`.
-DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py", "inventory.py"}
+DATABASE_ALLOWED = {"db.py", "admin.py", "migrations/run.py", "campaigns.py", "web/app.py", "reviewer.py", "inventory.py",
+                    "support.py"}
 
 
 def test_database_access_is_confined():

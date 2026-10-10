@@ -48,6 +48,10 @@ ALL_TABLES = frozenset({
     "inv_settings", "inv_counters", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases",
     "inv_purchase_lines", "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines",
     "inv_movements", "inv_ledger", "inv_review_flags",
+    # 0011: مكتب الدعم الفني.
+    "support_settings", "support_sla_targets", "support_ticket_transition", "support_tickets", "support_messages",
+    "kb_articles", "kb_versions", "support_drafts", "support_draft_citations", "support_replies", "support_flags",
+    "support_escalations", "support_events",
 })
 READABLE = frozenset({
     "campaign_transition", "campaigns", "generation_attempts", "copy_versions", "campaign_images",
@@ -57,6 +61,9 @@ READABLE = frozenset({
     "inv_settings", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases", "inv_purchase_lines",
     "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines", "inv_movements", "inv_ledger",
     "inv_review_flags",
+    # 0011: كل جداول المكتب عدا آلة الحالات (تُقرأ عبر الدوالّ).
+    "support_settings", "support_sla_targets", "support_tickets", "support_messages", "kb_articles", "kb_versions",
+    "support_drafts", "support_draft_citations", "support_replies", "support_flags", "support_escalations", "support_events",
 })
 IDENTITY_TABLES = ("public.users", "public.sessions", "public.activation_tokens",
                    "public.passkeys", "public.passkey_challenges")
@@ -130,6 +137,16 @@ APP_FUNCTIONS = frozenset({
     "ew_inv_text_ok", "ew_inv_qty_ok", "ew_inv_vat_bp", "ew_inv_doc_no_ok", "ew_inv_doc_key", "ew_inv_name_key", "ew_inv_phone_ok",
     "ew_inv_purchase_calc", "ew_inv_purchase_digest", "ew_inv_return_digest", "ew_inv_purchase_flags",
     "ew_inv_return_flags", "ew_inv_flag_keys", "ew_riyadh_today",
+    # 0011: واجهة المكتب، ودوالّ القيود والأعمدة المولّدة.
+    "ew_support_accept_notice", "ew_support_save_settings", "ew_support_create_ticket", "ew_support_add_message",
+    "ew_support_set_ticket", "ew_support_begin_draft", "ew_support_record_draft", "ew_support_finish_call",
+    "ew_support_reject_draft", "ew_support_prepare_reply", "ew_support_review_begin", "ew_support_review_record",
+    "ew_support_ack_flag", "ew_support_release_reply", "ew_support_confirm_reply", "ew_support_escalate",
+    "ew_support_return_escalation", "ew_support_resolve", "ew_support_reopen", "ew_support_follow_up", "ew_support_close_due",
+    "ew_kb_create", "ew_kb_add_version", "ew_kb_publish", "ew_kb_set_state", "ew_kb_mark_review", "ew_kb_search",
+    "ew_kb_begin_proposal", "ew_kb_record_proposal", "ew_kb_review_begin", "ew_kb_current_digest", "ew_kb_review_record",
+    "ew_support_text_ok", "ew_support_contact_free", "ew_support_kb_clean", "ew_kb_norm", "ew_support_priority_for",
+    "ew_support_priority_rank",
     # تستدعيها السياسات والقيود بصلاحية من يكتب:
     "ew_current_user", "ew_budget_allowed", "ew_is_billable", "ew_jpeg_has_no_metadata",
 })
@@ -156,6 +173,13 @@ INTERNAL_FUNCTIONS = frozenset({
     "ew_inv_purchase_insert_guard", "ew_inv_purchase_guard", "ew_inv_purchase_line_guard", "ew_inv_return_insert_guard",
     "ew_inv_return_guard", "ew_inv_return_line_guard", "ew_inv_count_session_guard", "ew_inv_count_line_guard",
     "ew_inv_movement_insert", "ew_inv_keep_record", "ew_inv_keep_posted_lines",
+    # 0011: المحفّزات والداخلية.
+    "ew_support_me", "ew_support_require_notice", "ew_support_ticket_for", "ew_support_log", "ew_support_request_for",
+    "ew_kb_version_digest", "ew_support_settings_defaults", "ew_support_ticket_insert_guard", "ew_support_ticket_update_guard",
+    "ew_support_ticket_status_event", "ew_support_message_insert_guard", "ew_support_draft_insert_guard",
+    "ew_support_draft_update_guard", "ew_support_citation_guard", "ew_support_draft_grounded", "ew_support_reply_insert_guard",
+    "ew_support_reply_update_guard", "ew_support_flag_insert_guard", "ew_support_flag_update_guard",
+    "ew_kb_article_insert_guard", "ew_kb_article_update_guard", "ew_kb_version_insert_guard", "ew_kb_version_update_guard",
 })
 
 
@@ -275,7 +299,10 @@ def test_app_holds_no_delete_or_truncate_on_any_table(owner):
     *[f"{verb} {table}" for verb in ("DELETE FROM", "TRUNCATE") for table in (
         "inv_settings", "inv_counters", "inv_suppliers", "inv_supplier_reps", "inv_categories", "inv_items", "inv_purchases",
         "inv_purchase_lines", "inv_returns", "inv_return_lines", "inv_count_sessions", "inv_vouchers", "inv_count_lines",
-        "inv_movements", "inv_ledger", "inv_review_flags")],
+        "inv_movements", "inv_ledger", "inv_review_flags",
+        "support_settings", "support_sla_targets", "support_ticket_transition", "support_tickets", "support_messages",
+        "kb_articles", "kb_versions", "support_drafts", "support_draft_citations", "support_replies", "support_flags",
+        "support_escalations", "support_events")],
 ])
 def test_app_delete_and_truncate_are_refused(app, two_users, statement):
     """المنح في الكتالوج قد يغيب ويبقى الحذف ممكناً بطريقٍ آخر؛ المحاولة نفسها تُرفض."""

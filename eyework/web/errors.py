@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 __all__ = ["ErrorSpec", "AI_OUTCOMES", "CONSTRAINTS", "EDIT_REQUEST", "IMAGE", "REGISTRATION",
            "REGISTRATION_CONSTRAINTS", "TERMS_REQUIRED", "UNUSABLE", "GENERIC", "AI_ASSISTANT", "AI_INVALID",
-           "AI_REVIEW_INVALID", "INVENTORY_INVALID"]
+           "AI_REVIEW_INVALID", "INVENTORY_INVALID", "SUPPORT_AI", "SUPPORT_CONSTRAINTS", "SUPPORT_INVALID"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -338,4 +338,154 @@ INVENTORY_INVALID: dict[str, ErrorSpec] = {
     "INV_PERIOD": ErrorSpec(422, "INV_PERIOD", "الفترة من يومٍ إلى آخر بعده، في سنةٍ على الأكثر."),
     "INV_NO_LINES": ErrorSpec(422, "INV_NO_LINES", "أضف سطراً واحداً على الأقل."),
     "INV_RETURN_REASON": ErrorSpec(422, "INV_RETURN_REASON", "اختر سبب الإرجاع."),
+}
+
+
+# ── مكتب الدعم (0011) ───────────────────────────────────────────────────
+_S_INVALID = ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب.")
+_S_INTERNAL = ErrorSpec(500, "INTERNAL", "تعذّر حفظ الطلب. أعد المحاولة، وإن تكرّر فأخبر من يدير التطبيق.")
+_S_STALE = "تغيّرت التذكرة منذ عرضها. راجعها مرة أخرى."
+_S_TRANSITION = ErrorSpec(409, "TRANSITION", "لا يصحّ هذا الإجراء في حال التذكرة الآن.")
+_S_KB_STATE = ErrorSpec(409, "KB_STATE", "لا يصحّ هذا الإجراء في حال المقالة الآن.")
+_S_NOTE = ErrorSpec(422, "NOTE", "الملاحظة ضمن الطول المسموح، بلا بريدٍ ولا رقمٍ طويل.")
+_S_LIVE = ErrorSpec(409, "LIVE_REPLY", "لهذه التذكرة ردٌّ جاهزٌ لم يُرسل. أرسله أو اسحبه أولاً.")
+_S_REPLY_STATE = ErrorSpec(409, "REPLY_STATE", "تغيّرت حال الردّ. افتح التذكرة من جديد.")
+_S_SLA = ErrorSpec(422, "SLA", "اختر من القيم المعروضة، وزمن أول ردٍّ أقصر من زمن الحلّ.")
+_S_DRAFT_STALE = ErrorSpec(409, "DRAFT_STALE", "وصلت رسالةٌ جديدة أو انتهت المهلة أثناء الكتابة. اطلب المسودة مرة أخرى.")
+_S_KB_FIELD = ErrorSpec(422, "KB_FIELD", "العنوان من 4 إلى 80 حرفاً، والمشكلة من 10 إلى 400، والبيئة من 3 إلى 300، "
+                                         "والحلّ من 20 إلى 4000، والسبب من 3 إلى 400.")
+
+#: قيود القاعدة على مسارات `/api/support` (تُقدَّم على `CONSTRAINTS`: «التذكرة» لا «الحملة»).
+#: كل قيدٍ ترفعه دالّةٌ أو يسمّيه جدولٌ في 0011 هنا (اختبارٌ يقرأ الترحيل ويقارن).
+SUPPORT_CONSTRAINTS: dict[str, ErrorSpec] = {
+    "support_needs_support": ErrorSpec(403, "PROFESSION", "هذه الأداة لبوابة مهنةٍ أخرى."),
+    "support_notice_required": ErrorSpec(409, "NOTICE", "اقرأ إشعار مكتب الدعم ووافق عليه أولاً."),
+    "stale_row_version": ErrorSpec(409, "STALE", _S_STALE),
+    "support_suggestion_mismatch": ErrorSpec(409, "STALE", _S_STALE),
+    "support_ticket_closed": ErrorSpec(409, "TICKET_CLOSED", "التذكرة مغلقة. إن ردّ العميل فافتح تذكرة متابعة."),
+    "support_ticket_transition": _S_TRANSITION,
+    "support_follow_up_needs_closed": _S_TRANSITION,
+    "support_open_ticket_cap": ErrorSpec(409, "OPEN_CAP", "بلغت التذاكر المفتوحة حدّها. أغلق ما انتهى منها أولاً."),
+    "support_daily_ticket_cap": ErrorSpec(429, "TICKET_DAILY", "بلغتَ حدّ اليوم من التذاكر الجديدة. حاول غداً.", 3600),
+    "support_message_cap": ErrorSpec(409, "MESSAGE_CAP", "في هذه التذكرة ستون رسالة، وهو الحدّ."),
+    "support_daily_message_cap": ErrorSpec(429, "MESSAGE_DAILY", "بلغتَ حدّ اليوم من الرسائل الملصقة. حاول غداً.", 3600),
+    "support_draft_needs_message": ErrorSpec(409, "NO_MESSAGE", "لا رسالة من العميل في التذكرة بعد."),
+    "support_ticket_draft_cap": ErrorSpec(429, "TICKET_DRAFTS", "طُلبت لهذه التذكرة ثماني مسودات اليوم. اكتب الردّ بنفسك.", 3600),
+    "ai_request_in_progress": ErrorSpec(409, "WRITING", "سيمبول يعمل على طلبٍ آخر الآن. انتظر حتى ينتهي."),
+    "ai_rate": ErrorSpec(429, "AI_RATE", "طلباتٌ كثيرة خلال وقتٍ قصير. حاول بعد دقائق.", 600),
+    "ai_daily_cap": ErrorSpec(429, "AI_DAILY", "بلغتَ حدّ اليوم من طلبات سيمبول. اكتب الردّ بنفسك، أو حاول غداً.", 3600),
+    "ai_new_account_daily_cap": ErrorSpec(429, "AI_NEW_DAILY", "للحساب الجديد في أسبوعه الأول حدٌّ أصغر من طلبات سيمبول. "
+                                                               "اكتب الردّ بنفسك، أو حاول غداً.", 3600),
+    "ai_feature_app_cap": ErrorSpec(503, "AI_BUSY", "سيمبول مشغولٌ الآن. اكتب الردّ بنفسك، أو حاول لاحقاً.", 600),
+    "generation_global_cap": ErrorSpec(503, "AI_BUSY", "سيمبول مشغولٌ الآن. اكتب الردّ بنفسك، أو حاول لاحقاً.", 600),
+    "generation_new_accounts_cap": ErrorSpec(503, "AI_BUSY", "سيمبول مشغولٌ الآن. اكتب الردّ بنفسك، أو حاول لاحقاً.", 600),
+    "support_draft_stale": _S_DRAFT_STALE,
+    "support_draft_needs_open_call": _S_DRAFT_STALE,
+    "ai_request_not_open": _S_DRAFT_STALE,
+    "support_citation_not_published": ErrorSpec(409, "KB_CHANGED", "تغيّرت قاعدة المعرفة أثناء الكتابة. اطلب المسودة مرة أخرى."),
+    "support_reply_draft_not_current": ErrorSpec(409, "DRAFT_OLD", "هذه ليست أحدث مسودة. افتح الأحدث."),
+    "support_draft_in_use": ErrorSpec(409, "DRAFT_IN_USE", "المسودة في ردٍّ جاهزٍ أو مرسل، فلا تُرفض الآن."),
+    "support_draft_immutable": ErrorSpec(409, "DRAFT_DONE", "رُفضت هذه المسودة من قبل."),
+    "support_one_live_reply": _S_LIVE,
+    "support_live_reply_exists": _S_LIVE,
+    "support_escalation_open": ErrorSpec(409, "ESCALATED", "التذكرة مُصعَّدة. سجّل ما عاد من التصعيد قبل ردّ الحلّ."),
+    "support_one_open_escalation": _S_TRANSITION,
+    "support_reply_core": ErrorSpec(422, "REPLY_TEXT", "الردّ من 20 إلى 1200 حرف، بلا رقم هويةٍ أو بطاقةٍ أو آيبان."),
+    "support_reply_body": ErrorSpec(422, "REPLY_TEXT", "الردّ من 20 إلى 1200 حرف، بلا رقم هويةٍ أو بطاقةٍ أو آيبان."),
+    "support_reply_hash_mismatch": ErrorSpec(409, "REPLY_CHANGED", "النصّ المنسوخ غير النصّ المحفوظ. لا ترسله؛ افتح الردّ "
+                                                                   "وانسخه من جديد."),
+    "support_flags_open": ErrorSpec(409, "FLAGS_OPEN", "على هذا تنبيهٌ لم تقرّر فيه بعد."),
+    "ai_flags_undecided": ErrorSpec(409, "FLAGS_UNDECIDED", "وصلت ملاحظةٌ من سيمبول بعد مراجعته. القرار لك."),
+    "support_reply_transition": _S_REPLY_STATE,
+    "support_flag_target_state": _S_REPLY_STATE,
+    "support_flag_immutable": ErrorSpec(409, "FLAG_STATE", "قُرّر في هذا التنبيه من قبل."),
+    "support_resolve_unanswered": ErrorSpec(409, "UNANSWERED", "آخر رسالةٍ من العميل بلا ردّ."),
+    "support_message_body": ErrorSpec(422, "TEXT_LENGTH", "النصّ من حرفٍ إلى 4000 حرف."),
+    "support_message_contact_free": ErrorSpec(422, "CONTACT_LEFT", "بقي في النصّ بريدٌ أو رقمٌ طويل. احذفه وحاول مرة أخرى."),
+    "support_customer_label_shape": ErrorSpec(422, "LABEL", "اسم العميل: حروفٌ وأرقامٌ حتى 30، بلا رقم هاتف."),
+    "support_subject_shape": ErrorSpec(422, "SUBJECT", "الموضوع من 3 إلى 80 حرفاً في سطرٍ واحد، بلا بريدٍ ولا رقمٍ طويل."),
+    "support_draft_reject_note": _S_NOTE,
+    "support_escalation_note": _S_NOTE,
+    "support_escalation_return": _S_NOTE,
+    "support_draft_hint": _S_NOTE,
+    "support_signature_shape": ErrorSpec(422, "SIGNATURE", "التوقيع من حرفين إلى 60 في سطرٍ واحد."),
+    "support_sla_first": _S_SLA,
+    "support_sla_resolve": _S_SLA,
+    "support_sla_order": _S_SLA,
+    "support_sla_priority": _S_SLA,
+    "kb_version_clean": ErrorSpec(422, "KB_SENSITIVE", "في المقالة رقم هويةٍ أو بطاقةٍ أو آيبان. احذفه."),
+    "kb_versions_title_check": _S_KB_FIELD,
+    "kb_versions_issue_check": _S_KB_FIELD,
+    "kb_versions_environment_check": _S_KB_FIELD,
+    "kb_versions_resolution_check": _S_KB_FIELD,
+    "kb_versions_cause_check": _S_KB_FIELD,
+    "kb_article_cap": ErrorSpec(409, "KB_CAP", "في قاعدة المعرفة ثلاثمئة مقالة، وهو الحدّ. أرشف ما لا يُستعمل."),
+    "kb_version_cap": ErrorSpec(409, "KB_VERSIONS", "للمقالة ثلاثون نسخة، وهو الحدّ. أنشئ مقالةً جديدة."),
+    "kb_daily_version_cap": ErrorSpec(429, "KB_DAILY", "بلغتَ حدّ اليوم من نسخ المقالات. حاول غداً.", 3600),
+    "kb_article_transition": _S_KB_STATE,
+    "kb_publish_latest_only": _S_KB_STATE,
+    "kb_article_starts_unpublished": _S_KB_STATE,
+    "kb_review_only_published": _S_KB_STATE,
+    "kb_proposal_needs_source": ErrorSpec(409, "KB_SOURCE", "لا ردّ مرسل في هذه التذكرة ولا مسودةٌ رُفضت لنقصٍ في القاعدة."),
+    "kb_ticket_proposal_cap": ErrorSpec(409, "KB_PROPOSALS", "اقتُرحت من هذه التذكرة مقالتان، وهو الحدّ."),
+    "kb_search_query": ErrorSpec(422, "SEARCH", "اكتب كلمتين على الأقل للبحث."),
+    # قيمٌ يفحصها الخادم قبل القاعدة: لا تصل إلا من طلبٍ مصنوع.
+    **{name: _S_INVALID for name in (
+        "support_ticket_category", "support_ticket_channel", "support_ticket_priority", "support_escalation_to",
+        "support_resolution", "support_reply_kind", "support_reply_via", "support_flag_dismiss", "support_draft_presets",
+        "support_draft_reject_reason", "support_notice_version_shape", "kb_article_state", "support_message_author",
+        "support_flag_code", "support_reply_origin_draft", "support_flag_evidence", "support_flag_evidence_verbatim")},
+    # ما لا يبلغه طلب: خطأٌ في الخادم.
+    **{name: _S_INTERNAL for name in (
+        "support_ticket_managed_columns", "kb_article_managed_columns", "support_agent_message_needs_sent_reply",
+        "support_answer_needs_citation", "support_citation_count", "support_citation_needs_new_draft",
+        "support_citation_not_verbatim", "support_reply_immutable", "kb_ai_version_needs_open_call",
+        "support_draft_body", "support_draft_subject", "support_draft_note", "support_draft_category",
+        "support_draft_impact", "support_draft_urgency", "support_draft_escalate", "support_draft_language",
+        "support_draft_shape", "support_draft_result", "support_draft_kind", "support_draft_priority",
+        "support_draft_rejection", "kb_archived_time", "kb_article_number", "kb_discarded_time", "kb_ever_published",
+        "kb_published_has_version", "kb_review_iff_reason", "kb_review_reason", "kb_version_bound", "kb_version_origin",
+        "support_clock_runs", "support_close_reason", "support_closed_iff_time", "support_escalated_has_target",
+        "support_escalation_return_time", "support_escalation_target", "support_event_actor", "support_event_detail",
+        "support_event_kind", "support_event_target", "support_flag_resolution", "support_flag_state",
+        "support_message_agent_reply", "support_message_agent_token", "support_message_reply_fk",
+        "support_notice_complete", "support_purge_after_close", "support_reply_contains_core", "support_reply_origin",
+        "support_reply_state", "support_reply_state_times", "support_resolved_complete", "support_ticket_number",
+        "support_ticket_status", "support_unresolved_clear")},
+}
+
+#: ما ترفضه خدمة الدعم قبل القاعدة (`service_errors.Invalid`)، بحقله.
+SUPPORT_INVALID: dict[str, ErrorSpec] = {
+    "TEXT": ErrorSpec(422, "TEXT_LENGTH", "النصّ من حرفٍ إلى 4000 حرف."),
+    "CONTACT_LEFT": ErrorSpec(422, "CONTACT_LEFT", "بقي في النصّ بريدٌ أو رقمٌ طويل. احذفه وحاول مرة أخرى."),
+    "LABEL": ErrorSpec(422, "LABEL", "اسم العميل: حروفٌ وأرقامٌ حتى 30، بلا رقم هاتف."),
+    "SUBJECT": ErrorSpec(422, "SUBJECT", "الموضوع من 3 إلى 80 حرفاً في سطرٍ واحد، بلا بريدٍ ولا رقمٍ طويل."),
+    "NOTE": _S_NOTE,
+    "PRESETS": _S_INVALID,
+    "REPLY_TEXT": ErrorSpec(422, "REPLY_TEXT", "الردّ من 20 إلى 1200 حرف، بلا رقم هويةٍ أو بطاقةٍ أو آيبان."),
+    "QUESTIONS": _S_INVALID,
+    "KB_IDS": ErrorSpec(422, "INVALID", "أدرج حتى ثلاث مقالاتٍ منشورة من قاعدتك."),
+    "DRAFT": ErrorSpec(409, "DRAFT_OLD", "هذه ليست أحدث مسودة. افتح الأحدث."),
+    "HASH": _S_INVALID,
+    "VIEW": _S_INVALID,
+    "PAGE": _S_INVALID,
+    "SIGNATURE": ErrorSpec(422, "SIGNATURE", "التوقيع من حرفين إلى 60 في سطرٍ واحد."),
+    "SLA": _S_SLA,
+    "KB_FIELD": _S_KB_FIELD,
+    "KB_SENSITIVE": ErrorSpec(422, "KB_SENSITIVE", "في المقالة رقم هويةٍ أو بطاقةٍ أو آيبان. احذفه."),
+    "SEARCH": ErrorSpec(422, "SEARCH", "اكتب كلمتين على الأقل للبحث."),
+    "NOTICE_VERSION": ErrorSpec(409, "NOTICE", "تغيّر إشعار مكتب الدعم. اقرأه ووافق عليه أولاً."),
+}
+
+#: ما يعود من استدعاءٍ لسيمبول لم يُنتج مسودةً أو اقتراحاً. الاستدعاء حُسب في كل حال إلا الانشغال.
+SUPPORT_AI: dict[str, ErrorSpec] = {
+    "REFUSED": ErrorSpec(422, "AI_REFUSED", "لم يكتب سيمبول مسودةً لهذه الرسالة. اكتب الردّ بنفسك."),
+    "OUTPUT_INVALID": ErrorSpec(502, "AI_OUTPUT_INVALID", "لم تكتمل المسودة هذه المرة. حاول مرة أخرى، أو اكتب الردّ بنفسك."),
+    "UPSTREAM_BUSY": ErrorSpec(503, "AI_BUSY", "سيمبول مشغولٌ الآن. اكتب الردّ بنفسك، أو حاول لاحقاً.", 60),
+    "UPSTREAM_TIMEOUT": ErrorSpec(504, "AI_TIMEOUT", "تأخّر سيمبول. حاول مرة أخرى."),
+    "UPSTREAM_UNREACHABLE": ErrorSpec(503, "AI_UNAVAILABLE", "سيمبول غير متاحٍ الآن. اكتب الردّ بنفسك."),
+    "UPSTREAM_ERROR": ErrorSpec(503, "AI_UNAVAILABLE", "سيمبول غير متاحٍ الآن. اكتب الردّ بنفسك."),
+    "DOWN": ErrorSpec(503, "AI_UNAVAILABLE", "سيمبول غير متاحٍ الآن. اكتب الردّ بنفسك.", 60),
+    "SLOTS": ErrorSpec(503, "AI_BUSY", "سيمبول مشغولٌ الآن. اكتب الردّ بنفسك، أو حاول لاحقاً.", 30),
+    "NOT_ENOUGH": ErrorSpec(422, "KB_NOT_ENOUGH", "لم يجد سيمبول في التذكرة ما يكفي لمقالة. اكتبها بنفسك."),
 }
