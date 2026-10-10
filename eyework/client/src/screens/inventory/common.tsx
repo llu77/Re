@@ -255,7 +255,7 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
   )
   const pager =
     pages > 1 ? (
-      <div className="grid grid-cols-2 gap-tg">
+      <div className="grid grid-cols-2 gap-tg gaze:gap-x-6">
         <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)} className="shadow-pop">
           السابقة
         </Button>

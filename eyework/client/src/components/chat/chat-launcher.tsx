@@ -1,44 +1,22 @@
 /*
- * ChatLauncher — زرّ سيمبول العائم
- * ===============================
- * في الحجم العادي، في كل شاشةٍ من البوابة: دائرةٌ بيضاء بعلامة سيمبول وظلٍّ خفيف، في الركن السفلي من طرف
- * النهاية (يسار الصفحة العربية) فوق شريط التبويب في الهاتف، وفي الركن نفسه في الآيباد والحاسوب. اسمها
- * «اسأل سيمبول» لقارئ الشاشة (`aria-label`)، وهي آمنة (`data-safe`): تفتح ورقة المحادثة ولا تعتمد شيئاً.
- * والمحتوى ينتهي فوقها (`--launcher`)، وتختفي ما دام حقلٌ مركَّزاً (`kb:hidden`) فلا تركب لوحة المفاتيح.
- * التخطيط مستوحىً من «Floating Action Button» (serafimcloud، 21st.dev:
- * https://21st.dev/serafimcloud/components/floating-action-button، بشروط 21st.dev ورخصة صفحة المكوّن)
- * بلا framer-motion ولا قائمةٍ تنفتح منه: لم تُنقل شيفرته، بل شكله.
- *
- * وفي الحجم الكبير لا شيء يطفو فوق المحتوى (ما يغطّي هدفاً يُضغط بدله): سيمبول بندٌ في وسط شريط التبويب
- * أو في السكّة (`accent` في tab-bar.tsx وsidebar.tsx).
+ * ChatLauncher — زرّ سيمبول العائم في الآيباد والحاسوب
+ * ==================================================
+ * في الحجم العادي من 744px فأوسع (بلا شريط تبويب): زرّ سيمبول نفسه (`SymbolButton` في tab-bar.tsx: دائرةٌ
+ * بالتعبئة الملوّنة وفقاعة محادثةٍ بيضاء) عائمٌ في الركن السفلي من طرف النهاية. وفي الهاتف بجانب شريط التبويب، وفي
+ * الحجم الكبير بندٌ في السكّة. آمن (`data-safe`): يفتح ورقة المحادثة ولا يعتمد شيئاً، والمحتوى ينتهي فوقه
+ * (`--launcher`)، ويختفي ما دام حقلٌ مركَّزاً (`kb:hidden`). التخطيط من «Floating Action Button» (serafimcloud،
+ * 21st.dev: https://21st.dev/serafimcloud/components/floating-action-button، بشروط 21st.dev ورخصة صفحة المكوّن)
+ * بلا framer-motion ولا قائمةٍ تنفتح منه.
  */
 
-import { SymbolMark } from "@/components/brand/marks"
-import { cn } from "@/lib/utils"
+import { SymbolButton } from "@/components/shell/tab-bar"
 
-export function SymbolBadge({ className }: { className?: string }) {
+export function ChatLauncher({ onOpen }: { onOpen: () => void }) {
   return (
-    <span aria-hidden="true" className={cn("flex size-8 shrink-0 items-center justify-center rounded-full bg-card", className)}>
-      <SymbolMark className="size-[1.125rem]" />
-    </span>
-  )
-}
-
-export function ChatLauncher({ onOpen, tablet }: { onOpen: () => void; tablet: boolean }) {
-  return (
-    <button
+    <SymbolButton
       id="nav-chat"
-      type="button"
-      data-safe=""
-      aria-haspopup="dialog"
-      aria-label="اسأل سيمبول"
       onClick={onOpen}
-      className={cn(
-        "fixed end-edge z-30 inline-flex size-ctl-lg items-center justify-center rounded-full bg-card shadow-pop hov:bg-muted kb:hidden",
-        tablet ? "bottom-[max(var(--edge),env(safe-area-inset-bottom))]" : "bottom-[calc(var(--tab)+var(--line)+env(safe-area-inset-bottom)+0.75rem)]",
-      )}
-    >
-      <SymbolMark className="size-5" />
-    </button>
+      className="fixed bottom-[max(var(--edge),env(safe-area-inset-bottom))] end-edge z-30 kb:hidden"
+    />
   )
 }

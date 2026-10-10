@@ -113,7 +113,7 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onLogout,
   // الخروج والحذف في شريط الإجراءات الأسفل، الحذف في البداية والخروج في النهاية: شاشة التأكيد تضع
   // «رجوع» في الخانة نفسها، فأقرب ما إلى نظرٍ باقٍ على الضغطة لا يعتمد شيئاً (كما في الواجهة القائمة).
   const leaving = (
-    <div className="grid w-full grid-cols-2 gap-tg">
+    <div className="grid w-full grid-cols-2 gap-tg gaze:gap-x-6">
       <Button id="account-delete" variant="danger-outline" icon={Trash2} onClick={onDelete}>
         احذف حسابي
       </Button>

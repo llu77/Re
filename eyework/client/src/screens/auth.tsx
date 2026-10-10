@@ -20,7 +20,7 @@ import * as React from "react"
 import { Eye, EyeOff, Fingerprint, Hand, LogIn, Maximize2, Minimize2, ScanEye, UserPlus } from "lucide-react"
 
 import { PageTitle } from "@/components/brand/page-title"
-import { BrandMark } from "@/components/brand/marks"
+import { Wordmark } from "@/components/brand/marks"
 import { Slots } from "@/components/shell/slots"
 import { Button, NextIcon, BackIcon } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -79,13 +79,13 @@ export type RegistrationMode = "open" | "code" | "closed"
 export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationMode; onSignup: () => void; onLogin: () => void }) {
   return (
     <AuthFrame>
-      {/* الزرّان بعد العلامة مباشرةً: «ادخل» في أعلى الشاشة يقع بعد الانتقال على حقول الدخول، و«ادخل» الذي
+      {/* الزرّان بعد الاسم مباشرةً: «ادخل» في أعلى الشاشة يقع بعد الانتقال على حقول الدخول، و«ادخل» الذي
           يعتمد في أسفل شاشة الدخول. */}
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
-        <div className="flex items-center gap-3">
-          <BrandMark className="size-11" />
-          <h1 className="text-display font-bold text-heading">صياغة</h1>
-        </div>
+        {/* الاسم عنوان الترحيب، بارتفاع العلامة التي كان بجانبها (44) فلا يتحرّك ما تحته. */}
+        <h1 className="flex min-h-11 items-center">
+          <Wordmark decorative={false} className="text-[1.75rem]" />
+        </h1>
         <div className="flex flex-col gap-tg">
           {mode === "open" ? (
             <Button id="welcome-signup" variant="primary" size="lg" width="full" icon={UserPlus} onClick={onSignup}>

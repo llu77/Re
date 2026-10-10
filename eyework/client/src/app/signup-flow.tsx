@@ -150,7 +150,7 @@ function DateStep({ s, kind, earliest, onBack }: { s: SignupState; kind: "year" 
           </Button>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-tg">
+      <div className="grid grid-cols-2 gap-tg gaze:gap-x-6">
         <Button id={`signup-${kind}-down`} isValue disabled={base <= min} onClick={() => pick(base - 1)}>
           {kind === "year" ? `أقدم: ${base - 1}` : kind === "month" ? `السابق: ${base > min ? MONTHS[base - 2] : ""}` : `السابق: ${base - 1}`}
         </Button>

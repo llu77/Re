@@ -209,8 +209,9 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
           رجوع
         </Button>
       ) : place ? (
-        <Button variant="secondary" iconEnd={ForwardArrow} onClick={() => openPlace(place)}>
-          افتح «{place.open!.label}»
+        // «افتح» وحده في نصف الشريط، واسم الشاشة في سطرٍ فوقه: «افتح «حملة جديدة»» لا يتّسع لنصفه في 320.
+        <Button id="chat-answer-open" variant="secondary" iconEnd={ForwardArrow} aria-label={`افتح «${place.open!.label}»`} onClick={() => openPlace(place)}>
+          افتح
         </Button>
       ) : onTools ? (
         <Button icon={Wrench} onClick={onTools}>
@@ -288,6 +289,11 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
                   className={cn("rounded-card px-pad py-3", bubbleTone(latest))}
                 />
                 <AnswerNotes turn={latest} />
+                {place ? (
+                  <p className="truncate text-small text-muted-foreground">
+                    الشاشة المقترحة: <span className="text-foreground">{place.open!.label}</span>
+                  </p>
+                ) : null}
               </section>
               <Button
                 icon={MessageSquarePlus}

@@ -101,7 +101,7 @@ def portal(page, flow, base: str, size: str, shot, photo: dict) -> None:
     flow.press("#home-new", lambda: flow.screen("#photo-input"), "حملة جديدة"); flow.audit("photo"); shot("15-photo")
     page.set_input_files("#photo-input", files=[photo])
     flow.until("!document.querySelector('#photo-generate').disabled"); flow.audit("photo-draft"); shot("16-photo-draft")
-    flow.press("#photo-generate", lambda: flow.screen("#proposal-copy"), "اكتب لي العنوان والوصف"); flow.audit("proposal"); shot("17-proposal")
+    flow.press("#photo-generate", lambda: flow.screen("#proposal-copy"), "اكتب النص"); flow.audit("proposal"); shot("17-proposal")
     flow.press("#proposal-start", lambda: flow.screen("#edit-chips"), "اطلب تعديلاً")
     flow.press("#edit-chips button >> nth=0", lambda: None, "خيار تعديل"); flow.audit("edit"); shot("18-edit")
     flow.press("#edit-note", lambda: flow.screen("#note-text"), "ملاحظة نصية")

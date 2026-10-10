@@ -94,6 +94,7 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
               setBasis(value)
               setFail(null)
             }}
+            columns={1}
             ids={{ net: "settings-basis-net", gross: "settings-basis-gross" }}
             options={[
               { value: "net", title: "نعم، مسجّلة وتخصمها" },
@@ -202,7 +203,7 @@ export function CategoriesScreen({ categories, onAdd, onToggle, onBack }: {
         </ul>
       )}
       {pages > 1 ? (
-        <div className="grid grid-cols-2 gap-tg">
+        <div className="grid grid-cols-2 gap-tg gaze:gap-x-6">
           <Button disabled={current === 0} onClick={() => setPage(current - 1)}>
             السابقة
           </Button>

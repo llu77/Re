@@ -88,9 +88,9 @@
     --sec: 1.25rem;          /* 20 — بين الأقسام */
     --pad: 0.875rem;         /* 14 — حشو البطاقة */
     --icon: 1.125rem;        /* 18 */
-    --tab: 3.75rem;          /* 60 — شريط التبويب السفلي (يُضاف إليه الحافّة الآمنة) */
+    --tab: 4rem;             /* 64 — شريط التبويب العائم (56) وفجوته عن أسفل الشاشة (يُضاف إليه الحافّة الآمنة) */
     --bar: 2.75rem;          /* 44 — الصفّ العلوي («رجوع» والفعل الثانوي) */
-    --launcher: 3.5rem;      /* 56 — زرّ «اسأل سيمبول» العائم (44) وفجوته فوق الشريط: المحتوى ينتهي فوقه */
+    --launcher: 4rem;        /* 64 — زرّ سيمبول العائم في الآيباد (56) وفجوته: المحتوى ينتهي فوقه */
     --side: 15rem;           /* 240 — الشريط الجانبي في الآيباد والحاسوب */
     --radius: 0.625rem;      /* 10 */
     --radius-card: 0.875rem; /* 14 */
@@ -128,7 +128,7 @@
     --icon: 1.125rem;        /* 18 */
     --tab: 4.5rem;           /* 72 — بند الشريط مساحته كاملة */
     --bar: 3rem;             /* 48 */
-    --launcher: 0rem;        /* لا زرّ يطفو فوق المحتوى: سيمبول بندٌ في شريط التبويب أو السكّة */
+    --launcher: 0rem;        /* لا زرّ يطفو فوق المحتوى: سيمبول بجانب شريط التبويب أو بندٌ في السكّة */
     --side: 12rem;           /* 192 — سكّةٌ بالبنود الأربعة */
     --radius: 0.625rem;      /* 10 */
     --radius-card: 0.875rem; /* 14 */
@@ -153,7 +153,7 @@
     text-size-adjust: 100%;
     /* الصفّ العلوي لاصقٌ في الحجم العادي: ما يُركَّز بلوحة المفاتيح لا يختفي تحته. */
     scroll-padding-block-start: calc(var(--bar) + var(--edge));
-    scroll-padding-block-end: calc(var(--tab) + var(--launcher) + var(--edge));
+    scroll-padding-block-end: calc(var(--tab) + var(--edge));
   }
 
   body {
@@ -256,10 +256,6 @@
   .pb-tab {
     padding-bottom: calc(var(--tab) + var(--edge) + env(safe-area-inset-bottom));
   }
-  /* …وفوق زرّ «اسأل سيمبول» العائم فوقه: آخر المحتوى يُمرَّر فوق الزرّ لا تحته (الهاتف بحجم اللمس). */
-  .pb-tab-launcher {
-    padding-bottom: calc(var(--tab) + var(--launcher) + var(--edge) + env(safe-area-inset-bottom));
-  }
   /* الآيباد والحاسوب بحجم اللمس: الزرّ العائم في الركن السفلي، بلا شريط تبويب. */
   .pb-launcher {
     padding-bottom: calc(var(--launcher) + max(var(--edge), env(safe-area-inset-bottom)));
@@ -272,7 +268,7 @@
     min-height: calc(100dvh - var(--chrome, 0px));
   }
   .chrome-portal {
-    --chrome: calc(var(--sec) + var(--tab) + var(--launcher) + var(--edge) + env(safe-area-inset-bottom));
+    --chrome: calc(var(--sec) + var(--tab) + var(--edge) + env(safe-area-inset-bottom));
   }
   @media (min-width: 46.5rem) {
     .chrome-portal {

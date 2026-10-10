@@ -1,22 +1,26 @@
 /*
- * العلامتان
- * =========
- * BrandMark: علامة «صياغة» الهندسية (كما في eyework/client): الاسم والعنوان والأيقونة لا
- * تذكر النظر ولا العين ولا الإعاقة (tests/architecture/test_separation.py)، فقائمة
- * مستخدمي التطبيق ليست معلومةً صحّية.
+ * الاسم والعلامة
+ * ===============
+ * Wordmark: الاسم «Symbol Work» بدل علامة «صياغة» (طلب المالك): بجانب عنوان كل شاشةٍ وورقةٍ ونافذة، وفي الترحيب
+ * ورأس الشريط الجانبي. «Symbol» بالأزرق و«Work» بلون النصّ الهادئ، بخطٍّ لاتيني من اليسار إلى اليمين. الاسم لا يذكر
+ * النظر ولا العين ولا الإعاقة (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق ليست معلومةً صحّية.
  * SymbolMark: علامة المساعد «سيمبول» (لوحة الممارس): أربعة مستطيلاتٍ على شبكة 3×3.
- * كلتاهما زخرفيةٌ بجانب نصٍّ يسمّيها.
+ * كلاهما زخرفيٌّ بجانب نصٍّ يسمّي الصفحة، إلا الاسم في الترحيب فهو العنوان نفسه (`decorative={false}`).
  */
 
 import { cn } from "@/lib/utils"
 
-export function BrandMark({ className }: { className?: string }) {
+export function Wordmark({ className, decorative = true }: { className?: string; decorative?: boolean }) {
   return (
-    <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false" className={cn("size-8 shrink-0", className)}>
-      <rect width="48" height="48" rx="12" className="fill-primary" />
-      <rect x="13" y="13" width="14" height="14" rx="3" className="fill-primary-foreground" />
-      <rect x="21" y="21" width="14" height="14" rx="3" className="fill-primary-foreground opacity-60" />
-    </svg>
+    // مسافةٌ حقيقية بين الكلمتين (لا فجوة flex) فيُقرأ الاسم «Symbol Work» لا «SymbolWork».
+    <span
+      aria-hidden={decorative ? "true" : undefined}
+      dir="ltr"
+      translate="no"
+      className={cn("inline-block shrink-0 whitespace-nowrap font-num leading-none tracking-tight", className)}
+    >
+      <span className="font-bold text-primary">Symbol</span> <span className="font-semibold text-muted-foreground">Work</span>
+    </span>
   )
 }
 

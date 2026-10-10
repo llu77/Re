@@ -107,7 +107,7 @@ describe("the size tokens", () => {
   })
 
   it("size the bars for the bottom tab bar and the sidebar", () => {
-    expect(rem(compact["--tab"])).toBe(60)
+    expect(rem(compact["--tab"])).toBe(64)
     expect(rem(gaze["--tab"])).toBe(72)
     expect(rem(compact["--bar"])).toBe(44)
     expect(rem(gaze["--bar"])).toBe(48)

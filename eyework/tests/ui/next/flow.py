@@ -79,12 +79,12 @@ AUDIT = """
     const field = (e) => e.matches('input, textarea, select');
     const small = rects.filter(([e, r]) => r.width < MIN || r.height < (field(e) ? MIN_FIELD : MIN_HIT))
         .map(([e, r]) => `${name(e)} ${Math.round(r.width)}x${Math.round(r.height)}`);
-    // الحجم العادي: الصفحة تمرّ، وشريط التبويب وزرّ «اسأل سيمبول» العائم ثابتان فوقها. ما يقع تحت أحدهما أو في
-    // فجوته قبل التمرير ليس مجاوراً له إن كان التمرير المتبقّي يرفعه فوقه بالفجوة كاملة (يظهر فوقه بالتمرير:
-    // `.pb-tab-launcher`)؛ وإلا فالتراكب حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عنه مهما مُرّرت.
+    // الحجم العادي: الصفحة تمرّ، وشريط التبويب العائم (وزرّ سيمبول بجانبه) ثابتٌ فوقها، وزرّ سيمبول في ركن الآيباد.
+    // ما يقع تحت أحدهما أو في فجوته قبل التمرير ليس مجاوراً له إن كان التمرير المتبقّي يرفعه فوقه بالفجوة كاملة
+    // (يظهر فوقه بالتمرير: `.pb-tab`)؛ وإلا فالتراكب حقيقيٌّ ويُرفض: صفحةٌ لا تمرّ، أو عنصرٌ لا يرتفع عنه مهما مُرّرت.
     const scroller = document.scrollingElement;
     const room = scroller.scrollHeight - innerHeight - scroller.scrollTop;
-    const fixed = [document.querySelector('nav[aria-label="أقسام البوابة"]'), document.getElementById('nav-chat')]
+    const fixed = [document.querySelector('[data-tab-bar]'), document.getElementById('nav-chat')]
         .filter((c) => c && getComputedStyle(c).position === 'fixed' && visible(c));
     const belowFold = (c, e, r) => {
         const top = c.getBoundingClientRect().top;
@@ -104,11 +104,27 @@ AUDIT = """
     const edge = drawn.filter(([, r]) => r.left < EDGE || innerWidth - r.right < EDGE).map(([e]) => name(e));
     const fonts = [...root.querySelectorAll('input, textarea')].filter(visible)
         .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id || e.name);
+    // اسم الزرّ في سطرٍ واحد (لا يلتفّ): ما يلتفّ يبدو زرّين ويُقرأ نصفين. إلا ما عُلّم `data-wrap` عمداً (عبارةٌ
+    // تُنسخ، أو صفٌّ في قائمة باسمٍ طويل، أو شرحُ خيارٍ تحت عنوانه).
+    const wrapped = [];
+    for (const e of controls) {
+        if (e.matches('input, textarea, select') || e.closest('[data-wrap]')) continue;
+        const walker = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            // نصٌّ جارٍ في بطاقةٍ (شرح خيار) يلتفّ (`data-wrap`)؛ العنوان واسم الزرّ سطرٌ واحد.
+            if (!node.textContent.trim() || node.parentElement.closest('.sr-only, [data-wrap]')) continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const lines = new Set([...range.getClientRects()].filter((t) => t.width > 1).map((t) => Math.round(t.top / 4)));
+            if (lines.size > 1) { wrapped.push(name(e)); break; }
+        }
+    }
     const clipped = gaze ? [...root.querySelectorAll('h1, h2, h3, p, li, button, a[href], input, textarea, label, legend, dt, dd')].filter(visible)
         .filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > innerHeight + 1 || r.top < -1; })
         .map((e) => name(e) || e.tagName) : [];
     return {
-        gaze, small, close, edge, fonts, clipped,
+        gaze, small, close, edge, fonts, clipped, wrapped,
         enabled: controls.filter((e) => !e.disabled && e.getAttribute('aria-disabled') !== 'true').length,
         vertical: scroller.scrollHeight > innerHeight + 1,
         horizontal: scroller.scrollWidth > innerWidth + 1,
@@ -369,7 +385,7 @@ class Flow:
     def failures(self) -> list[str]:
         failures = []
         for audit in self.audits:
-            for key in ("small", "close", "edge", "fonts", "clipped", "occluded", "spill", "cut", "centres", "roles"):
+            for key in ("small", "close", "edge", "fonts", "clipped", "wrapped", "occluded", "spill", "cut", "centres", "roles"):
                 if audit[key]:
                     failures.append(f"{audit['label']} {key}: {audit[key]}")
             if audit["gaze"] and audit["enabled"] > 12:

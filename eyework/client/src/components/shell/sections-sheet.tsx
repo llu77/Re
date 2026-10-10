@@ -18,7 +18,7 @@ export function SectionsSheet({ open, workspace, current, onClose, onNavigate }:
 }) {
   return (
     <Sheet open={open} onClose={onClose} eyebrow={workspace.name} title="الأقسام">
-      <ul className="grid grid-cols-2 gap-tg">
+      <ul className="grid grid-cols-2 gap-tg gaze:gap-x-6">
         {workspace.home.map((entry) => {
           const Icon = entry.icon
           const active = entry.id === current

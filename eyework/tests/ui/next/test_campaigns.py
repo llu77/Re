@@ -67,7 +67,7 @@ def _to_proposal(flow: Flow) -> None:
     page.set_input_files("#photo-input", files=[PHOTO])
     flow.until("!document.querySelector('#photo-generate').disabled")
     flow.audit("photo-draft")
-    flow.press("#photo-generate", lambda: flow.screen("#proposal-copy"), "اكتب لي العنوان والوصف")
+    flow.press("#photo-generate", lambda: flow.screen("#proposal-copy"), "اكتب النص")
     flow.audit("proposal")
 
 
@@ -495,7 +495,7 @@ def test_a_failed_request_is_acknowledged_before_anything_else(next_page, server
     _draft(flow)
     page.route("**/api/campaigns/*/copy", lambda route: route.fulfill(
         status=503, content_type="application/json", body=json.dumps({"code": "AI_BUSY", "detail": "المساعد مشغولٌ الآن. حاول بعد قليل."})))
-    flow.press("#photo-generate", lambda: page.wait_for_selector("#notice-ack"), "اكتب لي العنوان والوصف")
+    flow.press("#photo-generate", lambda: page.wait_for_selector("#notice-ack"), "اكتب النص")
     assert "المساعد مشغولٌ الآن" in page.inner_text("[role=alert]")
     assert page.evaluate("() => document.querySelector('#photo-generate').closest('[inert]') !== null")
     audit = flow.audit("alert")

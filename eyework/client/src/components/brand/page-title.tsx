@@ -1,15 +1,14 @@
 /*
- * PageTitle — عنوان الصفحة بعلامة «صياغة»
- * =======================================
- * العلامة في كل صفحة (طلب المالك): صغيرةٌ في آخر سطر العنوان الكبير، كصورة الحساب في عناوين iOS، لا
- * قبل كل عنوان. زخرفيةٌ (`aria-hidden`) فاسم الصفحة هو العنوان وحده. في شاشات البوابة على الآيباد
- * والحاسوب العلامة في رأس الشريط الجانبي، فلا تتكرّر بجانب العنوان (`mark="phone"`)؛ وما قبل الدخول لا
- * شريط جانبياً له، فهي فيه دائماً.
+ * PageTitle — عنوان الصفحة بالاسم «Symbol Work»
+ * =============================================
+ * الاسم في كل صفحة (طلب المالك، بدل علامة «صياغة»): صغيرٌ في آخر سطر العنوان الكبير، كصورة الحساب في عناوين
+ * iOS. زخرفيٌّ (`aria-hidden`) فاسم الصفحة هو العنوان وحده. في شاشات البوابة على الآيباد والحاسوب الاسم في رأس
+ * الشريط الجانبي، فلا يتكرّر بجانب العنوان (`mark="phone"`)؛ وما قبل الدخول لا شريط جانبياً له، فهو فيه دائماً.
  */
 
 import * as React from "react"
 
-import { BrandMark } from "@/components/brand/marks"
+import { Wordmark } from "@/components/brand/marks"
 import { cn } from "@/lib/utils"
 
 export const PageTitle = React.forwardRef<
@@ -19,7 +18,7 @@ export const PageTitle = React.forwardRef<
   return (
     <h1 ref={ref} className={cn("flex items-center justify-between gap-3 text-display font-bold leading-tight", className)} {...props}>
       <span className="min-w-0">{children}</span>
-      <BrandMark className={cn("size-6 opacity-90 gaze:size-5", mark === "phone" && "tablet:hidden")} />
+      <Wordmark className={cn("text-small", mark === "phone" && "tablet:hidden")} />
     </h1>
   )
 })

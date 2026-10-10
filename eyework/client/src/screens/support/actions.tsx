@@ -178,7 +178,7 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
     </GazeHost>
   ) : (
     <RadioCards<EscalationTarget> label="إلى من؟" options={targets.map((t) => ({ value: t, title: ESCALATION_TARGET[t] }))} value={target} onValueChange={setTarget}
-      ids={Object.fromEntries(targets.map((t) => [t, `escalate-target-${t}`]))} />
+      columns={1} ids={Object.fromEntries(targets.map((t) => [t, `escalate-target-${t}`]))} />
   )
   const noteField = (
     <div className="flex flex-col gap-tg">

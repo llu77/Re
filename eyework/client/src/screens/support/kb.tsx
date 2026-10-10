@@ -182,7 +182,7 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
   if (article.state === "PUBLISHED") {
     actions.push(article.needs_review
       ? <Button key="fixed" id="article-fixed" icon={FlagOff} busy={busy === "review"} onClick={() => void run("review", () => onMarkReview(false))}>أُصلحت</Button>
-      : <Button key="review" id="article-needs-review" icon={Flag} busy={busy === "review"} onClick={() => void run("review", () => onMarkReview(true))}>علّمها تحتاج مراجعة</Button>)
+      : <Button key="review" id="article-needs-review" icon={Flag} busy={busy === "review"} onClick={() => void run("review", () => onMarkReview(true))}>{gaze ? "تحتاج مراجعة" : "علّمها تحتاج مراجعة"}</Button>)
     actions.push(<Button key="archive" id="article-archive" icon={Archive} busy={busy === "archive"} onClick={() => void run("archive", () => onState("ARCHIVED"))}>أرشف</Button>)
   }
   if (article.state === "DRAFT") {
@@ -234,7 +234,7 @@ export function ArticleScreen({ article, onEdit, onPublish, onMarkReview, onStat
           </dl>
         </>
       )}
-      {actions.length && (!gaze || actionsPage) ? <div className="flex flex-wrap gap-tg gaze:grid gaze:grid-cols-2">{actions}</div> : null}
+      {actions.length && (!gaze || actionsPage) ? <div className="flex flex-wrap gap-tg gaze:grid gaze:grid-cols-2 gaze:gap-x-6 gaze:[&_svg]:hidden">{actions}</div> : null}
     </Screen>
   )
 }

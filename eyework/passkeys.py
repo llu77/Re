@@ -93,7 +93,7 @@ LOGIN_CHALLENGES_MAX = 10_000
 #: (lifetimeTimer في WebAuthn)، لا في الصفحة.
 UPGRADE_TIMEOUT_SECONDS = 5
 #: اسم الطرف كما يعرضه النظام في نافذة المفتاح.
-RP_NAME = "صياغة"
+RP_NAME = "Symbol Work"
 
 _CHALLENGE_BYTES = 32
 #: حدّا ما يُحفظ — نظيرا القيدين passkey_credential_id_shape وpasskey_public_key_shape.

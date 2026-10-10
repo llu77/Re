@@ -66,7 +66,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
         onClick={() => setOpen((shown) => !shown)}
         className={cn(
           "flex min-h-ctl w-full items-center justify-between gap-3 rounded-ctl border px-4 text-start",
-          open ? "border-primary bg-secondary" : "border-transparent bg-card shadow-card",
+          open ? "border-primary bg-secondary" : "border-border bg-card shadow-sm shadow-black/5",
         )}
       >
         <span className="flex min-w-0 flex-col leading-tight">
@@ -80,7 +80,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
       </button>
       <div id={regionId} className="min-h-0">
         {open ? (
-          <div role="group" aria-label={label} className="grid grid-cols-2 gap-tg">
+          <div role="group" aria-label={label} className="grid grid-cols-2 gap-tg gaze:gap-x-6">
             {items.map((item) => {
               const checked = item.id === value
               return (
@@ -96,7 +96,7 @@ function GazeFilter({ items, value, onValueChange, label, children, className }:
                   }}
                   className={cn(
                     "flex min-h-ctl items-center justify-between gap-2 rounded-ctl border px-3 text-start",
-                    checked ? "border-primary bg-secondary font-semibold" : "border-transparent bg-card shadow-card",
+                    checked ? "border-primary bg-secondary font-semibold" : "border-border bg-card shadow-sm shadow-black/5",
                   )}
                 >
                   <span>
@@ -187,7 +187,7 @@ function TabList({ items, value, onValueChange, label, children, className, stre
                 "[&_svg]:size-icon [&_svg]:shrink-0",
                 selected
                   ? "border-transparent bg-primary font-semibold text-primary-foreground"
-                  : "border-transparent bg-card font-medium text-foreground shadow-card hov:bg-muted",
+                  : "border-border bg-card font-medium text-foreground shadow-sm shadow-black/5 hov:bg-muted",
               )}
             >
               {Icon ? <Icon aria-hidden="true" strokeWidth={2} /> : null}

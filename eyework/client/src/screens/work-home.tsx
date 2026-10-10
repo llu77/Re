@@ -62,7 +62,7 @@ export function HomeGrid({ workspace, onNavigate, counts }: { workspace: Workspa
   // زرٌّ وحيد في صفّه الأخير يملأ الصفّ في الهاتف والآيباد، لا نصفه.
   const lastAlone = !wide && cells % columns === 1
   return (
-    <ul aria-label="ابدأ عملاً" className="grid grid-cols-2 gap-tg lg:grid-cols-3">
+    <ul aria-label="ابدأ عملاً" className="grid grid-cols-2 gap-tg gaze:gap-x-6 lg:grid-cols-3">
       {workspace.home.map((entry, index) => {
         const row = entry.primary && primaryRow
         return (
@@ -76,8 +76,8 @@ export function HomeGrid({ workspace, onNavigate, counts }: { workspace: Workspa
                 onNavigate(entry.route)
               }}
               className={cn(
-                "flex h-full min-h-ctl w-full items-center justify-center rounded-ctl px-3 text-center font-semibold leading-snug",
-                entry.primary ? "bg-primary text-primary-foreground" : "bg-card text-foreground shadow-card",
+                "flex h-full min-h-ctl w-full items-center justify-center whitespace-nowrap rounded-ctl border px-2 text-center font-medium leading-none",
+                entry.primary ? "border-transparent bg-primary text-primary-foreground shadow-sm shadow-black/5" : "border-border bg-card text-foreground shadow-sm shadow-black/5",
               )}
             >
               <span>
