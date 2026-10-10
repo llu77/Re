@@ -35,7 +35,9 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
   onCategories: (() => void) | null
 }) {
   const first = settings === null
-  const [basis, setBasis] = React.useState<"net" | "gross">(settings?.cost_includes_vat ? "gross" : "net")
+  // أساس تكلفة المخزون: هل تستردّ المنشأة ضريبة مشترياتها؟ لا جواب مسبق في الإعداد الأوّل: الخطأ فيه
+  // يُقفل بعد أوّل فاتورة ويُبقي قيمة المخزون أعلى أو أدنى بـ15%.
+  const [basis, setBasis] = React.useState<"net" | "gross" | null>(settings ? (settings.cost_includes_vat ? "gross" : "net") : null)
   const [name, setName] = React.useState(settings?.store_name ?? "المخزن الرئيسي")
   const [location, setLocation] = React.useState(settings?.store_location ?? "")
   const [busy, setBusy] = React.useState(false)
@@ -45,6 +47,10 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
 
   async function save() {
     const trimmed = name.trim()
+    if (basis === null) {
+      setFail({ message: "اختر: هل منشأتك مسجّلة في ضريبة القيمة المضافة؟", field: "cost_includes_vat" })
+      return
+    }
     if ([...trimmed].length < 2) {
       setFail({ message: "اكتب اسم المخزن (حرفان على الأقل).", field: "store_name" })
       return
@@ -69,26 +75,34 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
       back={first ? undefined : { id: "settings-back", label: "رجوع", onClick: onBack }}
       end={onCategories && !first ? { id: "settings-categories", label: "التصنيفات", icon: Tags, onClick: onCategories } : undefined}
       actions={
-        <Button id="settings-save" variant="primary" commit icon={Save} busy={busy} onClick={() => void save()}>
+        <Button id="settings-save" variant="primary" commit icon={Save} busy={busy} disabled={basis === null} onClick={() => void save()}>
           {first ? "احفظ وابدأ" : "احفظ"}
         </Button>
       }
     >
       {locked ? (
         <p className="text-flow text-muted-foreground">
-          أسعار الشراء تُكتب <span className="font-semibold text-foreground">{basis === "gross" ? "شاملةً الضريبة" : "قبل الضريبة"}</span>؛ وقد قُفل هذا بعد أوّل فاتورةٍ مسجّلة.
+          تكلفة المخزون تُحسب <span className="font-semibold text-foreground">{basis === "gross" ? "شاملةً الضريبة لأن المنشأة لا تستردّها" : "قبل الضريبة لأن المنشأة تستردّها"}</span>؛ وقد قُفل هذا بعد أوّل فاتورةٍ مسجّلة.
         </p>
       ) : (
         <RadioCards<"net" | "gross">
-          label="كيف تُكتب أسعار الشراء في فواتير مورّديك؟"
+          label="هل منشأتك مسجّلة في ضريبة القيمة المضافة وتخصم ضريبة مشترياتها في إقرارها؟"
           value={basis}
-          onValueChange={setBasis}
+          onValueChange={(value) => {
+            setBasis(value)
+            setFail(null)
+          }}
           ids={{ net: "settings-basis-net", gross: "settings-basis-gross" }}
           options={[
-            { value: "net", title: "قبل الضريبة", description: "تُضاف الضريبة 15% على السعر." },
-            { value: "gross", title: "شاملةً الضريبة", description: "السعر يحوي الضريبة، وتُفصل منه." },
+            { value: "net", title: "نعم، مسجّلة وتخصمها", description: "تُحسب تكلفة المخزون قبل الضريبة." },
+            { value: "gross", title: "لا، غير مسجّلة", description: "الضريبة جزءٌ من التكلفة فتدخل قيمة المخزون." },
           ]}
         />
+      )}
+      {locked ? null : (
+        <p className="text-small text-muted-foreground gaze:hidden">
+          المسجّلة لها رقمٌ ضريبي من 15 خانة يبدأ وينتهي بـ3، وتقدّم إقراراً ضريبياً. وإن لم تعرف فاسأل محاسب المنشأة قبل أوّل فاتورة: الجواب يُقفل بعدها. أمّا كيف تُكتب الأسعار في فاتورة المورّد فتختاره في كل فاتورة.
+        </p>
       )}
       <Field label="اسم المخزن" error={fail?.field === "store_name" ? fail.message : null} required>
         <Input id="settings-store-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />

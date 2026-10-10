@@ -91,6 +91,10 @@ def _setup(flow: Flow) -> None:
     _audit(flow, "setup")
     assert page.evaluate("() => location.hash") == BASE
     assert page.input_value("#settings-store-name") == "المخزن الرئيسي"
+    # لا جواب مسبق عن أساس التكلفة: «احفظ وابدأ» معطّلٌ حتى يُختار.
+    assert page.locator("#settings-basis-net[aria-checked='true'], #settings-basis-gross[aria-checked='true']").count() == 0
+    assert page.locator("#settings-save").is_disabled()
+    flow.press("#settings-basis-net", lambda: flow.until("!document.querySelector('#settings-save').disabled"), "نعم، مسجّلة وتخصمها")
     flow.press("#settings-save", lambda: flow.screen("#home-purchase"), "احفظ وابدأ")
     _audit(flow, "home")
     assert page.text_content("#home-summary").startswith("لا شيء ينتظرك")
@@ -364,6 +368,50 @@ def test_a_draft_is_kept_on_the_server_and_an_undecided_symbol_note_blocks_posti
     page.goto(page.next + "#/inventory/purchases")
     flow.until("document.querySelectorAll('[aria-label=\"فواتير الشراء\"] li').length === 1")
     _audit(flow, "purchases")
+    assert not flow.failures(), "\n".join(flow.failures())
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", SIZES)
+@pytest.mark.parametrize(("width", "height"), [PHONES[0], STRESS], ids=frame_ids([PHONES[0], STRESS]))
+def test_a_discount_printed_on_a_line_is_entered_on_the_line_and_lowers_its_amount(next_page, server, owner, size, width, height):
+    """خصم السطر المطبوع يُكتب في السطر نفسه: يُرفض ما يتجاوز مبلغ السطر، ويُطرح قبل الضريبة (10 × 10.00 − 10.00 = 90.00 + 13.50)."""
+    page = _page(next_page, owner, server, size, width, height)
+    flow = Flow(page)
+    gaze = size == "gaze"
+    _setup(flow)
+    flow.press("#home-purchase", lambda: flow.screen("#purchase-supplier"), "فاتورة شراء جديدة")
+    _header_step(flow, _today(owner))
+    flow.screen("#line-item")
+    _choose_option(flow, "line-item", "كرتونة ماء ٣٣٠ مل", True, "منتج جديد باسم")
+    flow.screen("#quick-item-create")
+    _pick(flow, "quick-item-unit", "CARTON" if gaze else "كرتون", "الوحدة")
+    page.fill("#quick-item-price", "10")
+    flow.press("#quick-item-create", lambda: flow.until("(document.querySelector('#line-price') || {}).value === '10.00'"), "أنشئ المنتج")
+    page.fill("#line-quantity", "10")
+    if gaze:
+        # الخصم وما وصل في صفحة السطر الثانية، بزرٍّ في مكانه لا يتحرّك.
+        _audit(flow, "line-main")
+        flow.press("#line-more", lambda: flow.screen("#line-discount"), "الخصم وما وصل")
+        assert page.locator("#line-quantity").count() == 0
+    # أكبر من مبلغ السطر (100.00): يُرفض عند الحقل قبل أن يصل الخادم.
+    page.fill("#line-discount", "150")
+    flow.press("#line-save", lambda: flow.until("document.body.textContent.includes('الخصم من صفرٍ إلى مبلغ السطر')"), "أضف السطر")
+    _audit(flow, "line-discount-refused")
+    page.fill("#line-discount", "10")
+    _audit(flow, "line-discount")
+    flow.press("#line-save", lambda: flow.until("(document.querySelector('#line-item') || {}).value === ''"), "أضف السطر")
+    draft = page.evaluate("() => location.hash").rsplit("/", 1)[-1]
+    saved = page.request.get(f"{server['base']}/api/inventory/purchases/{draft}").json()
+    assert [(line["discount_halalas"], line["net_halalas"], line["vat_halalas"]) for line in saved["lines"]] == [(1000, 9000, 1350)]
+    assert saved["totals"]["gross"] == 10350
+    if gaze:
+        assert "103.50" in page.text_content("main")
+    else:
+        assert "خصم 10.00" in page.text_content("#purchase-line-list")
+        assert "103.50" in page.text_content("#purchase-line-list")
+        # «عدّل» يعيد الخصم إلى حقله كما حُفظ.
+        flow.press("#purchase-line-list li >> text=عدّل", lambda: flow.until("(document.querySelector('#line-discount') || {}).value === '10.00'"), "عدّل")
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
 
