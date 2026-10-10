@@ -20,7 +20,7 @@
 import * as React from "react"
 import { X } from "lucide-react"
 
-import { Wordmark } from "@/components/brand/marks"
+import { Logo } from "@/components/brand/marks"
 import { Button } from "@/components/ui/button"
 import { useMotionAllowed } from "@/lib/motion"
 import { cn } from "@/lib/utils"
@@ -95,10 +95,10 @@ function Header({ title, description, heading, titleId, descriptionId }: {
 }) {
   return (
     <header className="flex flex-col gap-1">
-      {/* الاسم «Symbol Work» صغيراً في آخر سطر العنوان في كل ورقةٍ ونافذة (طلب المالك)، زخرفياً: اسم الورقة هو العنوان. */}
+      {/* شعار «Symbol Work» صغيراً في آخر سطر العنوان في كل ورقةٍ ونافذة (طلب المالك)، زخرفياً: اسم الورقة هو العنوان. */}
       <h2 ref={heading} id={titleId} tabIndex={-1} className="flex items-center justify-between gap-2 text-title font-semibold leading-tight focus-visible:outline-none">
         <span className="min-w-0">{title}</span>
-        <Wordmark className="text-small" />
+        <Logo />
       </h2>
       {description ? (
         <div id={descriptionId} className="text-small text-muted-foreground">

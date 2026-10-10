@@ -20,7 +20,7 @@ import * as React from "react"
 import { Eye, EyeOff, Fingerprint, Hand, LogIn, Maximize2, Minimize2, ScanEye, UserPlus } from "lucide-react"
 
 import { PageTitle } from "@/components/brand/page-title"
-import { Wordmark } from "@/components/brand/marks"
+import { Logo } from "@/components/brand/marks"
 import { Slots } from "@/components/shell/slots"
 import { Button, NextIcon, BackIcon } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -82,9 +82,9 @@ export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationM
       {/* الزرّان بعد الاسم مباشرةً: «ادخل» في أعلى الشاشة يقع بعد الانتقال على حقول الدخول، و«ادخل» الذي
           يعتمد في أسفل شاشة الدخول. */}
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
-        {/* الاسم عنوان الترحيب، بارتفاع العلامة التي كان بجانبها (44) فلا يتحرّك ما تحته. */}
-        <h1 className="flex min-h-11 items-center">
-          <Wordmark decorative={false} className="text-[1.75rem]" />
+        {/* الشعار عنوان الترحيب، واسمه «Symbol Work» لقارئ الشاشة. */}
+        <h1 className="flex items-center">
+          <Logo size="lg" decorative={false} />
         </h1>
         <div className="flex flex-col gap-tg">
           {mode === "open" ? (

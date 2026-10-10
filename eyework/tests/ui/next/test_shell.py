@@ -6,7 +6,7 @@
 و«الأدوات» و«مساعدة» وحسابي، والزرّ العائم في الركن؛ وفي الحجم الكبير لا شيء يطفو: «سيمبول» وسط شريط
 التبويب وفي السكّة، و«الأدوات» من ورقته (اثنا عشر هدفاً على الأكثر). ورقة الأدوات للتسويق «مساعدة» وحدها: السؤال
 إلى سيمبول من زرّه (test_chat.py). والشريط السفلي يختفي ما دام حقلٌ مركَّزاً فلا يركب لوحة المفاتيح؛
-وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة.
+وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة. وشعار المالك عنوان الترحيب، وبجانب عنوان كل شاشةٍ وورقة.
 """
 
 from __future__ import annotations
@@ -22,6 +22,39 @@ NAV = ["nav-home", "nav-sections", "nav-tools", "nav-account"]
 
 def _ids(page, selector: str) -> list[str]:
     return page.eval_on_selector_all(selector, "(es) => es.map((e) => e.id)")
+
+
+def _logo(page, scope: str) -> dict:
+    """شعار «Symbol Work» في نطاقه: هل حُمّل من الأصل نفسه، وارتفاعه، واسمه لقارئ الشاشة."""
+    return page.eval_on_selector(
+        f"{scope} img[src*='symbol-work-logo']",
+        "(img) => ({ loaded: img.complete && img.naturalWidth > 0 && new URL(img.currentSrc).origin === location.origin,"
+        " height: Math.round(img.getBoundingClientRect().height), alt: img.alt, hidden: img.getAttribute('aria-hidden') })",
+    )
+
+
+@pytest.mark.parametrize("size", ["compact", "gaze"])
+def test_the_owners_logo_heads_the_welcome_and_sits_beside_every_title(next_page, server, owner, size):
+    """
+    الشعار كما سلّمه المالك، صورةٌ من الأصل نفسه: في الترحيب عنوانٌ بارتفاع 64 اسمه «Symbol Work»، وبجانب عنوان
+    الشاشة وعنوان الورقة بارتفاع 32، زخرفياً (اسم الصفحة هو العنوان).
+    """
+    page = next_page(size=size)
+    page.goto(page.next)
+    Flow(page).screen("#welcome-login")
+    assert _logo(page, "h1") == {"loaded": True, "height": 64, "alt": "Symbol Work", "hidden": None}
+    assert page.get_by_role("heading", name="Symbol Work").count() == 1
+    member(owner, size="GAZE" if size == "gaze" else "COMPACT")
+    home = next_page(login=LOGIN)
+    flow = Flow(home)
+    home.goto(home.next)
+    flow.screen("[aria-label='ابدأ عملاً']")
+    assert _logo(home, "h1") == {"loaded": True, "height": 32, "alt": "", "hidden": "true"}
+    flow.press("#nav-chat", lambda: flow.screen("dialog[open] h2"), "سيمبول")
+    assert _logo(home, "dialog[open] h2") == {"loaded": True, "height": 32, "alt": "", "hidden": "true"}
+    flow.audit("chat-logo")
+    assert not flow.failures(), "\n".join(flow.failures())
+    assert not home.errors, home.errors
 
 
 def test_the_home_buttons_are_safe_links_that_open_the_campaign_tool(next_page, server, owner):

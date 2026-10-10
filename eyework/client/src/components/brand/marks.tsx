@@ -1,26 +1,39 @@
 /*
- * الاسم والعلامة
+ * الشعار والعلامة
  * ===============
- * Wordmark: الاسم «Symbol Work» بدل علامة «صياغة» (طلب المالك): بجانب عنوان كل شاشةٍ وورقةٍ ونافذة، وفي الترحيب
- * ورأس الشريط الجانبي. «Symbol» بالأزرق و«Work» بلون النصّ الهادئ، بخطٍّ لاتيني من اليسار إلى اليمين. الاسم لا يذكر
- * النظر ولا العين ولا الإعاقة (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق ليست معلومةً صحّية.
+ * Logo: شعار «Symbol Work» كما سلّمه المالك، بتصميمه وخطّه نفسيهما (الكلمتان بحدٍّ أسود والمكبّرة وفيها الشخص):
+ * الصورة نفسها، قُصّت إلى حدودها وصار ما حولها من البياض شفّافاً، وبقي بياض الحروف والعدسة كما هو. بجانب
+ * عنوان كل شاشةٍ وورقةٍ ونافذة (sm)، وفي رأس الشريط الجانبي (md)، وعنوان الترحيب (lg). صورتان بحجمين
+ * (96 و240 بكسل ارتفاعاً)، يختار المتصفّح منهما ما يكفي كثافة الشاشة. الاسم لا يذكر النظر ولا العين ولا
+ * الإعاقة (tests/architecture/test_separation.py)، فقائمة مستخدمي التطبيق ليست معلومةً صحّية.
  * SymbolMark: علامة المساعد «سيمبول» (لوحة الممارس): أربعة مستطيلاتٍ على شبكة 3×3.
- * كلاهما زخرفيٌّ بجانب نصٍّ يسمّي الصفحة، إلا الاسم في الترحيب فهو العنوان نفسه (`decorative={false}`).
+ * كلاهما زخرفيٌّ بجانب نصٍّ يسمّي الصفحة، إلا الشعار في الترحيب فهو العنوان نفسه (`decorative={false}`).
  */
 
+import logo96 from "@/assets/brand/symbol-work-logo-96.png"
+import logo240 from "@/assets/brand/symbol-work-logo-240.png"
 import { cn } from "@/lib/utils"
 
-export function Wordmark({ className, decorative = true }: { className?: string; decorative?: boolean }) {
+/** نسبة عرض الشعار إلى ارتفاعه (1306×394 بعد القصّ). */
+const RATIO = 1306 / 394
+const HEIGHT = { sm: 32, md: 40, lg: 64 } as const
+const HEIGHT_CLASS = { sm: "h-8", md: "h-10", lg: "h-16" } as const
+
+export function Logo({ size = "sm", className, decorative = true }: { size?: keyof typeof HEIGHT; className?: string; decorative?: boolean }) {
+  const height = HEIGHT[size]
+  const width = Math.round(height * RATIO)
   return (
-    // مسافةٌ حقيقية بين الكلمتين (لا فجوة flex) فيُقرأ الاسم «Symbol Work» لا «SymbolWork».
-    <span
+    <img
+      src={logo240}
+      srcSet={`${logo96} 318w, ${logo240} 796w`}
+      sizes={`${width}px`}
+      width={width}
+      height={height}
+      alt={decorative ? "" : "Symbol Work"}
       aria-hidden={decorative ? "true" : undefined}
-      dir="ltr"
-      translate="no"
-      className={cn("inline-block shrink-0 whitespace-nowrap font-num leading-none tracking-tight", className)}
-    >
-      <span className="font-bold text-primary">Symbol</span> <span className="font-semibold text-muted-foreground">Work</span>
-    </span>
+      draggable={false}
+      className={cn("block w-auto max-w-none shrink-0 select-none", HEIGHT_CLASS[size], className)}
+    />
   )
 }
 

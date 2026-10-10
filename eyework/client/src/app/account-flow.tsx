@@ -10,7 +10,7 @@ import * as React from "react"
 import { LogOut, Trash2 } from "lucide-react"
 
 import { chatApi, navigate, workspaceOf } from "@/app/workspace"
-import { Wordmark } from "@/components/brand/marks"
+import { Logo } from "@/components/brand/marks"
 import { Screen } from "@/components/shell/screen"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import { BackIcon, Button } from "@/components/ui/button"
@@ -153,7 +153,7 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
       <header className="h-14 border-b border-border bg-card">
         <div className="mx-auto flex h-full max-w-content items-center gap-2.5 px-edge">
           <span className="flex flex-col items-start gap-1">
-            <Wordmark className="text-lead" />
+            <Logo />
             <span className="text-small leading-tight text-muted-foreground">{profession}</span>
           </span>
         </div>
