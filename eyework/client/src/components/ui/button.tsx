@@ -1,15 +1,16 @@
 /*
- * Button — زرّ shadcn/ui بحجمي الواجهة
- * ===================================
- * الأصل: shadcn/ui button (MIT)، والتكييف:
+ * Button — الزرّ بحجمي الواجهة
+ * ============================
+ * الأصل: shadcn/ui button (MIT)، والمتغيّرات بأسلوب «Button — Variants» (micka_design، 21st.dev:
+ * https://21st.dev/@micka_design/components/button، بشروط 21st.dev ورخصة صفحة المكوّن): تعبئةٌ
+ * لا حدّ، والنصّ يعرّف الزرّ. التكييف:
  *   • الارتفاع `min-h-ctl` (40 أو 48) أو `min-h-ctl-lg` (44 أو 48): لا حجم أصغر من منطقة الإصابة.
- *   • النصّ ظاهرٌ دائماً بجانب الأيقونة: لا زرّ بأيقونةٍ وحدها.
- *   • لكل هدفٍ حدٌّ شعرة ظاهر (3:1 على الأقل)؛ والتعبئة الملوّنة لما يعتمد أو يُرسل وحده،
- *     والتدرّج الثانوي بحدّه الأزرق للخطوة التالية.
+ *   • `primary` بالتعبئة الملوّنة لما يعتمد أو يُرسل وحده، و`secondary` تعبئةٌ مدرّجة للخطوة التالية،
+ *     و`outline` أبيضُ بحدٍّ خفيف لما يرجع أو يفتح، و`ghost` نصٌّ بلا تعبئة للصفّ العلوي.
  *   • `commit` يضع `data-commit` (ما لا يُعاد بضغطة: اعتماد، إرسال، حذف)؛ و`value`
  *     يضع `data-value` (يغيّر قيمةً ظاهرة: خيار، زيادة، نقصان)؛ وغيرهما `data-safe`.
  *     اختبارات الهبوط تقرأ هذه السمات (visual_spec §8).
- *   • لا `hover:` بل `hov:` (فأرةٌ في الحجم العادي وحده)، ولا انتقال.
+ *   • لا `hover:` بل `hov:` (فأرةٌ في الحجم العادي وحده)، ولا انتقال، ولا Radix Slot ولا `<style>` محقون.
  *   • `busy` يُبقي الزرّ في مكانه بعرضه ويعطّله؛ وفي الحجم الكبير لا دوران.
  */
 
@@ -21,10 +22,10 @@ import { cn } from "@/lib/utils"
 
 export const buttonVariants = cva(
   [
-    "inline-flex min-w-0 select-none items-center justify-center gap-1.5 rounded-ctl border px-3 py-1 text-center",
+    "inline-flex min-w-0 select-none items-center justify-center gap-1.5 rounded-ctl border border-transparent px-3.5 py-1 text-center",
     "min-h-ctl min-w-ctl text-body font-semibold leading-tight",
-    "disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none",
-    "aria-disabled:cursor-not-allowed aria-disabled:border-border aria-disabled:bg-muted aria-disabled:text-muted-foreground",
+    "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-border/60 disabled:text-muted-foreground disabled:shadow-none",
+    "aria-disabled:cursor-not-allowed aria-disabled:border-transparent aria-disabled:bg-border/60 aria-disabled:text-muted-foreground",
     "[&_svg]:pointer-events-none [&_svg]:size-icon [&_svg]:shrink-0",
     "gaze:gap-2 gaze:px-4",
   ].join(" "),
@@ -32,15 +33,19 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         /** يعتمد أو يُرسل: التعبئة الملوّنة لهذا وحده. */
-        primary: "border-primary bg-primary text-primary-foreground hov:bg-primary/90",
-        /** خطوةٌ إلى الأمام بلا إرسال، أو الإجراء الثاني. */
-        secondary: "border-primary-line bg-secondary text-secondary-foreground hov:bg-secondary/70",
-        /** رجوعٌ أو فتحٌ أو تبديل. */
-        outline: "border-control bg-card text-foreground hov:bg-muted",
+        primary: "bg-primary text-primary-foreground hov:bg-primary/90",
+        /** خطوةٌ إلى الأمام بلا إرسال، أو الإجراء الثاني: تعبئةٌ مدرّجة. */
+        secondary: "bg-secondary text-secondary-foreground hov:bg-secondary/70",
+        /** رجوعٌ أو فتحٌ أو تبديل: أبيضُ بحدٍّ خفيف. */
+        outline: "border-border bg-card text-foreground hov:bg-muted",
+        /** الصفّ العلوي: نصٌّ باللون الأساسي بلا تعبئة؛ وفي الحجم الكبير شكلٌ أبيض يُرى حدّه. */
+        ghost: "bg-transparent px-2 text-primary hov:bg-primary/5 disabled:bg-transparent gaze:bg-card gaze:px-4 gaze:disabled:bg-border/60",
         /** يحذف أو يلغي، ولا يُستعاد. */
-        danger: "border-destructive bg-destructive text-destructive-foreground hov:bg-destructive/90",
+        danger: "bg-destructive text-destructive-foreground hov:bg-destructive/90",
         /** خطوةٌ آمنة نحو ما يحذف: تفتح التأكيد ولا تحذف. */
-        "danger-outline": "border-destructive bg-card text-destructive hov:bg-destructive-tint",
+        "danger-outline": "bg-destructive-tint text-destructive hov:bg-destructive-tint/70",
+        /** مثلها في الصفّ العلوي: نصٌّ أحمر بلا تعبئة. */
+        "danger-ghost": "bg-transparent px-2 text-destructive hov:bg-destructive-tint disabled:bg-transparent gaze:bg-card gaze:px-4 gaze:disabled:bg-border/60",
       },
       size: {
         default: "",
@@ -97,10 +102,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {busy ? (
           <Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none gaze:animate-none" />
         ) : Icon ? (
-          <Icon aria-hidden="true" strokeWidth={2.25} className={iconClass(Icon)} />
+          <Icon aria-hidden="true" strokeWidth={2} className={iconClass(Icon)} />
         ) : null}
         {children}
-        {IconEnd ? <IconEnd aria-hidden="true" strokeWidth={2.25} className={iconClass(IconEnd)} /> : null}
+        {IconEnd ? <IconEnd aria-hidden="true" strokeWidth={2} className={iconClass(IconEnd)} /> : null}
       </button>
     )
   },
@@ -118,9 +123,9 @@ export interface ButtonLinkProps
 export const ButtonLink = React.forwardRef<HTMLAnchorElement, ButtonLinkProps>(
   ({ className, variant, size, width, icon: Icon, iconEnd: IconEnd, children, ...props }, ref) => (
     <a ref={ref} data-safe="" className={cn(buttonVariants({ variant, size, width }), className)} {...props}>
-      {Icon ? <Icon aria-hidden="true" strokeWidth={2.25} className={iconClass(Icon)} /> : null}
+      {Icon ? <Icon aria-hidden="true" strokeWidth={2} className={iconClass(Icon)} /> : null}
       {children}
-      {IconEnd ? <IconEnd aria-hidden="true" strokeWidth={2.25} className={iconClass(IconEnd)} /> : null}
+      {IconEnd ? <IconEnd aria-hidden="true" strokeWidth={2} className={iconClass(IconEnd)} /> : null}
     </a>
   ),
 )

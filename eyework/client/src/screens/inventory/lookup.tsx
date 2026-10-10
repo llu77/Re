@@ -54,7 +54,7 @@ export function ItemLookup() {
     const prices = chosen.recent_purchases.slice(0, 3)
     return (
       <div className="flex flex-col gap-tg">
-        <div className="flex flex-col gap-1 rounded-card border border-border bg-card p-pad">
+        <div className="flex flex-col gap-1 rounded-card bg-card p-pad shadow-card">
           <p className="font-bold">{chosen.name}</p>
           <p className="text-small text-muted-foreground">
             <span className="num">{chosen.code}</span> · {chosen.unit_name}
@@ -104,7 +104,7 @@ export function ItemLookup() {
                 data-safe=""
                 aria-label={`افتح ${item.name}`}
                 onClick={() => void open(item)}
-                className="flex min-h-ctl w-full flex-col items-start justify-center rounded-card border border-control bg-card px-3 py-2 text-start hov:bg-muted"
+                className="flex min-h-ctl w-full flex-col items-start justify-center rounded-card bg-card px-3 py-2 text-start shadow-card hov:bg-muted"
               >
                 <span className="font-semibold">{item.name}</span>
                 <span className="text-small text-muted-foreground">

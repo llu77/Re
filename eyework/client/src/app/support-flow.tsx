@@ -693,7 +693,7 @@ function ArticleContainer({ id, sub, onChanged, setNotice }: { id: string; sub: 
           if (result.status === 200 && result.data) {
             setData(result.data)
             onChanged()
-            toast.show({ title: `اعتُمدت KB-${article.number}`, description: "يقرؤها سيمبول الآن ويقتبس منها.", tone: "success" })
+            toast.show({ title: `اعتُمدت KB-${article.number}`, tone: "success" })
             back()
             return null
           }
@@ -762,7 +762,7 @@ export function SupportFlow({ path, choices, me, workspace }: { path: string; ch
     }
   }, [])
   const tools: ToolEntry[] = [
-    { id: "phrases", label: "عبارات وأسئلة جاهزة", description: "تُنسخ وتُلصق في الردّ", icon: MessageSquareQuote, panel: () => <PhrasesTool load={loadPhrases} /> },
+    { id: "phrases", label: "عبارات وأسئلة جاهزة", icon: MessageSquareQuote, panel: () => <PhrasesTool load={loadPhrases} /> },
   ]
 
   const ticket = clean.match(TICKET)

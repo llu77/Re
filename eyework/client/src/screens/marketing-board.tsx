@@ -96,7 +96,6 @@ export function CampaignBoard({ campaigns, now, imageUrl, onNew, onOpen }: Campa
   return (
     <Screen
       title="حملاتي"
-      description={gaze ? undefined : "لا يُنشر شيءٌ ولا يُدفع أيّ مبلغٍ تلقائياً: كل خطوةٍ بقرارك."}
       aside={gaze ? undefined : newButton}
       actions={gaze ? newButton : undefined}
     >

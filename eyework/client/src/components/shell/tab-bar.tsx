@@ -39,7 +39,7 @@ export interface NavEntry {
 function NavIcon({ icon, className }: { icon: LucideIcon | "symbol"; className?: string }) {
   if (icon === "symbol") return <SymbolMark className={className} />
   const Icon = icon
-  return <Icon aria-hidden="true" className={className} strokeWidth={2.25} />
+  return <Icon aria-hidden="true" className={className} strokeWidth={1.75} />
 }
 
 export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (href: string) => void }) {
@@ -47,11 +47,11 @@ export function TabBar({ items, onNavigate }: { items: NavEntry[]; onNavigate: (
   const popup = useSize().size === "gaze" ? undefined : "dialog"
   const item = (entry: NavEntry) => {
     const className = cn(
-      "flex min-h-tab w-full flex-col items-center justify-center gap-0.5 rounded-ctl text-small font-semibold leading-none text-muted-foreground",
+      "flex min-h-tab w-full flex-col items-center justify-center gap-1 rounded-ctl text-small font-medium leading-none text-muted-foreground",
       // في الحجم الكبير البند 48 ومساحة إصابته الخفيّة تملأ حشو الشريط فوقه وتحته: 72، الشريط كلّه.
       "gaze:min-h-ctl gaze:gap-1",
       "[&[aria-current]]:text-primary",
-      entry.accent && "border border-primary bg-primary text-primary-foreground shadow-pop",
+      entry.accent && "bg-primary text-primary-foreground",
     )
     const content = (
       <>

@@ -4,11 +4,12 @@
  * تُفتح من زرّ «سيمبول» العائم في كل شاشةٍ من البوابة. المحادثة في الصفحة (lib/chat.ts): تبقى بين
  * الشاشات، وكل سؤالٍ يحمل الشاشة التي سُئل منها وآخر ثلاثة أسئلةٍ بأجوبتها. الجواب اقتراح: لا شيء فيه
  * يغيّر بياناتٍ؛ ما قرأه سيمبول بأدواته سطورٌ تحته («بحث في المنتجات: «ماء»»)، والشاشة التي يقترحها
- * زرٌّ يفتحها الموظف بنفسه («افتح «المخزون»»).
+ * زرٌّ يفتحها الموظف بنفسه («افتح «المخزون»»). لا شرح في الورقة ولا سطر مصدر.
  *
- *   الحجم العادي: فقاعاتٌ بنمط «AI Message» (educalvolpz، 21st.dev: https://21st.dev/educalvolpz/components/ai-message،
- *                بشروط 21st.dev ورخصة صفحة المكوّن؛ التخطيط وحده: بلا أزرارٍ تظهر بالمرور ولا مؤقّتٍ ولا <style>
- *                محقون)، والأسئلة الجاهزة رقائق تحت التحية، وحقل السؤال في ذيل الورقة.
+ *   الحجم العادي: فقاعاتٌ بنمط «Message Bubble» (framecn، 21st.dev: https://21st.dev/@framecn/components/message-bubble،
+ *                بشروط 21st.dev ورخصة صفحة المكوّن): الوارد رماديّ والصادر بالأساسي وزاويةٌ أصغر في جهة صاحبه؛
+ *                التخطيط وحده: بلا حركة ظهورٍ ولا مؤقّتٍ ولا <style> محقون. والأسئلة الجاهزة رقائق تحت التحية،
+ *                وحقل السؤال في ذيل الورقة.
  *   الحجم الكبير: الورقة الشاشة كلّها بلا تمرير، وثلاث صفحات: البداية (الأسئلة الجاهزة، و«اكتب سؤالك» في
  *                الصفّ الأخير)، والكتابة (الحقل و«أرسل»)، والجواب (آخر جوابٍ بصفحاته، و«سؤالٌ جديد» في الصفّ
  *                الأخير نفسه، وبينه وبين الذيل فجوة هدفين: `mb-2` فوق فجوة الأقسام). وفي خانة الذيل الأولى ما
@@ -53,8 +54,8 @@ function sectionName(workspace: Workspace, current: string | null): string {
 /** علامة سيمبول في دائرة: بجانب كل جوابٍ منه. */
 function Avatar() {
   return (
-    <span aria-hidden="true" className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-card">
-      <SymbolMark className="size-4" />
+    <span aria-hidden="true" className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-card shadow-card">
+      <SymbolMark className="size-3.5" />
     </span>
   )
 }
@@ -62,7 +63,7 @@ function Avatar() {
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <p className="max-w-[85%] whitespace-pre-line rounded-[1.25rem] rounded-ee-md bg-primary px-3.5 py-2.5 leading-relaxed text-primary-foreground">
+      <p className="max-w-[85%] whitespace-pre-line rounded-[1.375rem] rounded-ee-md bg-primary px-3.5 py-2 leading-relaxed text-primary-foreground">
         <span className="sr-only">سؤالك: </span>
         {text}
       </p>
@@ -70,30 +71,23 @@ function UserBubble({ text }: { text: string }) {
   )
 }
 
-/** ما قرأه سيمبول بأدواته وما استند إليه: سطورٌ تحت الجواب، لا أهداف. */
+/** ما قرأه سيمبول بأدواته: سطورٌ تحت الجواب، لا أهداف. */
 function AnswerNotes({ turn }: { turn: ChatTurn }) {
-  if (!turn.tools.length && !turn.sources.length) return null
+  if (!turn.tools.length) return null
   return (
-    <div className="flex flex-col gap-0.5 text-small leading-snug text-muted-foreground">
-      {turn.tools.length ? (
-        <ul aria-label="ما قرأه سيمبول" className="flex flex-col gap-0.5">
-          {turn.tools.map((tool) => (
-            <li key={`${tool.name}:${tool.input}`} className="flex items-start gap-1.5">
-              <Search aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" strokeWidth={2.25} />
-              <span className="min-w-0">{toolLine(tool)}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {turn.sources.map((source) => (
-        <p key={source.line}>{source.line}</p>
+    <ul aria-label="ما قرأه سيمبول" className="flex flex-col gap-0.5 text-small leading-snug text-muted-foreground">
+      {turn.tools.map((tool) => (
+        <li key={`${tool.name}:${tool.input}`} className="flex items-start gap-1.5">
+          <Search aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
+          <span className="min-w-0">{toolLine(tool)}</span>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }
 
 function bubbleTone(turn: ChatTurn | null): string {
-  return turn && turn.status !== "ANSWER" ? "bg-muted text-foreground" : "bg-secondary text-foreground"
+  return turn && turn.status !== "ANSWER" ? "bg-muted text-muted-foreground" : "bg-muted text-foreground"
 }
 
 /** جوابٌ في المحادثة (الحجم العادي): الفقاعة، ثم ما قرأه، ثم زرّ الشاشة المقترحة. */
@@ -102,7 +96,7 @@ function SymbolBubble({ turn, onOpen }: { turn: ChatTurn; onOpen: (turn: ChatTur
     <div className="flex items-start gap-2.5">
       <Avatar />
       <div className="flex min-w-0 max-w-[90%] flex-col items-start gap-2">
-        <p className={cn("whitespace-pre-line rounded-[1.25rem] rounded-ss-md px-3.5 py-2.5 leading-relaxed", bubbleTone(turn))}>
+        <p className={cn("whitespace-pre-line rounded-[1.375rem] rounded-ss-md px-3.5 py-2 leading-relaxed", bubbleTone(turn))}>
           <span className="sr-only">سيمبول: </span>
           {turn.text}
         </p>
@@ -121,9 +115,8 @@ function Greeting({ userName, section }: { userName: string | null; section: str
   return (
     <div className="flex items-start gap-2.5">
       <Avatar />
-      <p className="min-w-0 max-w-[90%] rounded-[1.25rem] rounded-ss-md bg-secondary px-3.5 py-2.5 leading-relaxed text-foreground">
-        {userName ? `أهلاً ${userName}، ` : "أهلاً، "}أنا سيمبول. اسألني عن عملك في «{section}»: أجيب من مهامّ مهنتك وشاشتك،
-        وأقرأ بأدواتي ما يلزم من بوابتك، ولا أغيّر شيئاً.
+      <p className="min-w-0 max-w-[90%] rounded-[1.375rem] rounded-ss-md bg-muted px-3.5 py-2 leading-relaxed text-foreground">
+        {userName ? `أهلاً ${userName}، ` : "أهلاً، "}كيف أساعدك في «{section}»؟
       </p>
     </div>
   )
@@ -339,9 +332,7 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
     <Sheet
       open={open}
       onClose={onClose}
-      eyebrow="المساعد"
       title="سيمبول"
-      description="يجيب عن عملك من مهامّ مهنتك وشاشتك، ويقرأ بأدواته ولا يغيّر شيئاً."
       footer={
         <>
           {composer}
@@ -366,17 +357,16 @@ export function ChatSheet({ open, onClose, chat, workspace, current, userName, o
             <UserBubble text={pending} />
             <div className="flex items-start gap-2.5">
               <Avatar />
-              <p className="rounded-[1.25rem] rounded-ss-md bg-muted px-3.5 py-2.5 text-muted-foreground">سيمبول يقرأ ويكتب…</p>
+              <p className="rounded-[1.375rem] rounded-ss-md bg-muted px-3.5 py-2 text-muted-foreground">سيمبول يكتب…</p>
             </div>
           </>
         ) : null}
         {turns.length === 0 && pending === null && chat.ready.length ? (
-          <div className="flex flex-col gap-2 ps-[2.625rem]">
-            <p className="text-small font-semibold text-muted-foreground">أسئلةٌ جاهزة</p>
+          <div className="flex flex-col gap-2 ps-[2.375rem]">
             <ul aria-label="أسئلةٌ جاهزة" className="flex flex-wrap gap-tg">
               {chat.ready.map((question, index) => (
                 <li key={question} className="min-w-0">
-                  <Button commit disabled={exhausted} onClick={() => void send({ ready: index }, question)} className="rounded-full text-start text-small">
+                  <Button variant="secondary" commit disabled={exhausted} onClick={() => void send({ ready: index }, question)} className="rounded-full text-start text-small">
                     {question}
                   </Button>
                 </li>

@@ -1,13 +1,12 @@
 """
 حسابي على الواجهة الجديدة
 =========================
-طريقة الاستخدام تُحفظ في الحساب ثم يتبدّل الحجم كلّه؛ و«المصادر» نسبة المحتوى؛ والخروج
-والحذف بخطوتين، وما يقع تحت الضغطة بعدها لا يعتمد شيئاً.
+طريقة الاستخدام تُحفظ في الحساب ثم يتبدّل الحجم كلّه؛ ولا «مصادر»؛ والخروج والحذف بخطوتين،
+وما يقع تحت الضغطة بعدها لا يعتمد شيئاً.
 """
 
 from __future__ import annotations
 
-from eyework import professions
 from eyework.tests.ui.next.conftest import LOGIN, member
 from eyework.tests.ui.next.flow import Flow
 
@@ -34,14 +33,15 @@ def test_the_size_is_saved_in_the_account_then_applied(next_page, server, owner)
     assert not page.errors, page.errors
 
 
-def test_the_sources_name_the_content_licence(next_page, server, owner):
+def test_the_account_has_no_sources_page(next_page, server, owner):
+    """سيمبول لا يُسنَد بمحتوى O*NET في هذه الواجهة، فلا «مصادر»: الرابط القديم يفتح «حسابي»."""
     member(owner)
     page = next_page(login=LOGIN)
     flow = Flow(page)
     page.goto(page.next + "#/account/sources")
-    flow.screen("text=" + professions.ATTRIBUTION[:20])
-    flow.audit("sources")
-    assert professions.ATTRIBUTION in page.text_content("main")
+    flow.screen("#account-ui-size-apply")
+    assert page.locator("#account-sources").count() == 0
+    assert "O*NET" not in page.text_content("body")
     assert not flow.failures(), "\n".join(flow.failures())
 
 

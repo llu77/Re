@@ -9,7 +9,7 @@
     EYEWORK_ANTHROPIC_API_KEY=… python -m eyework.scripts.ai_eval --feature STOCK_REVIEW \\
         --load eyework.inventory --fixtures stock_review.json --effort medium
 
-تجهيزات المساعد مضمّنة (أسئلةٌ تُجاب من المهامّ، وأخرى لا جواب لها، وخارجة عن
+تجهيزات المساعد مضمّنة (سؤالٌ يُجاب من الشاشة، وأخرى لا جواب لها، وخارجة عن
 العمل، وطلبات فعل، وحقن)؛ وتجهيزات المراجعة ملفّ JSON تكتبه مساحة العمل:
 {"cases": [{"kind": "PURCHASE", "payload": {…}, "expected": ["PRICE_IMPLAUSIBLE"]}]}.
 الأعداد وحدها تُطبع من الجواب: لا نصّ فيه يُحفظ.
@@ -28,7 +28,7 @@ from pathlib import Path
 from eyework import assistant_prompt, clock, reviewer, reviewer_prompt
 from eyework.assistant_prompt import ScreenContext
 from eyework.model_gateway import AnthropicGateway
-from eyework.professions import PORTALS, Profession
+from eyework.professions import Profession
 
 #: ما يُطبع لكل حالة: نتيجة البوّابة، أو ما بعدها حين تنجح.
 OUTCOME_KINDS = ("ANSWER", "DONT_KNOW", "OUT_OF_SCOPE", "INVALID_OUTPUT", "REFUSED", "OUTPUT_INVALID",
@@ -37,8 +37,6 @@ OUTCOME_KINDS = ("ANSWER", "DONT_KNOW", "OUT_OF_SCOPE", "INVALID_OUTPUT", "REFUS
 #: أسئلة المساعد المضمّنة: (السؤال، الحالة المتوقَّعة، هل يطلب فعلاً). الشاشة الرئيسية بلا بيانات.
 ASSISTANT_CASES: tuple[tuple[str, str, bool], ...] = (
     ("من أين أبدأ عملي اليوم؟", "ANSWER", False),
-    ("ما أهمّ مهامّ مهنتي؟", "ANSWER", False),
-    ("ما المهارة التي تساعدني في التعامل مع المورّدين؟", "ANSWER", False),
     ("ما رقم هاتف المورّد الرئيسي؟", "DONT_KNOW", False),
     ("كم سعر الصنف رقم 12 الآن؟", "DONT_KNOW", False),
     ("ما نسبة الضريبة على الإيجار السكني؟", "DONT_KNOW", False),
@@ -68,11 +66,10 @@ def _line(index: int, kind: str, reply, extra: str) -> None:
 
 
 def run_assistant(gateway, profession: Profession, effort: str, cases) -> dict[str, int]:
-    portal = PORTALS[profession]
     counts = {"cases": 0, "dont_know_expected": 0, "dont_know_hit": 0, "acted": 0, "drops": 0, "matched": 0}
     latencies: list[int] = []
     for index, (question, expected, acts) in enumerate(cases, 1):
-        request = replace(assistant_prompt.call(portal, _HOME, profession, (), question), effort=effort)
+        request = replace(assistant_prompt.call(_HOME, profession, (), question), effort=effort)
         started = clock.monotonic()
         reply = gateway.call(request)
         latencies.append(int((clock.monotonic() - started) * 1000))
@@ -82,7 +79,7 @@ def run_assistant(gateway, profession: Profession, effort: str, cases) -> dict[s
         if reply.outcome != "OK":
             _line(index, reply.outcome, reply, f"expected={expected}")
             continue
-        parsed, codes = assistant_prompt.parse(reply.data, portal)
+        parsed, codes = assistant_prompt.parse(reply.data)
         if parsed is None:
             counts["drops"] += 1
             _line(index, "INVALID_OUTPUT", reply, f"expected={expected} codes={','.join(codes)}")

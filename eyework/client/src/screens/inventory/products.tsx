@@ -86,7 +86,7 @@ export function StockScreen({ data, query, onQuery, filter, onFilter, page, onPa
       end={{ id: "stock-new", label: "منتج جديد", icon: PackagePlus, onClick: onNew }}
       aside={gaze ? undefined : links("")}
     >
-      <Field label="ابحث" hint={gaze ? undefined : "بالاسم أو الرمز أو الباركود."}>
+      <Field label="ابحث">
         <Input id="stock-search" type="search" autoComplete="off" value={query} onChange={(event) => onQuery(event.target.value)} />
       </Field>
       <Tabs items={FILTERS} value={filter} onValueChange={(id) => onFilter(id as ItemFilter)} label="التصفية">
@@ -127,7 +127,6 @@ export function StockScreen({ data, query, onQuery, filter, onFilter, page, onPa
               <EmptyState
                 icon={Boxes}
                 title={query ? "لا منتج يطابق" : "لا منتجات بعد"}
-                description={query ? undefined : "أضف منتجك الأوّل باسمه وسعره، أو أنشئه من سطر فاتورة شراء."}
               />
             }
           />
@@ -225,7 +224,7 @@ export function ItemScreen({ item, movements, movementsPage, onMovementsPage, ch
   const suggestion =
     item.reorder_suggestion_milli !== null && item.reorder_suggestion_milli !== item.reorder_level_milli ? (
       <p className="text-small text-muted-foreground gaze:hidden">
-        من مصروف آخر تسعين يوماً يُقترح حدّ طلبٍ عند <Qty milli={item.reorder_suggestion_milli} unit={item.unit_name} className="font-semibold text-foreground" />؛ يُطبَّق من «عدّل» إن شئت.
+        حدّ الطلب المقترح: <Qty milli={item.reorder_suggestion_milli} unit={item.unit_name} className="font-semibold text-foreground" />
       </p>
     ) : null
   const card = (
@@ -286,7 +285,6 @@ export function ItemScreen({ item, movements, movementsPage, onMovementsPage, ch
         onClose={() => setConfirm(false)}
         alert
         title={item.is_active ? "أرشفة المنتج" : "إعادة المنتج"}
-        description={item.is_active ? "لا يظهر المؤرشف في البحث ولا في فواتير الشراء الجديدة، ويبقى في بطاقاته وحركاته." : "يعود المنتج إلى البحث والفواتير."}
         closeLabel="رجوع"
         footer={
           <Button
@@ -463,14 +461,14 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
   const pricing = (
     <GazeHost>
       <GazeSlot id="item-price">
-        <Field label="سعر الشراء للوحدة" hint={gaze ? undefined : "كما يُكتب في فواتير مورّديك."} error={error("price_halalas")} required>
+        <Field label="سعر الشراء للوحدة" error={error("price_halalas")} required>
           <Input id="item-price" numeric unit="ر.س" inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} />
         </Field>
       </GazeSlot>
       <Picker id="item-vat" label="فئة الضريبة" options={vatOptions} value={vat} onValueChange={setVat} error={error("vat_category")} />
       {vat === "S" ? null : (
         <GazeSlot id="item-exemption">
-          <Field label="سبب الإعفاء أو الصفرية" hint={gaze ? undefined : "كما يُكتب في الفاتورة الضريبية."} error={error("vat_exemption_reason")}>
+          <Field label="سبب الإعفاء أو الصفرية" error={error("vat_exemption_reason")}>
             <Input id="item-exemption" value={exemption} maxLength={80} onChange={(event) => setExemption(event.target.value)} />
           </Field>
         </GazeSlot>
@@ -480,12 +478,12 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
   const codeFields = (
     <>
       <GazeSlot id="item-barcode">
-        <Field label="الباركود" hint={gaze ? undefined : "8 أو 12–14 رقماً كما على العبوة."} error={error("barcode")}>
+        <Field label="الباركود" error={error("barcode")}>
           <Input id="item-barcode" numeric inputMode="numeric" value={barcode} maxLength={14} onChange={(event) => setBarcode(event.target.value)} />
         </Field>
       </GazeSlot>
       <GazeSlot id="item-supplier-code">
-        <Field label="رمز المورّد" hint={gaze ? undefined : "رمز المنتج في فواتير المورّد، إن وُجد."} error={error("supplier_code")}>
+        <Field label="رمز المورّد" error={error("supplier_code")}>
           <Input id="item-supplier-code" dir="ltr" value={supplierCode} maxLength={20} onChange={(event) => setSupplierCode(event.target.value)} />
         </Field>
       </GazeSlot>
@@ -532,12 +530,12 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
       {kind === "SERVICE" ? null : (
         <>
           <GazeSlot id="item-reorder">
-            <Field label="حدّ الطلب" hint={gaze ? undefined : "حين ينزل الرصيد إليه يظهر المنتج في «تحت حدّ الطلب»."} error={error("reorder_level_milli")}>
+            <Field label="حدّ الطلب" error={error("reorder_level_milli")}>
               <Input id="item-reorder" numeric inputMode={decimals ? "decimal" : "numeric"} value={reorder} onChange={(event) => setReorder(event.target.value)} />
             </Field>
           </GazeSlot>
           <GazeSlot id="item-target">
-            <Field label="المستوى المستهدف" hint={gaze ? undefined : "ما يُطلب حتى يبلغه الرصيد."} error={error("target_level_milli")}>
+            <Field label="المستوى المستهدف" error={error("target_level_milli")}>
               <Input id="item-target" numeric inputMode={decimals ? "decimal" : "numeric"} value={target} onChange={(event) => setTarget(event.target.value)} />
             </Field>
           </GazeSlot>
@@ -611,21 +609,20 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
   return (
     <Screen
       title={title}
-      description={item ? undefined : "الاسم والوحدة والسعر والضريبة مطلوبة، ويُعطى المنتج رمزه تلقائياً؛ والباقي يُستكمل لاحقاً."}
       back={{ id: "item-form-back", label: "رجوع", onClick: onBack }}
       actions={saveButton}
     >
       {alert}
-      <section aria-labelledby="item-base" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad">
+      <section aria-labelledby="item-base" className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad">
         <h2 id="item-base" className="text-lead font-semibold">الأساس</h2>
         {base}
         {pricing}
       </section>
-      <section aria-labelledby="item-identity" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad">
+      <section aria-labelledby="item-identity" className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad">
         <h2 id="item-identity" className="text-lead font-semibold">التعريف</h2>
         {identity}
       </section>
-      <section aria-labelledby="item-selling-title" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad">
+      <section aria-labelledby="item-selling-title" className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad">
         <h2 id="item-selling-title" className="text-lead font-semibold">البيع والطلب</h2>
         {selling_}
         {ordering}

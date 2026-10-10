@@ -163,7 +163,6 @@ function ListContainer({ pageSize, setNotice, onOpen, onNew }: {
       page={page}
       pageSize={pageSize}
       hasMore={Boolean(data?.has_more)}
-      installHint={data !== null && data.items.length <= 1 && !installedApp()}
       onOpen={onOpen}
       onOlder={() => setState((s) => ({ page: s.page + 1 }))}
       onNewer={() => setState((s) => ({ page: Math.max(1, s.page - 1) }))}

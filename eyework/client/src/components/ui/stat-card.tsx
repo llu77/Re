@@ -1,7 +1,8 @@
 /*
  * StatCard — بطاقة مجموع
  * =====================
- * الأصل: نمط stats/number في 21st.dev. القيمة رقمٌ لاتينيٌّ بعرضٍ ثابت ووحدتها نصّ،
+ * الأصل: «Statistics Card 2» (sean0205، 21st.dev: https://21st.dev/@sean0205/components/statistics-card-2، بشروط
+ * 21st.dev ورخصة صفحة المكوّن) بلا أيقونةٍ في مربّع: التسمية صغيرةٌ فوق القيمة. القيمة رقمٌ لاتينيٌّ بعرضٍ ثابت ووحدتها نصّ،
  * والتغيّر نصٌّ بسهمٍ واتجاهه (لا لونٌ وحده)، والمصدر سطرٌ صغير («من 12 فاتورة»).
  * بطاقةٌ لها `onSelect` زرٌّ كلّها (تفتح قائمتها)، وإلا فهي تُقرأ فقط.
  */
@@ -26,17 +27,8 @@ export interface StatCardProps {
 export function StatCard({ label, value, unit, icon: Icon, delta, hint, tone = "default", onSelect, className }: StatCardProps) {
   const body = (
     <>
-      <span className="flex items-center gap-2 text-small font-semibold text-muted-foreground">
-        {Icon ? (
-          <span
-            className={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-ctl gaze:size-10 gaze:short:hidden",
-              tone === "warning" ? "bg-warning-tint text-warning" : "bg-secondary text-secondary-foreground",
-            )}
-          >
-            <Icon aria-hidden="true" className="size-4 gaze:size-5" strokeWidth={2.25} />
-          </span>
-        ) : null}
+      <span className={cn("flex items-center gap-1.5 text-small font-medium", tone === "warning" ? "text-warning" : "text-muted-foreground")}>
+        {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={2} /> : null}
         {label}
       </span>
       <span className="flex items-baseline gap-1.5">
@@ -59,13 +51,13 @@ export function StatCard({ label, value, unit, icon: Icon, delta, hint, tone = "
     </>
   )
   const box = cn(
-    "flex min-w-0 flex-col items-start gap-1.5 rounded-card border bg-card p-pad text-start shadow-card gaze:short:gap-0.5 gaze:short:p-3",
-    tone === "warning" ? "border-warning-line" : "border-border",
+    "flex min-w-0 flex-col items-start gap-1 rounded-card border bg-card p-pad text-start shadow-card gaze:short:gap-0.5 gaze:short:p-3",
+    tone === "warning" ? "border-warning-line/40" : "border-transparent",
     className,
   )
   if (onSelect) {
     return (
-      <button type="button" data-safe="" onClick={onSelect} className={cn(box, "min-h-ctl border hov:bg-muted")}>
+      <button type="button" data-safe="" onClick={onSelect} className={cn(box, "min-h-ctl hov:bg-muted")}>
         {body}
       </button>
     )

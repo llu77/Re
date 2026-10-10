@@ -21,7 +21,7 @@ const CHAT: ChatApi = {
 }
 
 function turn(id: number, extra: Partial<ChatTurn> = {}): ChatTurn {
-  return { id, question: `سؤال ${id}`, status: "ANSWER", text: `جواب ${id}`, sources: [], tools: [], open: null, ...extra }
+  return { id, question: `سؤال ${id}`, status: "ANSWER", text: `جواب ${id}`, tools: [], open: null, ...extra }
 }
 
 function reply(status: number, body: unknown): Response {
@@ -29,7 +29,7 @@ function reply(status: number, body: unknown): Response {
 }
 
 const ANSWER = {
-  status: "ANSWER", text: "رصيد الماء 2 كرتون، تحت حدّ الطلب.", question_sent: "هل أطلب ماءً؟", sources: [],
+  status: "ANSWER", text: "رصيد الماء 2 كرتون، تحت حدّ الطلب.", question_sent: "هل أطلب ماءً؟",
   usage: { per_day: 60, used_today: 4 }, tools: [{ name: "ITEMS", label: "بحث في المنتجات", input: "ماء" }],
   open: { id: "stock", label: "المخزون" },
 }
@@ -112,18 +112,17 @@ describe("the conversation sheet", () => {
   it("greets by name and offers the ready questions as presses that send", () => {
     sheet("compact")
     const log = screen.getByRole("log")
-    expect(log.textContent).toContain("أهلاً سارة، أنا سيمبول")
+    expect(log.textContent).toContain("أهلاً سارة، كيف أساعدك")
     const ready = within(screen.getByRole("list", { name: "أسئلةٌ جاهزة" })).getAllByRole("button")
     expect(ready.map((b) => b.textContent)).toEqual(CHAT.ready)
     expect(ready.every((b) => b.hasAttribute("data-commit"))).toBe(true)
   })
 
   it("shows each turn with what Symbol read and the screen it suggests, which the employee opens", () => {
-    setState({ chat: [turn(1, { tools: ANSWER.tools, sources: [{ line: "المصدر: O*NET", href: "#/account/sources" }], open: ANSWER.open })] })
+    setState({ chat: [turn(1, { tools: ANSWER.tools, open: ANSWER.open })] })
     const { onNavigate, onClose } = sheet("compact")
     const log = screen.getByRole("log")
     expect(within(log).getByText("بحث في المنتجات: «ماء»")).toBeTruthy()
-    expect(within(log).getByText("المصدر: O*NET")).toBeTruthy()
     expect(within(log).queryByText("أسئلةٌ جاهزة")).toBeNull()
     const open = within(log).getByRole("button", { name: "افتح «المخزون»" })
     expect(open.hasAttribute("data-safe")).toBe(true)

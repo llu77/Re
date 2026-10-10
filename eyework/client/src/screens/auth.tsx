@@ -17,14 +17,11 @@
  */
 
 import * as React from "react"
-import {
-  Boxes, Eye, EyeOff, Fingerprint, Hand, Headset, LogIn, Maximize2, Megaphone, Minimize2, ScanEye, UserPlus,
-} from "lucide-react"
+import { Eye, EyeOff, Fingerprint, Hand, LogIn, Maximize2, Minimize2, ScanEye, UserPlus } from "lucide-react"
 
 import { PageTitle } from "@/components/brand/page-title"
-import { BrandMark, SymbolMark } from "@/components/brand/marks"
+import { BrandMark } from "@/components/brand/marks"
 import { Slots } from "@/components/shell/slots"
-import { Badge } from "@/components/ui/badge"
 import { Button, NextIcon, BackIcon } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
 import { RadioCards } from "@/components/ui/radio-cards"
@@ -39,6 +36,7 @@ export function SizeToggle() {
   const gaze = size === "gaze"
   return (
     <Button
+      variant="ghost"
       aria-pressed={gaze}
       icon={gaze ? Minimize2 : Maximize2}
       onClick={() => {
@@ -67,7 +65,7 @@ export function AuthFrame({ end, toggle = true, children, className }: {
   return (
     <div className={cn("mx-auto flex w-full max-w-md flex-col px-edge pb-safe pt-safe", size === "gaze" ? "h-dvh overflow-hidden" : "min-h-dvh", className)}>
       <header>
-        <Slots start={toggle ? <SizeToggle /> : undefined} end={end} />
+        <Slots top start={toggle ? <SizeToggle /> : undefined} end={end} />
       </header>
       {children}
     </div>
@@ -76,32 +74,17 @@ export function AuthFrame({ end, toggle = true, children, className }: {
 
 /* ── الترحيب ───────────────────────────────────────────────────────── */
 
-const PROFESSIONS = [
-  { icon: Boxes, name: "أمين المخزون", line: "فواتير الشراء والأصناف والمرتجعات" },
-  { icon: Megaphone, name: "التسويق", line: "حملاتٌ من صورة المنتج إلى الإطلاق" },
-  { icon: Headset, name: "الدعم الفني", line: "ردودٌ يكتبها سيمبول وتعتمدها أنت" },
-]
-
 export type RegistrationMode = "open" | "code" | "closed"
 
 export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationMode; onSignup: () => void; onLogin: () => void }) {
   return (
     <AuthFrame>
+      {/* الزرّان بعد العلامة مباشرةً: «ادخل» في أعلى الشاشة يقع بعد الانتقال على حقول الدخول، و«ادخل» الذي
+          يعتمد في أسفل شاشة الدخول. */}
       <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
-        <div className="flex items-center gap-2.5">
-          <BrandMark className="size-10 gaze:size-12" />
-          <span className="text-title font-semibold text-heading">صياغة</span>
-        </div>
-        {/* في الحجم الكبير الزرّان بعد العنوان مباشرةً والشرح بعدهما: «ادخل» في أعلى الشاشة يقع
-            بعد الانتقال على حقول الدخول، و«ادخل» الذي يعتمد في أسفل شاشة الدخول. */}
-        <div className="flex flex-col gap-3">
-          <Badge tone="info" className="self-start gaze:hidden">
-            بوابة عملٍ لمهنتك
-          </Badge>
-          <h1 className="text-display font-semibold leading-tight tracking-tight">عملك اليومي في بوابةٍ واحدة</h1>
-          <p className="text-flow text-muted-foreground gaze:hidden">
-            مخزونٌ وتسويقٌ ودعمٌ فني، لكل مهنةٍ أدواتها. وسيمبول يراجع معك ويقترح، والقرار لك.
-          </p>
+        <div className="flex items-center gap-3">
+          <BrandMark className="size-11" />
+          <h1 className="text-display font-bold text-heading">صياغة</h1>
         </div>
         <div className="flex flex-col gap-tg">
           {mode === "open" ? (
@@ -117,26 +100,6 @@ export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationM
             ادخل
           </Button>
         </div>
-        <ul aria-label="المهن" className="flex flex-col gap-2 gaze:hidden">
-          {PROFESSIONS.map((p) => (
-            <li key={p.name} className="flex items-center gap-3 rounded-card border border-border bg-card px-pad py-2.5 shadow-card">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-ctl bg-secondary text-secondary-foreground">
-                <p.icon aria-hidden="true" className="size-icon" strokeWidth={2.25} />
-              </span>
-              <span className="flex min-w-0 flex-col">
-                <span className="font-semibold">{p.name}</span>
-                <span className="text-small text-muted-foreground">{p.line}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="hidden text-flow text-muted-foreground gaze:block">
-          مخزونٌ وتسويقٌ ودعمٌ فني، لكل مهنةٍ أدواتها. وسيمبول يراجع معك ويقترح، والقرار لك.
-        </p>
-        <p className="flex items-start gap-2 text-small text-muted-foreground gaze:short:hidden">
-          <SymbolMark className="mt-0.5 size-4" />
-          يعمل باللمس وبتتبّع العين أو الرأس. للأزرار الكبيرة اضغط «حجمٌ أكبر» في الأعلى.
-        </p>
       </main>
     </AuthFrame>
   )
@@ -187,7 +150,7 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
     <AuthFrame
       end={
         onSignup ? (
-          <Button id="login-signup" icon={UserPlus} onClick={onSignup}>
+          <Button id="login-signup" variant="ghost" icon={UserPlus} onClick={onSignup}>
             أنشئ حساباً
           </Button>
         ) : undefined
@@ -197,10 +160,7 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
           الانتقال على حقلٍ لا على زرٍّ يعتمد؛ وسطر الخطأ محجوزٌ فوقه فلا يتحرّك حين يظهر. */}
       <main className="flex flex-1 flex-col">
       <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
-        <div className="flex flex-col gap-2">
-          <PageTitle>ادخل إلى بوابتك</PageTitle>
-          <p className="text-flow text-muted-foreground gaze:hidden">بالبريد وكلمة المرور، أو بمفتاح المرور.</p>
-        </div>
+        <PageTitle>ادخل إلى بوابتك</PageTitle>
         <div className="flex flex-col gap-tg">
           <Field label="البريد">
             <Input
@@ -236,14 +196,13 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
           <p className="text-small text-muted-foreground gaze:short:hidden">
             {contact ? (
               <>
-                نسيت كلمة المرور؟ اكتب إلى{" "}
+                نسيت كلمة المرور؟{" "}
                 <bdi dir="ltr" className="num font-semibold text-foreground">
                   {contact}
-                </bdi>{" "}
-                من بريد حسابك.
+                </bdi>
               </>
             ) : (
-              "تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك أو أعطاك رابط التسجيل."
+              "تعذّر الدخول؟ اطلب رابطاً جديداً ممّن دعاك."
             )}
           </p>
         </div>
@@ -323,11 +282,8 @@ export function SignupSizeStep({ step, steps, value, choices, onNext, onBack }: 
         <div className="flex flex-col gap-tg-min">
           <Stepper steps={steps} current={step} variant="brief" />
           <PageTitle>كيف تستخدم الجهاز؟</PageTitle>
-          <p className="text-flow text-muted-foreground">
-            تُحفظ مع حسابك لتُفتح بوابتك بحجمها، ولا تُرسَل إلى مزوّد النموذج. وتغيّرها متى شئت من «حسابي».
-          </p>
         </div>
-        {/* الخياران و«التالي» في أسفل الخطوة، والشرح فوقهما: ما يقع تحت موضع «أوافق وأتابع»
+        {/* الخياران و«التالي» في أسفل الخطوة: ما يقع تحت موضع «أوافق وأتابع»
             بعد الانتقال نصٌّ أو «التالي»، لا خيار (registration_spec §8.10، القاعدة 4). */}
         <div className="mt-auto flex flex-col gap-tg">
           <RadioCards<SizeMode>
@@ -343,14 +299,12 @@ export function SignupSizeStep({ step, steps, value, choices, onNext, onBack }: 
                 icon: Hand,
                 // المعاينتان باللمس وحده: في الحجم الكبير لا تتّسعان مع «التالي» بفجوة 40 في 320×635.
                 preview: size === "compact" ? <SizePreview mode="compact" /> : undefined,
-                description: size === "compact" ? option("COMPACT")?.line : undefined,
               },
               {
                 value: "gaze",
                 title: option("GAZE")?.name ?? "",
                 icon: ScanEye,
                 preview: size === "compact" ? <SizePreview mode="gaze" /> : undefined,
-                description: size === "compact" ? option("GAZE")?.line : undefined,
               },
             ]}
           />

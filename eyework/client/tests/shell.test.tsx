@@ -55,12 +55,12 @@ describe("the workspace shell", () => {
     expect([...nav.querySelectorAll("a, button")].every((e) => e.hasAttribute("data-safe"))).toBe(true)
     expect(nav.querySelector("#nav-home")?.getAttribute("aria-current")).toBe("page")
     expect(document.querySelector("#sidebar")).toBeNull()
-    // «اسأل سيمبول» يطفو فوق الشريط، خارجه، آمناً بنصٍّ ظاهر.
+    // زرّ سيمبول يطفو فوق الشريط، خارجه، آمناً، واسمه «اسأل سيمبول» لقارئ الشاشة.
     const launcher = document.querySelector("#nav-chat") as HTMLElement
     expect(nav.contains(launcher)).toBe(false)
     expect(launcher.hasAttribute("data-safe")).toBe(true)
     expect(launcher.className).toContain("fixed")
-    expect(launcher.textContent).toBe("اسأل سيمبول")
+    expect(screen.getByRole("button", { name: "اسأل سيمبول" })).toBe(launcher)
   })
 
   it("docks Symbol in the middle of the gaze-size tab bar instead of floating it", () => {

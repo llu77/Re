@@ -56,7 +56,7 @@ function StepFrame({ screen, title, hint, onBack, next, children }: {
     <AuthFrame
       toggle={false}
       end={
-        <Button id="signup-back" icon={BackIcon} onClick={onBack}>
+        <Button id="signup-back" variant="ghost" icon={BackIcon} onClick={onBack}>
           رجوع
         </Button>
       }
@@ -165,26 +165,10 @@ function DateStep({ s, kind, earliest, onBack }: { s: SignupState; kind: "year" 
 /* ── المهنة ──────────────────────────────────────────────────────── */
 
 function ProfessionStep({ s, choices, onBack }: { s: SignupState; choices: Choices; onBack: () => void }) {
-  const { size } = useSize()
-  const open = s.code === null
-  const contact = choices.support_contact
   return (
     <StepFrame
       screen="profession"
       title="المهنة"
-      hint={
-        open ? (
-          <>
-            تُفتح بها بوابتك. تغييرها بعد التسجيل بطلبٍ إلى{" "}
-            <bdi dir="ltr" className="num font-semibold text-foreground">
-              {contact}
-            </bdi>
-            .
-          </>
-        ) : (
-          "تُفتح بها بوابتك. تغييرها بعد التسجيل بطلبٍ ممّن أعطاك الرابط."
-        )
-      }
       onBack={onBack}
       next={<NextButton id="signup-profession-next" disabled={s.profession === null} onClick={() => go(screenRoute("email"))} />}
     >
@@ -194,9 +178,8 @@ function ProfessionStep({ s, choices, onBack }: { s: SignupState; choices: Choic
         onValueChange={(profession) => update({ profession })}
         columns={1}
         ids={Object.fromEntries(choices.professions.map((p) => [p.code, `signup-profession-${p.code}`]))}
-        // الاسم وسطره باللمس؛ وفي الحجم الكبير الاسم وحده: ثلاث بطاقاتٍ بفجوة 40 وسطرين لكلٍّ لا تتّسع مع
-        // «التالي» في 320×635، والاسم يكفي («التسويق»، «أمين المخزون»، «الدعم الفني»).
-        options={choices.professions.map((p) => ({ value: p.code, title: p.name, description: size === "gaze" ? undefined : p.tagline }))}
+        // الاسم وحده: الموظف يعرف مهنته («التسويق»، «أمين المخزون»، «الدعم الفني»).
+        options={choices.professions.map((p) => ({ value: p.code, title: p.name }))}
       />
     </StepFrame>
   )
@@ -244,11 +227,11 @@ function ReviewStep({ s, choices, onBack }: { s: SignupState; choices: Choices; 
       <p id="signup-email-help" className="text-small text-muted-foreground gaze:short:hidden">
         {open ? (
           <>
-            لا يصل هذا البريدَ شيء، ولا يُستردّ الحساب به. إن نُسيت كلمة المرور فاكتب إلى{" "}
-            <bdi dir="ltr" className="num font-semibold text-foreground">{choices.support_contact}</bdi> من هذا البريد.
+            لا يُستردّ الحساب بالبريد. إن نُسيت كلمة المرور فاكتب إلى{" "}
+            <bdi dir="ltr" className="num font-semibold text-foreground">{choices.support_contact}</bdi>.
           </>
         ) : (
-          "لا يصل هذا البريدَ شيء، ولا يُستردّ الحساب به. إن نُسيت كلمة المرور فرابطٌ جديد ممّن أعطاك رابط التسجيل."
+          "لا يُستردّ الحساب بالبريد. إن نُسيت كلمة المرور فرابطٌ جديد ممّن أعطاك رابط التسجيل."
         )}
       </p>
     </StepFrame>

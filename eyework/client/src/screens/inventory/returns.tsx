@@ -91,7 +91,7 @@ export function ReturnsScreen({ data, filter, onFilter, page, onPage, onOpen, on
             page={page}
             onPageChange={onPage}
             total={data.total}
-            empty={<EmptyState icon={Undo2} title="لا مرتجعات هنا" description="يبدأ المرتجع من فاتورةٍ مسجّلة." />}
+            empty={<EmptyState icon={Undo2} title="لا مرتجعات هنا" />}
           />
         )}
       </Tabs>
@@ -126,7 +126,6 @@ export function NewReturnScreen({ options, purchases, query, onQuery, onStart, o
   return (
     <Screen
       title="من أيّ فاتورة؟"
-      description="الفواتير المسجّلة التي بقي فيها ما يُرجَع."
       back={{ id: "return-new-back", label: "الرئيسية", onClick: onBack }}
       actions={
         <Button id="return-start" variant="primary" commit icon={Undo2} disabled={!choice} busy={busy} onClick={() => void start()}>
@@ -159,7 +158,7 @@ export function NewReturnScreen({ options, purchases, query, onQuery, onStart, o
         </GazeSlot>
         {chosen ? (
           <GazeSlot id="return-chosen" field={false}>
-            <p className="text-flow rounded-card border border-border bg-card p-pad">
+            <p className="text-flow rounded-card bg-card shadow-card p-pad">
               <span className="font-semibold">{chosen.supplier_name}</span> · <span className="num">{chosen.label}</span>
               {chosen.invoice_date ? ` · ${formatDay(chosen.invoice_date, true)}` : ""} · <span className="num">{chosen.lines}</span> أسطر ·{" "}
               {chosen.total_halalas === null ? "" : <Money halalas={chosen.total_halalas} />}
@@ -277,7 +276,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
     const text = texts[line.line_no] ?? milliInput(line.quantity_milli || null)
     return (
       // الحجم الكبير: بين اسم المنتج وعدّاد الكمية 24 (نصٌّ فوق هدف: مساحة إصابته الخفيّة 12 منها)، لا فجوة هدفين.
-      <li key={line.line_no} className="flex flex-wrap items-center justify-between gap-tg rounded-card border border-border bg-card p-3 gaze:flex-col gaze:items-stretch gaze:gap-6 gaze:border-0 gaze:bg-transparent gaze:p-0">
+      <li key={line.line_no} className="flex flex-wrap items-center justify-between gap-tg rounded-card bg-card shadow-card p-3 gaze:flex-col gaze:items-stretch gaze:gap-6 gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="font-bold">{line.item.name}</span>
           <span className="text-small text-muted-foreground">
@@ -453,7 +452,7 @@ export function ReturnEditor({ draft, choices, reps, onLine, onHeader, onDiscard
         <ul aria-label="أسطر الفاتورة" className="flex flex-col gap-tg-min">{draft.lines.map(lineRow)}</ul>
         {summary}
       </section>
-      <section aria-labelledby="return-reason-title" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad">
+      <section aria-labelledby="return-reason-title" className="flex flex-col gap-tg rounded-card bg-card shadow-card p-pad">
         <h2 id="return-reason-title" className="text-lead font-semibold">السبب والمندوب</h2>
         {reasonFields}
       </section>

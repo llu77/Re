@@ -191,7 +191,7 @@ def test_on_gaze_a_double_tap_never_zooms_and_a_long_press_never_selects_a_label
                 button: style('#welcome-signup').touchAction,
                 buttonSelect: select(style('#welcome-signup')),
                 buttonCallout: style('#welcome-signup').webkitTouchCallout ?? null,
-                text: select(style('main p')),
+                text: select(style('main h1')),
             };
         }"""
     )

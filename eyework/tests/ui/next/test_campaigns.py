@@ -776,9 +776,9 @@ def test_the_help_quotes_no_label_that_a_device_has_not_confirmed(next_page, ser
             .filter((label) => !own.has(label));
     }""")
     assert quoted == [], quoted
-    # تلميح الإضافة إلى الشاشة الرئيسية في «حملاتي» يصف ولا يقتبس تسمية قائمةٍ في الجهاز.
+    # لا تلميح شرحٍ في «حملاتي».
     page.click("#ready-home")
     flow.screen("#home-new")
     page.click("#home-campaigns")
-    flow.screen("#campaigns-install")
-    assert "«" not in page.text_content("#campaigns-install")
+    flow.screen("h1 >> text=حملاتي")
+    assert page.locator("#campaigns-install").count() == 0

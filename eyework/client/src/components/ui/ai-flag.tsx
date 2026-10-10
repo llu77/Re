@@ -106,7 +106,7 @@ export function AIFlag({
       {source === "ai" ? "تنبيه من سيمبول" : "تنبيه"}
     </span>
   )
-  const tone = done ? "border-border bg-muted" : "border-warning-line bg-warning-tint"
+  const tone = done ? "border-transparent bg-muted" : "border-warning-line/40 bg-warning-tint"
   const text = addressed(name, message)
 
   if (actionsFirst) {
@@ -160,11 +160,11 @@ export function AIFlag({
         )}
       </header>
       {subject ? <p className={cn("text-small font-semibold", done ? "text-muted-foreground" : "text-warning")}>{subject}</p> : null}
-      <p id={titleId} className={cn("text-lead font-bold leading-snug", done ? "text-muted-foreground" : "text-foreground")}>
+      <p id={titleId} className={cn("font-semibold leading-snug", done ? "text-muted-foreground" : "text-foreground")}>
         {text}
       </p>
       <p className="text-small text-foreground">
-        <span className="font-bold">السبب: </span>
+        <span className="font-semibold">السبب: </span>
         {reason}
       </p>
       {evidence && evidence.length > 0 ? (

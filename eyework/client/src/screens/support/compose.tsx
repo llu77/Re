@@ -132,7 +132,7 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
   const textField = (
     <Field
       label="الردّ"
-      hint={`${length} من ${CORE_MAX}. التحية باسم العميل والتوقيع يضيفهما التطبيق.`}
+      hint={`${length} من ${CORE_MAX}`}
       error={fail?.field === "core" ? fail.message : null}
     >
       <Textarea id="compose-text" rows={gaze ? 4 : 8} maxLength={1500} value={text} onChange={(event) => setText(event.target.value)} />
@@ -141,7 +141,6 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
 
   const sentencesPanel = (
     <div className="flex flex-col gap-tg">
-      <p className="text-small text-muted-foreground">اضغط جملةً لحذفها، ثم «احذف المختار».</p>
       <ul aria-label="جمل الردّ" className="flex flex-col gap-tg">
         {sentencePages.slice.map(({ sentence, index }) => {
           const off = removed.has(index)
@@ -284,7 +283,7 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
           </>
         }
       >
-        {step === 0 ? <PagedText text={text.trim() || "لا نصّ بعد. اختر في الخطوة التالية «اكتب بنفسك» أو عبارةً جاهزة."} label="الردّ" perPage={{ gaze: 240, gazeShort: 120 }} /> : null}
+        {step === 0 ? <PagedText text={text.trim() || "لا نصّ بعد."} label="الردّ" perPage={{ gaze: 240, gazeShort: 120 }} /> : null}
         {step === 1 ? (
           <RadioCards<Tool>
             label="ما الذي تغيّره؟"

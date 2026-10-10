@@ -86,10 +86,10 @@ export function DataTable<T>({
               {secondary ? <span className="truncate text-small text-muted-foreground">{secondary(row)}</span> : null}
             </span>
             {trailing ? <span className="flex shrink-0 flex-col items-end gap-1">{trailing(row)}</span> : null}
-            {onOpen ? <NextIcon aria-hidden="true" className="size-icon shrink-0 text-muted-foreground" /> : null}
+            {onOpen ? <NextIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground/70" /> : null}
           </>
         )
-        const box = "flex min-h-ctl w-full items-center gap-3 rounded-card border bg-card px-3 py-2"
+        const box = "flex min-h-ctl w-full items-center gap-3 rounded-card border border-transparent bg-card px-3 py-2 shadow-card"
         return (
           <li key={rowKey(row)}>
             {onOpen ? (
@@ -98,12 +98,12 @@ export function DataTable<T>({
                 data-safe=""
                 aria-label={openLabel?.(row)}
                 onClick={() => onOpen(row)}
-                className={cn(box, "border-control hov:bg-muted")}
+                className={cn(box, "hov:bg-muted")}
               >
                 {body}
               </button>
             ) : (
-              <div className={cn(box, "border-border")}>{body}</div>
+              <div className={box}>{body}</div>
             )}
           </li>
         )
@@ -113,7 +113,7 @@ export function DataTable<T>({
 
   const table =
     size === "compact" ? (
-      <div className="hidden overflow-hidden rounded-card border border-border bg-card shadow-card tablet:block">
+      <div className="hidden overflow-hidden rounded-card bg-card shadow-card tablet:block">
         <table className="w-full border-collapse text-body">
           <caption className="sr-only">{caption}</caption>
           <thead className="bg-muted text-small text-muted-foreground">

@@ -1,9 +1,9 @@
 /*
- * حسابي والمصادر والخروج والحذف
- * ==============================
- * الشاشات من static/index.html بنصوصها: الخروج بخطوتين كالحذف (الدخول من جديد بالنظر
- * أغلى خطوةٍ في التطبيق)، والحذف بخطوتين ولا يُسترجع شيء. «المصادر» نسبة محتوى O*NET
- * كاملةً كما يطلبها ترخيصه. طريقة الاستخدام تُحفظ بـPUT /api/me/ui-size ثم يتبدّل الحجم.
+ * حسابي والخروج والحذف
+ * ====================
+ * الخروج بخطوتين كالحذف (الدخول من جديد بالنظر أغلى خطوةٍ في التطبيق)، والحذف بخطوتين ولا
+ * يُسترجع شيء. طريقة الاستخدام تُحفظ بـPUT /api/me/ui-size ثم يتبدّل الحجم. لا «مصادر»: سيمبول
+ * لا يُسنَد بمحتوى O*NET في هذه الواجهة (assistant_prompt.py)، فلا نسبة تُعرض.
  */
 
 import * as React from "react"
@@ -22,41 +22,11 @@ import { toServer, type SizeMode } from "@/lib/size"
 import type { Choices, Me } from "@/lib/store"
 import { AccountScreen } from "@/screens/account"
 
-interface Portal {
-  attribution: string
-  sources: { tasks: string; skills: string; summary: string }
-}
-
-function SourcesScreen({ onBack }: { onBack: () => void }) {
-  const [portal, setPortal] = React.useState<Portal | null | undefined>(undefined)
-  React.useEffect(() => {
-    void api<Portal>("GET", "/api/portal").then((result) => setPortal(result.status === 200 ? result.data : null))
-  }, [])
-  const lines = portal ? [...new Set([portal.sources.tasks, portal.sources.skills])] : []
-  return (
-    <Screen title="مصادر المحتوى" back={{ id: "sources-back", label: "رجوع", onClick: onBack }}>
-      {portal === undefined ? null : portal === null ? (
-        <p role="alert" className="text-flow font-bold text-destructive">
-          تعذّرت قراءة المصادر. حاول مرة أخرى.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-tg text-flow">
-          <p>{portal.attribution}</p>
-          {lines.map((line) => (
-            <p key={line} className="text-small text-muted-foreground">
-              {line}
-            </p>
-          ))}
-        </div>
-      )}
-    </Screen>
-  )
-}
-
 function ConfirmScreen({ title, question, text, label, icon, onYes, onBack, busy, backSlot }: {
   title: string
   question: string
-  text: string
+  /** ما لا يُستعاد بعد التأكيد، سطراً واحداً؛ ولا شيء حيث لا يضيع شيء. */
+  text?: string
   label: string
   icon: typeof LogOut
   onYes: () => void
@@ -84,7 +54,7 @@ function ConfirmScreen({ title, question, text, label, icon, onYes, onBack, busy
         </div>
       }
     >
-      <p className="text-flow">{text}</p>
+      {text ? <p className="text-flow">{text}</p> : null}
       <Button id="account-confirm-yes" variant="danger" size="lg" width="full" commit icon={icon} busy={busy} onClick={onYes}>
         {label}
       </Button>
@@ -125,14 +95,11 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
   }
 
   let content: React.ReactNode
-  if (path.startsWith("#/account/sources")) {
-    content = <SourcesScreen onBack={() => go("#/account")} />
-  } else if (path.startsWith("#/account/logout")) {
+  if (path.startsWith("#/account/logout")) {
     content = (
       <ConfirmScreen
         title="تسجيل الخروج"
         question="تسجيل الخروج؟"
-        text="للدخول من جديد تُكتب كلمة المرور، أو يُستعمل مفتاح المرور إن حفظه الجهاز."
         label="نعم، اخرج"
         icon={LogOut}
         busy={busy}
@@ -146,7 +113,7 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
       <ConfirmScreen
         title="حذف الحساب"
         question="حذف الحساب نهائياً؟"
-        text="يُحذف الحساب وكل ما فيه: الاسم، وتاريخ الميلاد، والحملات وصورها ونصوصها. لا يُسترجع شيءٌ منها."
+        text="يُحذف الحساب وكل ما فيه، ولا يُسترجع."
         label="نعم، احذف حسابي"
         icon={Trash2}
         busy={busy}
@@ -162,7 +129,6 @@ export function AccountFlow({ path, choices, me }: { path: string; choices: Choi
         profession={profession}
         sizeNames={names}
         saveSize={saveSize}
-        onSources={() => go("#/account/sources")}
         onLogout={() => go("#/account/logout")}
         onDelete={() => go("#/account/delete")}
       />

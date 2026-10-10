@@ -71,7 +71,6 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
   return (
     <Screen
       title={first ? "قبل أوّل فاتورة" : "إعدادات المخزن"}
-      description={first ? "سؤالٌ واحد عن الضريبة، واسم مخزنك." : undefined}
       back={first ? undefined : { id: "settings-back", label: "رجوع", onClick: onBack }}
       end={onCategories && !first ? { id: "settings-categories", label: "التصنيفات", icon: Tags, onClick: onCategories } : undefined}
       actions={
@@ -81,34 +80,33 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
       }
     >
       {locked ? (
-        <p className="text-flow text-muted-foreground">
-          تكلفة المخزون تُحسب <span className="font-semibold text-foreground">{basis === "gross" ? "شاملةً الضريبة لأن المنشأة لا تستردّها" : "قبل الضريبة لأن المنشأة تستردّها"}</span>؛ وقد قُفل هذا بعد أوّل فاتورةٍ مسجّلة.
+        <p className="text-flow">
+          <span className="text-muted-foreground">تكلفة المخزون: </span>
+          <span className="font-semibold">{basis === "gross" ? "شاملةً الضريبة" : "قبل الضريبة"}</span>
         </p>
       ) : (
-        <RadioCards<"net" | "gross">
-          label="هل منشأتك مسجّلة في ضريبة القيمة المضافة وتخصم ضريبة مشترياتها في إقرارها؟"
-          value={basis}
-          onValueChange={(value) => {
-            setBasis(value)
-            setFail(null)
-          }}
-          ids={{ net: "settings-basis-net", gross: "settings-basis-gross" }}
-          options={[
-            { value: "net", title: "نعم، مسجّلة وتخصمها", description: "تُحسب تكلفة المخزون قبل الضريبة." },
-            { value: "gross", title: "لا، غير مسجّلة", description: "الضريبة جزءٌ من التكلفة فتدخل قيمة المخزون." },
-          ]}
-        />
-      )}
-      {locked ? null : (
-        <p className="text-small text-muted-foreground gaze:hidden">
-          المسجّلة لها رقمٌ ضريبي من 15 خانة يبدأ وينتهي بـ3، وتقدّم إقراراً ضريبياً. وإن لم تعرف فاسأل محاسب المنشأة قبل أوّل فاتورة: الجواب يُقفل بعدها. أمّا كيف تُكتب الأسعار في فاتورة المورّد فتختاره في كل فاتورة.
-        </p>
+        <div data-block="" className="flex flex-col gap-1">
+          <p id="settings-basis-label" className="text-small font-medium text-muted-foreground">هل منشأتك مسجّلة في ضريبة القيمة المضافة؟</p>
+          <RadioCards<"net" | "gross">
+            label="هل منشأتك مسجّلة في ضريبة القيمة المضافة وتخصم ضريبة مشترياتها في إقرارها؟"
+            value={basis}
+            onValueChange={(value) => {
+              setBasis(value)
+              setFail(null)
+            }}
+            ids={{ net: "settings-basis-net", gross: "settings-basis-gross" }}
+            options={[
+              { value: "net", title: "نعم، مسجّلة وتخصمها" },
+              { value: "gross", title: "لا، غير مسجّلة" },
+            ]}
+          />
+        </div>
       )}
       <Field label="اسم المخزن" error={fail?.field === "store_name" ? fail.message : null} required>
         <Input id="settings-store-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
       </Field>
       {/* الموقع اختياري: في الحجم الكبير يُكتب من «إعدادات المخزن» بعد البدء (السؤال والاسم وحدهما في الشاشة). */}
-      <Field label="الموقع" hint="اختياري: المدينة أو الحيّ أو رقم المستودع." className={first ? "gaze:hidden" : "gaze:short:hidden"}>
+      <Field label="الموقع" className={first ? "gaze:hidden" : "gaze:short:hidden"}>
         <Input id="settings-store-location" value={location} maxLength={120} onChange={(event) => setLocation(event.target.value)} />
       </Field>
       {fail && fail.field !== "store_name" ? (
@@ -161,7 +159,6 @@ export function CategoriesScreen({ categories, onAdd, onToggle, onBack }: {
   return (
     <Screen
       title="التصنيفات"
-      description={gaze ? undefined : "تجمع المنتجات في المخزون والجرد. تُؤرشف ولا تُحذف."}
       back={{ id: "categories-back", label: "الإعدادات", onClick: onBack }}
     >
       <div className="flex items-end gap-tg">
@@ -178,11 +175,11 @@ export function CategoriesScreen({ categories, onAdd, onToggle, onBack }: {
         </Alert>
       ) : null}
       {categories.length === 0 ? (
-        <EmptyState icon={Tags} title="لا تصنيفات بعد" description="اكتب اسماً وأضفه؛ ثم اختره في بطاقة المنتج." />
+        <EmptyState icon={Tags} title="لا تصنيفات بعد" />
       ) : (
         <ul id="categories-list" aria-label="التصنيفات" className="flex flex-col gap-tg-min">
           {visible.map((category) => (
-            <li key={category.id} className="flex min-h-ctl items-center justify-between gap-tg rounded-card border border-border bg-card px-3 py-1">
+            <li key={category.id} className="flex min-h-ctl items-center justify-between gap-tg rounded-card bg-card shadow-card px-3 py-1">
               <span className="flex min-w-0 flex-col">
                 <span className="truncate font-semibold">{category.name}</span>
                 <span className="text-small text-muted-foreground">

@@ -56,7 +56,7 @@ export function SettingsScreen({ settings, onSave, onNotice, onBack }: {
 
   const signatureBlock = (
     <div className="flex flex-col gap-tg">
-      <Field label="التوقيع" hint={gaze ? undefined : "في آخر كل ردّ، سطرٌ واحد. مثلاً: فريق الدعم الفني."} error={fail?.field === "signature" ? fail.message : null}>
+      <Field label="التوقيع" error={fail?.field === "signature" ? fail.message : null}>
         <Input id="settings-signature" autoComplete="off" maxLength={60} value={signature} onChange={(event) => setSignature(event.target.value)} />
       </Field>
       <Button id="settings-save-signature" variant="primary" icon={Save} busy={busy === "signature"} onClick={() => void save("signature", { signature: signature.trim() || null })} className="self-start gaze:w-full">

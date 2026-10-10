@@ -49,8 +49,8 @@ export function Stepper({ steps, current, variant = "auto", className }: Stepper
                 className={cn(
                   "num flex size-7 shrink-0 items-center justify-center rounded-pill border text-small font-semibold",
                   done && "border-primary bg-primary text-primary-foreground",
-                  now && "border-primary-line bg-secondary text-secondary-foreground",
-                  !done && !now && "border-control bg-card text-muted-foreground",
+                  now && "border-primary bg-secondary text-secondary-foreground",
+                  !done && !now && "border-border bg-card text-muted-foreground",
                 )}
               >
                 {done ? <Check aria-hidden="true" className="size-4" strokeWidth={3} /> : index + 1}

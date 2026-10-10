@@ -82,18 +82,18 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
             onKeyDown={gaze ? undefined : (event) => onKeyDown(event, index)}
             className={cn(
               "flex min-h-ctl min-w-0 flex-col items-stretch gap-1.5 rounded-card border px-pad py-2.5 text-start",
-              checked ? "border-primary-line bg-secondary" : "border-control bg-card hov:bg-muted",
+              checked ? "border-primary bg-secondary" : "border-transparent bg-card shadow-card hov:bg-muted",
             )}
           >
             <span className="flex items-start justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-2 font-semibold text-foreground">
-                {Icon ? <Icon aria-hidden="true" className="size-icon shrink-0 text-secondary-foreground" /> : null}
+              <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
+                {Icon ? <Icon aria-hidden="true" className="size-icon shrink-0 text-secondary-foreground" strokeWidth={1.75} /> : null}
                 <span className="min-w-0">{option.title}</span>
               </span>
               {checked ? (
-                <CircleCheck aria-hidden="true" className="size-icon shrink-0 text-primary" strokeWidth={2.5} />
+                <CircleCheck aria-hidden="true" className="size-icon shrink-0 text-primary" strokeWidth={2.25} />
               ) : (
-                <Circle aria-hidden="true" className="size-icon shrink-0 text-control" />
+                <Circle aria-hidden="true" className="size-icon shrink-0 text-control" strokeWidth={1.75} />
               )}
             </span>
             {option.preview}
