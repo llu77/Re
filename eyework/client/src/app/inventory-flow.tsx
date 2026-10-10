@@ -18,9 +18,9 @@
  */
 
 import * as React from "react"
-import { Calculator, ClipboardCheck, PackageSearch } from "lucide-react"
+import { Calculator, ClipboardCheck, PackageSearch, Settings2 } from "lucide-react"
 
-import { assistantApi, navigate } from "@/app/workspace"
+import { chatApi, navigate } from "@/app/workspace"
 import { Redirect } from "@/components/redirect"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import type { ToolEntry } from "@/components/shell/tools-sheet"
@@ -33,7 +33,7 @@ import * as inv from "@/lib/inventory"
 import { BASE, countRoute, itemRoute, purchaseRoute, returnRoute, supplierRoute } from "@/lib/inventory"
 import { formatAmount, vatOnNet } from "@/lib/money"
 import { go } from "@/lib/router"
-import { LIST_PAGE, LONG_LIST_PAGE, useServerPage } from "@/lib/size"
+import { LIST_PAGE, LONG_LIST_PAGE, TABLET_QUERY, useMatch, useServerPage, useSize } from "@/lib/size"
 import type { Choices, Me } from "@/lib/store"
 import type { Workspace } from "@/lib/workspace"
 import { CountAddScreen, CountLineScreen, CountScreen, CountsScreen, NewCountScreen, type CountLineBody, type CountOpenBody } from "@/screens/inventory/counts"
@@ -1057,6 +1057,10 @@ export function sectionOf(rel: string): string {
 
 export function InventoryFlow({ path, choices, me, workspace }: { path: string; choices: Choices; me: Me; workspace: Workspace }) {
   const toast = useToast()
+  // الحجم الكبير على الهاتف: رابط الإعدادات لا يتّسع تحت أزرار الرئيسية السبعة، فهو في ورقة الأدوات.
+  const gaze = useSize().size === "gaze"
+  const tablet = useMatch(TABLET_QUERY)
+  const settingsInTools = gaze && !tablet
   const [notice, setNoticeState] = React.useState<string | null>(null)
   const setNotice = React.useCallback((message: string) => setNoticeState(message), [])
   const rel = path.slice(BASE.length)
@@ -1098,6 +1102,7 @@ export function InventoryFlow({ path, choices, me, workspace }: { path: string; 
       }} /> },
     // في الورقة نفسها: لا يغادر مسودةً مفتوحة، ويعرض آخر أسعار الشراء.
     { id: "find-item", label: "ابحث عن منتج", description: "رصيده وسعره وآخر أسعار شرائه", icon: PackageSearch, panel: () => <ItemLookup /> },
+    ...(settingsInTools ? [{ id: "settings", label: "إعدادات المخزن", description: "الاسم والموقع والتصنيفات", icon: Settings2, route: `${BASE}/settings` }] : []),
   ]
 
   let content: React.ReactNode = null
@@ -1164,12 +1169,8 @@ export function InventoryFlow({ path, choices, me, workspace }: { path: string; 
           toast.dismiss()
           navigate(href)
         }}
-        tools={{
-          userName: me.display_name,
-          assistant: assistantApi(me, choices, screenKind, screenKind === "HOME" ? null : docId),
-          supportContact: choices.support_contact,
-          context: tools,
-        }}
+        tools={{ supportContact: choices.support_contact, context: tools }}
+        chat={chatApi(me, choices, screenKind, screenKind === "HOME" ? null : docId)}
       >
         {content}
       </WorkspaceShell>

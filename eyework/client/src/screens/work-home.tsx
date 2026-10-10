@@ -11,6 +11,7 @@
  */
 
 import { Screen } from "@/components/shell/screen"
+import { TABLET_QUERY, WIDE_QUERY, useMatch, useSize } from "@/lib/size"
 import { cn } from "@/lib/utils"
 import type { Workspace } from "@/lib/workspace"
 
@@ -30,12 +31,23 @@ export function homeTitle(userName: string | null): string {
 /** أزرار البدء وحدها: تستعملها الرئيسية المشتركة ورئيسيتا المخزون والدعم بما فوقها من ملخّص. `counts`
  *  عددٌ بجانب اسم الزرّ («بانتظار قراري · 3»)، والصفر لا يُكتب. */
 export function HomeGrid({ workspace, onNavigate, counts }: { workspace: Workspace; onNavigate: (href: string) => void; counts?: Record<string, number> }) {
+  const gaze = useSize().size === "gaze"
+  const tablet = useMatch(TABLET_QUERY)
+  const wide = useMatch(WIDE_QUERY)
+  // الحجم الكبير في الهاتف: الأساسيّ خانةٌ كبقية الأزرار لا صفٌّ وحده، فتتّسع أزرار الدعم الستة في ثلاثة صفوف
+  // (أربعة صفوفٍ بمراكز 96px هي ما يتّسع له 320×635 مع التحية).
+  const primaryRow = !(gaze && !tablet)
+  const columns = wide ? 3 : 2
+  const cells = workspace.home.filter((entry) => !(entry.primary && primaryRow)).length
+  // زرٌّ وحيد في صفّه الأخير يملأ الصفّ في الهاتف والآيباد، لا نصفه.
+  const lastAlone = !wide && cells % columns === 1
   return (
       <ul aria-label="ابدأ عملاً" className="grid grid-cols-2 gap-tg lg:grid-cols-3">
-        {workspace.home.map((entry) => {
+        {workspace.home.map((entry, index) => {
           const Icon = entry.icon
+          const row = entry.primary && primaryRow
           return (
-            <li key={entry.id} className={cn(entry.primary && "col-span-2 lg:col-span-3")}>
+            <li key={entry.id} className={cn(row && "col-span-2 lg:col-span-3", lastAlone && index === workspace.home.length - 1 && "col-span-2")}>
               <a
                 id={`home-${entry.id}`}
                 href={entry.route}
@@ -48,15 +60,17 @@ export function HomeGrid({ workspace, onNavigate, counts }: { workspace: Workspa
                   "flex h-full min-h-ctl w-full items-center gap-3 rounded-card border px-4 py-3 font-bold",
                   "compact:min-h-[5.5rem] compact:flex-col compact:items-start compact:justify-between",
                   entry.primary
-                    ? "border-primary bg-primary text-primary-foreground compact:min-h-ctl-lg compact:flex-row compact:items-center compact:justify-start hov:bg-primary/90"
-                    : "border-control bg-card text-foreground hov:bg-muted",
-                  "gaze:justify-start",
+                    ? cn("border-primary bg-primary text-primary-foreground compact:min-h-ctl-lg compact:flex-row compact:items-center compact:justify-start hov:bg-primary/90",
+                         row ? "gaze:justify-start" : "gaze:justify-center gaze:text-center")
+                    // الحجم الكبير: نصف عرض 320px لا يتّسع لمربّع الأيقونة والنصّ معاً (يخرج النصّ من حدّ الزرّ)،
+                    // فما في خانةٍ نصٌّ في الوسط بلا أيقونة؛ والرئيسي بعرض الشاشة يبقى بأيقونته.
+                    : "border-control bg-card text-foreground hov:bg-muted gaze:justify-center gaze:text-center",
                 )}
               >
                 <span
                   className={cn(
                     "flex size-9 shrink-0 items-center justify-center rounded-ctl gaze:size-10",
-                    entry.primary ? "bg-primary-foreground/15" : "bg-secondary text-secondary-foreground",
+                    entry.primary ? cn("bg-primary-foreground/15", !row && "gaze:hidden") : "bg-secondary text-secondary-foreground gaze:hidden",
                   )}
                 >
                   <Icon aria-hidden="true" className="size-5 gaze:size-6" strokeWidth={2.25} />

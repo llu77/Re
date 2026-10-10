@@ -20,7 +20,7 @@ import pytest
 
 from eyework.tests.fakes import FakeGateway, draft_reply, flag, review_reply
 from eyework.tests.ui.next.conftest import FRAMES, LOGIN, PHONES, STRESS, frame_ids, member
-from eyework.tests.ui.next.flow import Flow
+from eyework.tests.ui.next.flow import PRESS_GAP, Flow
 
 SIZES = ["compact", "gaze"]
 BASE = "#/support"
@@ -64,15 +64,25 @@ def _audit(flow: Flow, label: str) -> None:
 
 
 def _pick(flow: Flow, picker: str, key: str, text: str) -> None:
-    """خيارٌ من منتقٍ: قائمة Select في الحجم العادي (بنصّ الخيار)، وخياراتٌ مكان الخطوة في الكبير (بمفتاحه)."""
+    """
+    خيارٌ من منتقٍ: قائمة Select في الحجم العادي (بنصّ الخيار)، وخياراتٌ مكان الخطوة في الكبير (بمفتاحه)؛ أو عدّادٌ
+    يُقلَّب في مكانه في الكبير («التالي» حتى يظهر النصّ).
+    """
     page = flow.page
-    flow.press(f"#{picker}", lambda: flow.screen("[role=listbox]"), text)
+    if _gaze(page) and page.locator(f"output#{picker}").count():
+        for _ in range(8):
+            if text in page.text_content(f"#{picker}"):
+                break
+            flow.press(f"#{picker}-next", lambda: None, "التالي")
+        assert text in page.text_content(f"#{picker}")
+        return
+    flow.press(f"#{picker}", lambda: flow.screen("[role=listbox], [data-options]"), text)
     if _gaze(page):
         # المنتقي مفتوحاً: خياراته مكان الحقول المخفية، بلا قصٍّ ولا تراكبٍ على حقلٍ ظاهر.
         _audit(flow, f"{picker}-open")
-        while page.locator(f"[role=listbox] [data-key='{key}']").count() == 0:
+        while page.locator(f"[data-options] [data-key='{key}']").count() == 0:
             flow.press("[data-gaze-host] [role=group] button:has-text('التالية')", lambda: None, "التالية")
-        flow.press(f"[role=listbox] [data-key='{key}']", lambda: page.wait_for_selector("[role=listbox]", state="detached"), text)
+        flow.press(f"[data-options] [data-key='{key}']", lambda: page.wait_for_selector("[data-options]", state="detached"), text)
     else:
         flow.press(f"[role=listbox] [role=option]:has-text('{text}')", lambda: page.wait_for_selector("[role=listbox]", state="detached"), text)
 
@@ -112,16 +122,23 @@ def _article(flow: Flow) -> None:
         flow.press("#article-next", lambda: flow.screen("#article-environment"), "البيئة")
         flow.press("#article-next", lambda: flow.screen("#article-save"), "الحفظ")
         _audit(flow, "article-save")
-    flow.press("#article-save", lambda: flow.screen("#article-publish"), "احفظ المقالة")
+    flow.press("#article-save", lambda: flow.screen("#article-actions" if gaze else "#article-publish"), "احفظ المقالة")
     _audit(flow, "article")
+    if gaze:
+        # في الحجم الكبير المقالة صفحةٌ تُقرأ وإجراءاتها صفحةٌ ثانية.
+        flow.press("#article-actions", lambda: flow.screen("#article-publish"), "الإجراءات")
+        _audit(flow, "article-actions")
     flow.press("#article-publish", lambda: flow.screen("#publish-prev, #publish-back"), "اعتمد")
     flow.until("document.querySelector('#publish-review') && !document.querySelector('#publish-review').textContent.includes('يراجع')")
     _audit(flow, "publish")
     if gaze:
         flow.press("#publish-next", lambda: flow.screen("#publish-submit"), "التالي")
         _audit(flow, "publish-submit")
-    flow.press("#publish-submit", lambda: flow.screen("#article-needs-review"), "اعتمد المقالة")
+    flow.press("#publish-submit", lambda: flow.screen("#article-actions" if gaze else "#article-needs-review"), "اعتمد المقالة")
     _audit(flow, "article-published")
+    if gaze:
+        flow.press("#article-actions", lambda: flow.screen("#article-needs-review"), "الإجراءات")
+        _audit(flow, "article-published-actions")
 
 
 # ── الإشعار والتذكرة ────────────────────────────────────────────────────
@@ -274,7 +291,8 @@ def test_a_reply_the_agent_writes_waits_for_a_decision_on_each_flag(next_page, s
     if gaze:
         flow.press("#reply-next", lambda: flow.screen("[id^='flag-reason-']"), "التنبيه")
         _audit(flow, "reply-rule-flag")
-    flag_id = page.get_attribute("[id^='flag-reason-']", "id").removeprefix("flag-reason-")
+    # معرّف التنبيه من المنتقي (العادي) أو من قيمة العدّاد (الكبير؛ وزرّاه `-prev` و`-next`).
+    flag_id = page.get_attribute("[id^='flag-reason-']:not([id$='-prev']):not([id$='-next'])", "id").removeprefix("flag-reason-")
     _pick(flow, f"flag-reason-{flag_id}", "EMPLOYER_APPROVED", "جهة العمل موافقة")
     flow.press(f"#flag-dismiss-{flag_id}", lambda: flow.until("!document.querySelector('[id^=\"flag-dismiss-\"]')"), "تابع رغم ذلك")
     if gaze:
@@ -401,11 +419,16 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
     _audit(flow, "settings")
     flow.press("#settings-save-signature", lambda: flow.screen("#settings-saved"), "احفظ التوقيع")
     assert _status(owner, "SELECT signature FROM support_settings") == ("فريق الدعم الفني",)
-    # هدف زمن الخدمة بمنتقيه (مفتوحاً في الحجم الكبير بلا حقلٍ تحته)، وحفظه لا يمسح التوقيع.
+    # هدف زمن الخدمة: بمنتقيه في الحجم العادي، وفي الكبير قسمٌ للأولوية بعدّادين (ساعة ← ساعتان)؛ وحفظه لا يمسح التوقيع.
     if size == "gaze":
-        flow.press("button[aria-expanded]:has-text('التوقيع')", lambda: flow.screen("[role=radio]:has-text('زمن الخدمة')"), "الإعدادات")
-        flow.press("[role=radio]:has-text('زمن الخدمة')", lambda: flow.screen("#settings-first-URGENT"), "زمن الخدمة")
-    _pick(flow, "settings-first-URGENT", "120", "ساعتان")
+        # الأقسام تُقلَّب في مكانها: التوقيع ثم أهداف «عاجلة».
+        _pick(flow, "settings-section", "sla-URGENT", "أهداف «عاجلة»")
+        flow.screen("#settings-first-URGENT")
+        _audit(flow, "settings-sla")
+        flow.press("#settings-first-URGENT-next", lambda: flow.until(
+            "document.querySelector('#settings-first-URGENT').textContent.includes('ساعتان')"), "أطول")
+    else:
+        _pick(flow, "settings-first-URGENT", "120", "ساعتان")
     with page.expect_response(lambda r: r.url.endswith("/api/support/settings") and r.request.method == "PUT"):
         flow.press("#settings-save-sla", lambda: None, "احفظ الأهداف")
     with owner.cursor() as cursor:
@@ -415,7 +438,7 @@ def test_the_lists_the_settings_and_the_tools(next_page, server, owner, size, wi
     page.goto(page.next + BASE + "/kb/improve")
     flow.screen("text=لا ثغرات في آخر ثلاثين يوماً")
     _audit(flow, "improve")
-    flow.press("#nav-tools", lambda: flow.screen("text=عبارات وأسئلة جاهزة"), "الأدوات")
+    flow.open_tools()
     flow.press("text=عبارات وأسئلة جاهزة", lambda: flow.screen("#phrase-copy-THANKS_SORRY"), "عبارات وأسئلة جاهزة")
     _audit(flow, "tool-phrases")
     flow.press("#phrase-copy-THANKS_SORRY", lambda: flow.screen("text=نُسخت. الصقها في الردّ."), "انسخ")
@@ -483,14 +506,14 @@ def test_a_reply_read_aloud_shared_or_confirmed_later_never_lands_on_a_commit(ne
 
 @pytest.mark.parametrize("size", SIZES)
 def test_a_list_longer_than_a_page_pages_by_what_the_table_shows(next_page, server, owner, size):
-    """أربع تذاكر مفتوحة: ثلاثٌ في صفحة الحجم الكبير ثم الرابعة في الثانية، وكلّها معاً في العادي."""
+    """ثلاث تذاكر مفتوحة: اثنتان في صفحة الحجم الكبير ثم الثالثة في الثانية، وكلّها معاً في العادي."""
     page = _page(next_page, owner, server, size, *PHONES[0])
     flow = Flow(page)
     page.goto(page.next + BASE)
     flow.screen("#home-new")
     _notice(flow)
     api, headers = f"{server['base']}/api/support", {"X-Eyework": "1", "Origin": server["base"]}
-    for n in range(4):
+    for n in range(3):
         created = page.request.post(api + "/tickets", headers=headers, data={
             "client_token": str(uuid.uuid4()), "channel": "MESSAGING", "text": f"الطابعة رقم {n + 1} في المكتب لا تطبع شيئاً منذ الصباح."})
         assert created.status == 201, created.text()
@@ -499,12 +522,12 @@ def test_a_list_longer_than_a_page_pages_by_what_the_table_shows(next_page, serv
     flow.until(f"document.querySelectorAll(\"{rows}\").length > 0")
     _audit(flow, "list-open-long")
     if size == "gaze":
-        assert page.locator(rows).count() == 3
+        assert page.locator(rows).count() == 2
         pager = "[aria-label='صفحات التذاكر المفتوحة'] button:has-text('التالي')"
         flow.press(pager, lambda: flow.until(f"document.querySelectorAll(\"{rows}\").length === 1"), "التالي")
         _audit(flow, "list-open-long-2")
     else:
-        assert page.locator(rows).count() == 4
+        assert page.locator(rows).count() == 3
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
 
@@ -598,9 +621,43 @@ def test_a_long_unpunctuated_message_reads_in_pages_without_losing_a_word_on_gaz
             break
         flow.press(f"{pager} button:has-text('التالي')", lambda: flow.until(
             f"document.querySelector(\"article[aria-label='رسالة العميل'] p.text-flow\").innerText !== {shown[-1]!r}"), "التالي")
-    assert len(shown) > 10 and all(len(piece) <= 260 for piece in shown)
+    assert len(shown) > 10 and all(len(piece) <= 200 for piece in shown)
     assert "".join(shown).replace(" ", "") == text.replace(" ", "")
     assert not flow.failures(), "\n".join(flow.failures())
+    assert not page.errors, page.errors
+
+
+def test_a_double_tap_turns_one_page_on_gaze(next_page, server, owner):
+    """
+    تتبّع الرأس في iOS 26 يربط حركة وجهٍ بـ«نقرتين»، وقائمة AssistiveTouch فيها «النقر المزدوج»: ضغطتان في الموضع
+    نفسه بينهما أقلّ من عُشرَي ثانية. في الحجم الكبير تُحسب الأولى وحدها فلا تُطوى صفحةٌ لم تُقرأ، وضغطةٌ بعد مهلةٍ تُحسب.
+    """
+    page = _page(next_page, owner, server, "gaze", *PHONES[0])
+    flow = Flow(page)
+    page.goto(page.next + BASE)
+    flow.screen("#home-new")
+    _notice(flow)
+    text = " ".join(["الطابعة في المكتب لا تطبع الصفحات الملوّنة منذ تحديث البرنامج"] * 20)
+    api, headers = f"{server['base']}/api/support", {"X-Eyework": "1", "Origin": server["base"]}
+    body = json.dumps({"client_token": str(uuid.uuid4()), "channel": "MESSAGING", "text": text}, ensure_ascii=False)
+    created = page.request.post(api + "/tickets", headers={**headers, "Content-Type": "application/json"}, data=body)
+    assert created.status == 201, created.text()
+    page.goto(page.next + BASE + "/t/" + created.json()["id"])
+    flow.screen("#ticket-prev")
+    pager = "nav[aria-label='صفحات رسالة العميل']"
+    _press_until(flow, "#ticket-next", pager, "التالي")
+    count = f"{pager} span.num"
+    assert page.inner_text(count).startswith("1 من "), page.inner_text(count)
+    box = page.locator(f"{pager} button:has-text('التالي')").bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    page.wait_for_timeout(PRESS_GAP * 1000)
+    page.touchscreen.tap(x, y)
+    page.touchscreen.tap(x, y)
+    flow.until(f"document.querySelector({count!r}).innerText.startsWith('2 من ')")
+    page.wait_for_timeout(PRESS_GAP * 1000)
+    assert page.inner_text(count).startswith("2 من "), page.inner_text(count)
+    page.touchscreen.tap(x, y)
+    flow.until(f"document.querySelector({count!r}).innerText.startsWith('3 من ')")
     assert not page.errors, page.errors
 
 

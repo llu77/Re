@@ -41,29 +41,33 @@ export function ExpensesScreen({ month, data, canNext, onPrevious, onNext, page,
   const { size } = useSize()
   const gaze = size === "gaze"
   const totals = data?.totals
+  // الحجم الكبير: الشهر في العنوان (يُعلَن حين يتغيّر) وصافيه سطر الوصف، فيبقى للزرّين صفٌّ يتّسعان فيه وللقيود الباقي.
   return (
     <Screen
-      title="المصاريف"
-      description={gaze ? undefined : "كل فاتورة شراءٍ مسجّلة تُضاف هنا، والمرتجع والقيد العكسي يخصمان منها."}
+      title={gaze ? `مصاريف ${monthLabel(month)}` : "المصاريف"}
+      description={!gaze ? "كل فاتورة شراءٍ مسجّلة تُضاف هنا، والمرتجع والقيد العكسي يخصمان منها." : totals ? (
+        <span>
+          الصافي <Money halalas={totals.net.net} className="font-semibold text-foreground" /> · الضريبة{" "}
+          <Money halalas={totals.net.vat} className="font-semibold text-foreground" unit={false} />
+        </span>
+      ) : undefined}
       back={gaze ? undefined : { id: "expenses-back", label: "الرئيسية", onClick: onBack }}
     >
-      <nav aria-label="الشهر" className="flex items-center justify-between gap-tg">
-        <Button id="expenses-previous" icon={ChevronRight} onClick={onPrevious}>
-          <span className="gaze:hidden">الشهر </span>السابق
+      <nav aria-label="الشهر" className={gaze ? "grid grid-cols-2 gap-x-6" : "flex items-center justify-between gap-tg"}>
+        <Button id="expenses-previous" icon={ChevronRight} onClick={onPrevious} className="justify-self-start">
+          الشهر السابق
         </Button>
-        <p className="whitespace-nowrap text-lead font-bold" aria-live="polite">
-          {monthLabel(month)}
-        </p>
-        <Button id="expenses-next" iconEnd={ChevronLeft} disabled={!canNext} onClick={onNext}>
-          <span className="gaze:hidden">الشهر </span>التالي
+        {gaze ? null : (
+          <p className="whitespace-nowrap text-lead font-bold" aria-live="polite">
+            {monthLabel(month)}
+          </p>
+        )}
+        <Button id="expenses-next" iconEnd={ChevronLeft} disabled={!canNext} onClick={onNext} className="justify-self-end">
+          الشهر التالي
         </Button>
       </nav>
       {totals ? (
-        gaze ? (
-          <p className="text-flow">
-            الصافي <Money halalas={totals.net.net} className="font-bold" /> · الضريبة <Money halalas={totals.net.vat} className="font-bold" unit={false} />
-          </p>
-        ) : (
+        gaze ? null : (
           <div className="grid grid-cols-2 gap-tg-min lg:grid-cols-4 lg:gap-tg">
             <StatCard label="المشتريات" icon={ShoppingCart} value={formatWhole(totals.purchases.net)} unit="ر.س" />
             <StatCard label="المرتجعات والعكسي" icon={Undo2} value={formatWhole(totals.returns.net + totals.reversals.net)} unit="ر.س" />
@@ -166,7 +170,7 @@ export function TotalsScreen({ summary, recent, onNavigate, onOpenPurchase, onBa
             trailing={(row) => (row.total_halalas === null ? null : <span className="num font-bold" dir="ltr">{formatAmount(row.total_halalas)}</span>)}
             onOpen={onOpenPurchase}
             openLabel={(row) => `افتح ${row.label ?? "المسودة"}`}
-            pageSize={{ compact: 5, gaze: 3 }}
+            pageSize={{ compact: 5, gaze: 2, gazeShort: 1 }}
             empty={<p className="text-small text-muted-foreground">لا فواتير بعد.</p>}
           />
         </section>

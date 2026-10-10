@@ -238,8 +238,10 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
       { id: "tool", label: "الأداة" },
       { id: "done", label: "التجهيز" },
     ]
+    // الحجم الكبير: بطاقتان في الصفّ، فالعنوان الطويل أقصر.
     const toolLabels: Record<Tool, string> = {
-      sentences: "احذف جملاً", phrases: "أضف عبارةً جاهزة", kb: "أضف من قاعدة المعرفة", write: "اكتب بنفسك", symbol: "اطلب من سيمبول تعديلها",
+      sentences: "احذف جملاً", phrases: "أضف عبارةً جاهزة", kb: gaze ? "من قاعدة المعرفة" : "أضف من قاعدة المعرفة", write: "اكتب بنفسك",
+      symbol: gaze ? "اطلب من سيمبول" : "اطلب من سيمبول تعديلها",
     }
     const toolOptions: Tool[] = draft ? ["sentences", "phrases", "kb", "write", "symbol"] : ["write", "phrases", "kb", "sentences"]
     const next = () => {
@@ -290,6 +292,7 @@ export function ComposeScreen({ ticket, fromDraft, phrases, onSearch, onResoluti
             value={tool}
             onValueChange={setTool}
             columns={1}
+            gazeColumns={2}
             ids={Object.fromEntries(toolOptions.map((value) => [value, `compose-tool-${value}`]))}
           />
         ) : null}

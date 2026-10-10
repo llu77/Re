@@ -107,7 +107,8 @@ export function SettingsScreen({ settings, onSave, onBack, onCategories }: {
       <Field label="اسم المخزن" error={fail?.field === "store_name" ? fail.message : null} required>
         <Input id="settings-store-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
       </Field>
-      <Field label="الموقع" hint="اختياري: المدينة أو الحيّ أو رقم المستودع." className="gaze:short:hidden">
+      {/* الموقع اختياري: في الحجم الكبير يُكتب من «إعدادات المخزن» بعد البدء (السؤال والاسم وحدهما في الشاشة). */}
+      <Field label="الموقع" hint="اختياري: المدينة أو الحيّ أو رقم المستودع." className={first ? "gaze:hidden" : "gaze:short:hidden"}>
         <Input id="settings-store-location" value={location} maxLength={120} onChange={(event) => setLocation(event.target.value)} />
       </Field>
       {fail && fail.field !== "store_name" ? (

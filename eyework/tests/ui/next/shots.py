@@ -94,12 +94,9 @@ def portal(page, flow, base: str, size: str, shot, photo: dict) -> None:
     if page.locator("#nav-sections").count():
         flow.press("#nav-sections", lambda: flow.screen("dialog[open]"), "الأقسام"); flow.audit("sections"); shot("12-sections")
         flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
-    if page.locator("#nav-tools").count():
-        flow.press("#nav-tools", lambda: flow.screen("dialog[open]"), "الأدوات"); flow.audit("tools"); shot("13-tools")
-        flow.press("dialog[open] >> text=اسأل سيمبول", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
-    else:
-        flow.press("#nav-assistant", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
-    flow.audit("assistant"); shot("14-assistant")
+    flow.open_tools(); flow.audit("tools"); shot("13-tools")
+    flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
+    flow.press("#nav-chat", lambda: flow.screen("dialog[open] button"), "سيمبول"); flow.audit("chat"); shot("14-chat")
     flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
     flow.press("#home-new", lambda: flow.screen("#photo-input"), "حملة جديدة"); flow.audit("photo"); shot("15-photo")
     page.set_input_files("#photo-input", files=[photo])
@@ -125,7 +122,12 @@ def portal(page, flow, base: str, size: str, shot, photo: dict) -> None:
     flow.press("#ready-home", lambda: flow.screen("#home-new"), "الرئيسية")
     flow.press("#home-campaigns", lambda: flow.until("document.querySelectorAll('#campaigns-list li').length === 1"), "حملاتي"); flow.audit("campaigns"); shot("27-campaigns")
     flow.press("#campaigns-list li button", lambda: flow.screen("#ready-share"), "حملة من القائمة"); flow.audit("ready-again"); shot("28-ready-from-list")
-    flow.press("#nav-account", lambda: flow.screen("#account-ui-size-apply"), "حسابي"); flow.audit("account"); shot("29-account")
+    # في الحجم الكبير «حسابي» صفحتان: «طريقة الاستخدام» صفحةٌ بنفسها.
+    flow.press("#nav-account", lambda: flow.screen("#account-ui-size-apply, #account-size"), "حسابي"); flow.audit("account"); shot("29-account")
+    if page.locator("#account-size").count():
+        flow.press("#account-size", lambda: flow.screen("#account-ui-size-apply"), "طريقة الاستخدام"); flow.audit("account-size")
+        shot("29b-account-size")
+        flow.press("#account-size-back", lambda: flow.screen("#account-size"), "رجوع")
     flow.press("#account-logout", lambda: flow.screen("#account-confirm-yes"), "تسجيل الخروج"); flow.audit("logout"); shot("30-logout")
 
 

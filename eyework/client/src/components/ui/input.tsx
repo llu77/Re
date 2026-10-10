@@ -65,7 +65,7 @@ export function Field({ label, hint, error, required = false, reserve = false, i
   }
   return (
     <FieldContext.Provider value={value}>
-      <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+      <div data-field="" className={cn("flex min-w-0 flex-col gap-1", className)}>
         <Label htmlFor={controlId}>
           {label}
           {required ? <span className="text-muted-foreground"> (مطلوب)</span> : null}
@@ -97,7 +97,8 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 
 export const fieldClass = [
   "w-full min-w-0 rounded-ctl border border-control bg-card px-3 text-input text-foreground",
-  "min-h-ctl",
+  // الحقل لا يحمل مساحة إصابةٍ خفيّة (لا ::after لحقل)، فارتفاعه رمزه: 40 باللمس و56 في الكبير.
+  "min-h-field",
   "focus-visible:border-primary focus-visible:outline-offset-1",
   "aria-[invalid=true]:border-destructive",
   "disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground",

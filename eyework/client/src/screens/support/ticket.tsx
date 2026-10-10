@@ -78,7 +78,8 @@ function suggestionPending(ticket: Ticket): boolean {
 }
 
 /** قرارات الحجم الكبير في كل صفحة. */
-const DECISIONS_PER_PAGE = 4
+// ثلاثةٌ في الصفحة: أزرارٌ بعرض الشاشة على بعد 96 بين مراكزها تتّسع في 320×635 تحت سطر الشارات والعنوان.
+const DECISIONS_PER_PAGE = 3
 
 export function TicketScreen(props: TicketScreenProps) {
   const { ticket, drafting, draftFail, onRequestDraft, onSendAsIs, onAcceptSuggestion, onReopen, onReturnEscalation, onAction, onBack, backLabel } = props
@@ -131,8 +132,10 @@ export function TicketScreen(props: TicketScreenProps) {
     </section>
   ) : null
 
+  // الحجم الكبير: بلا إطار البطاقة، وبين أسطرها فجوة نصّين، والزرّان متجاوران بلا أيقونة (24 بينهما): الاقتراح
+  // وتنبيه الفشل تحت العنوان يتّسعان في 320×635.
   const suggestion = pending && current ? (
-    <section aria-label="اقتراح سيمبول" className="flex flex-col gap-tg rounded-card border border-ai/30 bg-ai-tint p-pad">
+    <section aria-label="اقتراح سيمبول" className="flex flex-col gap-tg rounded-card border border-ai/30 bg-ai-tint p-pad gaze:gap-tg-min gaze:border-0 gaze:bg-transparent gaze:p-0">
       <p className="flex items-center gap-2 text-small font-bold"><Sparkles aria-hidden="true" className="size-4" />اقتراح سيمبول</p>
       <p className="text-flow">
         {current.suggestion.category ? `الفئة: ${CATEGORY[current.suggestion.category]}` : null}
@@ -140,12 +143,12 @@ export function TicketScreen(props: TicketScreenProps) {
         {current.suggestion.priority ? `الأولوية: ${PRIORITY[current.suggestion.priority]}` : null}
       </p>
       {!ticket.subject && current.subject ? <p className="text-flow">الموضوع: {current.subject}</p> : null}
-      {current.suggestion.because ? <p className="text-small text-muted-foreground gaze:short:hidden">{current.suggestion.because}</p> : null}
-      <div className="flex flex-wrap gap-tg gaze:flex-col">
-        <Button id="ticket-accept-suggestion" variant="secondary" icon={CheckCircle2} busy={busy === "accept"} onClick={() => void run("accept", onAcceptSuggestion)}>
+      {current.suggestion.because ? <p className="text-small text-muted-foreground gaze:hidden">{current.suggestion.because}</p> : null}
+      <div className="flex flex-wrap gap-tg gaze:mt-[calc(var(--tg)-var(--tg-min))] gaze:grid gaze:grid-cols-2 gaze:gap-x-6">
+        <Button id="ticket-accept-suggestion" variant="secondary" icon={gaze ? undefined : CheckCircle2} busy={busy === "accept"} onClick={() => void run("accept", onAcceptSuggestion)}>
           اعتمد المقترح
         </Button>
-        <Button id="ticket-classify" icon={PencilLine} onClick={() => onAction("classify")}>
+        <Button id="ticket-classify" icon={gaze ? undefined : PencilLine} onClick={() => onAction("classify")}>
           غيّر التصنيف
         </Button>
       </div>
@@ -174,7 +177,7 @@ export function TicketScreen(props: TicketScreenProps) {
       <p className="text-small font-semibold text-muted-foreground">
         العميل{ticket.customer_label ? ` (${ticket.customer_label})` : ""} · {CHANNEL[ticket.channel]} · {when(last.at)}
       </p>
-      {gaze ? <PagedText text={last.body} label="رسالة العميل" perPage={{ gaze: 260, gazeShort: 130 }} /> : <MaskedText text={last.body} />}
+      {gaze ? <PagedText text={last.body} label="رسالة العميل" perPage={{ gaze: 200, gazeShort: 100 }} /> : <MaskedText text={last.body} />}
     </article>
   ) : (
     <p className="text-flow text-muted-foreground">لا رسالة من العميل.</p>
@@ -208,18 +211,18 @@ export function TicketScreen(props: TicketScreenProps) {
         : current.result === "NOT_SUPPORT" ? `ليست طلب دعم${current.note_to_employee ? `: ${current.note_to_employee}` : "."}`
         : null
     draftBlock = (
-      <section id="ticket-draft" aria-label="مسودة سيمبول" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad">
+      <section id="ticket-draft" aria-label="مسودة سيمبول" className="flex flex-col gap-tg rounded-card border border-border bg-card p-pad gaze:gap-tg-min gaze:border-0 gaze:bg-transparent gaze:p-0">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="ai" icon={Sparkles}>مسودة سيمبول</Badge>
           {current.reply_kind ? <Badge tone="neutral">{REPLY_KIND[current.reply_kind]}</Badge> : null}
         </div>
         {notice ? <Alert tone="warning" title={notice} /> : null}
-        {current.body ? (gaze ? <PagedText text={current.body} label="المسودة" perPage={{ gaze: 240, gazeShort: 120 }} /> : <p className="text-flow whitespace-pre-line">{current.body}</p>) : null}
+        {current.body ? (gaze ? <PagedText text={current.body} label="المسودة" perPage={{ gaze: 150, gazeShort: 80 }} /> : <p className="text-flow whitespace-pre-line">{current.body}</p>) : null}
         {current.citations.length ? (
-          <ul aria-label="من قاعدة المعرفة" className="flex flex-col gap-2">
+          <ul aria-label="من قاعدة المعرفة" className="flex flex-col gap-2 gaze:gap-0">
             {current.citations.map((c) => (
               <li key={`${c.article_id}-${c.quote}`} className="flex flex-col gap-0.5 text-small">
-                <span className="font-semibold">KB-{c.number} · {c.title}</span>
+                <span className="font-semibold gaze:truncate">KB-{c.number} · {c.title}</span>
                 <q className="text-muted-foreground gaze:hidden">{c.quote}</q>
               </li>
             ))}
@@ -300,7 +303,14 @@ export function TicketScreen(props: TicketScreenProps) {
     return (
       <Screen
         title={`التذكرة #${ticket.number}`}
-        description={<span className="block truncate">{ticket.subject ?? ""}</span>}
+        // ما لم يتمّ سطرٌ مكان الموضوع تحت العنوان، لا تنبيهٌ فوق الصفحة يدفع أزرارها تحت النظر ويخرجها من الشاشة.
+        description={
+          fail ? (
+            <span role="alert" className="block font-semibold text-destructive">{fail.message}</span>
+          ) : (
+            <span className="block truncate">{ticket.subject ?? ""}</span>
+          )
+        }
         above={<div className="flex items-center justify-between gap-tg">{header}<span className="text-small font-semibold text-muted-foreground">{at.label} · {index + 1} من {pages.length}</span></div>}
         actions={
           <>
@@ -315,8 +325,7 @@ export function TicketScreen(props: TicketScreenProps) {
           </>
         }
       >
-        {/* ما لم يتمّ يُقال في الصفحة التي ضُغط فيها (الاقتراح أو القرارات)، ويُغلق حين تُقلَّب. */}
-        {failAlert}
+        {/* ما لم يتمّ يُقال في الصفحة التي ضُغط فيها (الاقتراح أو القرارات) مكان الموضوع، ويُغلق حين تُقلَّب. */}
         {at.body}
       </Screen>
     )

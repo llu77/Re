@@ -1943,6 +1943,105 @@ assistant.register(ScreenContext(
     ready_questions=("ماذا أتحقّق منه قبل تسجيل الفاتورة؟", "متى أستعمل القيد العكسي بدل المرتجع؟"),
     needs_id=True, load=_screen_purchase,
 ))
+# ── أدوات سيمبول لأمين المخزون: تقرأ ولا تغيّر ─────────────────────────
+_TOOL_LOW = """
+SELECT i.name, i.unit, i.on_hand_milli, i.reorder_level_milli, i.target_level_milli
+  FROM inv_items i
+ WHERE i.is_active AND i.kind = 'STOCK' AND i.reorder_level_milli IS NOT NULL AND i.on_hand_milli <= i.reorder_level_milli
+ ORDER BY (i.on_hand_milli - i.reorder_level_milli), i.name_key
+ LIMIT 8
+"""
+_TOOL_PURCHASES = """
+SELECT p.number, p.invoice_date, p.printed_total_halalas,
+       (SELECT count(*) FROM inv_purchase_lines l WHERE l.purchase_id = p.id) AS lines
+  FROM inv_purchases p
+ WHERE p.status = 'POSTED'
+ ORDER BY p.posted_at DESC, p.number DESC
+ LIMIT 5
+"""
+
+
+def _tool_items(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+    query = normalise_text(text)
+    if not query:
+        return ("يُكتب اسم المنتج أو رمزه.",)
+    digits = normalise_digits(query)
+    rows = _rows(cursor, _ITEM_SEARCH, (query, query, digits, digits, query, digits, 5))
+    if not rows:
+        return (f"لا منتج يطابق «{query}».",)
+    lines = []
+    for row in rows:
+        line = f"{row['name']} (رقم {row['number']}"
+        line += f"، رمز المورّد {row['supplier_code']})" if row["supplier_code"] else ")"
+        if row["kind"] == "STOCK":
+            line += f": الرصيد {quantity_words(row['on_hand_milli'], row['unit'])}"
+            if row["reorder_level_milli"] is not None:
+                line += f"، وحدّ الطلب {quantity_words(row['reorder_level_milli'], row['unit'])}"
+        else:
+            line += ": خدمة"
+        if row["last_price_halalas"] is not None:
+            line += f"، وآخر سعر شراء {halalas_words(row['last_price_halalas'])} قبل الضريبة"
+        lines.append(line)
+    return assistant.fit(lines)
+
+
+def _tool_low(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+    rows = _rows(cursor, _TOOL_LOW, ())
+    if not rows:
+        return ("لا منتج تحت حدّ طلبه.",)
+    lines = []
+    for row in rows:
+        line = (f"{row['name']}: الرصيد {quantity_words(row['on_hand_milli'], row['unit'])}، "
+                f"وحدّ الطلب {quantity_words(row['reorder_level_milli'], row['unit'])}")
+        suggestion = suggested_order(row["on_hand_milli"], row["reorder_level_milli"], row["target_level_milli"])
+        if suggestion:
+            line += f"، والمقترح طلبه {quantity_words(suggestion, row['unit'])}"
+        lines.append(line)
+    return assistant.fit(lines)
+
+
+def _tool_purchases(cursor, user_id: UUID, text: str) -> tuple[str, ...]:
+    rows = _rows(cursor, _TOOL_PURCHASES, ())
+    if not rows:
+        return ("لا فاتورة شراءٍ مسجّلة بعد.",)
+    lines = []
+    for row in rows:
+        # بلا اسم المورّد: ما يقرؤه سيمبول من الفاتورة كما في شاشتها، لا أسماء المورّدين (README، «ما يُرسَل»).
+        line = f"فاتورة {document_label('PURCHASE', row['number'])}"
+        if row["invoice_date"] is not None:
+            line += f" بتاريخ {_iso(row['invoice_date'])}"
+        line += f"، {row['lines']} أسطر"
+        if row["printed_total_halalas"] is not None:
+            line += f"، إجماليها المطبوع {halalas_words(row['printed_total_halalas'])}"
+        lines.append(line)
+    return assistant.fit(lines)
+
+
+assistant.register_tool(assistant.Tool(
+    name="ITEMS", profession=Profession.STOREKEEPER,
+    description="المنتجات المطابقة لاسمٍ أو رمز (خمسة على الأكثر): الرصيد وحدّ الطلب وآخر سعر شراء.",
+    input_hint="اسم المنتج أو رمزه", label="بحث في المنتجات", run=_tool_items,
+))
+assistant.register_tool(assistant.Tool(
+    name="LOW_STOCK", profession=Profession.STOREKEEPER,
+    description="المنتجات التي بلغت حدّ طلبها أو نزلت تحته (ثمانية على الأكثر)، والمقترح طلبه.",
+    input_hint=None, label="المنتجات تحت حدّ الطلب", run=_tool_low,
+))
+assistant.register_tool(assistant.Tool(
+    name="PURCHASES", profession=Profession.STOREKEEPER,
+    description="آخر خمس فواتير شراءٍ مسجّلة: رقمها وتاريخها وعدد أسطرها وإجماليها المطبوع.",
+    input_hint=None, label="آخر فواتير الشراء", run=_tool_purchases,
+))
+#: معرّفات بنود رئيسية أمين المخزون في العميل (lib/workspace.ts)، بأسمائها.
+assistant.register_destinations(Profession.STOREKEEPER, (
+    assistant.Destination("purchase", "فاتورة شراء جديدة"),
+    assistant.Destination("return", "مرتجع من فاتورة"),
+    assistant.Destination("item", "منتج جديد"),
+    assistant.Destination("stock", "المخزون"),
+    assistant.Destination("count", "الجرد"),
+    assistant.Destination("expenses", "المصاريف"),
+    assistant.Destination("totals", "المجاميع"),
+))
 assistant.register(ScreenContext(
     kind="INVENTORY_COUNT", profession=Profession.STOREKEEPER, title="جلسة الجرد",
     labels=("المعدود فعلاً", "صفر", "أضف منتجاً لم يكن في الكشف", "حدّث الأرصدة", "رحّل الجرد", "ألغِ الجلسة"),

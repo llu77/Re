@@ -34,7 +34,7 @@ DIGESTS = {
 }
 #: بصمة `terms.normalized_text()`، نصّ النسخة القادمة. حزمة التبديل تنقلها إلى DIGESTS
 #: تحت تاريخ الإصدار حين يصير `TERMS_VERSION` ذلك التاريخ.
-PENDING_DIGEST = "9cda1610041b4aa571d69348373f8ce484256d1ae9cc701702a9e0b7122685a9"
+PENDING_DIGEST = "b2469df38e49e020296508685262eff6247c2f4d140d11e9dd11d9cf2c229e35"
 
 #: أول كل سطرٍ في «ما يُرسَل»: اسم البوابة كما يعرفه المستخدم، أو «كل البوابات».
 LINE_STARTS = {

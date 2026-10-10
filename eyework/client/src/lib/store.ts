@@ -9,6 +9,7 @@
 import * as React from "react"
 
 import type { BudgetTable, Campaign, DaysTable } from "./campaigns"
+import type { ChatTurn } from "./chat"
 import type { InventoryChoices } from "./inventory"
 import type { SignupState } from "./signup"
 
@@ -80,6 +81,10 @@ export interface State {
   wakeLock: WakeLockSentinel | null
   /** حملةٌ انقطع طلب كتابتها في الطريق ولم تُقرأ بعده: الانتظار باقٍ و«تحقّق الآن» فيه هو المخرج. */
   waitUnknown: string | null
+  /** المحادثة مع سيمبول (lib/chat.ts): في الصفحة وحدها، تذهب بتحديثها. */
+  chat: ChatTurn[]
+  /** حصّة أسئلة اليوم كما قالها آخر جواب، أو null قبل أوّل سؤال. */
+  chatUsage: { per_day: number; used_today: number } | null
 }
 
 /** طلب التعديل قيد الإعداد، مربوطٌ بالنسخة التي يُبنى عليها. */
@@ -110,6 +115,8 @@ let state: State = {
   waitingFor: null,
   wakeLock: null,
   waitUnknown: null,
+  chat: [],
+  chatUsage: null,
 }
 
 const listeners = new Set<() => void>()
@@ -144,6 +151,7 @@ export function resetState(patch: Partial<State> = {}) {
   state = {
     choices: null, me: null, booted: false, startupError: null, busy: false, nav: 0, signup: null, activation: null,
     flash: null, campaign: null, page: 1, edit: EMPTY_EDIT, waitingFor: null, wakeLock: null, waitUnknown: null,
+    chat: [], chatUsage: null,
     ...patch,
   }
   listeners.forEach((listener) => listener())

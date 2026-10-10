@@ -57,7 +57,8 @@ export interface Fact {
 export function Facts({ facts, columns = 2, className }: { facts: Fact[]; columns?: 1 | 2 | 3; className?: string }) {
   const shown = facts.filter((fact) => fact.value !== null && fact.value !== undefined && fact.value !== "")
   return (
-    <dl className={cn("grid gap-x-tg gap-y-2 rounded-card border border-border bg-card p-pad", columns === 1 ? "grid-cols-1" : columns === 2 ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-3", className)}>
+    // الحجم الكبير: الحقائق نصٌّ على الصفحة بلا بطاقة (لا حشو ولا إطار)، فيبقى للشاشة ما يتّسع لها بلا تمرير.
+    <dl className={cn("grid gap-x-tg gap-y-2 rounded-card border border-border bg-card p-pad gaze:border-0 gaze:bg-transparent gaze:p-0", columns === 1 ? "grid-cols-1" : columns === 2 ? "grid-cols-2" : "grid-cols-2 tablet:grid-cols-3", className)}>
       {shown.map((fact) => (
         <div key={fact.label} className={cn("flex min-w-0 flex-col gap-0.5", !fact.key && "gaze:hidden")}>
           <dt className="text-small text-muted-foreground">{fact.label}</dt>
@@ -112,14 +113,21 @@ export function useGazeHost(): Host {
 }
 
 /** غلاف حقل: في الحجم الكبير حين يكون حقلٌ آخر في الخطوة مفتوحاً يُخفى (ويبقى مكانه إن سبقه). */
-export function GazeSlot({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
+export function GazeSlot({ id, children, className, field = true }: {
+  id: string
+  children: React.ReactNode
+  className?: string
+  /** يبدأ بعنوانٍ فوق هدفه (حقلٌ أو منتقٍ أو بطاقات): بين حقلين متتاليين عنوان الثاني لا فجوة هدفين. */
+  field?: boolean
+}) {
   const { size } = useSize()
   const { focused, register, precedes } = useGazeHost()
   React.useEffect(() => register(id), [id, register])
   const away = size === "gaze" && focused !== null && focused !== id
   const keepSpace = away && precedes(id, focused as string)
   return (
-    <div hidden={away && !keepSpace} className={cn("min-w-0", keepSpace && "invisible", className)}>
+    // `data-field`: حقلٌ بعنوانه فوقه (globals.css: حقلان متتاليان بينهما عنوان الثاني لا فجوة هدفين).
+    <div data-field={field ? "" : undefined} data-block={field ? undefined : ""} hidden={away && !keepSpace} className={cn("min-w-0", keepSpace && "invisible", className)}>
       {children}
     </div>
   )
@@ -147,9 +155,6 @@ export interface PickerProps {
   className?: string
 }
 
-/** أبعاد الحجم الكبير بالبكسل: الهدف 48 والفجوة 12 (globals.css)؛ تُقاس بها سعة القائمة لا تُرسم. */
-const GAZE_TARGET = 48
-const GAZE_GAP = 12
 const GAZE_PER_PAGE = 3
 
 interface Layout {
@@ -157,12 +162,21 @@ interface Layout {
   perPage: number
 }
 
+/** رمزٌ من globals.css بالبكسل («--ctl»، «--tg»): تُقاس به سعة القائمة كما رُسمت، لا برقمٍ منسوخ. */
+function token(name: string): number {
+  const style = getComputedStyle(document.documentElement)
+  const value = parseFloat(style.getPropertyValue(name))
+  return value * (parseFloat(style.fontSize) || 16)
+}
+
 /** كم خياراً يتّسع في مساحةٍ: مع صفّ التقليب إن لم تتّسع الخيارات كلّها. */
 function capacity(space: number, total: number): number {
-  const row = GAZE_TARGET + GAZE_GAP
-  const all = Math.floor((space - GAZE_GAP) / row)
+  const target = token("--ctl")
+  const gap = token("--tg")
+  const row = target + gap
+  const all = Math.floor((space - gap) / row)
   if (all >= total) return total
-  return Math.max(0, Math.floor((space - GAZE_GAP - row) / row))
+  return Math.max(0, Math.floor((space - gap - row) / row))
 }
 
 export function Picker({ id, label, options, value, onValueChange, emptyLabel = "اختر", hint, error, required, disabled, className }: PickerProps) {
@@ -209,16 +223,17 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
     setFocused(id)
   }
 
+  // أزرارٌ بـaria-pressed لا listbox وoption: «الانتقال إلى العنصر» في تتبّع العين والرأس يقصد ما له سمة الزرّ،
+  // وWebKit لا يعطيها role="option".
   const list = (
-    <ul role="listbox" aria-label={typeof label === "string" ? label : undefined} className="flex flex-col gap-tg">
+    <ul data-options="" aria-label={typeof label === "string" ? label : undefined} className="flex flex-col gap-tg">
       {visible.map((option) => {
         const checked = option.value === value
         return (
           <li key={option.value}>
             <button
               type="button"
-              role="option"
-              aria-selected={checked}
+              aria-pressed={checked}
               data-value=""
               data-key={option.value}
               onClick={() => {
@@ -266,7 +281,6 @@ export function Picker({ id, label, options, value, onValueChange, emptyLabel = 
             id={id}
             type="button"
             data-safe=""
-            aria-haspopup="listbox"
             aria-expanded={false}
             disabled={disabled}
             onClick={show}

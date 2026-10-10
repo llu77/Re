@@ -17,6 +17,9 @@
  *     الحقل نفسه. هذا لما يمكن ويُستغرب.
  *   • الترتيب: «عدّل» في البداية و«تابع رغم ذلك» في النهاية، في الجزء الأعلى من الخطوة،
  *     بعيداً عن زرّ التسجيل في أسفلها: ما ضُغط لتظهر المراجعة لا يقع تحته ما يعتمد.
+ *   • الحجم الكبير (`actionsFirst`): التنبيه وحده في شاشته، والقراران تحت رأسه مباشرةً، ثم الرسالة والسبب نصٌّ
+ *     واحد يُقسم صفحاتٍ عند الحاجة وأزرار صفحاته في أسفل البطاقة (PagedText): أطول رسالةٍ تتّسع في أضيق هاتف
+ *     بلا قصّ، وما يُضغط في أسفل الشاشة («التالي» في الشريط أو في الصفحات) بعيدٌ عن «تابع رغم ذلك».
  */
 
 import * as React from "react"
@@ -25,6 +28,7 @@ import { AlertTriangle, CheckCircle2, CornerDownLeft, PencilLine, Sparkles, Undo
 import { SymbolMark } from "@/components/brand/marks"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { PagedText } from "@/components/ui/paged-text"
 import { cn } from "@/lib/utils"
 
 export type FlagStatus = "open" | "acknowledged"
@@ -47,8 +51,8 @@ export interface AIFlagProps {
   onEdit?: () => void
   onProceed?: () => void
   onUndo?: () => void
-  /** القراران تحت الرسالة مباشرةً والسبب بعدهما: في الحجم الكبير يبعدان عن شريط الإجراءات
-   *  أسفل الشاشة، حيث كان «راجع» الذي أظهر التنبيه. */
+  /** الحجم الكبير: القراران تحت رأس البطاقة والنصّ بصفحاتٍ تحتهما، فيبعدان عن شريط الإجراءات أسفل
+   *  الشاشة، حيث كان «راجع» الذي أظهر التنبيه. */
   actionsFirst?: boolean
   className?: string
 }
@@ -68,7 +72,7 @@ export function AIFlag({
   const done = status === "acknowledged"
   const decides = Boolean(onEdit && onProceed)
   const actions = !decides ? null : (
-    <div className="mt-1 grid grid-cols-2 items-center gap-tg">
+    <div className="mt-1 grid grid-cols-2 items-center gap-tg gaze:gap-x-6">
       {done ? (
         <>
           {onUndo ? (
@@ -94,6 +98,42 @@ export function AIFlag({
       )}
     </div>
   )
+  const label = (
+    <span className="flex shrink-0 items-center gap-2 text-small font-bold text-foreground">
+      <span className="flex size-7 items-center justify-center rounded-ctl bg-card">
+        <SymbolMark className="size-4" />
+      </span>
+      {source === "ai" ? "تنبيه من سيمبول" : "تنبيه"}
+    </span>
+  )
+  const tone = done ? "border-border bg-muted" : "border-warning-line bg-warning-tint"
+  const text = addressed(name, message)
+
+  if (actionsFirst) {
+    // الحجم الكبير: البطاقة تملأ شاشتها، وما يخصّه التنبيه («السطر 2: …») في طرف رأسها.
+    return (
+      <section
+        role="group"
+        aria-label={text}
+        data-flag-status={status}
+        className={cn("flex min-h-0 flex-1 flex-col gap-2 rounded-card border px-3 py-2.5", tone, className)}
+      >
+        <header className="flex items-center justify-between gap-2">
+          {label}
+          {subject ? <p className={cn("min-w-0 truncate text-small font-semibold", done ? "text-muted-foreground" : "text-warning")}>{subject}</p> : null}
+        </header>
+        {actions}
+        <PagedText
+          fill
+          label="التنبيه"
+          text={`${text}\nالسبب: ${reason}`}
+          perPage={{ gaze: 120, gazeShort: 60 }}
+          className={cn("font-semibold", done ? "text-muted-foreground" : "text-foreground")}
+        />
+      </section>
+    )
+  }
+
   // الحالتان بالارتفاع نفسه والترتيب نفسه: بعد «تابع رغم ذلك» لا يتحرّك شيءٌ تحت النظر،
   // ويحلّ في موضعها نصٌّ لا يُضغط، و«تراجع» في موضع «عدّل».
   return (
@@ -101,19 +141,10 @@ export function AIFlag({
       role="group"
       aria-labelledby={titleId}
       data-flag-status={status}
-      className={cn(
-        "flex flex-col gap-3 rounded-card border p-pad",
-        done ? "border-border bg-muted" : "border-warning-line bg-warning-tint",
-        className,
-      )}
+      className={cn("flex flex-col gap-3 rounded-card border p-pad", tone, className)}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-small font-bold text-foreground">
-          <span className="flex size-7 items-center justify-center rounded-ctl bg-card gaze:size-9">
-            <SymbolMark className="size-4 gaze:size-5" />
-          </span>
-          {source === "ai" ? "تنبيه من سيمبول" : "تنبيه"}
-        </span>
+        {label}
         {done ? (
           <Badge tone="neutral" icon={CheckCircle2} className="gaze:hidden">
             قرّرتَ المتابعة
@@ -130,9 +161,8 @@ export function AIFlag({
       </header>
       {subject ? <p className={cn("text-small font-semibold", done ? "text-muted-foreground" : "text-warning")}>{subject}</p> : null}
       <p id={titleId} className={cn("text-lead font-bold leading-snug", done ? "text-muted-foreground" : "text-foreground")}>
-        {addressed(name, message)}
+        {text}
       </p>
-      {actionsFirst ? actions : null}
       <p className="text-small text-foreground">
         <span className="font-bold">السبب: </span>
         {reason}
@@ -151,7 +181,7 @@ export function AIFlag({
           </Button>
         </div>
       ) : null}
-      {actionsFirst ? null : actions}
+      {actions}
     </section>
   )
 }

@@ -8,6 +8,7 @@
 import * as React from "react"
 import { KeyRound } from "lucide-react"
 
+import { PageTitle } from "@/components/brand/page-title"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
 import { AuthFrame } from "@/screens/auth"
@@ -42,7 +43,7 @@ export function ActivateScreen({ username, passwordMin, onSubmit }: {
       <main className="flex flex-1 flex-col">
         <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
           <div className="flex flex-col gap-2">
-            <h1 className="text-display font-semibold leading-tight tracking-tight">فعّل حسابك</h1>
+            <PageTitle>فعّل حسابك</PageTitle>
             <p className="text-flow text-muted-foreground">إن اقترح الجهاز كلمة مرورٍ قوية فاقبلها ليحفظها لك.</p>
           </div>
           <div className="flex flex-col gap-tg">

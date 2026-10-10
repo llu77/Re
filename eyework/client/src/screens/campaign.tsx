@@ -193,8 +193,8 @@ export function PhotoScreen({ campaign, uploading, onFile, onGenerate, onBack, o
       <p id="photo-status" role="status" className="text-small text-muted-foreground empty:hidden">
         {uploading ? "تُرفع الصورة…" : ""}
       </p>
-      {/* بعد اختيار الصورة يُخفى الشرح في الهاتف (قُرئ قبلها) لتتّسع الشاشة بلا تمرير، وفي الكبير القصير. */}
-      <p className={cn("text-small text-muted-foreground", hasImage && "compact:hidden compact:tablet:block gaze:short:hidden")}>
+      {/* بعد اختيار الصورة يُخفى الشرح في الهاتف (قُرئ قبلها) لتتّسع الشاشة بلا تمرير، بالحجمين، وفي الكبير القصير. */}
+      <p className={cn("text-small text-muted-foreground", hasImage && "compact:hidden compact:tablet:block gaze:max-tablet:hidden gaze:short:hidden")}>
         تُرسل صورة المنتج وحدها إلى خدمة ذكاءٍ اصطناعي لتكتب العنوان والوصف، بلا اسمك ولا أيّ معلومةٍ عنك. صوّر المنتج وحده، دون أشخاصٍ أو أوراق.
       </p>
     </CampaignFrame>
@@ -290,13 +290,13 @@ export function ProposalScreen({ campaign, versionsMax, busy, onStart, onEnd, on
       {size === "gaze" ? (
         // الحجم الكبير: العنوان والوصف والتنبيه والملاحظة صفحاتٌ تُقرأ كلّها؛ والصورة اختارها صاحبها للتوّ.
         <div id="proposal-copy" className="flex min-h-0 flex-col">
-          {/* 260 حرفاً في الصفحة تتّسع في 320×635 و375×635 بالحجم الكبير بلا قصٍّ بأطول نصٍّ تقبله القواعد
-              (test_the_longest_valid_copy_is_read_whole_before_approval)، و110 في الشاشة القصيرة. */}
+          {/* 150 حرفاً في الصفحة تتّسع في 320×635 و375×635 بالحجم الكبير بلا قصٍّ بأطول نصٍّ تقبله القواعد
+              (test_the_longest_valid_copy_is_read_whole_before_approval)، و90 في الشاشة القصيرة. */}
           <PagedText
             key={copy.version_id}
             label="النصّ المقترح"
             text={[copy.title, copy.description, warnings, note].filter(Boolean).join("\n")}
-            perPage={{ gaze: 260, gazeShort: 110 }}
+            perPage={{ gaze: 150, gazeShort: 90 }}
           />
         </div>
       ) : (
@@ -472,6 +472,7 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
   onNext: () => void
   onBack: () => void
 }) {
+  const { size } = useSize()
   const budget = kind === "budget"
   const rows = budget
     ? (table as BudgetTable).values.map((v) => ({ value: v.sar, short: v.short, words: v.words }))
@@ -505,7 +506,8 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
       // الشاشة التالية إمّا «أقل» معطّلةٌ (لا قيمة بعد) أو «التالي» معطّلة.
       end={{
         id: `${kind}-next`,
-        label: budget ? "التالي: عدد الأيام" : "التالي: المراجعة",
+        // في الحجم الكبير «التالي» وحدها: الخانة 120px في أضيق هاتف، والوجهة في سطر الخطوة.
+        label: size === "gaze" ? "التالي" : budget ? "التالي: عدد الأيام" : "التالي: المراجعة",
         iconEnd: NextIcon,
         disabled: current === null,
         onClick: onNext,
@@ -570,7 +572,8 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
 
 /** بطاقة الملخّص (المراجعة والجاهزة): حدٌّ شعرة وظلٌّ خفيف في الحجم العادي، وبلا إطارٍ في الكبير. */
 function SummaryCard({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-0 flex-col gap-tg rounded-card border border-border bg-card p-pad shadow-card gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">{children}</div>
+  // بين أسطرها فجوة نصّين لا فجوة هدفين: لا هدف فيها.
+  return <div className="flex min-h-0 flex-col gap-tg-min rounded-card border border-border bg-card p-pad shadow-card gaze:border-0 gaze:bg-transparent gaze:p-0 gaze:shadow-none">{children}</div>
 }
 
 function Line({ id, label, words, digits }: { id: string; label: string; words: string; digits: string }) {
@@ -612,7 +615,7 @@ export function ReviewScreen({ campaign, onContinue, onBack, onCancel }: {
         <p id="review-description" className="text-flow whitespace-pre-line gaze:line-clamp-2">
           {copy.description}
         </p>
-        <div className="flex flex-col gap-1 border-t border-border pt-tg">
+        <div className="flex flex-col gap-1 border-t border-border pt-tg-min">
           <Line id="review-budget" label="الميزانية الإجمالية" words={campaign.budget.words} digits={campaign.budget.short} />
           <Line id="review-days" label="المدة" words={campaign.days.words} digits={campaign.days.short} />
           <p id="review-daily" className="text-flow">
@@ -719,7 +722,7 @@ export function ReadyScreen({ campaign, shareEnabled, status, downloadOffered, o
         <p id="ready-description" className="text-flow line-clamp-2 whitespace-pre-line gaze:short:line-clamp-1">
           {copy.description}
         </p>
-        <p id="ready-summary" className="text-flow border-t border-border pt-tg">
+        <p id="ready-summary" className="text-flow border-t border-border pt-tg-min">
           <bdi className="num">{`${campaign.budget.short} · ${campaign.days.short}`}</bdi>
         </p>
       </SummaryCard>

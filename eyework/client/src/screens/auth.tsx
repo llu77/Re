@@ -21,6 +21,7 @@ import {
   Boxes, Eye, EyeOff, Fingerprint, Hand, Headset, LogIn, Maximize2, Megaphone, Minimize2, ScanEye, UserPlus,
 } from "lucide-react"
 
+import { PageTitle } from "@/components/brand/page-title"
 import { BrandMark, SymbolMark } from "@/components/brand/marks"
 import { Slots } from "@/components/shell/slots"
 import { Badge } from "@/components/ui/badge"
@@ -134,7 +135,7 @@ export function WelcomeScreen({ mode, onSignup, onLogin }: { mode: RegistrationM
         </p>
         <p className="flex items-start gap-2 text-small text-muted-foreground gaze:short:hidden">
           <SymbolMark className="mt-0.5 size-4" />
-          يعمل باللمس وبتتبّع العين. للأزرار الكبيرة اضغط «حجمٌ أكبر» في الأعلى.
+          يعمل باللمس وبتتبّع العين أو الرأس. للأزرار الكبيرة اضغط «حجمٌ أكبر» في الأعلى.
         </p>
       </main>
     </AuthFrame>
@@ -195,11 +196,10 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
       {/* «ادخل» في أسفل الشاشة والحقلان في أعلاها: «ادخل» في الترحيب (وسط الشاشة) يقع بعد
           الانتقال على حقلٍ لا على زرٍّ يعتمد؛ وسطر الخطأ محجوزٌ فوقه فلا يتحرّك حين يظهر. */}
       <main className="flex flex-1 flex-col">
-      <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
+      <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
         <div className="flex flex-col gap-2">
-          <BrandMark className="size-10 gaze:hidden" />
-          <h1 className="text-display font-semibold leading-tight tracking-tight">ادخل إلى بوابتك</h1>
-          <p className="text-flow text-muted-foreground gaze:short:hidden">بالبريد وكلمة المرور، أو بمفتاح المرور.</p>
+          <PageTitle>ادخل إلى بوابتك</PageTitle>
+          <p className="text-flow text-muted-foreground gaze:hidden">بالبريد وكلمة المرور، أو بمفتاح المرور.</p>
         </div>
         <div className="flex flex-col gap-tg">
           <Field label="البريد">
@@ -217,7 +217,7 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
             />
           </Field>
           <Field label="كلمة المرور">
-            <div className="flex gap-tg-min">
+            <div className="flex gap-tg-min gaze:gap-tg">
               <Input
                 dir="ltr"
                 type={reveal ? "text" : "password"}
@@ -251,14 +251,19 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
           <p role="alert" className="min-h-[1.45em] text-small font-medium text-destructive">
             {error ? <span key={attempt}>{error}</span> : null}
           </p>
-          {onPasskey ? (
-            <Button width="full" icon={Fingerprint} onClick={onPasskey}>
-              ادخل بمفتاح المرور
+          {/* في الحجم الكبير الزرّان في صفٍّ واحد: فوق بعضهما بفجوة 40 لا يتّسعان في 320×635. */}
+          <div className="flex flex-col gap-tg gaze:flex-row-reverse">
+            {onPasskey ? (
+              <Button width="full" icon={Fingerprint} onClick={onPasskey} className="gaze:flex-1">
+                {/* نصف الصفّ في 320px لا يتّسع لثلاث كلمات بلا سطرٍ ثالث. */}
+                <span className="gaze:hidden">ادخل بمفتاح المرور</span>
+                <span className="hidden gaze:inline">بمفتاح المرور</span>
+              </Button>
+            ) : null}
+            <Button type="submit" variant="primary" size="lg" width="full" commit icon={LogIn} busy={busy} disabled={unchanged} className="gaze:flex-1">
+              ادخل
             </Button>
-          ) : null}
-          <Button type="submit" variant="primary" size="lg" width="full" commit icon={LogIn} busy={busy} disabled={unchanged}>
-            ادخل
-          </Button>
+          </div>
         </div>
       </form>
       </main>
@@ -314,10 +319,10 @@ export function SignupSizeStep({ step, steps, value, choices, onNext, onBack }: 
         </Button>
       }
     >
-      <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-tg">
+      <main className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
         <div className="flex flex-col gap-tg-min">
           <Stepper steps={steps} current={step} variant="brief" />
-          <h1 className="text-display font-semibold leading-tight tracking-tight">كيف تستخدم الجهاز؟</h1>
+          <PageTitle>كيف تستخدم الجهاز؟</PageTitle>
           <p className="text-flow text-muted-foreground">
             تُحفظ مع حسابك لتُفتح بوابتك بحجمها، ولا تُرسَل إلى مزوّد النموذج. وتغيّرها متى شئت من «حسابي».
           </p>
@@ -336,14 +341,15 @@ export function SignupSizeStep({ step, steps, value, choices, onNext, onBack }: 
                 value: "compact",
                 title: option("COMPACT")?.name ?? "",
                 icon: Hand,
-                preview: <SizePreview mode="compact" />,
+                // المعاينتان باللمس وحده: في الحجم الكبير لا تتّسعان مع «التالي» بفجوة 40 في 320×635.
+                preview: size === "compact" ? <SizePreview mode="compact" /> : undefined,
                 description: size === "compact" ? option("COMPACT")?.line : undefined,
               },
               {
                 value: "gaze",
                 title: option("GAZE")?.name ?? "",
                 icon: ScanEye,
-                preview: <SizePreview mode="gaze" />,
+                preview: size === "compact" ? <SizePreview mode="gaze" /> : undefined,
                 description: size === "compact" ? option("GAZE")?.line : undefined,
               },
             ]}

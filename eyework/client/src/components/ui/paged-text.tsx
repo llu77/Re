@@ -76,28 +76,32 @@ export interface PagedTextProps {
   className?: string
   /** اسم النصّ لقارئ الشاشة في أزرار الصفحات: «جواب سيمبول». */
   label: string
+  /** يملأ ما بقي من وعائه وأزرار الصفحات في أسفله: لا تتحرّك بين صفحاتٍ مختلفة الطول، فلا يقترب منها ما فوق النصّ. */
+  fill?: boolean
 }
 
-export function PagedText({ text, perPage = { gaze: 320, gazeShort: 160 }, className, label }: PagedTextProps) {
+export function PagedText({ text, perPage = { gaze: 320, gazeShort: 160 }, className, label, fill = false }: PagedTextProps) {
   const { size } = useSize()
   const short = useShortScreen()
   const pages = size === "gaze" ? paginate(text, short ? perPage.gazeShort : perPage.gaze) : [text]
   const [page, setPage] = React.useState(0)
   const current = Math.min(page, pages.length - 1)
   return (
-    <div className="flex flex-col gap-tg">
+    <div className={cn("flex flex-col gap-tg", fill && "min-h-0 flex-1")}>
       <p className={cn("text-flow whitespace-pre-line", className)} aria-live={pages.length > 1 ? "polite" : undefined}>
         {pages[current]}
       </p>
       {pages.length > 1 ? (
-        <nav aria-label={`صفحات ${label}`} className="flex items-center justify-between gap-tg">
-          <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)}>
+        // ثلاث خانات: الزرّان في الطرفين ورقم الصفحة بينهما نصٌّ لا هدف، فبين مساحتي إصابتهما عرضه وفجوتان
+        // على الأقل؛ ويتّسعان في 288px (320 بحافّتيها) بلا نصٍّ يخرج من زرّه.
+        <nav aria-label={`صفحات ${label}`} className={cn("grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-tg-min", fill && "mt-auto")}>
+          <Button icon={BackIcon} disabled={current === 0} onClick={() => setPage(current - 1)} className="justify-self-start">
             السابق
           </Button>
           <span className="num whitespace-nowrap text-small text-muted-foreground">
             {current + 1} من {pages.length}
           </span>
-          <Button iconEnd={NextIcon} disabled={current >= pages.length - 1} onClick={() => setPage(current + 1)}>
+          <Button iconEnd={NextIcon} disabled={current >= pages.length - 1} onClick={() => setPage(current + 1)} className="justify-self-end">
             التالي
           </Button>
         </nav>

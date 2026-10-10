@@ -2,10 +2,11 @@
 هيكل البوابة: شريط التبويب السفلي، والشريط الجانبي، والأدوات
 ============================================================
 الهاتف: أربعة بنودٍ ثابتة في أسفل الشاشة (الرئيسية، والأقسام، والأدوات، وحسابي) روابط وأزرارٌ
-آمنة لا تعتمد شيئاً؛ الآيباد والحاسوب: شريطٌ جانبي ببنود البوابة والأدوات وحسابي؛ وفي الحجم الكبير
-سكّةٌ بالبنود الأربعة نفسها (اثنا عشر هدفاً على الأكثر). زرّ الأدوات في كل شاشة يفتح «اسأل
-سيمبول» و«مساعدة» لا غير، والسؤال يصل الخادم ويعود جوابه. والشريط السفلي يختفي ما دام حقلٌ
-مركَّزاً فلا يركب لوحة المفاتيح؛ وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة.
+آمنة لا تعتمد شيئاً، وفوقها زرّ «اسأل سيمبول» العائم؛ الآيباد والحاسوب: شريطٌ جانبي ببنود البوابة
+و«الأدوات» و«مساعدة» وحسابي، والزرّ العائم في الركن؛ وفي الحجم الكبير لا شيء يطفو: «سيمبول» وسط شريط
+التبويب وفي السكّة، و«الأدوات» من ورقته (اثنا عشر هدفاً على الأكثر). ورقة الأدوات للتسويق «مساعدة» وحدها: السؤال
+إلى سيمبول من زرّه (test_chat.py). والشريط السفلي يختفي ما دام حقلٌ مركَّزاً فلا يركب لوحة المفاتيح؛
+وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from __future__ import annotations
 import pytest
 
 from eyework.tests.conftest import add_version, create_campaign
-from eyework.tests.fakes import FakeGateway
 from eyework.tests.ui.next.conftest import DESKTOP, LOGIN, PHONES, TABLETS, WIDE, frame_ids, member
 from eyework.tests.ui.next.flow import Flow
 
@@ -62,7 +62,7 @@ def test_the_tab_bar_opens_the_sections_the_tools_and_the_account(next_page, ser
 
     flow.press("#nav-tools", lambda: flow.screen("dialog[open]"), "الأدوات")
     names = page.eval_on_selector_all("dialog[open] ul button", "(bs) => bs.map((b) => b.textContent.trim())")
-    assert len(names) == 2 and names[0].startswith("اسأل سيمبول") and names[1].startswith("مساعدة")
+    assert len(names) == 1 and names[0].startswith("مساعدة"), names
     flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
 
     flow.press("#nav-account", lambda: flow.screen("#account-ui-size-apply"), "حسابي")
@@ -71,24 +71,21 @@ def test_the_tab_bar_opens_the_sections_the_tools_and_the_account(next_page, ser
     assert not page.errors, page.errors
 
 
-def test_the_tools_button_offers_symbol_and_help_and_the_question_is_answered(next_page, server, owner):
+def test_the_gaze_tools_open_from_symbols_sheet(next_page, server, owner):
+    """في الحجم الكبير على الهاتف «سيمبول» وسط الشريط، و«الأدوات» في خانة ذيل ورقته الأولى."""
     member(owner, size="GAZE")
-    server["app"].state.gateway = FakeGateway()
     page = next_page(login=LOGIN)
     flow = Flow(page)
     page.goto(page.next)
     flow.screen("[aria-label='ابدأ عملاً']")
-    flow.press("#nav-tools", lambda: flow.screen("dialog[open]"), "الأدوات")
+    assert _ids(page, "nav[aria-label='أقسام البوابة'] a, nav[aria-label='أقسام البوابة'] button") == ["nav-home", "nav-chat", "nav-account"]
+    assert page.locator("#nav-tools").count() == 0
+    flow.press("#nav-chat", lambda: flow.screen("dialog[open] >> text=اكتب سؤالك"), "سيمبول")
+    flow.press("dialog[open] >> text=الأدوات", lambda: flow.screen("dialog[open] ul button"), "الأدوات")
     flow.audit("tools")
     names = page.eval_on_selector_all("dialog[open] ul button", "(bs) => bs.map((b) => b.textContent.trim())")
-    assert len(names) == 2 and names[0].startswith("اسأل سيمبول") and names[1].startswith("مساعدة")
-    flow.press("dialog[open] >> text=اسأل سيمبول", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
-    flow.audit("assistant")
-    page.fill("dialog[open] textarea", "ماذا أبدأ به اليوم؟")
-    flow.press("dialog[open] button[type='submit']", lambda: flow.until(
-        "document.querySelector('dialog[open]').textContent.includes('سؤالك')"), "أرسل السؤال")
-    flow.audit("assistant-answer")
-    assert [url for method, url in page.requests if method == "POST" and url.endswith("/api/ai/assistant")]
+    assert len(names) == 1 and names[0].startswith("مساعدة"), names
+    assert page.locator("dialog[open]").count() == 1
     assert not flow.failures(), "\n".join(flow.failures())
     assert not flow.landings, "\n".join(flow.landings)
     assert not page.errors, page.errors
@@ -103,27 +100,28 @@ def test_the_sidebar_lists_the_entries_and_the_tools_on_wide_frames(next_page, s
     page.goto(page.next)
     flow.screen("#sidebar")
     flow.audit("home-wide")
-    assert _ids(page, "#sidebar a, #sidebar button") == ["nav-home", "nav-entry-new", "nav-entry-campaigns", "nav-assistant", "nav-help", "nav-account"]
-    assert page.locator("#nav-sections").count() == 0 and page.locator("#nav-tools").count() == 0
+    assert _ids(page, "#sidebar a, #sidebar button") == ["nav-home", "nav-entry-new", "nav-entry-campaigns", "nav-tools", "nav-help", "nav-account"]
+    assert page.locator("#nav-sections").count() == 0 and page.locator("#sidebar #nav-chat").count() == 0
     assert page.get_attribute("#nav-home", "aria-current") == "page"
     flow.press("#nav-entry-new", lambda: flow.screen("#photo-input"), "حملة جديدة")
     assert page.get_attribute("#nav-entry-new", "aria-current") == "page"
     flow.audit("photo-wide")
-    flow.press("#nav-assistant", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
-    flow.audit("assistant-wide")
+    flow.press("#nav-chat", lambda: flow.screen("dialog[open] textarea"), "اسأل سيمبول")
+    flow.audit("chat-wide")
     flow.press("dialog[open] >> text=إغلاق", lambda: page.wait_for_selector("dialog[open]", state="detached"), "إغلاق")
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
 
 
-def test_the_gaze_rail_has_the_four_entries_only(next_page, server, owner):
+def test_the_gaze_rail_has_four_entries_with_symbol(next_page, server, owner):
     member(owner, size="GAZE")
     page = next_page(*TABLETS[2], login=LOGIN)
     flow = Flow(page)
     page.goto(page.next)
     flow.screen("#sidebar")
     flow.audit("home-rail")
-    assert _ids(page, "#sidebar a, #sidebar button") == NAV
+    assert _ids(page, "#sidebar a, #sidebar button") == ["nav-home", "nav-sections", "nav-chat", "nav-account"]
+    assert page.locator("#nav-chat").count() == 1
     flow.press("#nav-sections", lambda: flow.screen("dialog[open]"), "الأقسام")
     flow.audit("sections-rail")
     assert page.eval_on_selector_all("dialog[open] a", "(as) => as.map((a) => a.getAttribute('href'))") == ["#/marketing/new", "#/marketing/campaigns"]
@@ -172,3 +170,35 @@ def test_the_tab_bar_hides_while_a_field_has_focus_in_the_touch_size_only(next_p
     flow.until("document.documentElement.dataset.keyboard === undefined")
     assert page.is_visible("#nav-home")
     assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", ["compact", "gaze"])
+def test_on_gaze_a_double_tap_never_zooms_and_a_long_press_never_selects_a_label(next_page, size):
+    """
+    تتبّع الرأس والعين في iOS يضغطان بمكوثٍ أو بحركة وجه، وقد تُربط حركةٌ بـ«نقرتين» أو بالضغط المطوّل من قائمة
+    AssistiveTouch. في الحجم الكبير: النقرتان ضغطتان لا تكبيرٌ للصفحة (التكبير بإصبعين باقٍ)، والضغط المطوّل على زرٍّ
+    أو رابطٍ لا يحدّد نصّه ولا يفتح قائمة الرابط؛ ونصّ المحتوى يبقى قابلاً للتحديد. والحجم العادي كما هو.
+    """
+    page = next_page(390, 664, size=size)
+    page.goto(page.next)
+    Flow(page).screen("#welcome-signup")
+    styles = page.evaluate(
+        """() => {
+            const style = (selector) => getComputedStyle(document.querySelector(selector));
+            const select = (s) => s.userSelect || s.webkitUserSelect;
+            return {
+                root: style('html').touchAction,
+                button: style('#welcome-signup').touchAction,
+                buttonSelect: select(style('#welcome-signup')),
+                buttonCallout: style('#welcome-signup').webkitTouchCallout ?? null,
+                text: select(style('main p')),
+            };
+        }"""
+    )
+    if size == "gaze":
+        assert styles["root"] == styles["button"] == "manipulation", styles
+        assert styles["buttonSelect"] == "none", styles
+        assert styles["buttonCallout"] in (None, "none"), styles  # Chromium لا يعرف الخاصّية؛ WebKit يعرفها
+    else:
+        assert styles["root"] == styles["button"] == "auto", styles
+    assert styles["text"] != "none", styles

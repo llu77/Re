@@ -325,11 +325,12 @@ export interface ItemBody {
   note: string | null
 }
 
-/** الحجم الكبير: خمس خطواتٍ قصيرة لا تطول عن شاشة 635px؛ والحجم العادي ثلاث مجموعاتٍ في صفحةٍ تمرّ. */
+/** الحجم الكبير: ستّ خطواتٍ قصيرة، ثلاثة حقولٍ على الأكثر، لا تطول عن شاشة 635px؛ والحجم العادي ثلاث مجموعاتٍ في صفحةٍ تمرّ. */
 const ITEM_STEPS = [
   { id: "base", label: "الأساس" },
   { id: "price", label: "السعر والضريبة" },
-  { id: "identity", label: "التعريف" },
+  { id: "codes", label: "الرموز" },
+  { id: "category", label: "التصنيف" },
   { id: "selling", label: "البيع" },
   { id: "ordering", label: "الطلب" },
 ]
@@ -395,8 +396,9 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
   const stepOf = (field: string | null) =>
     ["name", "unit", "kind"].includes(field ?? "") ? 0
     : ["price_halalas", "vat_category", "vat_exemption_reason"].includes(field ?? "") ? 1
-    : ["supplier_code", "barcode", "category_id", "note"].includes(field ?? "") ? 2
-    : ["selling_price_halalas", "selling_price_includes_vat"].includes(field ?? "") ? 3 : 4
+    : ["supplier_code", "barcode"].includes(field ?? "") ? 2
+    : ["category_id", "note"].includes(field ?? "") ? 3
+    : ["selling_price_halalas", "selling_price_includes_vat"].includes(field ?? "") ? 4 : 5
 
   async function save() {
     const local = validate()
@@ -475,8 +477,8 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
       )}
     </GazeHost>
   )
-  const identity = (
-    <GazeHost>
+  const codeFields = (
+    <>
       <GazeSlot id="item-barcode">
         <Field label="الباركود" hint={gaze ? undefined : "8 أو 12–14 رقماً كما على العبوة."} error={error("barcode")}>
           <Input id="item-barcode" numeric inputMode="numeric" value={barcode} maxLength={14} onChange={(event) => setBarcode(event.target.value)} />
@@ -487,12 +489,22 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
           <Input id="item-supplier-code" dir="ltr" value={supplierCode} maxLength={20} onChange={(event) => setSupplierCode(event.target.value)} />
         </Field>
       </GazeSlot>
+    </>
+  )
+  const categoryFields = (
+    <>
       <Picker id="item-category" label="التصنيف" options={categoryOptions} value={category ?? ""} onValueChange={(value) => setCategory(value || null)} error={error("category_id")} />
       <GazeSlot id="item-note">
         <Field label="ملاحظة" error={error("note")} className="gaze:short:hidden">
           <Textarea id="item-note" rows={2} maxLength={200} value={note} onChange={(event) => setNote(event.target.value)} />
         </Field>
       </GazeSlot>
+    </>
+  )
+  const identity = (
+    <GazeHost>
+      {codeFields}
+      {categoryFields}
     </GazeHost>
   )
   const selling_ = (
@@ -502,7 +514,7 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
           <Input id="item-selling" numeric unit="ر.س" inputMode="decimal" value={selling} onChange={(event) => setSelling(event.target.value)} />
         </Field>
       </GazeSlot>
-      <GazeSlot id="item-selling-basis">
+      <GazeSlot id="item-selling-basis" field={false}>
         <RadioCards<"gross" | "net">
           label="سعر البيع"
           value={sellingIncludes}
@@ -564,7 +576,7 @@ export function ItemForm({ item, initialName = "", choices, categories, supplier
 
   if (gaze) {
     const last = step === ITEM_STEPS.length - 1
-    const views = [base, pricing, identity, selling_, ordering]
+    const views = [base, pricing, <GazeHost key="codes">{codeFields}</GazeHost>, <GazeHost key="category">{categoryFields}</GazeHost>, selling_, ordering]
     return (
       <Screen
         title={title}

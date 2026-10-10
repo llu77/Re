@@ -21,6 +21,7 @@ import pytest
 from psycopg import errors as pg_errors
 
 from eyework import assistant, clock, reviewer
+from eyework.ai_limits import ASSISTANT_PROMPT_VERSION
 from eyework.assistant_prompt import DONT_KNOW_TEXT
 from eyework.model_gateway import Guard
 from eyework.professions import Profession
@@ -377,7 +378,7 @@ def test_a_question_sends_the_screens_lines_and_closes_the_request_ok(assistant_
     (call,) = gateway.calls
     assert "حملاتك: 2 جاهزة" in call.user and "حقيبة جلدية" in call.user and "0551234567" not in call.user
     ((_, outcome, usage_json),) = assistant_db.params_of(assistant._FINISH)
-    assert outcome == "OK" and json.loads(usage_json)["prompt_version"] == "as-2026-10-09.1"
+    assert outcome == "OK" and json.loads(usage_json)["prompt_version"] == ASSISTANT_PROMPT_VERSION
 
 
 def test_dont_know_is_recorded_as_such_and_an_invalid_answer_fails_billable(assistant_db):

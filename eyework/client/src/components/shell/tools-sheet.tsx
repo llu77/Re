@@ -1,21 +1,19 @@
 /*
  * ToolsSheet — ورقة الأدوات
  * ========================
- * «أدواتٌ تساعد الموظف في أداء المهام»، من «الأدوات» في شريط التبويب أو الشريط الجانبي، في كل
- * شاشةٍ من البوابة. فيها أوّلاً ما تسجّله الشاشة الحالية من أدوات مهنتها (`context`، الأرجح
- * أوّلاً)، ثم أداتا البوابة المشتركتان:
- *   اسأل سيمبول      سؤالٌ إلى المساعد بسياق الشاشة وحده (POST /api/ai/assistant)
+ * «أدواتٌ تساعد الموظف في أداء المهام»، من «الأدوات» في شريط التبويب أو الشريط الجانبي (وفي الحجم
+ * الكبير على الهاتف من ورقة المحادثة)، في كل شاشةٍ من البوابة. فيها أوّلاً ما تسجّله الشاشة الحالية من
+ * أدوات مهنتها (`context`، الأرجح أوّلاً)، ثم أداة البوابة المشتركة:
  *   مساعدة           ما تفعله الشاشة، وكيف يعمل سيمبول، وبمن يُتّصل
- * لا أكثر: ما لم يطلبه المالك لا يُضاف. في الحجم الكبير أربع أدواتٍ في الصفحة و«السابقة»
- * و«التالية»: لا تمرير في الورقة. و«إغلاق» في ذيل الورقة، و«كل الأدوات» في بدايته يعود
- * إلى الشبكة.
+ * والسؤال إلى سيمبول من زرّه العائم (components/chat). لا أكثر: ما لم يطلبه المالك لا يُضاف. في الحجم
+ * الكبير أربع أدواتٍ في الصفحة و«السابقة» و«التالية»: لا تمرير في الورقة. و«إغلاق» في ذيل الورقة، و«كل
+ * الأدوات» في بدايته يعود إلى الشبكة.
  */
 
 import * as React from "react"
 import { CircleHelp, LayoutGrid, type LucideIcon } from "lucide-react"
 
 import { SymbolMark } from "@/components/brand/marks"
-import { AssistantTool, type AssistantApi } from "@/components/tools/assistant-tool"
 import { HelpTool } from "@/components/tools/help-tool"
 import { Button, BackIcon, NextIcon } from "@/components/ui/button"
 import { Sheet } from "@/components/ui/dialog"
@@ -35,20 +33,18 @@ export interface ToolEntry {
 
 export interface ToolsProps {
   workspace: Workspace
-  /** الشاشة الحالية (بند الرئيسية، أو "home"، أو null في «حسابي»): للمساعدة وسياق سيمبول. */
+  /** الشاشة الحالية (بند الرئيسية، أو "home"، أو null في «حسابي»): للمساعدة. */
   screen: string | null
-  userName: string | null
   onNavigate: (href: string) => void
   /** أدوات المهنة لهذه الشاشة، الأرجح أوّلاً (يسجّلها مسار المهنة). */
   context?: ToolEntry[]
-  assistant: AssistantApi
   /** بريد من يدير التطبيق (EYEWORK_SUPPORT_CONTACT)، أو null. */
   supportContact: string | null
 }
 
 const GAZE_PER_PAGE = 4
 
-export function ToolsSheet({ open, initialTool, onClose, workspace, screen, userName, onNavigate, context = [], assistant, supportContact }: ToolsProps & {
+export function ToolsSheet({ open, initialTool, onClose, workspace, screen, onNavigate, context = [], supportContact }: ToolsProps & {
   open: boolean
   /** تُفتح على أداةٍ بعينها (من الشريط الجانبي). */
   initialTool: string | null
@@ -60,13 +56,6 @@ export function ToolsSheet({ open, initialTool, onClose, workspace, screen, user
   const [page, setPage] = React.useState(0)
 
   const shared: ToolEntry[] = [
-    {
-      id: "assistant",
-      label: "اسأل سيمبول",
-      description: "سؤالٌ عن عملك، وجوابٌ تقرّر فيه",
-      icon: "symbol",
-      panel: () => <AssistantTool userName={userName} screen={screen} workspace={workspace} api={assistant} />,
-    },
     {
       id: "help",
       label: "مساعدة",

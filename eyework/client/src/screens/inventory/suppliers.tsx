@@ -7,13 +7,13 @@
  */
 
 import * as React from "react"
-import { PencilLine, Plus, Save, Truck, UserRound } from "lucide-react"
+import { PencilLine, Plus, Save, Truck } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { Slots } from "@/components/shell/slots"
 import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { BackIcon, Button } from "@/components/ui/button"
+import { BackIcon, Button, NextIcon } from "@/components/ui/button"
 import { DataTable } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Field, Input, Textarea } from "@/components/ui/input"
@@ -127,7 +127,7 @@ export function SupplierScreen({ supplier, onEdit, onAddRep, onEditRep, onBack }
           trailing={(rep) => (rep.is_default ? <Badge tone="info">الافتراضي</Badge> : rep.is_active ? null : <Badge>مؤرشف</Badge>)}
           onOpen={onEditRep}
           openLabel={(rep) => `عدّل المندوب ${rep.name}`}
-          pageSize={{ compact: 20, gaze: 3, gazeShort: 2 }}
+          pageSize={{ compact: 20, gaze: 2, gazeShort: 1 }}
           empty={<p className="text-small text-muted-foreground">لا مندوبين بعد: أضف اسم من يورّد لك ليظهر في الفاتورة.</p>}
         />
       </section>
@@ -227,7 +227,7 @@ export function SupplierForm({ supplier, initialName = "", onSave, onBack }: {
           </Field>
         </GazeSlot>
         {supplier ? (
-          <GazeSlot id="supplier-active">
+          <GazeSlot id="supplier-active" field={false}>
             <RadioCards<"yes" | "no">
               label="الحالة"
               value={active}
@@ -264,18 +264,26 @@ export function RepForm({ supplier, rep, onSave, onBack }: {
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<Fail>(null)
   const error = (field: string) => (fail?.field === field ? fail.message : null)
+  const gaze = useSize().size === "gaze"
+  // الحجم الكبير في التعديل جزآن: الاسم والجوال، ثم الافتراضي والحالة؛ والجديد بلا حالة يتّسع في صفحة.
+  const parted = gaze && rep !== null
+  const [part, setPart] = React.useState(0)
 
   async function save() {
     const trimmed = name.trim()
     if ([...trimmed].length < 2) {
       setFail({ message: "اكتب اسم المندوب.", field: "name" })
+      setPart(0)
       return
     }
     setBusy(true)
     setFail(null)
     const result = await onSave({ name: trimmed, mobile: mobile.trim() || null, is_default: isDefault === "yes", ...(rep ? { is_active: active === "yes" } : {}) })
     setBusy(false)
-    if (result) setFail(result)
+    if (result) {
+      setFail(result)
+      if (result.field === "name" || result.field === "mobile") setPart(0)
+    }
   }
 
   return (
@@ -286,14 +294,26 @@ export function RepForm({ supplier, rep, onSave, onBack }: {
         <Slots
           actions
           start={
-            <Button id="rep-back" icon={BackIcon} onClick={onBack}>
-              المورّد
-            </Button>
+            parted && part === 1 ? (
+              <Button id="rep-prev" icon={BackIcon} onClick={() => setPart(0)}>
+                الاسم والجوال
+              </Button>
+            ) : (
+              <Button id="rep-back" icon={BackIcon} onClick={onBack}>
+                المورّد
+              </Button>
+            )
           }
           end={
-            <Button id="rep-save" variant="primary" commit icon={Save} busy={busy} onClick={() => void save()}>
-              احفظ
-            </Button>
+            parted && part === 0 ? (
+              <Button id="rep-more" variant="secondary" iconEnd={NextIcon} onClick={() => setPart(1)}>
+                الافتراضي والحالة
+              </Button>
+            ) : (
+              <Button id="rep-save" variant="primary" commit icon={Save} busy={busy} onClick={() => void save()}>
+                احفظ
+              </Button>
+            )
           }
         />
       }
@@ -304,40 +324,51 @@ export function RepForm({ supplier, rep, onSave, onBack }: {
         </Alert>
       ) : null}
       <GazeHost>
-        <GazeSlot id="rep-name">
-          <Field label="اسم المندوب" error={error("name")} required>
-            <Input id="rep-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
-          </Field>
-        </GazeSlot>
-        <GazeSlot id="rep-mobile">
-          <Field label="الجوال" hint="05xxxxxxxx" error={error("mobile")}>
-            <Input id="rep-mobile" numeric inputMode="tel" value={mobile} maxLength={13} onChange={(event) => setMobile(event.target.value)} />
-          </Field>
-        </GazeSlot>
-        <GazeSlot id="rep-default">
-          <RadioCards<"yes" | "no">
-            label="الافتراضي في الفاتورة"
-            value={isDefault}
-            onValueChange={setIsDefault}
-            options={[
-              { value: "yes", title: "نعم", icon: UserRound },
-              { value: "no", title: "لا" },
-            ]}
-          />
-        </GazeSlot>
-        {rep ? (
-          <GazeSlot id="rep-active">
-            <RadioCards<"yes" | "no">
-              label="الحالة"
-              value={active}
-              onValueChange={setActive}
-              options={[
-                { value: "yes", title: "نشط" },
-                { value: "no", title: "مؤرشف" },
-              ]}
-            />
-          </GazeSlot>
-        ) : null}
+        {parted && part === 1 ? null : (
+          <>
+            <GazeSlot id="rep-name">
+              <Field label="اسم المندوب" error={error("name")} required>
+                <Input id="rep-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
+              </Field>
+            </GazeSlot>
+            <GazeSlot id="rep-mobile">
+              <Field label="الجوال" hint={gaze ? undefined : "05xxxxxxxx"} error={error("mobile")}>
+                <Input id="rep-mobile" numeric inputMode="tel" value={mobile} maxLength={13} onChange={(event) => setMobile(event.target.value)} />
+              </Field>
+            </GazeSlot>
+          </>
+        )}
+        {parted && part === 0 ? null : (
+          <>
+            {/* العنوان في البطاقة نفسها (لا «نعم» و«لا» بلا سؤال)، وبطاقتان في الصفّ في الحجم الكبير. */}
+            <GazeSlot id="rep-default" field={false}>
+              <RadioCards<"yes" | "no">
+                label="الافتراضي في الفاتورة"
+                value={isDefault}
+                onValueChange={setIsDefault}
+                gazeColumns={2}
+                options={[
+                  { value: "yes", title: "المندوب الافتراضي" },
+                  { value: "no", title: "ليس الافتراضي" },
+                ]}
+              />
+            </GazeSlot>
+            {rep ? (
+              <GazeSlot id="rep-active" field={false}>
+                <RadioCards<"yes" | "no">
+                  label="الحالة"
+                  value={active}
+                  onValueChange={setActive}
+                  gazeColumns={2}
+                  options={[
+                    { value: "yes", title: "نشط" },
+                    { value: "no", title: "مؤرشف" },
+                  ]}
+                />
+              </GazeSlot>
+            ) : null}
+          </>
+        )}
       </GazeHost>
     </Screen>
   )

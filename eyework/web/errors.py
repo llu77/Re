@@ -324,6 +324,7 @@ AI_INVALID: dict[str, ErrorSpec] = {
     "QUESTION": ErrorSpec(422, "QUESTION", "اكتب سؤالاً من 3 إلى 300 حرف."),
     "READY": ErrorSpec(422, "INVALID", "قيمةٌ غير صالحة في الطلب."),
     "SCREEN_ID": ErrorSpec(422, "INVALID", "هذه الشاشة تحتاج معرّفاً."),
+    "HISTORY": ErrorSpec(422, "INVALID", "في المحادثة السابقة ما لا يُرسل؛ ابدأ محادثةً جديدة."),
 }
 #: الفحص الحتمي لمسار العمل رفض الموضوع قبل المراجعة: الحقل يعود ليُفتح.
 AI_REVIEW_INVALID = ErrorSpec(422, "INVALID", "في العمل ما يُصلَح قبل المراجعة.")

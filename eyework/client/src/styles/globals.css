@@ -79,6 +79,8 @@
 
     --ctl: 2.5rem;           /* 40 — كل هدف */
     --ctl-lg: 2.75rem;       /* 44 — الزرّ الرئيسي */
+    --field: 2.5rem;         /* 40 — الحقل */
+    --hit-pad: 0rem;         /* باللمس شكل الهدف مساحته */
     --row: 2.75rem;          /* 44 — صفّ القائمة */
     --tg: 0.5rem;            /* 8 — بين هدفين */
     --tg-min: 0.5rem;        /* 8 */
@@ -88,38 +90,46 @@
     --icon: 1.125rem;        /* 18 */
     --tab: 3.75rem;          /* 60 — شريط التبويب السفلي (يُضاف إليه الحافّة الآمنة) */
     --bar: 2.75rem;          /* 44 — الصفّ العلوي («رجوع» والفعل الثانوي) */
+    --launcher: 3.5rem;      /* 56 — زرّ «اسأل سيمبول» العائم (44) وفجوته فوق الشريط: المحتوى ينتهي فوقه */
     --side: 15rem;           /* 240 — الشريط الجانبي في الآيباد والحاسوب */
     --radius: 0.75rem;       /* 12 */
     --radius-card: 1rem;     /* 16 */
   }
 
-  /* ── الحجم الكبير: بتتبّع العين ──────────────────────────────────────── */
+  /* ── الحجم الكبير: بتتبّع العين أو الرأس ─────────────────────────────── */
+  /* شكلٌ أصغر ومساحة إصابةٍ أكبر: الزرّ يُرسم 48px، ويُصاب في 72px — 12px خفيّة فوقه وتحته (`--hit-pad`،
+     القاعدة في @layer base أدناه). والنظر والرأس يختاران بأقرب عنصرٍ إلى المؤشّر («الانتقال إلى العنصر»)،
+     فما يفصل هدفين هو البُعد بين مركزيهما: 48 + 48 = 96px على الأقلّ، درجتان من 45 سم على هاتفٍ بعرض 390
+     (نحو 47px للدرجة)، وبين مساحتي الإصابة 24px لا تُصاب. والخطّ أصغر درجةً مما كان (16/14). */
   :root[data-size="gaze"] {
-    --fs-small: 0.9375rem;   /* 15 */
-    --fs-body: 1.0625rem;    /* 17 */
-    --fs-input: 1.0625rem;   /* 17 */
-    --fs-lead: 1.1875rem;    /* 19 */
-    --fs-title: 1.25rem;     /* 20 */
-    --fs-display: 1.5rem;    /* 24 */
-    --fs-value: 1.375rem;    /* 22 */
-    --fs-cap: 1.1875rem;     /* 19 — ما يُختبر بلا تمرير */
+    --fs-small: 0.875rem;    /* 14 */
+    --fs-body: 1rem;         /* 16 */
+    --fs-input: 1rem;        /* 16 — iOS لا يكبّر الصفحة عند التركيز */
+    --fs-lead: 1.125rem;     /* 18 */
+    --fs-title: 1.1875rem;   /* 19 */
+    --fs-display: 1.375rem;  /* 22 */
+    --fs-value: 1.25rem;     /* 20 */
+    --fs-cap: 1.125rem;      /* 18 — ما يُختبر بلا تمرير */
     --lh-small: 1.4;
     --lh-body: 1.5;
     --lh-lead: 1.4;
     --lh-title: 1.3;
     --lh-display: 1.2;
 
-    --ctl: 3rem;             /* 48 — حدّ Apple 44pt وأربعةٌ احتياطاً */
+    --ctl: 3rem;             /* 48 — شكل الهدف */
     --ctl-lg: 3rem;          /* 48 */
     --row: 3rem;             /* 48 */
-    --tg: 0.75rem;           /* 12 */
-    --tg-min: 0.75rem;       /* 12 — لا مسافة أقصر في هذا الحجم */
+    --hit-pad: 0.75rem;      /* 12 — مساحة إصابةٍ خفيّة فوق الشكل وتحته: 72 */
+    --field: 3.5rem;         /* 56 — الحقل: لا يحمل مساحةً خفيّة، فشكله مساحته */
+    --tg: 3rem;              /* 48 — بين هدفين (24 بين مساحتي الإصابة) */
+    --tg-min: 0.75rem;       /* 12 — بين نصّين، لا بين هدفين */
     --edge: 1rem;            /* 16 */
-    --sec: 1rem;             /* 16 */
+    --sec: 2.5rem;           /* 40 — آخر صفٍّ وشريط التبويب تحته هدفان أيضاً */
     --pad: 0.875rem;         /* 14 */
-    --icon: 1.25rem;         /* 20 */
-    --tab: 4rem;             /* 64 */
+    --icon: 1.125rem;        /* 18 */
+    --tab: 4.5rem;           /* 72 — بند الشريط مساحته كاملة */
     --bar: 3rem;             /* 48 */
+    --launcher: 0rem;        /* لا زرّ يطفو فوق المحتوى: سيمبول بندٌ في شريط التبويب أو السكّة */
     --side: 12rem;           /* 192 — سكّةٌ بالبنود الأربعة */
     --radius: 0.75rem;       /* 12 */
     --radius-card: 1rem;     /* 16 */
@@ -145,7 +155,7 @@
     text-size-adjust: 100%;
     /* الصفّ العلوي لاصقٌ في الحجم العادي: ما يُركَّز بلوحة المفاتيح لا يختفي تحته. */
     scroll-padding-block-start: calc(var(--bar) + var(--edge));
-    scroll-padding-block-end: calc(var(--tab) + var(--edge));
+    scroll-padding-block-end: calc(var(--tab) + var(--launcher) + var(--edge));
   }
 
   body {
@@ -186,6 +196,39 @@
     background: hsl(var(--background));
   }
 
+  /* الحجم الكبير بتتبّع العين أو الرأس: «نقرتان» تُربطان بحركة وجه تصلان ضغطتين لا تكبيراً للصفحة
+     (والتكبير بإصبعين باقٍ)، والثانية لا تُحسب (lib/repeat-press.ts). والضغط المطوّل من قائمة
+     AssistiveTouch على زرٍّ أو رابط لا يحدّد نصّه ولا يفتح قائمة الرابط؛ ونصّ المحتوى يبقى قابلاً للتحديد. */
+  :root[data-size="gaze"],
+  :root[data-size="gaze"] * {
+    touch-action: manipulation;
+  }
+  :root[data-size="gaze"] :is(button, a[href], label, [role="button"]) {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* مساحة الإصابة الخفيّة: كل هدفٍ في الحجم الكبير يُصاب 12px فوق شكله وتحته. الطبقة الأساسية فيُغلَب
+     `position` بأيّ أداةٍ تضبطه (`fixed`، `absolute`)؛ والإصابة بالنظر أو الرأس تقع على العنصر نفسه
+     (`::after` جزءٌ منه في الاختبار)، و«الانتقال إلى العنصر» يقصد إطاره المرسوم. */
+  :root[data-size="gaze"] :is(button, a[href], [role="button"], label[for]) {
+    position: relative;
+  }
+  :root[data-size="gaze"] :is(button, a[href], [role="button"], label[for])::after {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--hit-pad)) 0;
+  }
+
+  /* حقلٌ بعنوانه في عمودٍ في الحجم الكبير: عنوانه (24px) بينه وبين ما فوقه، فيكفي 28px فوقه لا فجوة هدفين (48).
+     وما فوقه حقلٌ (`data-field`) أو كتلةٌ معلَّمة (`data-block`: بطاقات، أو منتقٍ، أو زرٌّ بمساحته الخفيّة)، فمساحتا
+     الإصابة على بعد 24 على الأقل والمركزان على بعد 96 على الأقل. لا ما سواهما: عنوانٌ مخفيٌّ بصنفٍ قبل الحقل
+     يجعله أوّل العمود، فيرتفع فوق حدّه. والمخفيّ بالسمة لا يُعدّ، ولا ما في شبكة (حقلان في صفٍّ على خطٍّ واحد). */
+  :root[data-size="gaze"] .flex-col:is(.gap-tg, .gaze\:gap-tg) > :is([data-field], [data-block]):not([hidden]) + [data-field]:not([hidden]) {
+    margin-top: calc(1.75rem - var(--tg));
+  }
+
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -218,6 +261,14 @@
   .pb-tab {
     padding-bottom: calc(var(--tab) + var(--edge) + env(safe-area-inset-bottom));
   }
+  /* …وفوق زرّ «اسأل سيمبول» العائم فوقه: آخر المحتوى يُمرَّر فوق الزرّ لا تحته (الهاتف بحجم اللمس). */
+  .pb-tab-launcher {
+    padding-bottom: calc(var(--tab) + var(--launcher) + var(--edge) + env(safe-area-inset-bottom));
+  }
+  /* الآيباد والحاسوب بحجم اللمس: الزرّ العائم في الركن السفلي، بلا شريط تبويب. */
+  .pb-launcher {
+    padding-bottom: calc(var(--launcher) + max(var(--edge), env(safe-area-inset-bottom)));
+  }
   /* شاشةٌ تملأ ما بين رأس الصفحة وأسفلها في الحجم العادي («حسابي» وتأكيداه): شريط إجراءاتها في أسفل
      الشاشة دائماً، فما يقع تحت «رجوع» في التأكيد هو الزرّ الذي فُتح به، لا خيارٌ فوقه. ما يحيط بها
      (`--chrome`) يعلنه إطارها: البوابة فوقها `--sec` وتحتها شريط التبويب أو الحافّة الآمنة؛ والإطار
@@ -226,11 +277,11 @@
     min-height: calc(100dvh - var(--chrome, 0px));
   }
   .chrome-portal {
-    --chrome: calc(var(--sec) + var(--tab) + var(--edge) + env(safe-area-inset-bottom));
+    --chrome: calc(var(--sec) + var(--tab) + var(--launcher) + var(--edge) + env(safe-area-inset-bottom));
   }
   @media (min-width: 46.5rem) {
     .chrome-portal {
-      --chrome: calc(var(--sec) + max(var(--edge), env(safe-area-inset-bottom)));
+      --chrome: calc(var(--sec) + var(--launcher) + max(var(--edge), env(safe-area-inset-bottom)));
     }
   }
   .chrome-bare {

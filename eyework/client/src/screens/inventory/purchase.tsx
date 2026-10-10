@@ -229,20 +229,33 @@ function QuickItemCard({ name: initialName, choices, onCreate, onCancel, inBar, 
   inBar: boolean
   onBusy: (busy: boolean) => void
 }) {
+  const { size } = useSize()
+  const gaze = size === "gaze"
   const [name, setName] = React.useState(initialName)
   const [unit, setUnit] = React.useState<string | null>(null)
   const [price, setPrice] = React.useState("")
   const [vat, setVat] = React.useState("S")
   const [busy, setBusy] = React.useState(false)
   const [fail, setFail] = React.useState<string | null>(null)
+  // الحجم الكبير: صفحتان (الاسم والوحدة، ثم السعر والضريبة)؛ «أنشئ المنتج» في الشريط يرسلهما معاً.
+  const [page, setPage] = React.useState(0)
   const units = choices.units.filter((u) => u.code !== "SERVICE").map((u) => ({ value: u.code, label: u.name }))
 
   async function submit() {
     const trimmed = name.trim()
-    if ([...trimmed].length < 2) return setFail("اكتب اسم المنتج.")
-    if (!unit) return setFail("اختر الوحدة.")
+    if ([...trimmed].length < 2) {
+      setPage(0)
+      return setFail("اكتب اسم المنتج.")
+    }
+    if (!unit) {
+      setPage(0)
+      return setFail("اختر الوحدة.")
+    }
     const halalas = parseAmount(price)
-    if (halalas === null) return setFail("اكتب سعر الشراء للوحدة، مثل 45.50.")
+    if (halalas === null) {
+      setPage(1)
+      return setFail("اكتب سعر الشراء للوحدة، مثل 45.50.")
+    }
     setBusy(true)
     onBusy(true)
     setFail(null)
@@ -254,26 +267,47 @@ function QuickItemCard({ name: initialName, choices, onCreate, onCancel, inBar, 
 
   return (
     <form id="quick-item-form" noValidate aria-labelledby="quick-item" onSubmit={(event) => { event.preventDefault(); void submit() }}
-          className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:border-0 gaze:bg-transparent gaze:p-0">
+          className="flex flex-col gap-tg rounded-card border border-primary-line bg-secondary/40 p-pad gaze:min-h-0 gaze:flex-1 gaze:border-0 gaze:bg-transparent gaze:p-0">
       <h3 id="quick-item" className="text-lead font-semibold gaze:hidden">منتجٌ جديد بسعره</h3>
-      <GazeHost>
-        <GazeSlot id="quick-item-name">
-          <Field label="اسم المنتج" required>
-            <Input id="quick-item-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
-          </Field>
-        </GazeSlot>
-        <Picker id="quick-item-unit" label="الوحدة" options={units} value={unit} onValueChange={setUnit} required />
-        <GazeSlot id="quick-item-price">
-          <Field label="سعر الشراء للوحدة" required>
-            <Input id="quick-item-price" numeric unit="ر.س" inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} />
-          </Field>
-        </GazeSlot>
-        <Picker id="quick-item-vat" label="فئة الضريبة" options={choices.vat_categories.map((c) => ({ value: c.code, label: c.name }))} value={vat} onValueChange={setVat} />
+      <GazeHost className={gaze ? "flex-1" : undefined}>
+        {!gaze || page === 0 ? (
+          <>
+            <GazeSlot id="quick-item-name">
+              <Field label="اسم المنتج" required>
+                <Input id="quick-item-name" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
+              </Field>
+            </GazeSlot>
+            <Picker id="quick-item-unit" label="الوحدة" options={units} value={unit} onValueChange={setUnit} required />
+          </>
+        ) : null}
+        {!gaze || page === 1 ? (
+          <>
+            <GazeSlot id="quick-item-price">
+              <Field label="سعر الشراء للوحدة" required>
+                <Input id="quick-item-price" numeric unit="ر.س" inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} />
+              </Field>
+            </GazeSlot>
+            <Picker id="quick-item-vat" label="فئة الضريبة" options={choices.vat_categories.map((c) => ({ value: c.code, label: c.name }))} value={vat} onValueChange={setVat} />
+          </>
+        ) : null}
+        {gaze ? (
+          // في مكانه في الصفحتين: ما تحت النظر بعد الضغطة الزرّ نفسه. وفي أسفل المحتوى فوق الشريط: الخيار الذي يُختار
+          // من منتقٍ مفتوحٍ تحته أقرب إليه منه إلى «أنشئ المنتج» (الآيباد أفقياً: الخيارات تنزل بعيداً عن الحقل).
+          <GazeSlot id="quick-item-more" field={false} className="mt-auto">
+            <Button id="quick-item-more" width="full" icon={page === 1 ? BackIcon : undefined} iconEnd={page === 0 ? NextIcon : undefined} onClick={() => setPage(1 - page)}>
+              {page === 0 ? "السعر والضريبة" : "الاسم والوحدة"}
+            </Button>
+          </GazeSlot>
+        ) : null}
       </GazeHost>
       {fail ? (
-        <Alert tone="danger" title="لم يُنشأ المنتج" live>
-          {fail}
-        </Alert>
+        gaze ? (
+          <p role="alert" className="text-small font-semibold text-destructive">{fail}</p>
+        ) : (
+          <Alert tone="danger" title="لم يُنشأ المنتج" live>
+            {fail}
+          </Alert>
+        )
       ) : null}
       {inBar ? null : <div className="grid grid-cols-2 gap-tg">{quickButtons("item", "أنشئ المنتج", busy, onCancel)}</div>}
     </form>
@@ -327,6 +361,9 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const { size } = useSize()
   const gaze = size === "gaze"
   const [step, setStep] = React.useState(focusLine ? 3 : 0)
+  // الحجم الكبير: خطوتا الفاتورة والمبالغ صفحتان (حقلان أو بطاقتان في كلٍّ): ثلاثة صفوف أهدافٍ بمراكز 96 هي ما
+  // يتّسع في 320×635 تحت العنوان.
+  const [part, setPart] = React.useState(0)
   // رأس الفاتورة: نسخةٌ محلية تُحفظ حين تُغادَر حقولها (العادي) أو عند «التالي» (الكبير).
   const [supplier, setSupplier] = React.useState<ComboboxOption | null>(purchase.supplier ? { value: purchase.supplier.id, label: purchase.supplier.name } : null)
   const [supplierQuery, setSupplierQuery] = React.useState(purchase.supplier?.name ?? "")
@@ -344,8 +381,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   // الأسطر: المحفوظة من الخادم، وسطرٌ في اليد.
   const initialLine = focusLine ? purchase.lines.find((line) => line.line_no === focusLine) : undefined
   const [line, setLine] = React.useState<LineDraft>(initialLine ? lineDraft(initialLine) : EMPTY_LINE)
-  // في الحجم الكبير: حقول السطر صفحتان (الكمية والسعر، ثم الخصم وما وصل).
-  const [linePage, setLinePage] = React.useState<"main" | "more">("main")
+  // في الحجم الكبير: حقول السطر ثلاث صفحات (المنتج والكمية، ثم السعر والخصم، ثم ما وصل).
+  const [linePage, setLinePage] = React.useState<"main" | "price" | "more">("main")
   const [creatingItem, setCreatingItem] = React.useState<string | null>(null)
   const [quickBusy, setQuickBusy] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
@@ -359,10 +396,14 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   })()
 
   const error = (field: string) => (fail?.field === field ? fail.message : null)
-  // خطأ حقلٍ في صفحة السطر الأخرى يفتحها، فلا يبقى الخطأ مخفياً.
+  // خطأ حقلٍ في صفحةٍ أخرى من السطر أو الخطوة يفتحها، فلا يبقى الخطأ مخفياً.
   React.useEffect(() => {
-    if (fail?.field === "discount_halalas" || fail?.field === "received_quantity_milli") setLinePage("more")
-    else if (fail?.field === "quantity_milli" || fail?.field === "unit_price_halalas") setLinePage("main")
+    const field = fail?.field
+    if (field === "received_quantity_milli") setLinePage("more")
+    else if (field === "discount_halalas" || field === "unit_price_halalas") setLinePage("price")
+    else if (field === "quantity_milli" || field === "item_id") setLinePage("main")
+    else if (field === "supplier_invoice_no" || field === "invoice_date" || field === "printed_total_halalas" || field === "printed_vat_halalas") setPart(0)
+    else if (field === "received_on" || field === "delivery_note_no" || field === "prices_include_vat") setPart(1)
   }, [fail])
 
   /** يحفظ ما تغيّر من الرأس؛ ويعيد false إن رفض الخادم. */
@@ -464,7 +505,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
 
   /* ── الرأس ── */
   const supplierField = (
-    <GazeSlot id="purchase-supplier">
+    <GazeSlot id="purchase-supplier" field={creatingSupplier === null}>
       {creatingSupplier !== null ? (
         <QuickSupplierCard
           name={creatingSupplier}
@@ -537,7 +578,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const blur = () => {
     if (!gaze) void commitHeader()
   }
-  const invoiceFields = (
+  const invoiceMain = (
     <>
       <GazeSlot id="purchase-no">
         <Field label="رقم فاتورة المورّد" error={error("supplier_invoice_no")} required>
@@ -549,6 +590,10 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           <Input id="purchase-date" type="date" dir="ltr" value={invoiceDate} max={today} onChange={(event) => setInvoiceDate(event.target.value)} onBlur={blur} />
         </Field>
       </GazeSlot>
+    </>
+  )
+  const invoiceMore = (
+    <>
       <GazeSlot id="purchase-received">
         <Field label="تاريخ الاستلام" hint={gaze ? undefined : "إن خالف تاريخ الفاتورة."} error={error("received_on")}>
           <Input id="purchase-received" type="date" dir="ltr" value={receivedOn} max={today} onChange={(event) => setReceivedOn(event.target.value)} onBlur={blur} />
@@ -561,7 +606,13 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       </GazeSlot>
     </>
   )
-  const amountFields = (
+  const invoiceFields = (
+    <>
+      {invoiceMain}
+      {invoiceMore}
+    </>
+  )
+  const amountMain = (
     <>
       <GazeSlot id="purchase-printed">
         <Field label="الإجمالي المكتوب على الفاتورة" hint={gaze ? undefined : "شاملاً الضريبة؛ يُقارَن بمجموع الأسطر."} error={error("printed_total_halalas")} required>
@@ -573,7 +624,11 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           <Input id="purchase-printed-vat" numeric unit="ر.س" inputMode="decimal" value={printedVat} onChange={(event) => setPrintedVat(event.target.value)} onBlur={blur} />
         </Field>
       </GazeSlot>
-      <GazeSlot id="purchase-basis">
+    </>
+  )
+  const amountBasis = (
+    <>
+      <GazeSlot id="purchase-basis" field={false}>
         <RadioCards<"net" | "gross">
           label="أسعار الأسطر في هذه الفاتورة"
           value={basis}
@@ -588,6 +643,12 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           ]}
         />
       </GazeSlot>
+    </>
+  )
+  const amountFields = (
+    <>
+      {amountMain}
+      {amountBasis}
     </>
   )
 
@@ -609,6 +670,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
     />
   ) : (
     <GazeHost>
+      {/* الحجم الكبير: المنتج في صفحة السطر الأولى، واسمه تحت العنوان في الصفحتين الأخريين. */}
+      {!gaze || linePage === "main" ? (
       <GazeSlot id="line-item">
         <Field id="line-item" label={line.lineNo === null ? "المنتج" : `المنتج (السطر ${line.lineNo})`} error={error("item_id")} required>
           <Combobox
@@ -629,42 +692,37 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           />
         </Field>
       </GazeSlot>
+      ) : null}
       {!gaze || linePage === "main" ? (
+        <GazeSlot id="line-quantity">
+          <Field label="الكمية" error={error("quantity_milli")} required>
+            <Input id="line-quantity" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.quantity} onChange={(event) => setLine((current) => ({ ...current, quantity: event.target.value }))} />
+          </Field>
+        </GazeSlot>
+      ) : null}
+      {!gaze || linePage === "price" ? (
         <>
-          <GazeSlot id="line-quantity">
-            <Field label="الكمية" error={error("quantity_milli")} required>
-              <Input id="line-quantity" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.quantity} onChange={(event) => setLine((current) => ({ ...current, quantity: event.target.value }))} />
-            </Field>
-          </GazeSlot>
           <GazeSlot id="line-price">
             <Field label={basis === "gross" ? "سعر الوحدة شاملاً" : "سعر الوحدة قبل الضريبة"} error={error("unit_price_halalas")} required>
               <Input id="line-price" numeric unit="ر.س" inputMode="decimal" value={line.price} onChange={(event) => setLine((current) => ({ ...current, price: event.target.value }))} />
             </Field>
           </GazeSlot>
-        </>
-      ) : null}
-      {/* الخصم وما وصل اختياريان. في الحجم الكبير يحلّان محلّ الكمية والسعر بزرّ «الخصم وما وصل» في مكانه نفسه، فلا تزيد الخطوة على 12 هدفاً ولا تتجاوز أقصر الهواتف. */}
-      {!gaze || linePage === "more" ? (
-        <>
           <GazeSlot id="line-discount">
             <Field label="خصم السطر" hint={gaze ? undefined : "مبلغٌ مطبوعٌ على السطر يُطرح منه؛ يُترك فارغاً إن لم يكن."} error={error("discount_halalas")}>
               <Input id="line-discount" numeric unit="ر.س" inputMode="decimal" value={line.discount} onChange={(event) => setLine((current) => ({ ...current, discount: event.target.value }))} />
             </Field>
           </GazeSlot>
+        </>
+      ) : null}
+      {/* الخصم وما وصل اختياريان. في الحجم الكبير ثلاث صفحاتٍ لا يزيد كلٌّ منها على حقلين وصفّ أزرار (أقصر الهواتف). */}
+      {!gaze || linePage === "more" ? (
+        <>
           <GazeSlot id="line-received">
             <Field label="ما وصل فعلاً" hint={gaze ? undefined : "يُترك فارغاً إن وصل كلّه."} error={error("received_quantity_milli")}>
               <Input id="line-received" numeric inputMode={decimals ? "decimal" : "numeric"} value={line.received} onChange={(event) => setLine((current) => ({ ...current, received: event.target.value }))} />
             </Field>
           </GazeSlot>
         </>
-      ) : null}
-      {gaze ? (
-        <GazeSlot id="line-more">
-          <Button id="line-more" className="w-full" icon={linePage === "more" ? BackIcon : undefined} iconEnd={linePage === "main" ? NextIcon : undefined}
-                  onClick={() => setLinePage((current) => (current === "main" ? "more" : "main"))}>
-            {linePage === "main" ? "الخصم وما وصل" : "الكمية والسعر"}
-          </Button>
-        </GazeSlot>
       ) : null}
     </GazeHost>
   )
@@ -716,14 +774,40 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
       setLinePage("main")
       if (target) onItemQuery("")
     }
+    // الخطوتان 1 و2 صفحتان: «التالي» إلى الثانية ثم إلى الخطوة التالية، و«السابق» بالعكس.
+    const PARTS = ["", "الاستلام", "الأسعار"]
+    const PART_BACK = ["", "الفاتورة", "المبالغ"]
+    const parted = step === 1 || step === 2
     const nextStep = async () => {
-      if (await commitHeader()) setStep(step + 1)
+      if (!(await commitHeader())) return
+      if (parted && part === 0) setPart(1)
+      else {
+        setStep(step + 1)
+        setPart(0)
+      }
     }
+    const prevStep = () => {
+      if (parted && part === 1) setPart(0)
+      else if (step === 3 && linePage !== "main") setLinePage(linePage === "more" ? "price" : "main")
+      else {
+        setPart(step - 1 === 1 || step - 1 === 2 ? 1 : 0)
+        setStep(step - 1)
+      }
+    }
+    const prevLabel = parted && part === 1 ? PART_BACK[step]
+      : step === 3 && linePage !== "main" ? (linePage === "more" ? "السعر والخصم" : "المنتج والكمية")
+      : step === 0 ? "الرئيسية" : step === 3 && index > 0 ? "السطر السابق" : step - 1 === 1 || step - 1 === 2 ? PARTS[step - 1] : STEPS[step - 1].label
     const title = step === 0 ? "المورّد" : step === 1 ? "فاتورة المورّد" : step === 2 ? "المبالغ" : creatingItem !== null ? "منتجٌ جديد" : line.lineNo === null ? `سطرٌ جديد (${savedLines.length + 1})` : `السطر ${line.lineNo} من ${savedLines.length}`
     return (
       <Screen
         title={title}
-        description={step === 3 && !creatingItem && savedLines.length ? <span>الإجمالي حتى الآن <Money halalas={totals.gross} className="font-semibold text-foreground" /></span> : undefined}
+        description={
+          step === 3 && !creatingItem && linePage !== "main" && line.item ? (
+            <span className="block truncate">{line.item.label}</span>
+          ) : step === 3 && !creatingItem && savedLines.length ? (
+            <span>الإجمالي حتى الآن <Money halalas={totals.gross} className="font-semibold text-foreground" /></span>
+          ) : undefined
+        }
         // حذف المسودة في الخطوة الأولى كما في الحجم العادي: لا تبقى مسودةٌ لا تُحذف (والحدّ عشرون).
         end={step === 0 && creatingItem === null && creatingSupplier === null ? { id: "purchase-discard", label: "احذف المسودة", danger: true, icon: Trash, onClick: () => setDiscarding(true) } : undefined}
         // خطوة الأسطر على الهواتف القصيرة: يكفي عنوانها («سطرٌ جديد (1)»)، فيتّسع السطر لحقوله وزرّ «الخصم وما وصل».
@@ -732,12 +816,13 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           creatingSupplier !== null ? quickButtons("supplier", "أنشئ المورّد", quickBusy, () => setCreatingSupplier(null))
           : creatingItem !== null ? quickButtons("item", "أنشئ المنتج", quickBusy, () => setCreatingItem(null)) : (
             <>
-              <Button id="purchase-prev" icon={BackIcon} busy={busy === "header"} onClick={step === 0 ? onBack : step === 3 && index > 0 ? () => void goToLine(index - 1) : () => setStep(step - 1)}>
-                {step === 0 ? "الرئيسية" : step === 3 && index > 0 ? "السطر السابق" : STEPS[step - 1].label}
+              <Button id="purchase-prev" icon={BackIcon} busy={busy === "header"}
+                      onClick={step === 0 ? onBack : step === 3 && linePage === "main" && index > 0 ? () => void goToLine(index - 1) : prevStep}>
+                {prevLabel}
               </Button>
               {step < 3 ? (
                 <Button id="purchase-next" variant="secondary" iconEnd={NextIcon} busy={busy === "header"} onClick={() => void nextStep()}>
-                  {STEPS[step + 1].label}
+                  {parted && part === 0 ? PARTS[step] : STEPS[step + 1].label}
                 </Button>
               ) : (
                 <Button id="purchase-review" variant="secondary" icon={ClipboardCheck} busy={busy !== null} onClick={() => void review()}>
@@ -755,9 +840,9 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
             {repField}
           </GazeHost>
         ) : step === 1 ? (
-          <GazeHost>{invoiceFields}</GazeHost>
+          <GazeHost>{part === 0 ? invoiceMain : invoiceMore}</GazeHost>
         ) : step === 2 ? (
-          <GazeHost>{amountFields}</GazeHost>
+          <GazeHost>{part === 0 ? amountMain : amountBasis}</GazeHost>
         ) : (
           <>
             {lineEditor}
@@ -772,10 +857,17 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
                     احذف السطر
                   </Button>
                 )}
-                <Button id="line-next" iconEnd={NextIcon} disabled={line.lineNo === null && !lineDirty && savedLines.length === 0} busy={busy === "line"}
-                        onClick={() => void goToLine(line.lineNo === null ? savedLines.length : index + 1)}>
-                  {index < savedLines.length - 1 || (line.lineNo !== null && index === savedLines.length - 1) ? (index === savedLines.length - 1 ? "سطرٌ جديد" : "السطر التالي") : "احفظ وسطرٌ جديد"}
-                </Button>
+                {/* صفحات السطر: «التالي» في هذه الخانة إلى صفحته التالية، وفي الأخيرة إلى السطر التالي. */}
+                {linePage !== "more" ? (
+                  <Button id="line-more" iconEnd={NextIcon} onClick={() => setLinePage(linePage === "main" ? "price" : "more")}>
+                    {linePage === "main" ? "السعر والخصم" : "ما وصل فعلاً"}
+                  </Button>
+                ) : (
+                  <Button id="line-next" iconEnd={NextIcon} disabled={line.lineNo === null && !lineDirty && savedLines.length === 0} busy={busy === "line"}
+                          onClick={() => void goToLine(line.lineNo === null ? savedLines.length : index + 1)}>
+                    {index < savedLines.length - 1 || (line.lineNo !== null && index === savedLines.length - 1) ? (index === savedLines.length - 1 ? "سطرٌ جديد" : "السطر التالي") : "احفظ وسطرٌ جديد"}
+                  </Button>
+                )}
               </div>
             )}
           </>

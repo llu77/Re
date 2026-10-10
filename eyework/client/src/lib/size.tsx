@@ -15,6 +15,8 @@
 
 import * as React from "react"
 
+import { guardRepeatPresses } from "@/lib/repeat-press"
+
 export type SizeMode = "compact" | "gaze"
 export const SIZE_MODES: readonly SizeMode[] = ["compact", "gaze"]
 
@@ -55,6 +57,8 @@ export function SizeProvider({ initial, children }: { initial: SizeMode; childre
   const [size, setSize] = React.useState<SizeMode>(initial)
   // قبل الرسم: لا إطار واحدٌ بالحجم الخطأ.
   React.useLayoutEffect(() => applySize(size), [size])
+  // في الحجم الكبير لا تُحسب «النقرة الثانية» من النظر أو الرأس (lib/repeat-press.ts).
+  React.useEffect(() => (size === "gaze" ? guardRepeatPresses() : undefined), [size])
   const value = React.useMemo(() => ({ size, setSize }), [size])
   return <SizeContext.Provider value={value}>{children}</SizeContext.Provider>
 }
@@ -88,8 +92,9 @@ export function useShortScreen(): boolean {
  * الحجم نفسه، فيعرض الجدول ما أرسله الخادم بالضبط: لو طلبت الحاوية عشرين والجدول يعرض ثلاثة في الحجم الكبير لقُصّ
  * الباقي ولجاءت الصفحة الثانية فارغة.
  */
-export const LIST_PAGE = { compact: 10, gaze: 3, gazeShort: 2 }
-export const LONG_LIST_PAGE = { compact: 20, gaze: 3, gazeShort: 2 }
+// الحجم الكبير: صفّان يُفتحان في الصفحة، بينهما فجوة هدفين (DataTable)، ومعهما أزرار الصفحات وما فوقهما في 320×635.
+export const LIST_PAGE = { compact: 10, gaze: 2, gazeShort: 1 }
+export const LONG_LIST_PAGE = { compact: 20, gaze: 2, gazeShort: 1 }
 
 /** حجم صفحة قائمةٍ يقسّمها الخادم؛ وإن تغيّر (لوحة المفاتيح تقصّر الشاشة في الحجم الكبير) تعود القائمة إلى أوّل صفحة. */
 export function useServerPage(sizes: { compact: number; gaze: number; gazeShort?: number }, setPage: (page: number) => void): number {

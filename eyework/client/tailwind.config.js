@@ -33,6 +33,7 @@ const sizes = {
   bar: "var(--bar)",
   tab: "var(--tab)",
   side: "var(--side)",
+  field: "var(--field)",
 }
 
 /** @type {import('tailwindcss').Config} */

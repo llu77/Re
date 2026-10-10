@@ -16,7 +16,7 @@
 
 import * as React from "react"
 
-import { assistantApi, navigate } from "@/app/workspace"
+import { chatApi, navigate } from "@/app/workspace"
 import { Redirect } from "@/components/redirect"
 import { WorkspaceShell } from "@/components/shell/workspace-shell"
 import { Notice } from "@/components/ui/notice"
@@ -564,11 +564,8 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
         current={current}
         userName={me.display_name}
         onNavigate={navigate}
-        tools={{
-          userName: me.display_name,
-          assistant: assistantApi(me, choices, id ? "CAMPAIGN" : "HOME", id),
-          supportContact: choices.support_contact,
-        }}
+        tools={{ supportContact: choices.support_contact }}
+        chat={chatApi(me, choices, id ? "CAMPAIGN" : "HOME", id)}
         pane={pane}
       >
         {content}

@@ -22,9 +22,11 @@ import { AIFlag } from "@/components/ui/ai-flag"
 import { Alert } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { BackIcon, Button, NextIcon } from "@/components/ui/button"
+import { ChoiceStepper } from "@/components/ui/choice-stepper"
 import { PagedText } from "@/components/ui/paged-text"
 import { DISMISS_REASON, DISMISSED_REASON, REPLY_KIND, type AiFlag, type DismissReason, type ReleaseVia, type ReviewAnswer, type RuleFlag, type Ticket } from "@/lib/support"
 import { useSize } from "@/lib/size"
+import { cn } from "@/lib/utils"
 import { GazeHost, Picker } from "@/screens/inventory/common"
 
 import type { Fail } from "./common"
@@ -75,7 +77,10 @@ export function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
     setFail(result)
   }
   return (
-    <section role="group" aria-label={flag.message} data-flag-status={open ? "open" : "acknowledged"} className={open ? "flex flex-col gap-tg rounded-card border border-warning-line bg-warning-tint p-pad" : "flex flex-col gap-tg rounded-card border border-border bg-muted p-pad"}>
+    // الحجم الكبير: حشوٌ أصغر وبين النصوص 8، فتتّسع الرسالة وسببها والقراران والمنتقي في أضيق هاتف؛ وبين القرارين
+    // والمنتقي فجوة هدفين (المضيف).
+    <section role="group" aria-label={flag.message} data-flag-status={open ? "open" : "acknowledged"}
+      className={cn("flex flex-col gap-tg rounded-card border p-pad gaze:gap-2 gaze:px-3 gaze:py-2.5", open ? "border-warning-line bg-warning-tint" : "border-border bg-muted")}>
       {/* في الحجم الكبير عنوان الشاشة «تنبيه 1 من 2»، والسبب ثلاثة أسطرٍ على الأكثر: ارتفاع البطاقة محدود مهما طال
           الاقتباس، فتتّسع خيارات «سبب المتابعة» تحتها في أقصر الهواتف. */}
       <p className="text-small font-bold gaze:hidden">تنبيه</p>
@@ -86,13 +91,25 @@ export function RuleFlagCard({ flag, gaze, onAck, onEdit }: {
         // في الحجم الكبير القراران فوق المنتقي: خياراته تُفتح تحته، فما يقع عليه النظر بعد اختيار السبب هو
         // المنتقي نفسه لا «تابع رغم ذلك».
         <GazeHost className={gaze ? "flex-col-reverse" : undefined}>
-          <Picker
-            id={`flag-reason-${flag.id}`}
-            label="سبب المتابعة"
-            options={(Object.keys(DISMISS_REASON) as DismissReason[]).map((code) => ({ value: code, label: DISMISS_REASON[code] }))}
-            value={reason}
-            onValueChange={(value) => setReason(value as DismissReason)}
-          />
+          {gaze ? (
+            // الحجم الكبير: الأسباب تُقلَّب في مكانها (لا قائمةٌ تنفتح تحت البطاقة ولا مكان لها في 635px).
+            <ChoiceStepper
+              id={`flag-reason-${flag.id}`}
+              label="سبب المتابعة"
+              options={(Object.keys(DISMISS_REASON) as DismissReason[]).map((code) => ({ value: code, label: DISMISS_REASON[code] }))}
+              value={reason}
+              onChange={setReason}
+              emptyLabel="اختر السبب"
+            />
+          ) : (
+            <Picker
+              id={`flag-reason-${flag.id}`}
+              label="سبب المتابعة"
+              options={(Object.keys(DISMISS_REASON) as DismissReason[]).map((code) => ({ value: code, label: DISMISS_REASON[code] }))}
+              value={reason}
+              onValueChange={(value) => setReason(value as DismissReason)}
+            />
+          )}
           <div className={gaze ? "grid grid-cols-2 gap-tg" : "flex flex-wrap gap-tg"}>
             <Button id={`flag-edit-${flag.id}`} variant="secondary" icon={PencilLine} onClick={onEdit}>
               عدّل
@@ -195,18 +212,24 @@ export function ReplyScreen(props: ReplyScreenProps) {
     <Button id="reply-review-again" icon={RefreshCw} onClick={onReviewAgain}>أعد المراجعة</Button>
   ) : null
   const body = gaze ? <PagedText text={reply.body} label="الردّ" perPage={{ gaze: 240, gazeShort: 120 }} /> : <p className="text-flow whitespace-pre-line rounded-card border border-border bg-card p-pad">{reply.body}</p>
+  // الحجم الكبير: أزرار الإرسال شبكةٌ بعمودين (24 بينهما)، فثلاثتها في صفّين؛ و«انسخ الردّ» وحده بعرض الصفّ.
+  const gazeGrid = "grid grid-cols-2 gap-x-6 gap-y-tg"
+  const copyAlone = !spoken && !canShare
   const sendButtons = (
-    <div className="flex flex-col gap-tg tablet:flex-row tablet:flex-wrap">
+    <div className={gaze ? gazeGrid : "flex flex-col gap-tg tablet:flex-row tablet:flex-wrap"}>
       {spoken ? (
         <Button id="reply-script" variant="secondary" icon={Mic} disabled={blocked} onClick={() => setReading(true)}>
           اقرأه للعميل
         </Button>
       ) : null}
-      <Button id="reply-copy" variant="primary" size="lg" commit icon={Copy} busy={busy === "copy"} disabled={blocked} onClick={() => void copy()}>
+      <Button id="reply-copy" variant="primary" size="lg" commit icon={Copy} busy={busy === "copy"} disabled={blocked} onClick={() => void copy()}
+              className={gaze && copyAlone ? "col-span-2" : undefined}>
         انسخ الردّ
       </Button>
       {canShare ? (
-        <Button id="reply-share" commit icon={Share2} busy={busy === "share"} disabled={blocked} onClick={() => void share()}>
+        // الثالث وحده في صفّه بعرضه كلّه: لا خانةٌ فارغةٌ بجانبه يقع النظر فيها أقرب إلى «لا، لم أرسله».
+        <Button id="reply-share" commit icon={Share2} busy={busy === "share"} disabled={blocked} onClick={() => void share()}
+                className={gaze && spoken ? "col-span-2" : undefined}>
           شارك الردّ
         </Button>
       ) : null}
@@ -232,28 +255,30 @@ export function ReplyScreen(props: ReplyScreenProps) {
   // أطلقت الردّ — نسخاً أو مشاركةً أو قراءة، أو «أكّد الإرسال» من التذكرة — تقع على زرٍّ لا يعتمد شيئاً، و«نعم،
   // أرسلته» و«لا، لم أرسله» في أسفل المحتوى بعيداً عنها.
   const againButtons = (
-    <div className="flex flex-col gap-tg">
+    <div className={gazeGrid}>
       {spoken ? (
         <Button id="reply-script-again" variant="secondary" icon={Mic} onClick={() => setReading(true)}>
-          اقرأه مرةً أخرى
+          اقرأه ثانيةً
         </Button>
       ) : null}
-      <Button id="reply-copy-again" size="lg" icon={Copy} onClick={() => void copyAgain()}>
-        انسخه مرةً أخرى
+      <Button id="reply-copy-again" size="lg" icon={Copy} onClick={() => void copyAgain()} className={copyAlone ? "col-span-2" : undefined}>
+        {copyAlone ? "انسخه مرةً أخرى" : "انسخه ثانيةً"}
       </Button>
       {canShare ? (
-        <Button id="reply-share-again" icon={Share2} onClick={() => void shareAgain()}>
-          شاركه مرةً أخرى
+        <Button id="reply-share-again" icon={Share2} onClick={() => void shareAgain()} className={spoken ? "col-span-2" : undefined}>
+          شاركه ثانيةً
         </Button>
       ) : null}
     </div>
   )
+  // الحجم الكبير: الخطأ سطرٌ لا بطاقة، فلا يدفع ما تحته خارج الشاشة.
+  const failLine = fail ? <p role="alert" className="text-small font-semibold text-destructive">{fail.message}</p> : null
+  // السؤال عنوان الشاشة في الحجم الكبير.
   const gazeConfirm = (
     <>
       {againButtons}
-      <p className="text-lead font-semibold">هل أرسلتَ الردّ إلى العميل؟</p>
-      {fail ? <Alert tone="danger" title="لم يتمّ" live>{fail.message}</Alert> : null}
-      <div className="mt-auto grid grid-cols-2 gap-tg">
+      {failLine}
+      <div className="mt-auto grid grid-cols-2 gap-x-6">
         <Button id="reply-sent" variant="primary" size="lg" commit icon={CheckCircle2} busy={busy === "sent"} onClick={() => void run("sent", () => onConfirm(true))}>
           نعم، أرسلته
         </Button>
@@ -303,7 +328,7 @@ export function ReplyScreen(props: ReplyScreenProps) {
   if (gaze) {
     if (released) {
       return (
-        <Screen title="تأكيد الإرسال" above={badges} actions={<><Button id="reply-back" icon={BackIcon} onClick={onBack}>التذكرة</Button><span aria-hidden="true" /></>}>
+        <Screen title="هل أرسلتَ الردّ إلى العميل؟" above={badges} actions={<><Button id="reply-back" icon={BackIcon} onClick={onBack}>التذكرة</Button><span aria-hidden="true" /></>}>
           {gazeConfirm}
         </Screen>
       )
@@ -320,6 +345,8 @@ export function ReplyScreen(props: ReplyScreenProps) {
     return (
       <Screen
         title={at.id === "send" ? "انسخ الردّ وأرسله" : isFlag ? `تنبيه ${flagIndex + 1} من ${cards.length}` : "الردّ كما سيصل"}
+        // صفحة النسخ: حال المراجعة سطر الوصف، فتبقى للأزرار صفوفها.
+        description={at.id === "send" && line ? <span role="status">{line}</span> : undefined}
         above={badges}
         actions={
           <>
@@ -337,12 +364,14 @@ export function ReplyScreen(props: ReplyScreenProps) {
         {at.id === "send" ? (
           <>
             {sendButtons}
-            {failAlert}
-            {statusLine}
-            {again}
-            <Button id="reply-withdraw" icon={Undo2} busy={busy === "edit"} onClick={() => void run("edit", onEdit)}>
-              عدّل الردّ
-            </Button>
+            {failLine}
+            {/* في أسفل المحتوى، حيث «نعم، أرسلته» و«لا» في صفحة التأكيد بعدها: ما فوقه أزرار الإرسال وحدها. */}
+            <div className="mt-auto grid grid-cols-2 gap-x-6">
+              <Button id="reply-withdraw" icon={Undo2} busy={busy === "edit"} onClick={() => void run("edit", onEdit)}>
+                عدّل الردّ
+              </Button>
+              {again ?? <span aria-hidden="true" />}
+            </div>
           </>
         ) : (
           at.body

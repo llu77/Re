@@ -13,14 +13,15 @@
  * والزرّ في أسفل بطاقته والبطاقتان فوقه، فما يقع تحت موضعه بعد التبديل جزءٌ من البطاقة
  * نفسها أو نصّ، لا زرٌّ يعتمد (يقيسه tools/shoot.py). والخروج والحذف في آخر الشاشة.
  *
- * تخطيطٌ واحد للحجمين (الحزمة 2ج): صفّ الملف، ثم بطاقة «طريقة الاستخدام» ببطاقتيها الراديويتين
- * و«طبّق»، ثم «المصادر»، ثم صفّ الخروج والحذف في أسفل الشاشة. في الحجم الكبير عشرة أهدافٍ مع شريط
- * التبويب. والشاشة تملأ ما فوق الشريط في الحجم العادي أيضاً (`fill`) فيقع «رجوع» في التأكيد على
- * الزرّ الذي فُتح به لا على خيارٍ فوقه.
+ * باللمس صفحةٌ واحدة: صفّ الملف، ثم بطاقة «طريقة الاستخدام» ببطاقتيها الراديويتين و«طبّق»، ثم
+ * «المصادر»، ثم صفّ الخروج والحذف في أسفل الشاشة. وفي الحجم الكبير صفحتان (بفجوة 40 بين الأهداف لا
+ * تتّسع واحدة في 320×635): «حسابي» بالاسم والمهنة سطراً تحت العنوان، و«طريقة الاستخدام: …» و«المصادر»
+ * وصفّ الخروج والحذف؛ و«طريقة الاستخدام» بالبطاقتين و«طبّق» في أسفلها و«رجوع» في أعلاها. والشاشة تملأ ما
+ * فوق الشريط في الحجمين (`fill`) فيقع «رجوع» في التأكيد على الزرّ الذي فُتح به لا على خيارٍ فوقه.
  */
 
 import * as React from "react"
-import { BookOpen, Check, Hand, LogOut, ScanEye, Trash2 } from "lucide-react"
+import { BookOpen, Check, Hand, LogOut, ScanEye, SlidersHorizontal, Trash2 } from "lucide-react"
 
 import { Screen } from "@/components/shell/screen"
 import { Alert } from "@/components/ui/alert"
@@ -32,7 +33,7 @@ import { useSize, type SizeMode } from "@/lib/size"
 export interface AccountProps {
   name: string | null
   profession: string
-  /** «باللمس» و«بتتبّع العين» من /api/choices (`ui_sizes`). */
+  /** «باللمس» و«بالعين أو بالرأس» من /api/choices (`ui_sizes`). */
   sizeNames: Record<SizeMode, string>
   /** يرسل الحجم إلى الخادم؛ رسالة الخطأ أو null. */
   saveSize: (mode: SizeMode) => Promise<string | null>
@@ -49,6 +50,9 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [applied, setApplied] = React.useState(false)
+  // في الحجم الكبير صفحتان: «حسابي» بأزرارٍ أربعة، و«طريقة الاستخدام» بالخيارين و«طبّق». الصفحة الواحدة
+  // لا تتّسع بفجوة 40 بين الأهداف في 320×635.
+  const [sizePage, setSizePage] = React.useState(false)
 
   async function apply() {
     setBusy(true)
@@ -132,6 +136,40 @@ export function AccountScreen({ name, profession, sizeNames, saveSize, onSources
       </Button>
     </div>
   )
+
+  if (gaze && sizePage) {
+    // الخياران و«طبّق» في أسفل الصفحة، وموضع «طريقة الاستخدام» في «حسابي» (أعلاها) نصٌّ هنا لا خيار.
+    return (
+      <Screen
+        title="طريقة الاستخدام"
+        description={`الحالية: ${SIZE_NAMES[size]}. تُحفظ مع حسابك.`}
+        back={{ id: "account-size-back", label: "رجوع", onClick: () => setSizePage(false) }}
+        fill
+      >
+        <div className="mt-auto flex flex-col gap-tg">
+          {choices}
+          {failure}
+          <div className="grid grid-cols-2 items-center gap-tg">
+            {applyButton}
+            <p role="status" className="text-small text-muted-foreground">
+              {applied ? "حُفظت في حسابك." : "تُحفظ في حسابك لا في هذا الجهاز."}
+            </p>
+          </div>
+        </div>
+      </Screen>
+    )
+  }
+
+  if (gaze) {
+    return (
+      <Screen title="حسابي" description={`${name ?? "بلا اسم"} · المهنة: ${profession}`} fill actions={leaving}>
+        <Button id="account-size" width="full" icon={SlidersHorizontal} onClick={() => setSizePage(true)} className="justify-between">
+          <span className="min-w-0 truncate">طريقة الاستخدام: {SIZE_NAMES[size]}</span>
+        </Button>
+        {sources}
+      </Screen>
+    )
+  }
 
   return (
     <Screen title="حسابي" fill actions={leaving}>
