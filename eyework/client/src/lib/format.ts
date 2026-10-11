@@ -29,6 +29,11 @@ export function formatAgo(iso: string, now: string): string {
   return days === 1 ? "منذ يوم" : days === 2 ? "منذ يومين" : `منذ ${days} ${days <= 10 ? "أيام" : "يوماً"}`
 }
 
+/** عدد الأحرف بالعربية: «8 أحرف»، «12 حرفاً». */
+export function letters(n: number): string {
+  return countLabel(n, "حرفٌ واحد", "حرفان", "أحرف", "حرفاً")
+}
+
 /** العدّ بالعربية: «3 أصناف»، «صنفٌ واحد»، «صنفان». */
 export function countLabel(n: number, one: string, two: string, few: string, many: string): string {
   if (n === 1) return one

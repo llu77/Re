@@ -6,7 +6,8 @@
 و«الأدوات» و«مساعدة» وحسابي، والزرّ العائم في الركن؛ وفي الحجم الكبير لا شيء يطفو: «سيمبول» وسط شريط
 التبويب وفي السكّة، و«الأدوات» من ورقته (اثنا عشر هدفاً على الأكثر). ورقة الأدوات للتسويق «مساعدة» وحدها: السؤال
 إلى سيمبول من زرّه (test_chat.py). والشريط السفلي يختفي ما دام حقلٌ مركَّزاً فلا يركب لوحة المفاتيح؛
-وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة. وشعار المالك عنوان الترحيب، وفي أوّل رأس كل صفحة.
+وفي العريض بحجم اللمس تُعرض «حملاتي» بجانب الحملة. وشعار المالك عنوان الترحيب، وفي وسط رأس كل صفحة؛ والهدف تحت المؤشّر
+يستجيب له.
 """
 
 from __future__ import annotations
@@ -51,8 +52,8 @@ def _header(page) -> dict:
 def test_the_owners_logo_heads_every_page_and_names_the_welcome(next_page, server, owner, size):
     """
     الشعار كما سلّمه المالك، صورةٌ من الأصل نفسه، في رأس الصفحة كما في المواقع الاحترافية: شريطٌ بعرض الشاشة في أعلاها
-    والشعار في أوّله بعد الحافّة (40، و32 في الحجم الكبير)، فوق العنوان لا في سطره، في الدخول وفي البوابة. والترحيب بلا
-    رأس: الشعار عنوانه في وسطه (72) واسمه «Symbol Work». ولا شعار في عنوان الورقة.
+    والشعار في وسطه (طلب المالك: «اللوجو في المنتصف في كل مكان»؛ 40، و32 في الحجم الكبير)، فوق العنوان لا في سطره، في
+    الدخول وفي البوابة. والترحيب بلا رأس: الشعار عنوانه في وسطه (72) واسمه «Symbol Work». ولا شعار في عنوان الورقة.
     """
     height = 32 if size == "gaze" else 40
     page = next_page(size=size)
@@ -66,8 +67,10 @@ def test_the_owners_logo_heads_every_page_and_names_the_welcome(next_page, serve
     flow.press("#welcome-login", lambda: flow.screen("input[name='username']"), "ادخل")
     head = _header(page)
     assert (head["width"], head["top"]) == (head["screen"], 0)
-    assert head["logo"] == {"origin": True, "height": height, "alt": "", "hidden": "true", "centred": False, "start": 16}
+    assert {key: head["logo"][key] for key in ("origin", "height", "alt", "hidden", "centred")} == {
+        "origin": True, "height": height, "alt": "", "hidden": "true", "centred": True}
     assert page.locator("h1 img").count() == 0
+    assert page.eval_on_selector("h1", "(e) => [e.textContent.trim(), getComputedStyle(e).textAlign]") == ["تسجيل الدخول", "center"]
     flow.audit("sign-in-header")
     member(owner, size="GAZE" if size == "gaze" else "COMPACT")
     home = next_page(login=LOGIN)
@@ -76,7 +79,8 @@ def test_the_owners_logo_heads_every_page_and_names_the_welcome(next_page, serve
     flow.screen("[aria-label='ابدأ عملاً']")
     head = _header(home)
     assert (head["width"], head["top"]) == (head["screen"], 0)
-    assert head["logo"] == {"origin": True, "height": height, "alt": "", "hidden": "true", "centred": False, "start": 16}
+    assert {key: head["logo"][key] for key in ("origin", "height", "alt", "hidden", "centred")} == {
+        "origin": True, "height": height, "alt": "", "hidden": "true", "centred": True}
     assert home.locator("h1 img").count() == 0
     assert head["bottom"] <= home.eval_on_selector("h1", "(e) => e.getBoundingClientRect().top")
     flow.audit("home-header")
@@ -86,6 +90,53 @@ def test_the_owners_logo_heads_every_page_and_names_the_welcome(next_page, serve
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
     assert not home.errors, home.errors
+
+
+@pytest.mark.parametrize("size", ["compact", "gaze"])
+def test_the_logo_stays_centred_beside_back_on_the_narrowest_phone(next_page, server, size):
+    """
+    في خطوات التسجيل يحمل الرأس «رجوع» في أوّله، كما في صفّ شاشات البوابة، والشعار باقٍ في الوسط لا يمسّه الزرّ؛
+    على أضيق إطار (320) بالحجمين، والإطار كلّه يجتاز عقد النظر.
+    """
+    page = next_page(320, 635, size=size)
+    flow = Flow(page)
+    page.goto(page.next)
+    flow.screen("#welcome-signup")
+    flow.press("#welcome-signup", lambda: flow.screen("#notice-next"), "أنشئ حساباً")
+    logo = _logo(page, "[data-app-header]")
+    assert logo["centred"], logo
+    boxes = page.eval_on_selector("[data-app-header]", """(h) => {
+        const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.right]; };
+        return { back: box(h.querySelector('button')), logo: box(h.querySelector('img')), screen: innerWidth };
+    }""")
+    assert boxes["back"][0] >= boxes["logo"][1], boxes
+    assert boxes["screen"] - boxes["back"][1] >= 15.5, boxes
+    flow.audit("notice-header-320")
+    assert not flow.failures(), "\n".join(flow.failures())
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", ["compact", "gaze"])
+def test_targets_answer_the_pointer(next_page, server, owner, size):
+    """
+    طلب المالك: استجابة الأزرار للمؤشّر. في الحجم الكبير يُحاط الهدف تحت مؤشّر النظر أو الرأس بإطار التركيز قبل أن
+    يُضغط، فيُرى ما سيُضغط؛ وفي الحجمين يُرى الهدف مضغوطاً لحظة الضغط، والمؤشّر يدٌ فوق الزرّ.
+    """
+    member(owner, size="GAZE" if size == "gaze" else "COMPACT")
+    page = next_page(login=LOGIN)
+    page.goto(page.next)
+    Flow(page).screen("#home-new")
+    target = page.locator("#home-new")
+    target.hover()
+    style = target.evaluate("(e) => { const s = getComputedStyle(e); return [s.outlineStyle, s.outlineWidth, s.cursor]; }")
+    assert style[2] == "pointer"
+    assert (style[0], style[1]) == (("solid", "3px") if size == "gaze" else ("none", style[1])), style
+    page.mouse.down()
+    assert target.evaluate("(e) => getComputedStyle(e).filter") == "brightness(0.92)"
+    page.mouse.move(1, 1)
+    page.mouse.up()
+    assert page.locator("#home-new").count() == 1, "الضغط الذي يغادر الزرّ قبل رفعه لا يفتح شيئاً"
+    assert not page.errors, page.errors
 
 
 def test_the_home_buttons_are_safe_links_that_open_the_campaign_tool(next_page, server, owner):
@@ -242,7 +293,8 @@ def test_on_gaze_a_double_tap_never_zooms_and_a_long_press_never_selects_a_label
     """
     تتبّع الرأس والعين في iOS يضغطان بمكوثٍ أو بحركة وجه، وقد تُربط حركةٌ بـ«نقرتين» أو بالضغط المطوّل من قائمة
     AssistiveTouch. في الحجم الكبير: النقرتان ضغطتان لا تكبيرٌ للصفحة (التكبير بإصبعين باقٍ)، والضغط المطوّل على زرٍّ
-    أو رابطٍ لا يحدّد نصّه ولا يفتح قائمة الرابط؛ ونصّ المحتوى يبقى قابلاً للتحديد. والحجم العادي كما هو.
+    أو رابطٍ لا يحدّد نصّه ولا يفتح قائمة الرابط؛ ونصّ المحتوى يبقى قابلاً للتحديد. وفي الحجم العادي تبقى الصفحة كما هي
+    (النقرتان خارج الأهداف تكبّرانها)، والأهداف وحدها لا تنتظر النقرة الثانية.
     """
     page = next_page(390, 664, size=size)
     page.goto(page.next)
@@ -265,5 +317,6 @@ def test_on_gaze_a_double_tap_never_zooms_and_a_long_press_never_selects_a_label
         assert styles["buttonSelect"] == "none", styles
         assert styles["buttonCallout"] in (None, "none"), styles  # Chromium لا يعرف الخاصّية؛ WebKit يعرفها
     else:
-        assert styles["root"] == styles["button"] == "auto", styles
+        assert styles["root"] == "auto", styles
+        assert styles["button"] == "manipulation", styles
     assert styles["text"] != "none", styles

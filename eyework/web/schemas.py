@@ -126,7 +126,7 @@ class RegisterBody(_Body):
     """
 
     code: SignupCode | None = None
-    name: Annotated[StrictStr, Field(min_length=1, max_length=60)]
+    name: Annotated[StrictStr, Field(min_length=1, max_length=120)]
     birth_date: Annotated[StrictStr, Field(min_length=10, max_length=10)]
     email: Annotated[StrictStr, Field(min_length=LOGIN_MIN, max_length=EMAIL_MAX)]
     password: Annotated[StrictStr, Field(min_length=1, max_length=PASSWORD_MAX)]

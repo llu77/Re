@@ -229,7 +229,7 @@ CONSTRAINTS: dict[str, ErrorSpec] = {
 
 #: ليس قيداً: بوّابة الموافقة (`web/deps.require_current_terms`). لا يُرسَل شيءٌ إلى
 #: مزوّد النموذج لمن لم يوافق على النسخة الحالية من «قبل أن تبدأ».
-TERMS_REQUIRED = ErrorSpec(403, "TERMS", "تغيّر ما يُرسَل إلى Anthropic منذ وافقت. اقرأه ووافق عليه أولاً.")
+TERMS_REQUIRED = ErrorSpec(403, "TERMS", "تغيّر ما يُرسَل إلى مزوّد النموذج منذ وافقت. اقرأه ووافق عليه أولاً.")
 
 GENERIC = ErrorSpec(422, "CONSTRAINT", "الطلب يخالف قيداً. راجع القيم وحاول مرة أخرى.")
 
@@ -284,11 +284,11 @@ EDIT_REQUEST: dict[str, ErrorSpec] = {
 
 #: التسجيل: لكل حقلٍ رسالته، فتعود الواجهة إلى خطوته.
 REGISTRATION: dict[str, ErrorSpec] = {
-    "NAME": ErrorSpec(422, "REGISTER_INVALID", "الاسم: حروفٌ عربية أو لاتينية فقط، حتى 30 حرفاً."),
+    "NAME": ErrorSpec(422, "REGISTER_INVALID", "الاسم: حروفٌ عربية أو لاتينية فقط، حتى 60 حرفاً."),
     "BIRTH": ErrorSpec(422, "REGISTER_INVALID", "تاريخ الميلاد غير صحيح أو لم يأتِ بعد. اختر السنة والشهر واليوم من جديد."),
     "CONSENT": ErrorSpec(422, "REGISTER_INVALID", "الموافقة على الإشعار مطلوبة لإنشاء الحساب."),
     "EMAIL": ErrorSpec(422, "REGISTER_INVALID", "البريد غير صحيح. مثال: name@example.com"),
-    "PASSWORD": ErrorSpec(422, "REGISTER_INVALID", "كلمة المرور من 12 حرفاً على الأقل."),
+    "PASSWORD": ErrorSpec(422, "REGISTER_INVALID", "كلمة المرور من 8 أحرف على الأقل."),
     "TAKEN": ErrorSpec(409, "REGISTER_TAKEN",
                        "يوجد حسابٌ بهذا البريد. ادخل به، أو اكتب بريداً آخر."),
     "CODE": ErrorSpec(410, "REGISTER_CODE",

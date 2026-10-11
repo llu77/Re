@@ -81,8 +81,8 @@ __all__ = [
 ]
 
 LOGIN_MIN, LOGIN_MAX = 3, 320
-#: اثنا عشر حرفاً على الأقل. اقتراح Safari نفسه عشرون.
-PASSWORD_MIN, PASSWORD_MAX = 12, 256
+#: ثمانية أحرفٍ على الأقل (طلب المالك 2026-10-11: الكتابة بالنظر بطيئة). اقتراح Safari نفسه عشرون.
+PASSWORD_MIN, PASSWORD_MAX = 8, 256
 
 _LOOKUP = "SELECT user_id, password_hash FROM ew_login_lookup(%s)"
 _OPEN = "SELECT ew_open_session(%s, %s)"
@@ -103,8 +103,8 @@ _TERMS = "SELECT ew_my_terms_version() AS version"
 _ACCEPT_TERMS = "SELECT ew_accept_terms(%s)"
 _DELETE_ME = "SELECT ew_delete_me()"
 
-#: نظير القيد display_name_shape (0003): حروفٌ عربية ولاتينية ومسافاتٌ مفردة.
-NAME_MAX = 30
+#: نظير القيد display_name_shape (0003، ووسّعه 0012 للاسم الكامل): حروفٌ عربية ولاتينية ومسافاتٌ مفردة.
+NAME_MAX = 60
 _NAME = re.compile(r"^[ء-غف-يa-zA-Z]+( [ء-غف-يa-zA-Z]+)*$")
 #: بريدٌ بحروفٍ لاتينية بسيطة بعد التوحيد — نظير شرط اسم الدخول في أداة المشغّل.
 EMAIL_MAX = 254

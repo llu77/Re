@@ -53,13 +53,13 @@ def test_the_app_still_cannot_read_the_users_table(app, two_users):
         cursor.execute("SELECT display_name FROM users")
 
 
-@pytest.mark.parametrize("value", ["عمر", "Omar Ali", "عبد الله", "ا" * 30])
+@pytest.mark.parametrize("value", ["عمر", "Omar Ali", "عبد الله", "ا" * 30, "عبد الرحمن عبد العزيز عبد الله الدوسري", "ا" * 60])
 def test_a_name_people_are_called_by_is_accepted(owner, value):
     user = make_user(owner, login=b"named")
     _name(owner, user, value)
 
 
-@pytest.mark.parametrize("value", ["", " عمر", "عمر ", "عبد  الله", "عمر1", "عُمر", "ـعمر", "o@x", "ا" * 31])
+@pytest.mark.parametrize("value", ["", " عمر", "عمر ", "عبد  الله", "عمر1", "عُمر", "ـعمر", "o@x", "ا" * 61])
 def test_anything_else_is_refused(owner, value):
     user = make_user(owner, login=b"named")
     with pytest.raises(errors.CheckViolation) as caught:

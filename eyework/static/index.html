@@ -77,7 +77,7 @@
             <div class="field-group">
                 <label class="label" for="activate-password">كلمة مرورٍ جديدة</label>
                 <input class="field" id="activate-password" name="password" type="password"
-                       autocomplete="new-password" minlength="12" maxlength="128"
+                       autocomplete="new-password" minlength="8" maxlength="128"
                        passwordrules="minlength: 20; required: lower; required: upper; required: digit;" required>
             </div>
             <button class="btn btn--commit spaced" type="submit" data-commit>فعّل حسابي</button>
@@ -98,7 +98,7 @@
         <div class="content">
             <h2 tabindex="-1">قبل أن تبدأ</h2>
             <p class="line">يُحفظ في هذا التطبيق: الاسم، وتاريخ الميلاد، والمهنة، وكلمة المرور مجزّأة، وبصمة البريد لا البريد، فلا يصله شيء ولا يُستردّ الحساب به.</p>
-            <p class="line">في بوابة التسويق تُرسَل صورة المنتج ونصّه، دون الاسم والميلاد، إلى Anthropic خارج المملكة للصياغة، وتحذفها خلال 30 يوماً إلا ما تُبقيه سياستها أو القانون.</p>
+            <p class="line">في بوابة التسويق تُرسَل صورة المنتج ونصّه، دون الاسم والميلاد، إلى مزوّد النموذج خارج المملكة للصياغة، ويحذفها خلال 30 يوماً إلا ما تُبقيه سياسته أو القانون.</p>
             <p class="line">تحذف حسابك وبياناته متى شئت، أو يحذفه بطلبك مَن أعطاك الرابط إن أُوقف أو نسيت كلمة مرورك؛ والنسخ الاحتياطية الأقدم تبقى حتى تُحذف.</p>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
         </div>
@@ -114,10 +114,10 @@
             <div class="slot"></div>
         </header>
         <form class="content" id="signup-name-form" novalidate>
-            <h2 tabindex="-1">الاسم الذي يناديك به سيمبول</h2>
+            <h2 tabindex="-1">الاسم الكامل</h2>
             <div class="field-group">
-                <label class="label" for="signup-name-input">الاسم الأول يكفي، حتى 30 حرفاً</label>
-                <input class="field" id="signup-name-input" type="text" autocomplete="given-name"
+                <label class="label" for="signup-name-input">حتى 60 حرفاً</label>
+                <input class="field" id="signup-name-input" type="text" autocomplete="name"
                        autocapitalize="words" enterkeyhint="next" maxlength="60" required>
             </div>
             <div class="alert" role="alert" hidden><p class="alert__text"></p><button class="btn" type="button" data-ack data-safe>حسناً</button></div>
@@ -265,9 +265,9 @@
                        dir="ltr" readonly>
             </div>
             <div class="field-group">
-                <label class="label" for="signup-password-input">كلمة مرورٍ جديدة، 12 حرفاً على الأقل</label>
+                <label class="label" for="signup-password-input">كلمة مرورٍ جديدة، 8 أحرف على الأقل</label>
                 <input class="field" id="signup-password-input" name="password" type="password"
-                       autocomplete="new-password" minlength="12" maxlength="128" enterkeyhint="done"
+                       autocomplete="new-password" minlength="8" maxlength="128" enterkeyhint="done"
                        passwordrules="minlength: 20; required: lower; required: upper; required: digit;" required>
             </div>
             <button class="btn btn--commit spaced" type="submit" id="signup-create" data-commit>أنشئ حسابي</button>

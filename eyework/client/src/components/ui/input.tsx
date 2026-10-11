@@ -34,6 +34,9 @@ export function useFieldControl() {
   const describedBy = [field.hintId, field.errorId].filter(Boolean).join(" ") || undefined
   return {
     id: field.id,
+    // الاسم من التسمية وإن حمل الحقل معرّفه الخاص (`id` الحقل يغلب معرّف `Field`، فلا تصله `htmlFor`). ومعرّف
+    // التسمية يبدأ بـ`label-` لا بمعرّف الحقل: ما يبحث بأوّل المعرّف (`[id^="flag-reason-"]`) يجد الحقل وحده.
+    "aria-labelledby": `label-${field.id}`,
     "aria-describedby": describedBy,
     "aria-invalid": field.invalid || undefined,
     "aria-required": field.required || undefined,
@@ -66,7 +69,9 @@ export function Field({ label, hint, error, required = false, reserve = false, i
   return (
     <FieldContext.Provider value={value}>
       <div data-field="" className={cn("flex min-w-0 flex-col gap-1", className)}>
-        <Label htmlFor={controlId}>{label}</Label>
+        <Label id={`label-${controlId}`} htmlFor={controlId}>
+          {label}
+        </Label>
         {children}
         {hint ? (
           <p id={value.hintId} className="text-small text-muted-foreground">

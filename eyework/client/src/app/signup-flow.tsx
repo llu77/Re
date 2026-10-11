@@ -20,6 +20,7 @@ import { Notice } from "@/components/ui/notice"
 import { RadioCards } from "@/components/ui/radio-cards"
 import { Stepper } from "@/components/ui/stepper"
 import { api, detail, errorCode, errorField } from "@/lib/api"
+import { letters } from "@/lib/format"
 import { go, reload } from "@/lib/router"
 import {
   DAY_PRESETS, FIELD_SCREENS, MONTHS, MONTH_PRESETS, SCREEN_ORDER, SIGNUP_STEPS, STEP_LABELS, YEAR_PRESETS,
@@ -104,10 +105,10 @@ function NameStep({ s, nameMax, onBack }: { s: SignupState; nameMax: number; onB
     go(screenRoute("year"))
   }
   return (
-    <StepFrame screen="name" title="الاسم الذي يناديك به سيمبول" onBack={onBack} next={<NextButton id="signup-name-next" form="signup-name-form" />}>
+    <StepFrame screen="name" title="الاسم الكامل" onBack={onBack} next={<NextButton id="signup-name-next" form="signup-name-form" />}>
       <form id="signup-name-form" noValidate onSubmit={submit} className="flex flex-col gap-tg">
-        <Field label={`الاسم الأول يكفي، حتى ${nameMax} حرفاً`} error={error ?? undefined}>
-          <Input id="signup-name-input" type="text" autoComplete="given-name" autoCapitalize="words" enterKeyHint="next" maxLength={60} value={value} onChange={(event) => setValue(event.target.value)} />
+        <Field label={<span className="sr-only">الاسم الكامل</span>} error={error ?? undefined}>
+          <Input id="signup-name-input" type="text" autoComplete="name" autoCapitalize="words" enterKeyHint="next" maxLength={nameMax} value={value} onChange={(event) => setValue(event.target.value)} />
         </Field>
       </form>
     </StepFrame>
@@ -256,7 +257,7 @@ function PasswordStep({ s, choices, onBack, onFailure }: {
     event.preventDefault()
     if (busy || getState().busy) return
     if (password.length < min) {
-      setError(`كلمة المرور من ${min} حرفاً على الأقل.`)
+      setError(`كلمة المرور من ${letters(min)} على الأقل.`)
       return
     }
     setError(null)
@@ -307,7 +308,7 @@ function PasswordStep({ s, choices, onBack, onFailure }: {
         <Field label="اسم الدخول">
           <Input id="signup-password-login" dir="ltr" type="email" name="username" autoComplete="username" value={s.email} readOnly />
         </Field>
-        <Field label={`كلمة مرورٍ جديدة، ${min} حرفاً على الأقل`} error={error ?? undefined}>
+        <Field label={`كلمة مرورٍ جديدة، ${letters(min)} على الأقل`} error={error ?? undefined}>
           <Input
             id="signup-password-input"
             dir="ltr"

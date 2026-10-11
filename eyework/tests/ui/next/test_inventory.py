@@ -177,6 +177,9 @@ def _review_and_post(flow: Flow, name: str) -> None:
     flow.press("#purchase-review", lambda: flow.screen("[data-flag-status]"), "راجِع وسجّل")
     flow.until("document.querySelectorAll('[data-flag-status]').length >= 1")
     flow.until("!document.querySelector('#review-status') || !document.querySelector('#review-status').textContent.includes('يراجع')")
+    if not gaze:
+        # ملاحظة سيمبول تصل بعد تنبيه القاعدة، وقد يسبقها فحص سطر المراجعة قبل أن يظهر: تُنتظر البطاقتان معاً.
+        flow.until("document.querySelectorAll('[data-flag-status]').length === 2")
     _audit(flow, "review")
     if gaze:
         # تنبيهٌ في كل شاشة: قرارٌ ثم «التالي»؛ وآخرها شاشة التسجيل.

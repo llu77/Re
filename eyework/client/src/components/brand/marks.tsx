@@ -3,7 +3,7 @@
  * ===============
  * Logo: شعار «Symbol Work» كما سلّمه المالك، بتصميمه وخطّه نفسيهما (الكلمتان بحدٍّ أسود والمكبّرة وفيها الشخص):
  * الصورة نفسها، قُصّت إلى حدودها وصار ما حولها من البياض شفّافاً، وبقي بياض الحروف والعدسة كما هو. مكانه كما في
- * المواقع الاحترافية (طلب المالك): رأس الصفحة (`AppHeader`)، شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته والشعار في أوّله
+ * المواقع الاحترافية (طلب المالك): رأس الصفحة (`AppHeader`)، شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته والشعار في وسطه
  * (40، و32 في الحجم الكبير)، في كل صفحةٍ على الهاتف وفي ما قبل الدخول؛ وفي الآيباد والحاسوب رأس الشريط الجانبي
  * (rail)؛ وفي الترحيب عنوانه في وسطه (hero). لا في سطر العنوان ولا في الأوراق. صورتان بحجمين (96 و240 بكسل
  * ارتفاعاً)، يختار المتصفّح منهما ما يكفي كثافة الشاشة. الاسم لا يذكر النظر ولا العين ولا الإعاقة
@@ -42,17 +42,24 @@ export function Logo({ size = "header", className, decorative = true }: { size?:
 }
 
 /**
- * رأس الصفحة: شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته، والشعار في أوّله؛ وفي آخره فعل الصفحة الوحيد إن كان
- * («رجوع» في خطوات التسجيل). يمرّ مع الصفحة، فيلتصق صفّها العلوي («رجوع» والفعل الآخر) بأعلى الشاشة وحده.
+ * رأس الصفحة: شريطٌ أبيض بعرض الشاشة بخطٍّ رفيعٍ تحته، والشعار في وسطه (طلب المالك: «اللوجو في المنتصف في كل
+ * مكان»)؛ وعلى جانبيه فعل الصفحة إن كان: «رجوع» في أوّله كما في صفّ شاشات البوابة، و«حجمٌ أكبر» وحده في آخره. عمودا
+ * الجانبين متساويان، فيبقى الشعار في الوسط بفعلٍ أو بلا فعل. يمرّ مع الصفحة، فيلتصق صفّها العلوي بأعلى الشاشة وحده.
  * والرأس الذي يحمل فعلاً هو في الحجم الكبير بارتفاع الهدف ومساحة إصابته الخفيّة فوقه وتحته (72)، فلا يقصّها أعلى
  * الشاشة؛ وبلا فعلٍ 48.
  */
-export function AppHeader({ end, className }: { end?: React.ReactNode; className?: string }) {
+export function AppHeader({ start, end, className }: { start?: React.ReactNode; end?: React.ReactNode; className?: string }) {
   return (
     <header data-app-header="" className={cn("shrink-0 border-b border-border bg-card pt-[env(safe-area-inset-top)]", className)}>
-      <div className={cn("mx-auto flex h-header max-w-content items-center justify-between gap-tg px-edge", end && "gaze:h-[calc(var(--tg)+2*var(--hit-pad))]")}>
+      <div
+        className={cn(
+          "mx-auto grid h-header max-w-content grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-edge",
+          (start || end) && "gaze:h-[calc(var(--tg)+2*var(--hit-pad))]",
+        )}
+      >
+        <div className="flex min-w-0 justify-start">{start ?? null}</div>
         <Logo />
-        {end ?? null}
+        <div className="flex min-w-0 justify-end">{end ?? null}</div>
       </div>
     </header>
   )
