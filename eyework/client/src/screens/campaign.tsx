@@ -83,8 +83,12 @@ function ChoiceGroup({ id, label, items, otherLabel, firstLabel, numeric = false
   numeric?: boolean
 }) {
   const { size } = useSize()
-  const [page, setPage] = React.useState(0)
   const paged = size === "gaze" && items.length > 4
+  // على صفحة المختار: «رجوع» من المراجعة يُظهر المدّة التي اختيرت مضغوطةً وإن كانت في الثلاثة الأخرى.
+  const [page, setPage] = React.useState(() => {
+    const chosen = items.findIndex((item) => item.pressed)
+    return paged && chosen >= 0 ? Math.floor(chosen / 3) : 0
+  })
   const pages = paged ? Math.ceil(items.length / 3) : 1
   const current = Math.min(page, pages - 1)
   const shown = paged ? items.slice(current * 3, current * 3 + 3) : items

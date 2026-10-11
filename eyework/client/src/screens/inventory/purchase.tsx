@@ -638,11 +638,13 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           label="أسعار الأسطر في هذه الفاتورة"
           value={basis}
           onValueChange={(value) => {
+            // في الحجم الكبير لا يتبدّل الأساس وحفظ الضغطة السابقة قائم: ما يُحفظ هو ما يُرى.
+            if (gaze && busy !== null) return
             setBasis(value)
             if (!gaze) void onHeader({ prices_include_vat: value === "gross" }).then(setFail)
           }}
           // تحت الخيارين في السطر حقولٌ وأزرارٌ آمنة، و«احفظ السطر» معطّلٌ حتى يُختار منتج.
-          onPress={gaze ? (value) => void chooseBasis(value) : undefined}
+          onPress={gaze ? (value) => { if (busy === null) void chooseBasis(value) } : undefined}
           ids={{ net: "purchase-basis-net", gross: "purchase-basis-gross" }}
           options={[
             { value: "net", title: "قبل الضريبة" },
@@ -840,7 +842,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           )
         }
       >
-        {failAlert}
+        {/* أساس الأسعار يُختار بضغطةٍ في المحتوى: ما لم يُحفظ يُقال تحت البطاقتين فلا تتحرّكا تحت النظر. */}
+        {step === 2 && part === 1 ? null : failAlert}
         {step === 0 ? (
           <GazeHost>
             {supplierField}
@@ -849,7 +852,10 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
         ) : step === 1 ? (
           <GazeHost>{part === 0 ? invoiceMain : invoiceMore}</GazeHost>
         ) : step === 2 ? (
-          <GazeHost>{part === 0 ? amountMain : amountBasis}</GazeHost>
+          <>
+            <GazeHost>{part === 0 ? amountMain : amountBasis}</GazeHost>
+            {part === 1 ? failAlert : null}
+          </>
         ) : (
           <>
             {lineEditor}
