@@ -12,6 +12,7 @@
     python -m eyework.admin deactivate --login ali@example.sa
     python -m eyework.admin delete-user --login ali@example.sa --confirm-delete-all-data
     python -m eyework.admin purge
+    python -m eyework.admin seed-demo --login ali@example.sa
 
 **الدعوة رابطٌ يُطبع، لا يُرسل.** لا بريد يخرج من التطبيق ولا يُخزَّن: المشغّل
 يسلّم الرابط بنفسه، ويحفظ صلة الاسم بصاحبه خارج النظام. والرمز في جزء
@@ -28,6 +29,10 @@
 وما بقي فيه مفتوحاً ساعةً انقطعت عمليّته يُغلق `ABANDONED` محسوباً — وتنبيهات
 المراجِع التي لم يُعتمد عملها بعد ثلاثين يوماً؛ أما التنبيه المعتمد فيبقى مع
 موضوعه وقراراته.
+
+**البيانات التجريبية.** `seed-demo` يضع في الحساب ما يُجرَّب به بحسب مهنته (`demo_data.py`): تذاكر مفتوحة
+ومقالاتٍ للدعم الفني، ومنتجاتٍ ومورّدين ورصيداً وفواتير لأمين المخزون. يعمل بدور التطبيق
+(`EYEWORK_APP_DATABASE_URL`) وبهوية صاحب الحساب، فيمرّ بدوالّ التطبيق وسياسات العزل كأنه أدخلها بيده.
 
 **التسجيل المفتوح.** حين يكون `EYEWORK_REGISTRATION=open` يُنشئ الزائر حسابه
 بنفسه من المسار `/api/auth/register` بلا رمز، فلا يعرفه المشغّل. بريده غير
@@ -66,7 +71,8 @@ import sys
 
 import psycopg
 
-from eyework import auth, config
+from eyework import auth, config, demo_data
+from eyework.db import Database, UnsafeRole
 from eyework.professions import NAMES, Profession
 
 __all__ = ["main"]
@@ -388,6 +394,31 @@ def delete_user(raw_login: str) -> None:
         cursor.execute(_DELETE_USER, (user_id,))
 
 
+def seed_demo(raw_login: str) -> tuple[Profession, dict[str, int]]:
+    """
+    يضع البيانات التجريبية في الحساب بحسب مهنته. يُعرف الحساب بدور المالك، ثم يُكتب كل شيءٍ بدور التطبيق
+    وبهوية صاحبه، فلا يُكتب ما لا يقبله التطبيق.
+    """
+    key, _ = _settings()
+    with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
+        user_id, is_active = _find(cursor, key, _login(raw_login))
+        if not is_active:
+            raise AdminError("الحساب معطّل")
+        cursor.execute(_PROFESSION_OF, (user_id,))
+        profession = Profession(cursor.fetchone()[0])
+    app_url = os.environ.get("EYEWORK_APP_DATABASE_URL", "").strip()
+    if not app_url:
+        raise AdminError("EYEWORK_APP_DATABASE_URL غير مضبوط")
+    database = Database(app_url, max_size=1)
+    try:
+        database.verify_role()
+        return profession, demo_data.seed(database, user_id, profession)
+    except (demo_data.DemoError, UnsafeRole) as exc:
+        raise AdminError(str(exc)) from exc
+    finally:
+        database.close()
+
+
 def purge() -> dict[str, int]:
     counts = {}
     with psycopg.connect(_owner_url()) as connection, connection.cursor() as cursor:
@@ -419,6 +450,19 @@ def purge() -> dict[str, int]:
     return counts
 
 
+#: سطرٌ لكل عدد («الاسم: العدد»)، فلا يحتاج العدد صيغة تمييزه.
+_SEEDED = {
+    Profession.SUPPORT: (("tickets", "تذاكر مفتوحة جديدة"), ("articles", "مقالات منشورة جديدة في قاعدة المعرفة")),
+    Profession.STOREKEEPER: (("items", "منتجات جديدة برصيدها الافتتاحي"), ("suppliers", "مورّدون جدد بمندوبيهم"),
+                             ("categories", "فئات جديدة"), ("purchases", "فواتير شراء")),
+}
+
+
+def _seeded(profession: Profession, counts: dict[str, int]) -> str:
+    lines = [f"{label}: {counts[key]}" for key, label in _SEEDED[profession]]
+    return "\n".join([*lines, "وما وُجد بالاسم نفسه تُرك كما هو."])
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m eyework.admin", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -442,6 +486,7 @@ def main(argv: list[str] | None = None) -> int:
             choice.add_argument("--name")
             choice.add_argument("--clear", action="store_true")
     commands.add_parser("purge")
+    commands.add_parser("seed-demo").add_argument("--login")
     codes = commands.add_parser("issue-signup-codes")
     codes.add_argument("--count", type=int, required=True)
     codes.add_argument("--hours", type=int, default=72)
@@ -470,6 +515,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "delete-user":
             delete_user(args.login)
             print("حُذف الحساب وكل بياناته")
+        elif args.command == "seed-demo":
+            profession, counts = seed_demo(args.login)
+            print(_seeded(profession, counts))
         else:
             for name, count in purge().items():
                 print(f"{name}: {count}")
