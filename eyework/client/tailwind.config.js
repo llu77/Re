@@ -95,7 +95,7 @@ export default {
   },
   plugins: [
     animate,
-    plugin(({ addVariant }) => {
+    plugin(({ addVariant, addBase }) => {
       addVariant("gaze", ':root[data-size="gaze"] &')
       addVariant("compact", ':root:not([data-size="gaze"]) &')
       addVariant("short", "@media (max-height: 30rem)")
@@ -103,7 +103,16 @@ export default {
       // فيركب لوحة المفاتيح؛ في الكبير الشريط في التدفّق ولا يركب شيئاً، وإخفاؤه يحرّك الأهداف تحت
       // نظرٍ باقٍ (ضغطةٌ تبدأ فوق زرٍّ وتنتهي فوق غيره).
       addVariant("kb", ':root[data-keyboard="open"]:not([data-size="gaze"]) &')
-      addVariant("hov", '@media (hover: hover) and (pointer: fine) { :root:not([data-size="gaze"]) &:hover }')
+      // تحت المؤشّر: في الحجم الكبير يحوم مؤشّر النظر أو الرأس فوق الهدف قبل أن يضغطه، فيتلوّن الهدف ويُحاط بإطار التركيز
+      // (أدناه) فيُرى ما سيُضغط؛ وفي الحجم العادي لونٌ تحت فأرةٍ أو مؤشّر لوحٍ حيث يوجد، لا بعد لمسة (اللمس لا يحوم، فلا
+      // يبقى اللون عالقاً). سياسة الحوم كلّها هنا: الشيفرة تكتب `hov:` وحده (client/tests/source.test.ts).
+      addVariant("hov", ['@media (any-hover: hover) { :root:not([data-size="gaze"]) &:hover }', ':root[data-size="gaze"] &:hover'])
+      addBase({
+        ':root[data-size="gaze"] :is(button, a[href], [role="button"], label[for]):not(:disabled):not([aria-disabled="true"]):hover': {
+          outline: "3px solid hsl(var(--ring))",
+          outlineOffset: "2px",
+        },
+      })
     }),
   ],
 }

@@ -136,6 +136,6 @@ def test_the_headline_isolates_the_name_and_keeps_the_arabic_comma_after_it():
 
 
 def test_the_longest_headline_fits_the_measured_budget():
-    name = "ع" * 30
+    name = "ع" * 60
     reason = "س" * 160
-    assert len(headline(name, reason)) == 3 + 2 + 30 + 2 + 160
+    assert len(headline(name, reason)) == 3 + 2 + 60 + 2 + 160

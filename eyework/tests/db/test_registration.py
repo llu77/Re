@@ -138,7 +138,7 @@ def test_a_birth_date_before_1900_is_refused(owner, app):
     assert caught.value.diag.constraint_name == "birth_date_range"
 
 
-@pytest.mark.parametrize("name", [None, "سارة2", "  سارة", "ab@c", "س" * 31])
+@pytest.mark.parametrize("name", [None, "سارة2", "  سارة", "ab@c", "س" * 61])
 def test_registration_needs_a_proper_name(owner, app, name):
     with pytest.raises(errors.CheckViolation) as caught:
         _register(app, issue_code(owner), name=name)

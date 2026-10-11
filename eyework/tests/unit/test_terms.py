@@ -31,10 +31,11 @@ INDEX = Path(__file__).resolve().parents[2] / "static" / "index.html"
 DIGESTS = {
     "2026-10-08": "6b063626efc919d01a00838aa9ea4ad4d738ec6714e39c7a53155137ddc544af",
     "2026-10-09": "baba6ba6022f7aa9ce3c4b637b967bd6349bb0167af64f7b48d6dc9758d6993b",
+    "2026-10-11": "6b3e6f096e190b3254f334c26a1638e419664e0b324999d69e6fbeee5b68c6fd",
 }
 #: بصمة `terms.normalized_text()`، نصّ النسخة القادمة. حزمة التبديل تنقلها إلى DIGESTS
 #: تحت تاريخ الإصدار حين يصير `TERMS_VERSION` ذلك التاريخ.
-PENDING_DIGEST = "b2469df38e49e020296508685262eff6247c2f4d140d11e9dd11d9cf2c229e35"
+PENDING_DIGEST = "5b41010945c187ece139052c8f15cb3ca185aeb694265cdc3a69804a98b83ba6"
 
 #: أول كل سطرٍ في «ما يُرسَل»: اسم البوابة كما يعرفه المستخدم، أو «كل البوابات».
 LINE_STARTS = {
@@ -113,7 +114,7 @@ def test_kept_names_the_operator_the_usage_mode_and_the_open_registration_trade_
     assert any("لا يُحفظ" in line and "البريد" in line for line in terms.KEPT)
 
 
-# ── «ما يُرسَل إلى Anthropic» ───────────────────────────────────────────
+# ── «ما يُرسَل إلى مزوّد النموذج» ──────────────────────────────────────
 def test_sent_has_one_line_per_workspace_and_one_for_all_within_sixty_characters():
     scopes = [scope for scope, _ in terms.SENT]
     assert len(scopes) == len(set(scopes)), "مجالٌ مكرّر"
@@ -125,7 +126,7 @@ def test_sent_has_one_line_per_workspace_and_one_for_all_within_sixty_characters
 
 
 def test_the_intro_promises_what_is_never_sent_and_the_outro_names_the_retention():
-    assert "Anthropic" in terms.SENT_INTRO
+    assert "مزوّد النموذج" in terms.SENT_INTRO
     assert "بلا اسمك ولا ميلادك ولا طريقة استخدامك" in terms.SENT_INTRO
     assert terms.SENT_INTRO.endswith(":")
     assert "30 يوماً" in terms.SENT_OUTRO
@@ -168,3 +169,17 @@ def test_the_normalized_text_ignores_how_whitespace_is_written(monkeypatch):
 ])
 def test_is_current_accepts_the_current_or_a_newer_version_only(accepted, current):
     assert terms.is_current(accepted) is current
+
+
+def test_no_notice_or_message_names_the_model_provider():
+    """طلب المالك: لا اسم لمزوّد النموذج في التطبيق. الإشعاران وإشعار المكتب ورسائل الخطأ تقول «مزوّد النموذج»."""
+    from eyework import support_notice
+    from eyework.web import errors
+
+    specs = [value for value in vars(errors).values() if isinstance(value, errors.ErrorSpec)]
+    specs += [spec for table in vars(errors).values() if isinstance(table, dict)
+              for spec in table.values() if isinstance(spec, errors.ErrorSpec)]
+    shown = [*terms.KEPT, terms.SENT_INTRO, *(text for _, text in terms.SENT), terms.SENT_OUTRO,
+             _static_notice_text(), support_notice.TITLE, *support_notice.LINES, *(spec.detail for spec in specs)]
+    named = [text for text in shown if re.search(r"anthropic|claude|أنثروبيك|انثروبيك|كلود", text, re.IGNORECASE)]
+    assert not named, named

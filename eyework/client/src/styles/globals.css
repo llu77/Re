@@ -196,6 +196,19 @@
     background: hsl(var(--background));
   }
 
+  /* استجابة الأزرار: كل ما يُضغط يُرى مضغوطاً لحظة الضغط، والمؤشّر يدٌ فوقه (ومؤشّر الآيباد يلتصق به)، ولا انتظار
+     لتمييز النقرتين عن تكبير الصفحة في الحجمين. لونه وإطاره تحت المؤشّر في `hov:` وفي tailwind.config.js. */
+  :is(button, a[href], [role="button"], label[for], summary) {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :is(button, [role="button"], label[for], summary):not(:disabled):not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  :is(button, a[href], [role="button"], label[for]):not(:disabled):not([aria-disabled="true"]):active {
+    filter: brightness(0.92);
+  }
+
   /* الحجم الكبير بتتبّع العين أو الرأس: «نقرتان» تُربطان بحركة وجه تصلان ضغطتين لا تكبيراً للصفحة
      (والتكبير بإصبعين باقٍ)، والثانية لا تُحسب (lib/repeat-press.ts). والضغط المطوّل من قائمة
      AssistiveTouch على زرٍّ أو رابط لا يحدّد نصّه ولا يفتح قائمة الرابط؛ ونصّ المحتوى يبقى قابلاً للتحديد. */

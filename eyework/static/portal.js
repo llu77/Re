@@ -42,6 +42,11 @@ const DAY_PRESETS = [1, 5, 10, 15, 20, 25];
 /* ── التسجيل ────────────────────────────────────────────────────────── */
 
 /* تسجيلٌ جديد في الذاكرة: برمز الرابط، أو بلا رمز (`null`) حين يُفتح من «حساب جديد». */
+/* عدد الأحرف بالعربية: «8 أحرف»، «12 حرفاً». */
+function letterCount(n) {
+    return n >= 3 && n <= 10 ? `${n} أحرف` : `${n} حرفاً`;
+}
+
 function newSignup(code) {
     return {
         code, checked: false, agreed: false,
@@ -230,7 +235,7 @@ function onSignupName(event) {
     event.preventDefault();
     const name = normalizeName($('signup-name-input').value);
     if (!nameIsValid(name)) {
-        UI.showAlert(UI.screen('signup-name'), 'الاسم: حروفٌ عربية أو لاتينية فقط، حتى 30 حرفاً.');
+        UI.showAlert(UI.screen('signup-name'), 'الاسم: حروفٌ عربية أو لاتينية فقط، حتى 60 حرفاً.');
         return;
     }
     state.signup.name = name;
@@ -417,7 +422,7 @@ async function onSignupCreate(event) {
     }
     const password = $('signup-password-input').value;
     if (password.length < state.choices.registration.password_min) {
-        UI.showAlert(section, `كلمة المرور من ${state.choices.registration.password_min} حرفاً على الأقل.`);
+        UI.showAlert(section, `كلمة المرور من ${letterCount(state.choices.registration.password_min)} على الأقل.`);
         return;
     }
     state.busy = true;

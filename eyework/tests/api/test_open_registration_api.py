@@ -345,7 +345,7 @@ def test_the_availability_check_changes_nothing_and_needs_no_write_headers(brows
 @pytest.mark.parametrize(("overrides", "field"), [
     ({"name": "سارة 2"}, "NAME"),
     ({"name": "   "}, "NAME"),
-    ({"name": "س" * 31}, "NAME"),
+    ({"name": "س" * 61}, "NAME"),
     ({"birth_date": "1994-02-30"}, "BIRTH"),
     ({"birth_date": "21-03-1994"}, "BIRTH"),
     ({"birth_date": "1899-12-31"}, "BIRTH"),

@@ -11,6 +11,7 @@ import { KeyRound } from "lucide-react"
 import { PageTitle } from "@/components/brand/page-title"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
+import { letters } from "@/lib/format"
 import { AuthFrame } from "@/screens/auth"
 
 export function ActivateScreen({ username, passwordMin, onSubmit }: {
@@ -28,7 +29,7 @@ export function ActivateScreen({ username, passwordMin, onSubmit }: {
     if (busy) return
     setAttempt((n) => n + 1)
     if (password.length < passwordMin) {
-      setError(`كلمة المرور من ${passwordMin} حرفاً على الأقل.`)
+      setError(`كلمة المرور من ${letters(passwordMin)} على الأقل.`)
       return
     }
     setBusy(true)

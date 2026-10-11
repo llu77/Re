@@ -19,7 +19,10 @@ from eyework import support_rules as rules
 from eyework.grounding import Article
 
 #: بصمة نصّ إشعار المكتب لكل نسخة. نسخةٌ جديدة تُضاف ولا تُستبدل بها القديمة.
-NOTICE_DIGESTS = {"2026-10-09": "fc1525fc03958e7d6fdbfa83344d413f0801ec2f6c07efa344ac3e6d662bedf1"}
+NOTICE_DIGESTS = {
+    "2026-10-09": "fc1525fc03958e7d6fdbfa83344d413f0801ec2f6c07efa344ac3e6d662bedf1",
+    "2026-10-11": "7eca37e3152105d1d8594256e6b3e00bc00934324d8e82bda54f41930b0d5506",
+}
 
 
 # ── الحذف ───────────────────────────────────────────────────────────────

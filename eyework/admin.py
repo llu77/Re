@@ -243,7 +243,7 @@ def _name(raw: str | None) -> str | None:
     try:
         return auth.check_name(raw)
     except auth.RegistrationInvalid as exc:
-        raise AdminError("الاسم: حتى 30 حرفاً عربياً أو لاتينياً، بمسافاتٍ مفردة، بلا أرقامٍ ولا تشكيل") from exc
+        raise AdminError("الاسم: حتى 60 حرفاً عربياً أو لاتينياً، بمسافاتٍ مفردة، بلا أرقامٍ ولا تشكيل") from exc
 
 
 def _fragment_value(text: str) -> str:
