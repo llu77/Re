@@ -418,6 +418,12 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
     void runGeneration(c, () => editCopy(c, current.presets, current.note))
   }
 
+  /** قيمةٌ جاهزة تُحفظ ثم تنتقل إلى الخطوة التالية بالضغطة نفسها؛ «أكثر» و«أقل» يحفظان ولا ينتقلان. */
+  async function choose(c: Campaign, request: () => Promise<ApiResult<Campaign>>, next: "/days" | "/review") {
+    const view = await mutate(c, request)
+    if (view) go(campaignRoute(view.id, next))
+  }
+
   async function onRestore(c: Campaign, target: "previous" | "newest") {
     const view = await mutate(c, () => restore(c, target))
     if (view) go(campaignRoute(view.id))
@@ -513,6 +519,9 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
           table={choices.budget}
           busy={busy}
           onPick={(sar) => void mutate(c, () => setBudget(c, sar))}
+          // في الحجم الكبير تحفظ القيمة الجاهزة ولا تنتقل: مُدَد الأيام الجاهزة تقع في الخطوة التالية حيث كانت
+          // المبالغ، ولا تتّسع الشاشة القصيرة لشريطٍ يفصل بينهما.
+          onPreset={(sar) => void (size === "gaze" ? mutate(c, () => setBudget(c, sar)) : choose(c, () => setBudget(c, sar), "/days"))}
           onNext={() => go(campaignRoute(c.id, "/days"))}
           onBack={() => go(campaignRoute(c.id))}
         />
@@ -526,6 +535,8 @@ export function MarketingFlow({ path, choices, me, workspace }: { path: string; 
           table={choices.days}
           busy={busy}
           onPick={(days) => void mutate(c, () => setDays(c, days))}
+          // تحت المُدَد في المراجعة نصٌّ وأزرارٌ آمنة، فتنتقل القيمة الجاهزة إليها في الحجمين.
+          onPreset={(days) => void choose(c, () => setDays(c, days), "/review")}
           onNext={() => go(campaignRoute(c.id, "/review"))}
           onBack={() => go(campaignRoute(c.id, "/budget"))}
         />

@@ -174,7 +174,12 @@ export function EscalateScreen({ ticket, onEscalate, onBack }: {
 
   const targetField = gaze ? (
     <GazeHost>
-      <Picker id="escalate-target" label="جهة التصعيد" options={targets.map((t) => ({ value: t, label: ESCALATION_TARGET[t] }))} value={target} onValueChange={(v) => setTarget(v as EscalationTarget)} />
+      {/* الاختيار ينتقل إلى الملاحظة: تحت الخيارات هناك حقلها و«انسخ ملخّص التصعيد»، لا ما يصعّد. */}
+      <Picker id="escalate-target" label="جهة التصعيد" options={targets.map((t) => ({ value: t, label: ESCALATION_TARGET[t] }))} value={target}
+        onValueChange={(v) => {
+          setTarget(v as EscalationTarget)
+          setStep(1)
+        }} />
     </GazeHost>
   ) : (
     <RadioCards<EscalationTarget> label="جهة التصعيد" options={targets.map((t) => ({ value: t, title: ESCALATION_TARGET[t] }))} value={target} onValueChange={setTarget}

@@ -99,7 +99,12 @@ export function NewTicketScreen({ onPreview, onSave, onBack, title = "تذكرة
   // في الحجم الكبير منتقٍ: زرٌّ آمنٌ في أعلى الخطوة، لا خيارٌ تحت نظرٍ وصل من زرّ الرئيسية.
   const channelField = gaze ? (
     <GazeHost>
-      <Picker id="ticket-channel" label="من أين وصلت الرسالة؟" options={CHANNELS.map((code) => ({ value: code, label: CHANNEL[code] }))} value={channel} onValueChange={(value) => setChannel(value as Channel)} />
+      {/* الاختيار ينتقل إلى الرسالة: تحت الخيارات هناك «الصق من الحافظة» وحقل النصّ، لا ما يحفظ. */}
+      <Picker id="ticket-channel" label="من أين وصلت الرسالة؟" options={CHANNELS.map((code) => ({ value: code, label: CHANNEL[code] }))} value={channel}
+        onValueChange={(value) => {
+          setChannel(value as Channel)
+          setStep(1)
+        }} />
     </GazeHost>
   ) : (
     <RadioCards<Channel>

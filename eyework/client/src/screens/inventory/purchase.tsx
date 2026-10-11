@@ -406,8 +406,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
     else if (field === "received_on" || field === "delivery_note_no" || field === "prices_include_vat") setPart(1)
   }, [fail])
 
-  /** يحفظ ما تغيّر من الرأس؛ ويعيد false إن رفض الخادم. */
-  async function commitHeader(): Promise<boolean> {
+  /** يحفظ ما تغيّر من الرأس؛ ويعيد false إن رفض الخادم. `basisNow` لاختيارٍ لم تصل حالته بعد (الضغطة نفسها). */
+  async function commitHeader(basisNow: "net" | "gross" = basis): Promise<boolean> {
     const fields: HeaderFields = {}
     const text = (value: string) => value.trim() || null
     if ((supplier?.value ?? null) !== (purchase.supplier?.id ?? null)) fields.supplier_id = supplier?.value ?? null
@@ -416,7 +416,7 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
     if (text(invoiceDate) !== purchase.invoice_date) fields.invoice_date = text(invoiceDate)
     if (text(receivedOn) !== purchase.received_on) fields.received_on = text(receivedOn)
     if (text(deliveryNote) !== purchase.delivery_note_no) fields.delivery_note_no = text(deliveryNote)
-    if ((basis === "gross") !== purchase.prices_include_vat) fields.prices_include_vat = basis === "gross"
+    if ((basisNow === "gross") !== purchase.prices_include_vat) fields.prices_include_vat = basisNow === "gross"
     if (printedTotal.trim() !== money(purchase.printed_total_halalas)) {
       const parsed = printedTotal.trim() ? parseAmount(printedTotal) : null
       if (printedTotal.trim() && parsed === null) {
@@ -577,6 +577,12 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
   const blur = () => {
     if (!gaze) void commitHeader()
   }
+  /** في الحجم الكبير أساس الأسعار آخر ما في خطوة المبالغ: يُحفظ الرأس به ثم تُفتح الأسطر بالضغطة نفسها. */
+  async function chooseBasis(value: "net" | "gross") {
+    if (!(await commitHeader(value))) return
+    setStep(3)
+    setPart(0)
+  }
   const invoiceMain = (
     <>
       <GazeSlot id="purchase-no">
@@ -632,9 +638,13 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           label="أسعار الأسطر في هذه الفاتورة"
           value={basis}
           onValueChange={(value) => {
+            // في الحجم الكبير لا يتبدّل الأساس وحفظ الضغطة السابقة قائم: ما يُحفظ هو ما يُرى.
+            if (gaze && busy !== null) return
             setBasis(value)
             if (!gaze) void onHeader({ prices_include_vat: value === "gross" }).then(setFail)
           }}
+          // تحت الخيارين في السطر حقولٌ وأزرارٌ آمنة، و«احفظ السطر» معطّلٌ حتى يُختار منتج.
+          onPress={gaze ? (value) => { if (busy === null) void chooseBasis(value) } : undefined}
           ids={{ net: "purchase-basis-net", gross: "purchase-basis-gross" }}
           options={[
             { value: "net", title: "قبل الضريبة" },
@@ -832,7 +842,8 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
           )
         }
       >
-        {failAlert}
+        {/* أساس الأسعار يُختار بضغطةٍ في المحتوى: ما لم يُحفظ يُقال تحت البطاقتين فلا تتحرّكا تحت النظر. */}
+        {step === 2 && part === 1 ? null : failAlert}
         {step === 0 ? (
           <GazeHost>
             {supplierField}
@@ -841,7 +852,10 @@ export function PurchaseEditor(props: PurchaseEditorProps) {
         ) : step === 1 ? (
           <GazeHost>{part === 0 ? invoiceMain : invoiceMore}</GazeHost>
         ) : step === 2 ? (
-          <GazeHost>{part === 0 ? amountMain : amountBasis}</GazeHost>
+          <>
+            <GazeHost>{part === 0 ? amountMain : amountBasis}</GazeHost>
+            {part === 1 ? failAlert : null}
+          </>
         ) : (
           <>
             {lineEditor}

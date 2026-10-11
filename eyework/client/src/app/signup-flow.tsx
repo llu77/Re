@@ -177,6 +177,9 @@ function ProfessionStep({ s, choices, onBack }: { s: SignupState; choices: Choic
         label="المهن"
         value={s.profession}
         onValueChange={(profession) => update({ profession })}
+        // الضغطة تختار وتنتقل إلى البريد؛ و«التالي» لمهنةٍ اختيرت من قبل ثم عاد إليها بـ«رجوع». في الحجم الكبير
+        // تقع صفوف المهن في البريد على عنوان الحقل أو الحقل نفسه أو فراغ، لا على زرّ.
+        onPress={() => go(screenRoute("email"))}
         columns={1}
         ids={Object.fromEntries(choices.professions.map((p) => [p.code, `signup-profession-${p.code}`]))}
         // الاسم وحده: الموظف يعرف مهنته («التسويق»، «أمين المخزون»، «الدعم الفني»).

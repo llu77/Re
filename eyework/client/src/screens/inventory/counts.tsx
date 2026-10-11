@@ -149,9 +149,52 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
       columns={1}
       gazeColumns={2}
       onValueChange={(value) => { setScope(value); setFail(null) }}
+      // في الحجم الكبير ينتقل الاختيار إلى الخطوة التالية: التصنيف أو المنتجات (زرّ المنتقي أو حقل البحث في
+      // أعلاها)، أو طريقة العدّ وفي أعلاها شريط النطاق بلا هدف. إلا «أصنافٌ مختارة» وفيها ما اختير: أزرار إزالته تقع
+      // تحت هذه الضغطة، فيبقى «التالي».
+      onPress={gaze ? (value) => { if (!(value === "SELECTED" && picked.length > 0)) setStep(1) } : undefined}
       ids={{ ALL: "count-scope-all", CATEGORY: "count-scope-category", LOW: "count-scope-low", SELECTED: "count-scope-selected" }}
       options={choices.count_scopes.map((s) => ({ value: s.code as CountScope, title: s.name }))}
     />
+  )
+  const itemsSlot = (
+    <GazeSlot id="count-items">
+      <Field id="count-items" label="أضف منتجاً" error={fail?.field === "item_ids" ? fail.message : null}>
+        <Combobox
+          listLabel="المنتجات المطابقة"
+          options={itemOptions.filter((option) => !picked.some((p) => p.value === option.value))}
+          value={choice}
+          onValueChange={(option) => {
+            setChoice(null)
+            setQuery("")
+            onItemQuery("")
+            if (option) setPicked((all) => [...all, option])
+          }}
+          query={query}
+          onQueryChange={(text) => { setQuery(text); onItemQuery(text) }}
+          pageSize={{ compact: 6, gaze: 3, gazeShort: 1 }}
+          onOpenChange={report}
+        />
+      </Field>
+    </GazeSlot>
+  )
+  const pickedSlot = (
+    <GazeSlot id="count-picked" field={false}>
+      {picked.length ? (
+        <ul aria-label="المنتجات المختارة" className="flex flex-wrap gap-tg-min">
+          {picked.slice(gaze ? -3 : 0).map((option) => (
+            <li key={option.value}>
+              <Button isValue icon={X} onClick={() => setPicked((all) => all.filter((p) => p.value !== option.value))} className="rounded-pill">
+                {option.label}
+              </Button>
+            </li>
+          ))}
+          {gaze && picked.length > 3 ? <li className="self-center text-small text-muted-foreground">و{picked.length - 3} غيرها</li> : null}
+        </ul>
+      ) : (
+        <p className="text-small text-muted-foreground">لم يُختر شيءٌ بعد.</p>
+      )}
+    </GazeSlot>
   )
   const details = (
     <GazeHost>
@@ -160,58 +203,53 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
       ) : null}
       {scope === "SELECTED" ? (
         <>
-          <GazeSlot id="count-items">
-            <Field id="count-items" label="أضف منتجاً" error={fail?.field === "item_ids" ? fail.message : null}>
-              <Combobox
-                listLabel="المنتجات المطابقة"
-                options={itemOptions.filter((option) => !picked.some((p) => p.value === option.value))}
-                value={choice}
-                onValueChange={(option) => {
-                  setChoice(null)
-                  setQuery("")
-                  onItemQuery("")
-                  if (option) setPicked((all) => [...all, option])
-                }}
-                query={query}
-                onQueryChange={(text) => { setQuery(text); onItemQuery(text) }}
-                pageSize={{ compact: 6, gaze: 3, gazeShort: 1 }}
-                onOpenChange={report}
-              />
-            </Field>
-          </GazeSlot>
-          <GazeSlot id="count-picked" field={false}>
-            {picked.length ? (
-              <ul aria-label="المنتجات المختارة" className="flex flex-wrap gap-tg-min">
-                {picked.slice(gaze ? -3 : 0).map((option) => (
-                  <li key={option.value}>
-                    <Button isValue icon={X} onClick={() => setPicked((all) => all.filter((p) => p.value !== option.value))} className="rounded-pill">
-                      {option.label}
-                    </Button>
-                  </li>
-                ))}
-                {gaze && picked.length > 3 ? <li className="self-center text-small text-muted-foreground">و{picked.length - 3} غيرها</li> : null}
-              </ul>
-            ) : (
-              <p className="text-small text-muted-foreground">لم يُختر شيءٌ بعد.</p>
-            )}
-          </GazeSlot>
+          {/* في الحجم الكبير المختارة فوق حقل البحث: مكانها محفوظٌ وقائمته مفتوحة تحته، فزرّ إزالة ما اختير لا يظهر
+              تحت الضغطة التي اختارته. وفي الحجم العادي تحته كما كانت. */}
+          {gaze ? pickedSlot : null}
+          {itemsSlot}
+          {gaze ? null : pickedSlot}
         </>
       ) : null}
       {!needsDetails ? null : null}
     </GazeHost>
   )
+  const blindOptions: { value: "yes" | "no"; title: string; description: string }[] = [
+    { value: "yes", title: "عدٌّ مغلق", description: "الرصيد الدفتري لا يظهر حتى تكتب ما عددت: أدقّ." },
+    { value: "no", title: "عدٌّ مفتوح", description: "يظهر الرصيد الدفتري بجانب كل منتج." },
+  ]
   const blindCards = (
     <RadioCards<"yes" | "no">
       label="طريقة العدّ"
       value={blind}
       columns={1}
+      // في الحجم الكبير زرّان قصيران تحت شريط النطاق، وشرحهما في الشريط.
+      gazeColumns={2}
       onValueChange={setBlind}
       ids={{ yes: "count-blind-yes", no: "count-blind-no" }}
-      options={[
-        { value: "yes", title: "عدٌّ مغلق", description: "الرصيد الدفتري لا يظهر حتى تكتب ما عددت: أدقّ." },
-        { value: "no", title: "عدٌّ مفتوح", description: "يظهر الرصيد الدفتري بجانب كل منتج." },
-      ]}
+      options={gaze ? blindOptions.map(({ value, title }) => ({ value, title })) : blindOptions}
     />
+  )
+  const scopeName = choices.count_scopes.find((s) => s.code === scope)?.name ?? ""
+  const categoryName = scope === "CATEGORY" ? (categories.find((c) => c.id === category)?.name ?? null) : null
+  /*
+   * الحجم الكبير: ضغطة النطاق تنقل إلى طريقة العدّ، فأعلاها شريطٌ نصّيٌّ بلا هدفٍ بارتفاع صفّي النطاق (144)، وما
+   * يقع تحت تلك الضغطة نصٌّ لا اختيار. يسمّي النطاق ويشرح الطريقتين، والطريقتان زرّان تحته بعد فجوة هدفين.
+   */
+  const blindBand = (
+    <div id="count-blind-band" className="flex min-h-[calc(2*var(--ctl)+var(--tg))] flex-col gap-1">
+      <p className="font-semibold">
+        النطاق: {scopeName}
+        {categoryName ? ` (${categoryName})` : ""}
+      </p>
+      <dl className="flex flex-col gap-1 text-small text-muted-foreground">
+        {blindOptions.map((option) => (
+          <div key={option.value}>
+            <dt className="inline font-semibold text-foreground">{option.title}: </dt>
+            <dd className="inline">{option.description}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   )
   const failAlert = fail && !fail.field ? (
     <Alert tone="danger" title="لم تُفتح الجلسة" live>
@@ -253,7 +291,14 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
         }
       >
         {failAlert}
-        {view === "scope" ? scopeCards : view === "details" ? details : blindCards}
+        {view === "scope" ? scopeCards : view === "details" ? details : (
+          <>
+            {/* الشريط لضغطة النطاق وحدها؛ وبعد «افتح الجلسة» لم تنجح (ضغطةٌ في الشريط السفلي) مكانه التنبيه، فتبقى
+                الطريقتان ظاهرتين في 635px. */}
+            {failAlert ? null : blindBand}
+            {blindCards}
+          </>
+        )}
       </Screen>
     )
   }

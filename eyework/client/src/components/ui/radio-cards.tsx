@@ -14,7 +14,8 @@
  * لحجم الواجهة في التسجيل و«حسابي»، ولكل اختيارٍ له شرحٌ أو معاينة. بنمط ARIA APG
  * لمجموعة الأزرار الراديوية: role="radiogroup" وكل بطاقةٍ role="radio" وaria-checked،
  * وتركيزٌ متنقّل بالأسهم. والضغط يختار ولا يطبّق: التطبيق زرٌّ بعده، فنظرةٌ عابرة لا
- * تغيّر شيئاً لا يُرى أثره.
+ * تغيّر شيئاً لا يُرى أثره. إلا اختياراً أخيراً في خطوة (`onPress`، طلب المالك 2026-10-11): ينتقل بالضغطة
+ * نفسها إلى الخطوة التالية، و«رجوع» يعيده إليه مختاراً. والأسهم تختار ولا تنتقل؛ والحجم لا ينتقل أبداً.
  *
  * وفي الحجم الكبير كل بطاقةٍ زرٌّ بـaria-pressed في مجموعة: «الانتقال إلى العنصر» في تتبّع العين
  * والرأس يقصد ما له سمة الزرّ، وWebKit لا يعطيها role="radio".
@@ -40,6 +41,8 @@ export interface RadioCardsProps<V extends string> {
   options: RadioCardOption<V>[]
   value: V | null
   onValueChange: (value: V) => void
+  /** بعد الاختيار بالضغط وحده (لا بالأسهم): الانتقال إلى الخطوة التالية. */
+  onPress?: (value: V) => void
   columns?: 1 | 2
   /** الحجم الكبير: بطاقتان في الصفّ لخياراتٍ بعناوين قصيرة بلا أيقونةٍ ولا شرح (أربعة خياراتٍ في صفّين). */
   gazeColumns?: 1 | 2
@@ -63,7 +66,7 @@ function Dot({ checked }: { checked: boolean }) {
   )
 }
 
-export function RadioCards<V extends string>({ label, options, value, onValueChange, columns = 2, gazeColumns = 1, ids, className }: RadioCardsProps<V>) {
+export function RadioCards<V extends string>({ label, options, value, onValueChange, onPress, columns = 2, gazeColumns = 1, ids, className }: RadioCardsProps<V>) {
   const refs = React.useRef(new Map<V, HTMLButtonElement>())
   const focusable = value ?? options[0]?.value
   const gaze = useSize().size === "gaze"
@@ -106,7 +109,10 @@ export function RadioCards<V extends string>({ label, options, value, onValueCha
             aria-pressed={gaze ? checked : undefined}
             tabIndex={gaze || option.value === focusable ? 0 : -1}
             data-value=""
-            onClick={() => onValueChange(option.value)}
+            onClick={() => {
+              onValueChange(option.value)
+              onPress?.(option.value)
+            }}
             onKeyDown={gaze ? undefined : (event) => onKeyDown(event, index)}
             className={cn(
               "relative flex min-h-ctl min-w-0 rounded-card border transition-colors gaze:transition-none",
