@@ -115,7 +115,7 @@ def test_without_a_usable_code_nothing_is_said_about_the_email(browser, owner):
 @pytest.mark.parametrize(("overrides", "field"), [
     ({"name": "سارة 2"}, "NAME"),
     ({"name": "   "}, "NAME"),
-    ({"name": "س" * 31}, "NAME"),
+    ({"name": "س" * 61}, "NAME"),
     ({"birth_date": "1994-02-30"}, "BIRTH"),
     ({"birth_date": "21-03-1994"}, "BIRTH"),
     ({"birth_date": "1899-12-31"}, "BIRTH"),

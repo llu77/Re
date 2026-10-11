@@ -316,7 +316,7 @@ def test_0008_down_refuses_while_open_accounts_exist(connection, owner, app):
     from eyework.tests.conftest import register_open
 
     assert register_open(app, "blocker@example.sa")[1] == "OK"
-    assert migrate_down(connection, target="0008") == 3   # 0011 ثم 0010 ثم 0009
+    assert migrate_down(connection, target="0008") == 4   # 0012 ثم 0011 ثم 0010 ثم 0009
     with pytest.raises(psycopg.errors.RaiseException, match="1 حساباً") as caught:
         migrate_down(connection, target="0007")
     assert "DELETE FROM users WHERE open_registered" in (caught.value.diag.message_hint or "")
@@ -325,7 +325,7 @@ def test_0008_down_refuses_while_open_accounts_exist(connection, owner, app):
     with owner.cursor() as cursor:
         cursor.execute("DELETE FROM users WHERE open_registered")
     assert migrate_down(connection, target="0007") == 1
-    assert migrate_up(connection) == 4   # 0008 و0009 و0010 و0011
+    assert migrate_up(connection) == 5   # 0008 و0009 و0010 و0011 و0012
 
 
 def test_0008_down_waits_for_an_open_account_being_created_and_still_refuses(connection, owner_url, app_url):
@@ -338,7 +338,7 @@ def test_0008_down_waits_for_an_open_account_being_created_and_still_refuses(con
     from eyework.tests.conftest import register_open
     from eyework.tests.db.test_state_machine import blocked_on_a_lock
 
-    assert migrate_down(connection, target="0008") == 3   # 0011 ثم 0010 ثم 0009
+    assert migrate_down(connection, target="0008") == 4   # 0012 ثم 0011 ثم 0010 ثم 0009
     outcome = {}
 
     def roll_back() -> None:
@@ -386,8 +386,30 @@ def test_0009_down_leaves_the_days_billable_requests_as_tombstones(connection, o
         expected = cursor.fetchall()
     assert [row[1] for row in expected] == ["REFUSED", "OK"]
 
-    assert migrate_down(connection, target="0008") == 3   # 0011 ثم 0010 ثم 0009
+    assert migrate_down(connection, target="0008") == 4   # 0012 ثم 0011 ثم 0010 ثم 0009
 
     with owner.cursor() as cursor:
         cursor.execute("SELECT started_at, outcome, new_account FROM attempt_tombstones ORDER BY started_at")
         assert cursor.fetchall() == expected
+
+
+def test_0012_down_refuses_while_a_name_longer_than_thirty_exists(connection, owner):
+    """
+    قيد 0003 لا يقبل اسماً كاملاً أطول من ثلاثين حرفاً، ولا يُقصّ اسم أحدٍ بصمت: فالتراجع يرفض ولا يغيّر شيئاً حتى
+    يُقصَّر الاسم، ثم يعيد القيد كما كان.
+    """
+    from eyework.tests.conftest import make_user
+
+    user = make_user(owner, login=b"long-name")
+    with owner.cursor() as cursor:
+        cursor.execute("UPDATE users SET display_name = %s WHERE id = %s", ("عبد الرحمن عبد العزيز عبد الله الدوسري", user))
+    with pytest.raises(psycopg.errors.RaiseException, match="1 حساباً"):
+        migrate_down(connection, target="0011")
+    assert [row[0] for row in _ledger(connection)][-1] == "0012"
+
+    with owner.cursor() as cursor:
+        cursor.execute("UPDATE users SET display_name = 'عبد الرحمن' WHERE id = %s", (user,))
+    assert migrate_down(connection, target="0011") == 1
+    with pytest.raises(psycopg.errors.CheckViolation), owner.cursor() as cursor:
+        cursor.execute("UPDATE users SET display_name = %s WHERE id = %s", ("ا" * 31, user))
+    assert migrate_up(connection) == 1

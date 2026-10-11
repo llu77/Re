@@ -51,7 +51,7 @@ export function SizeToggle() {
 }
 
 /**
- * إطار ما قبل الدخول: رأس الصفحة بالشعار بعرض الشاشة، وفي آخره فعلها إن كان واحداً («رجوع»، أو «حجمٌ أكبر»)؛ ثم
+ * إطار ما قبل الدخول: رأس الصفحة بالشعار في وسطه، وفعلها إن كان واحداً على جانبه («رجوع» في أوّله، أو «حجمٌ أكبر» في آخره)؛ ثم
  * عمودٌ واحد بعرض `max-w-md`، في أعلاه حين يكون للصفحة فعلان صفٌّ بخانتين ثابتتين كصفّ شاشات البوابة («حجمٌ أكبر» في
  * البداية، وفي النهاية ما يغادر أو يعود)، ثم المحتوى. والترحيب بلا رأس: الشعار عنوانه. في الحجم الكبير بارتفاع الشاشة
  * بلا تمرير.
@@ -66,12 +66,14 @@ export function AuthFrame({ end, toggle = true, brand = true, children, classNam
 }) {
   const { size } = useSize()
   const gaze = size === "gaze"
-  // فعلٌ واحد («رجوع»، أو «حجمٌ أكبر» وحده) في آخر رأس الصفحة؛ والفعلان («حجمٌ أكبر» و«أنشئ حساباً») صفٌّ تحته.
-  const lone = toggle && end ? null : toggle ? <SizeToggle /> : end ?? null
+  // فعلٌ واحد في رأس الصفحة: «رجوع» في أوّله (خطوات التسجيل والإشعار)، و«حجمٌ أكبر» وحده في آخره؛ والفعلان
+  // («حجمٌ أكبر» و«أنشئ حساباً») صفٌّ تحته، فالشعار في الوسط لا يتّسع جانباه لهما في 320.
+  const back = !toggle && end ? end : null
+  const lone = toggle && !end ? <SizeToggle /> : null
   const slots = !brand || (toggle && end) ? <Slots top start={toggle ? <SizeToggle /> : undefined} end={end} /> : null
   return (
     <div className={cn("flex flex-col", gaze ? "h-dvh overflow-hidden" : "min-h-dvh")}>
-      {brand ? <AppHeader end={lone} /> : null}
+      {brand ? <AppHeader start={back} end={lone} /> : null}
       <div className={cn("mx-auto flex w-full max-w-md flex-1 flex-col px-edge pb-safe", !brand && "pt-safe", gaze && "min-h-0", className)}>
         {slots ? <div className={brand ? "pt-tg-min" : undefined}>{slots}</div> : null}
         {children}
@@ -168,7 +170,7 @@ export function SignInScreen({ onSubmit, onPasskey, onSignup, contact, initial }
           الانتقال على حقلٍ لا على زرٍّ يعتمد؛ وسطر الخطأ محجوزٌ فوقه فلا يتحرّك حين يظهر. */}
       <main className="flex flex-1 flex-col">
       <form noValidate onSubmit={submit} className="flex flex-1 flex-col gap-sec pt-sec gaze:gap-tg gaze:pt-edge">
-        <PageTitle>ادخل إلى بوابتك</PageTitle>
+        <PageTitle className="text-center">تسجيل الدخول</PageTitle>
         <div className="flex flex-col gap-tg">
           <Field label="البريد">
             <Input
