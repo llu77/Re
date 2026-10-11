@@ -48,6 +48,11 @@ def _press_choice(flow: Flow, group: str, key: str, settle, label: str) -> None:
     flow.press(f"#{group} [data-key='{key}']", settle, label)
 
 
+def _pressed(group: str, key: str) -> str:
+    return (f"document.querySelector(\"#{group} [data-key='{key}']\")"
+            f" && document.querySelector(\"#{group} [data-key='{key}']\").getAttribute('aria-pressed') === 'true'")
+
+
 def _status(word: str) -> str:
     return f"document.querySelector('#proposal-status') && document.querySelector('#proposal-status').textContent.includes('{word}')"
 
@@ -101,14 +106,19 @@ def _to_review(flow: Flow) -> None:
 
     flow.press("#proposal-end", lambda: flow.screen("#budget-presets"), "تابع إلى الميزانية")
     flow.audit("budget-empty")
-    _press_choice(flow, "budget-presets", "2500", lambda: flow.until("!document.querySelector('#budget-next').disabled"), "مبلغ جاهز")
+    if page.evaluate("() => document.documentElement.dataset.size") == "gaze":
+        # في الحجم الكبير يحفظ المبلغ الجاهز ولا ينتقل (marketing-flow.tsx).
+        _press_choice(flow, "budget-presets", "2500", lambda: flow.until("!document.querySelector('#budget-next').disabled"), "مبلغ جاهز")
+    else:
+        # المبلغ الجاهز يحفظ وينتقل إلى الأيام بالضغطة نفسها، و«رجوع» يعيده مختاراً.
+        _press_choice(flow, "budget-presets", "2500", lambda: flow.screen("#days-presets"), "مبلغ جاهز")
+        flow.press("#days-back", lambda: flow.until(_pressed("budget-presets", "2500")), "رجوع")
     flow.press("#budget-up", lambda: flow.until("document.querySelector('#budget-value').textContent.includes('2,750')"), "أكثر")
     flow.audit("budget")
     flow.press("#budget-next", lambda: flow.screen("#days-presets"), "التالي: عدد الأيام")
     flow.audit("days-empty")
-    _press_choice(flow, "days-presets", "14", lambda: flow.until("!document.querySelector('#days-next').disabled"), "مدّة جاهزة")
-    flow.audit("days")
-    flow.press("#days-next", lambda: flow.screen("#review-continue"), "التالي: المراجعة")
+    # المدّة الجاهزة تحفظ وتنتقل إلى المراجعة في الحجمين.
+    _press_choice(flow, "days-presets", "14", lambda: flow.screen("#review-continue"), "مدّة جاهزة")
     flow.audit("review")
 
 
@@ -745,10 +755,52 @@ def test_a_campaign_by_touch_to_the_approved_copy(next_page, server, owner):
     page.tap("#proposal-end")
     flow.screen("#budget-presets")
     page.tap("#budget-presets [data-key='500']")
-    flow.until("!document.querySelector('#budget-next').disabled")
+    flow.screen("#days-presets")
+    page.tap("#days-back")
+    flow.until(_pressed("budget-presets", "500"))
     page.tap("#proposal-back, #budget-back")
     flow.screen("#proposal-copy")
     assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_a_preset_moves_on_and_the_steppers_stay(next_page, server, owner, size):
+    """
+    قيمةٌ جاهزة تحفظ وتنتقل بالضغطة نفسها (طلب المالك 2026-10-11)، و«أكثر» و«أقل» يضبطان ولا ينتقلان. وفي الحجم
+    الكبير تحفظ مبالغ الميزانية الجاهزة ولا تنتقل: مُدَد الأيام تقع في الخطوة التالية حيث كانت المبالغ.
+    """
+    page = _page(next_page, owner, server, size, *PHONES[0])
+    flow = Flow(page)
+    _to_proposal(flow)
+    flow.press("#proposal-end", lambda: flow.until(_end("الميزانية")), "أوافق على النص")
+    flow.press("#proposal-end", lambda: flow.screen("#budget-presets"), "تابع إلى الميزانية")
+    flow.press("#budget-up", lambda: flow.until("!document.querySelector('#budget-next').disabled"), "أكثر")
+    assert page.locator("#budget-presets").count() == 1
+    if size == "gaze":
+        _press_choice(flow, "budget-presets", "500", lambda: flow.until(_pressed("budget-presets", "500")), "مبلغ جاهز")
+        assert page.locator("#budget-presets").count() == 1
+        flow.press("#budget-next", lambda: flow.screen("#days-presets"), "التالي: عدد الأيام")
+    else:
+        _press_choice(flow, "budget-presets", "500", lambda: flow.screen("#days-presets"), "مبلغ جاهز")
+    flow.press("#days-up", lambda: flow.until("!document.querySelector('#days-next').disabled"), "أكثر")
+    flow.press("#days-up", lambda: flow.until("document.querySelector('#days-value').textContent.includes('يومان')"), "أكثر")
+    assert page.locator("#days-presets").count() == 1
+    flow.audit("days-stepped")
+    flow.press("#days-next", lambda: flow.screen("#review-continue"), "التالي: المراجعة")
+    flow.press("#review-back", lambda: flow.screen("#days-presets"), "رجوع")
+    _press_choice(flow, "days-presets", "7", lambda: flow.screen("#review-continue"), "مدّة جاهزة")
+    assert page.locator("#review-days").inner_text().startswith("المدة: سبعة أيام")
+    flow.press("#review-back", lambda: flow.until(_pressed("days-presets", "7")), "رجوع")
+    flow.audit("days-kept")
+    _press_choice(flow, "days-presets", "7", lambda: flow.screen("#review-continue"), "المدّة نفسها")
+    flow.gaze_safe()
+    assert not flow.failures(), "\n".join(flow.failures())
+    if size == "gaze":
+        assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+    with owner.cursor() as cursor:
+        cursor.execute("SELECT budget_sar, days FROM campaigns")
+        assert cursor.fetchall() == [(500, 7)]
 
 
 @pytest.mark.parametrize("size", SIZES)

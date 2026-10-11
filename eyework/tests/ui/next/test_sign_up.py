@@ -51,10 +51,8 @@ def walk_sign_up(flow: Flow, page, *, size: str, profession: str = "MARKETING", 
     flow.audit("day")
     flow.press("#signup-day-next", lambda: flow.screen(f"#signup-profession-{profession}"), "التالي: المهنة")
     flow.audit("profession-empty")
-    flow.press(f"#signup-profession-{profession}", lambda: flow.until(
-        "!document.querySelector('#signup-profession-next').disabled"), "مهنة")
-    flow.audit("profession")
-    flow.press("#signup-profession-next", lambda: flow.screen("#signup-email-input"), "التالي: البريد")
+    # الاختيار ينقل إلى البريد بالضغطة نفسها (طلب المالك 2026-10-11)، وهبوطها يُفحص في الحجم الكبير.
+    flow.press(f"#signup-profession-{profession}", lambda: flow.screen("#signup-email-input"), "مهنة")
     flow.audit("email")
     page.fill("#signup-email-input", email)
     flow.press("#signup-email-next", lambda: flow.screen("#signup-review-next"), "التالي: المراجعة")
@@ -98,6 +96,35 @@ def test_signing_up_without_a_link_reaches_the_home_at_each_size(next_page, serv
                                      terms.TERMS_VERSION)
         cursor.execute("SELECT via, outcome FROM registration_ledger")
         assert cursor.fetchall() == [("OPEN", "OK")]
+
+
+@pytest.mark.parametrize("size", ["compact", "gaze"])
+def test_the_profession_moves_on_when_chosen_and_back_keeps_it(next_page, server, owner, size):
+    """
+    اختيار المهنة ينقل إلى البريد بالضغطة نفسها؛ و«رجوع» يعيد إليها مختارةً، و«التالي» يتابع بها، واختيارٌ آخر يحلّ
+    محلّها وينتقل كذلك.
+    """
+    page = next_page(*PHONES[0], size=size)
+    flow = Flow(page)
+    page.goto(page.next)
+    walk_sign_up(flow, page, size=size)
+    # من كلمة المرور إلى المهنة: المراجعة، ثم البريد، ثم المهنة.
+    for target in ("#signup-review-next", "#signup-email-input", "#signup-profession-MARKETING"):
+        flow.press("#signup-back", lambda target=target: flow.screen(target), "رجوع")
+    chosen = "aria-pressed" if size == "gaze" else "aria-checked"
+    assert page.get_attribute("#signup-profession-MARKETING", chosen) == "true"
+    assert page.is_enabled("#signup-profession-next")
+    flow.audit("profession-kept")
+    flow.press("#signup-profession-next", lambda: flow.screen("#signup-email-input"), "التالي: البريد")
+    flow.press("#signup-back", lambda: flow.screen("#signup-profession-SUPPORT"), "رجوع")
+    flow.press("#signup-profession-SUPPORT", lambda: flow.screen("#signup-email-input"), "مهنةٌ أخرى")
+    assert page.input_value("#signup-email-input") == "sara.worker@example.sa"
+    flow.press("#signup-email-next", lambda: flow.screen("#signup-review-next"), "التالي: المراجعة")
+    assert page.text_content("#signup-review-profession") == "الدعم الفني"
+    assert not flow.failures(), "\n".join(flow.failures())
+    if size == "gaze":
+        assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
 
 
 def test_support_lands_on_its_desk_with_the_notice_first(next_page, server, owner):

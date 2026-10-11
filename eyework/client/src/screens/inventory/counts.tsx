@@ -149,6 +149,9 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
       columns={1}
       gazeColumns={2}
       onValueChange={(value) => { setScope(value); setFail(null) }}
+      // في الحجم الكبير ينتقل الاختيار إلى الخطوة التالية: التصنيف أو المنتجات (زرّ المنتقي أو حقل البحث في
+      // أعلاها)، أو طريقة العدّ وفي أعلاها شريط النطاق بلا هدف.
+      onPress={gaze ? () => setStep(1) : undefined}
       ids={{ ALL: "count-scope-all", CATEGORY: "count-scope-category", LOW: "count-scope-low", SELECTED: "count-scope-selected" }}
       options={choices.count_scopes.map((s) => ({ value: s.code as CountScope, title: s.name }))}
     />
@@ -200,18 +203,43 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
       {!needsDetails ? null : null}
     </GazeHost>
   )
+  const blindOptions: { value: "yes" | "no"; title: string; description: string }[] = [
+    { value: "yes", title: "عدٌّ مغلق", description: "الرصيد الدفتري لا يظهر حتى تكتب ما عددت: أدقّ." },
+    { value: "no", title: "عدٌّ مفتوح", description: "يظهر الرصيد الدفتري بجانب كل منتج." },
+  ]
   const blindCards = (
     <RadioCards<"yes" | "no">
       label="طريقة العدّ"
       value={blind}
       columns={1}
+      // في الحجم الكبير زرّان قصيران تحت شريط النطاق، وشرحهما في الشريط.
+      gazeColumns={2}
       onValueChange={setBlind}
       ids={{ yes: "count-blind-yes", no: "count-blind-no" }}
-      options={[
-        { value: "yes", title: "عدٌّ مغلق", description: "الرصيد الدفتري لا يظهر حتى تكتب ما عددت: أدقّ." },
-        { value: "no", title: "عدٌّ مفتوح", description: "يظهر الرصيد الدفتري بجانب كل منتج." },
-      ]}
+      options={gaze ? blindOptions.map(({ value, title }) => ({ value, title })) : blindOptions}
     />
+  )
+  const scopeName = choices.count_scopes.find((s) => s.code === scope)?.name ?? ""
+  const categoryName = scope === "CATEGORY" ? (categories.find((c) => c.id === category)?.name ?? null) : null
+  /*
+   * الحجم الكبير: ضغطة النطاق تنقل إلى طريقة العدّ، فأعلاها شريطٌ نصّيٌّ بلا هدفٍ بارتفاع صفّي النطاق (144)، وما
+   * يقع تحت تلك الضغطة نصٌّ لا اختيار. يسمّي النطاق ويشرح الطريقتين، والطريقتان زرّان تحته بعد فجوة هدفين.
+   */
+  const blindBand = (
+    <div id="count-blind-band" className="flex min-h-[calc(2*var(--ctl)+var(--tg))] flex-col gap-1">
+      <p className="font-semibold">
+        النطاق: {scopeName}
+        {categoryName ? ` (${categoryName})` : ""}
+      </p>
+      <dl className="flex flex-col gap-1 text-small text-muted-foreground">
+        {blindOptions.map((option) => (
+          <div key={option.value}>
+            <dt className="inline font-semibold text-foreground">{option.title}: </dt>
+            <dd className="inline">{option.description}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   )
   const failAlert = fail && !fail.field ? (
     <Alert tone="danger" title="لم تُفتح الجلسة" live>
@@ -253,7 +281,12 @@ export function NewCountScreen({ choices, categories, itemOptions, onItemQuery, 
         }
       >
         {failAlert}
-        {view === "scope" ? scopeCards : view === "details" ? details : blindCards}
+        {view === "scope" ? scopeCards : view === "details" ? details : (
+          <>
+            {blindBand}
+            {blindCards}
+          </>
+        )}
       </Screen>
     )
   }

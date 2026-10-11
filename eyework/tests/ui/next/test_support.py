@@ -165,8 +165,9 @@ def _new_ticket(flow: Flow, text: str = CUSTOMER, label: str = "سارة", chann
     flow.press("#home-new", lambda: flow.screen("#ticket-text, #ticket-channel"), "تذكرة جديدة")
     _audit(flow, "ticket-new")
     if gaze:
+        # الاختيار ينتقل إلى الرسالة (طلب المالك 2026-10-11).
         _pick(flow, "ticket-channel", channel, CHANNELS[channel])
-        flow.press("#ticket-next", lambda: flow.screen("#ticket-text"), "الرسالة")
+        flow.screen("#ticket-text")
     else:
         flow.press(f"#ticket-channel-{channel}", lambda: None, CHANNELS[channel])
     page.fill("#ticket-text", text)
@@ -315,6 +316,37 @@ def test_a_reply_the_agent_writes_waits_for_a_decision_on_each_flag(next_page, s
 
 
 @pytest.mark.parametrize("size", SIZES)
+def test_the_channel_moves_on_in_the_large_size_and_back_keeps_it(next_page, server, owner, size):
+    """
+    في الحجم الكبير اختيار القناة ينقل إلى الرسالة بالضغطة نفسها (طلب المالك 2026-10-11)، و«السابق» يعيد إليها
+    مختارةً و«التالي» يتابع بها. وفي الحجم العادي تُختار في مكانها في الصفحة الواحدة.
+    """
+    page = _page(next_page, owner, server, size, *PHONES[0])
+    flow = Flow(page)
+    page.goto(page.next + BASE)
+    flow.screen("#home-new")
+    _notice(flow)
+    flow.press("#home-new", lambda: flow.screen("#ticket-text, #ticket-channel"), "تذكرة جديدة")
+    if size == "gaze":
+        _pick(flow, "ticket-channel", "PHONE", CHANNELS["PHONE"])
+        flow.screen("#ticket-text")
+        assert "ما قاله العميل" in page.text_content("main")
+        _audit(flow, "ticket-channel-moved")
+        flow.press("#ticket-prev", lambda: flow.screen("#ticket-channel"), "السابق")
+        assert CHANNELS["PHONE"] in page.text_content("#ticket-channel")
+        flow.press("#ticket-next", lambda: flow.screen("#ticket-text"), "الرسالة")
+    else:
+        flow.press("#ticket-channel-PHONE", lambda: flow.until(
+            "document.querySelector('#ticket-channel-PHONE').getAttribute('aria-checked') === 'true'"), CHANNELS["PHONE"])
+        assert page.locator("#ticket-text").is_visible()
+        assert page.locator("#ticket-review").count() == 1
+    assert not flow.failures(), "\n".join(flow.failures())
+    if size == "gaze":
+        assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors
+
+
+@pytest.mark.parametrize("size", SIZES)
 def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, server, owner, size):
     """
     «ارفض المسودة» بسببه، ثم «صعّد» إلى جهةٍ بملاحظة (والردّ بالحلّ لا يُعرض ما دامت مُصعَّدة)، ثم «أنهِ التصعيد» بما
@@ -356,7 +388,11 @@ def test_escalating_rejecting_and_resolving_without_a_written_reply(next_page, s
     flow.press("#decide-escalate", lambda: flow.screen("#escalate-target, #escalate-target-TIER2"), "صعّد")
     _audit(flow, "escalate")
     if gaze:
+        # الاختيار ينتقل إلى الملاحظة؛ و«السابق» يعيد إلى الجهة مختارةً، و«التالي» يتابع بها.
         _pick(flow, "escalate-target", "VENDOR", "المورّد أو الشركة المصنّعة")
+        flow.screen("#escalate-note")
+        flow.press("#escalate-prev", lambda: flow.screen("#escalate-target"), "السابق")
+        assert "المورّد أو الشركة المصنّعة" in page.text_content("#escalate-target")
         flow.press("#escalate-next", lambda: flow.screen("#escalate-note"), "الملاحظة")
         _audit(flow, "escalate-note")
     # الملخّص يُنسخ ليُلصق في قناة الجهة.

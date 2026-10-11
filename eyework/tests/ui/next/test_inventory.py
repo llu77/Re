@@ -103,8 +103,11 @@ def _setup(flow: Flow) -> None:
     assert page.text_content("#home-summary").startswith("لا شيء ينتظرك")
 
 
-def _header_step(flow: Flow, today: str) -> None:
-    """رأس الفاتورة: مورّدٌ يُنشأ من القائمة، ورقم الفاتورة والإجمالي المكتوب (116 لفرق ريالٍ مع الأسطر)."""
+def _header_step(flow: Flow, today: str, basis_by_choice: bool = True) -> None:
+    """
+    رأس الفاتورة: مورّدٌ يُنشأ من القائمة، ورقم الفاتورة والإجمالي المكتوب (116 لفرق ريالٍ مع الأسطر). وفي الحجم
+    الكبير ينتقل اختيار أساس الأسعار إلى الأسطر بالضغطة نفسها (`basis_by_choice`)، أو يبقى المختار و«التالي».
+    """
     page = flow.page
     gaze = _gaze(page)
     flow.screen("#purchase-supplier")
@@ -133,7 +136,10 @@ def _header_step(flow: Flow, today: str) -> None:
     if gaze:
         flow.press("#purchase-next", lambda: flow.screen("#purchase-basis-net"), "الأسعار")
         _audit(flow, "purchase-basis")
-        flow.press("#purchase-next", lambda: flow.screen("#line-item"), "المنتجات")
+        if basis_by_choice:
+            flow.press("#purchase-basis-net", lambda: flow.screen("#line-item"), "قبل الضريبة")
+        else:
+            flow.press("#purchase-next", lambda: flow.screen("#line-item"), "المنتجات")
 
 
 def _line_step(flow: Flow) -> None:
@@ -276,7 +282,9 @@ def _count(flow: Flow) -> None:
     flow.press("#counts-new", lambda: flow.screen("#count-scope-all"), "جلسة جديدة")
     _audit(flow, "count-new")
     if gaze:
-        flow.press("#count-next", lambda: flow.screen("#count-blind-yes"), "التالي")
+        # النطاق ينتقل إلى طريقة العدّ بالضغطة نفسها (طلب المالك 2026-10-11).
+        flow.press("#count-scope-all", lambda: flow.screen("#count-blind-yes"), "كل المنتجات")
+        _audit(flow, "count-blind")
     flow.press("#count-open", lambda: flow.screen("#count-post"), "افتح الجلسة")
     _audit(flow, "count-open")
     assert page.locator("#count-post").is_disabled()
@@ -351,7 +359,7 @@ def test_a_draft_is_kept_on_the_server_and_an_undecided_symbol_note_blocks_posti
     today = _today(owner)
     _setup(flow)
     flow.press("#home-purchase", lambda: flow.screen("#purchase-supplier"), "فاتورة شراء جديدة")
-    _header_step(flow, today)
+    _header_step(flow, today, basis_by_choice=False)
     _line_step(flow)
     draft = page.evaluate("() => location.hash")
     page.reload()
@@ -511,3 +519,36 @@ def test_the_tools_offer_the_vat_calculator_and_the_assistant_knows_the_screen(n
     assert not flow.failures(), "\n".join(flow.failures())
     assert not page.errors, page.errors
     flow.gaze_safe()
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_a_count_scope_moves_on_in_the_large_size_and_back_keeps_it(next_page, server, owner, size):
+    """
+    في الحجم الكبير ينقل اختيار النطاق إلى الخطوة التالية بالضغطة نفسها (طلب المالك 2026-10-11): طريقة العدّ وفي
+    أعلاها شريطٌ يسمّي النطاق بلا هدف، أو اختيار المنتجات. و«السابق» يعيده مختاراً و«التالي» يتابع به. وفي الحجم
+    العادي يُختار في مكانه في الصفحة الواحدة.
+    """
+    page = _page(next_page, owner, server, size, *PHONES[0])
+    flow = Flow(page)
+    _setup(flow)
+    flow.press("#home-count", lambda: flow.screen("#counts-new"), "الجرد")
+    flow.press("#counts-new", lambda: flow.screen("#count-scope-all"), "جلسة جديدة")
+    if size == "gaze":
+        flow.press("#count-scope-low", lambda: flow.screen("#count-blind-yes"), "تحت حدّ الطلب")
+        assert "النطاق: تحت حدّ الطلب" in page.text_content("#count-blind-band")
+        _audit(flow, "count-blind-band")
+        flow.press("#count-prev", lambda: flow.screen("#count-scope-low"), "السابق")
+        assert page.get_attribute("#count-scope-low", "aria-pressed") == "true"
+        flow.press("#count-next", lambda: flow.screen("#count-blind-yes"), "التالي")
+        flow.press("#count-prev", lambda: flow.screen("#count-scope-selected"), "السابق")
+        flow.press("#count-scope-selected", lambda: flow.screen("#count-items"), "أصنافٌ مختارة")
+        _audit(flow, "count-details")
+    else:
+        flow.press("#count-scope-low", lambda: flow.until(
+            "document.querySelector('#count-scope-low').getAttribute('aria-checked') === 'true'"), "تحت حدّ الطلب")
+        assert page.locator("#count-blind-yes").is_visible()
+        assert page.locator("#count-open").count() == 1
+    assert not flow.failures(), "\n".join(flow.failures())
+    if size == "gaze":
+        assert not flow.landings, "\n".join(flow.landings)
+    assert not page.errors, page.errors

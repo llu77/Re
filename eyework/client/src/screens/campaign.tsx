@@ -463,12 +463,15 @@ export function NoteScreen({ text, max, onChange, onSave, onBack }: {
 
 /* ── الميزانية والمدّة ───────────────────────────────────────────── */
 
-export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBack }: {
+export function ValueScreen({ kind, campaign, table, busy, onPick, onPreset, onNext, onBack }: {
   kind: "budget" | "days"
   campaign: Campaign
   table: BudgetTable | DaysTable
   busy: boolean
+  /** «أكثر» و«أقل»: خطوةٌ تُضبط بها القيمة، فلا تنتقل. */
   onPick: (value: number) => void
+  /** قيمةٌ جاهزة: اختيارٌ أخير قد ينتقل بالضغطة نفسها (marketing-flow.tsx). */
+  onPreset: (value: number) => void
   onNext: () => void
   onBack: () => void
 }) {
@@ -561,7 +564,7 @@ export function ValueScreen({ kind, campaign, table, busy, onPick, onNext, onBac
           label: budget ? value.toLocaleString("en-US") : label(value),
           pressed: value === current,
           disabled: busy,
-          onPress: () => onPick(value),
+          onPress: () => onPreset(value),
         }))}
       />
     </CampaignFrame>
